@@ -5,12 +5,8 @@
 <link rel="manifest" href="/site.webmanifest">
 <meta name="msapplication-TileColor" content="#da532c">
 <meta name="theme-color" content="#ffffff">
-<body>
   <div class="content">
-	 body {
-   width:960px;
-   margin:0 auto;
-}
+
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
@@ -71,6 +67,29 @@ body {
   <div class='at-item' >
   </div>
 </div>
-<img src="moon-surface.png" alt="Moon Surface" align="center" width="960" height="700">
-</div>
+<html>
+<head>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        .imgbox {
+            display: grid;
+            height: 100%;
+        }
+        .center-fit {
+            max-width: 100%;
+            max-height: 100vh;
+            margin: auto;
+        }
+    </style>
+</head>
 <body>
+<div class="imgbox">
+    <img class="center-fit" src='moon-surface.png'>
+</div>
+</body>
+</html>
+
+</div>
