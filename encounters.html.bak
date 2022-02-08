@@ -6,7 +6,6 @@
   </head>
   <body>
     <h1>
-      <meta http-equiv="content-type" content="text/html; charset=windows-1252">
       <title>KNOBSOCK</title>
       <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
       <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -22,7 +21,8 @@
           <td style="width: 612.1px; height: 69.383px;">
             <h5><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/8e18caf178ffeada8af1c57165ceda1bb8f356cb/OneDrive_Folder_Icon.svg"
                 alt="Filess" title="Filles" style="width: 64px; height: 64px;"><u><b><span
-                    style="color: #0000fd;"><span style="font-family: Leelawadee UI;">IMAGES/</span><br>
+                    style="color: #0000fd;"><a title="images" href="knobsock.net/images"
+                      target="_blank"><span style="font-family: Leelawadee UI;">IMAGES/</span></a><br>
                   </span></b></u></h5>
           </td>
           <td style="width: 262.1px; text-align: center;"><u>2/7/2022</u></td>
