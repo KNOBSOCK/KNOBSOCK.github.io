@@ -1,34 +1,28 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta http-equiv="content-type" content="text/html; charset=windows-1252">
     <script src="/_assets/midi/bg-sound.min.js"></script>
     <script>BgSound.enableCompatMode({baseUrl: "/_assets/midi/"})</script>
     <title>ARCHIVE</title>
   </head>
   <body>
     <h1>Archive of /Dynamite/</h1>
-    <pre> <a href="?N=D">Name</a>                    <a href="?M=A">Last modified</a>       <a
-href="?S=A">Size</a>  <a
-href="?D=A">Description</a>
+    <pre> <a href="?N=D">Name</a>                    <a href="?M=A">Last modified</a>       <a
+href="?S=A">Size</a>  <a href="?D=A">Description</a>
 <hr>
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
-alt="[DIR]"> <a
-href="/encounters">Parent Directory</a>        14-Oct-2008 17:34      -  
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
-alt="[IMG]"> <a
-href="/images">IMAGES</a>                  09-Jun-2021 14:29     18MB  
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
-alt="[IMG]"> <a
-href="/encounters">ENCOUNTERS</a>              14-Apr-2021 07:41     22MB  
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
-alt="[IMG]"> <a
-href="/maps">MAPS</a>                    11-Jun-2022 15:52     88MB  
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
-alt="[IMG]"> <a
-href="/trophies">TROPHIES</a>                11-Jun-2019 15:51     50MB  
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
-alt="[IMG]"> <a
-href="/legal">LEGAL</a>                   05-Feb-2010 15:56     43KB  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
+alt="[DIR]"> <a href="/encounters">Parent Directory</a>        14-Oct-2008 17:34      -  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
+alt="[IMG]"> <a href="/images">IMAGES</a>                  09-Jun-2021 14:29     18MB  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
+alt="[IMG]"> <a href="/encounters">ENCOUNTERS</a>              14-Apr-2021 07:41     22MB  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
+alt="[IMG]"> <a href="/maps">MAPS</a>                    11-Jun-2022 15:52     88MB  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
+alt="[IMG]"> <a href="/trophies">TROPHIES</a>                11-Jun-2019 15:51     50MB  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
+alt="[IMG]"> <a href="/legal">LEGAL</a>                   05-Feb-2010 15:56     43KB  
  
 </pre>
     <hr>
