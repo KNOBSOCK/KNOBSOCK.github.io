@@ -1,11 +1,20 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <title>encoutners</title>
+    <meta http-equiv="content-type" content="text/html; charset=windows-1252">
+    <script src="/_assets/midi/bg-sound.min.js"></script>
+    <script>BgSound.enableCompatMode({baseUrl: "/_assets/midi/"})</script>
+    <title>ARCHIVE</title>
   </head>
   <body>
-    <p><br>
-    </p>
+    <h1>Archive of /Dynamite/</h1>
+    <pre> <a href="?N=D">Name</a>                    <a href="?M=A">Last modified</a>       <a
+href="?S=A">Size</a>  <a href="?D=A">Description</a>
+<hr>
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
+alt="[DIR]"> <a href="/archive">Parent Directory</a>                                      14-Oct-2008 17:34      -     
+ 
+</pre>
+    <hr>
   </body>
 </html>
