@@ -2,7 +2,15 @@
 <html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=windows-1252">
-    <script src="/_assets/midi/bg-sound.min.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-1WSW5HNWBG"></script>
+    <script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1WSW5HNWBG');
+</script> <script src="/_assets/midi/bg-sound.min.js"></script>
     <script>BgSound.enableCompatMode({baseUrl: "/_assets/midi/"})</script>
     <title>ARCHIVE</title>
   </head>
@@ -24,10 +32,22 @@ alt="[IMG]"> <a href="/oszfaFo">oszfaFo.jpg</a>                                 
 
 src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
 
-alt="[IMG]"> <span style="color: #015c96;"><a href="/45hur7349quaek4798">45hur7349quaek4798.jpg</a> </span>                               31-Feb-2019 07:41     22MB  
-</pre>
+alt="[IMG]"> <span style="color: #015c96;"><a href="/45hur7349quaek4798">45hur7349quaek4798.jpg</a> </span>                               31-Feb-2019 07:41     22MB  <br><img
+
+src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
+
+alt="[IMG]"> <span style="color: #015c96;"><a href="/IMG_4857">IMG_4857.jpg</a> </span>                                         13-Mar-2017 09:11     17KB<br><img
+
+src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
+
+alt="[IMG]"> <span style="color: #015c96;"><a href="/IMG_4865">IMG_4865.jpg</a> </span>                                         16-Mar-2017 01:57     19KB<br><img
+
+src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
+
+alt="[IMG]"> <span style="color: #015c96;"><a href="/IMG_4868">IMG_4868.jpg</a> </span>                                         12-Mar-2017 06:19     33KB
+&nbsp; </pre>
     <hr style="height: 0px;">
-        <p><i>Apache/2.4.18 (Ubuntu) Server at Knobsock.net port 80<br>
+    <p><i>Apache/2.4.18 (Ubuntu) Server at Knobsock.net port 80<br>
       </i></p>
     <p><br>
     </p>
