@@ -8,15 +8,23 @@
   </head>
   <body>
     <h1>Archive of /Dynamite/</h1>
-    <pre> <a href="?N=D">Name</a>                    <a href="?M=A">Last modified</a>       <a
+    <pre> <a href="?N=D">Name</a>                    <a href="?M=A">Last modified</a>       <a
+
 href="?S=A">Size</a>  <a href="?D=A">Description</a>
 <hr>
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
+
 alt="[DIR]"> <a href="/archive">Parent Directory</a>                                      14-Oct-2008 17:34      -  
-<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
+
 alt="[IMG]"> <a href="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Screenshot%202022-02-10%20042324.png">Screenshot 2022-02-10 042324.png</a>                      10-Feb-2022 14:11     18MB    
  
 </pre>
     <hr>
+<style>
+body {
+  background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Background%20color.jpg');
+}
+</style>
   </body>
 </html>
