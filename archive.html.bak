@@ -12,7 +12,7 @@
 href="?S=A">Size</a>  <a href="?D=A">Description</a>
 <hr>
 <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
-alt="[DIR]"> <a href="/index">KNOBSOCK</a>                    14-Oct-2008 17:34      -  
+alt="[DIR]"> <a href="/index">KNOBSOCK</a>                14-Oct-2008 17:34      -  
 <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
 alt="[IMG]"> <a href="/images">IMAGES</a>                  09-Jun-2021 14:29     18MB  [Images taken on my phone]
 <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/folder.gif"
@@ -25,6 +25,10 @@ alt="[IMG]"> <a href="/trophies">TROPHIES</a>                11-Jun-2019 15:51  
 alt="[IMG]"> <a href="/legal">LEGAL</a>                   05-Feb-2010 15:56     43KB  [legal proof for my reseach]
 </pre>
     <hr>
+    <p><i>Apache/2.4.18 (Ubuntu) Server at Knobsock.net port 80<br>
+      </i></p>
+    <p><br>
+    </p>
     <style>
 body {
   background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Background%20color.jpg');
