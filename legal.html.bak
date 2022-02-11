@@ -18,7 +18,11 @@ alt="[DIR]"> <a href="/archive">Parent Directory</a>                            
  
 </pre>
     <hr>
-<style>
+        <p><i>Apache/2.4.18 (Ubuntu) Server at Knobsock.net port 80<br>
+      </i></p>
+    <p><br>
+    </p>
+    <style>
 body {
   background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Background%20color.jpg');
 }
