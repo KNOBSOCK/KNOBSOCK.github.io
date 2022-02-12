@@ -76,11 +76,12 @@
             alt="click here" title="click here"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/vortex3.gif"
             alt="vortex" title="votreex"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/goku3d.gif"
             alt="gpku" title="goku" style="width: 185px; height: 147px;"></a></p>
-      <style>
+      <div style="text-align: center;">
+        <style>
 body {
-  background-image: url('https://web.archive.org/web/20090810090036/http://www.geocities.com/madisontwpoh/flamesbackground.gif');
+  background-image: url('https://web.archive.org/web/20060929142135/http://www.geocities.com/sags13/spacebackground.gif');
 }
-</style> <style>div.at-container {
+</style><style>div.at-container {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,7 +108,7 @@ body {
     -webkit-transform: translateY(-2000px) translateX(-50px);
     transform: translateY(-2000px) translateX(-50px);
   }
-</style> <style>
+</style><style>
         * {
             margin: 0;
             padding: 0;
@@ -157,9 +158,8 @@ body {
   }
 }
 
-    </style>
-      <div class="imgbox"> <br>
-      </div>
+    </style><img src="https://web.archive.org/web/20090829203043/http://geocities.com/Athens/Column/9707/TRUTH-LOGO.gif"
+          alt="truth" title="truth"></div>
     </div>
   </body>
 </html>
