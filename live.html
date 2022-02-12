@@ -48,8 +48,16 @@
       <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;"></b></h1>
       <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;"></b></h1>
       <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;"></b></h1>
-      <p style="text-align: center;">&nbsp;</p>
-      <style>
+      <!-- Add a placeholder for the Twitch embed -->
+      <div id="twitch-embed"></div>
+      <!-- Load the Twitch embed script -->
+      <script src="https://player.twitch.tv/js/embed/v1.js"></script>
+      <!-- Create a Twitch.Player object. This will render within the placeholder div -->
+      <script type="text/javascript">
+  new Twitch.Player("twitch-embed", {
+    channel: "gunooooooooo"
+  });
+</script> <style>
 body {
   background-image: url('https://64.media.tumblr.com/9e4e411de1615b21bbdbbeba221ae411/4d5ff708a11abb3d-32/s250x400/57851e9a5d4f6792eeff0662ea1858a09f01c64f.gifv');
 }
