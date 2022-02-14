@@ -1010,10 +1010,11 @@ body {
                     style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
                         style="color: #c92989;"></span></span></span></span></b></h2>
           </b></h1>
-        <img src="https://web.archive.org/web/20090829203043/http://geocities.com/Athens/Column/9707/TRUTH-LOGO.gif"
-          alt="truth" title="truth" style="width: 82px; height: 82px;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/truth.gif"
-          alt="the truth is out there" title="the truth is out there"><img src="https://web.archive.org/web/20090829203043/http://geocities.com/Athens/Column/9707/TRUTH-LOGO.gif"
-          alt="truth" title="truth" style="width: 82px; height: 82px;">
+        <a href="archive"><img src="https://web.archive.org/web/20090829203043/http://geocities.com/Athens/Column/9707/TRUTH-LOGO.gif"
+            alt="truth" title="truth" style="width: 82px; height: 82px;"></a><a
+          href="/archive"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/truth.gif"
+            alt="the truth is out there" title="the truth is out there"><img src="https://web.archive.org/web/20090829203043/http://geocities.com/Athens/Column/9707/TRUTH-LOGO.gif"
+            alt="truth" title="truth" style="width: 82px; height: 82px;"></a>
         <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
             <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
                     style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
@@ -1218,12 +1219,13 @@ body {
                     alt="cube" title="cube" style="width: 133px; height: 133px;"><br>
                 </span></p>
               <p><span style="color: #ff070f;"></span></p>
-              <p><blink><span style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/warning%20sign.gif"
-                      alt="warning" title="warning" style="width: 66px; height: 57px;"><span
-                      style="color: #ff0615;"><u><span style="color: yellow;">WARNING!!!
-                          YOU ARE ENTERING A TRUTH ZONE!! <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/warning%20sign.gif"
-                            alt="warning" title="warning" style="width: 67px; height: 58px;"></span></u></span><br>
-                  </span></blink></p>
+              <p><span style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/warning%20sign.gif"
+                    alt="warning" title="warning" style="width: 66px; height: 57px;"><span
+                    style="color: #ff0615;"><blink><u><span style="color: yellow;">WARNING!!!
+                          YOU ARE ENTERING A TRUTH ZONE!! </span></u></blink><u><img
+                        src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/warning%20sign.gif"
+                        alt="warning" title="warning" style="width: 67px; height: 58px;"></u></span></span><br>
+              </p>
               <br>
             </b></span>
           <p></p>
