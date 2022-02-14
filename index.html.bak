@@ -23,10 +23,9 @@
       </p>
       <p style="text-align: center;"><a href="/index"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/home.gif"
             alt="home" title="home"></a><span style="color: #fdfcfc;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-          &nbsp; &nbsp;&nbsp; <span style="color: #0000ee;"></span></span> <a
-          href="/live"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/livetv.gif"
-            alt="live" title="live" style="width: 115px; height: 39px;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Red_circle.gif"
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; <span style="color: #0000ee;"></span></span>
+        <a href="/live"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/livetv.gif"
+            alt="live" title="live" style="width: 110px; height: 37px;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Red_circle.gif"
             alt="live circle" title="live circle" style="width: 42px; height: 42px;"></a></p>
       &nbsp; <br>
       <p>&nbsp;</p>
@@ -93,15 +92,18 @@
           <div style="text-align: left;"><b style="font-family: Arial; color: #0000fd;">
             </b></div>
         </a>
-        <div style="text-align: left;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/gamerzfiregclogo2.gif"
-            alt="gamecube" title="gamecube" style="width: 590px; height: 160px;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <div style="text-align: center;">&nbsp;&nbsp; &nbsp; &nbsp; &nbsp;
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
           &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
           &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
           &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
           &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;
-          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-          &nbsp;&nbsp;&nbsp;&nbsp; <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/gamerzfiregclogo2.gif"
-            alt="gamecube" title="gamecube" style="width: 590px; height: 160px;"></div>
+          &nbsp;&nbsp; &nbsp; </div>
         <a href="/live">
           <div style="text-align: left;"> <b style="font-family: Arial; color: #0000fd;">
             </b><b style="font-family: Arial; color: #0000fd;">
@@ -948,10 +950,16 @@ body {
         </div>
         <div style="text-align: center;">
           <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
+            </b></h1>
+          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
+              <h2><a href="/archive"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/gamerzfiregclogo2.gif"
+                    alt="gamecube" title="gamecube" style="width: 590px; height: 160px;"></a></h2>
+            </b></h1>
+          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
               <h2><marquee><b style="font-family: Arial; color: #0000fd;"><span
                       style="color: #000005;"><span style="font-family: Comic Sans MS;"><span
                           style="color: #fd020a;"><span style="color: #c92989;">THE
-                            KNOBSOCK MANIFESTO!!</span></span></span></span></b>
+                            KNOBSOCK MANIFESTO!!</span></span></span></span></b></marquee><marquee>
                   <b style="font-family: Arial; color: #0000fd;"> </b><b style="font-family: Arial; color: #0000fd;">
                     <center></center>
                   </b></marquee> </h2>
