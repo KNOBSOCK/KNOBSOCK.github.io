@@ -32,16 +32,65 @@
       <p style="text-align: center;"><br>
       </p>
       &nbsp; <br>
-      <p></p>
       <p>&nbsp;</p>
-      <style>
+      <h1 style="text-align: center;">
+        <style>
 body {
   background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Space.gif');
 }
-</style> <div class="at-container">
-        <div class="at-item"> </div>
-      </div>
-      <style>div.at-container {
+</style> <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/anim-brainspin.GIF"
+          alt="brain" title="brain" style="width: 656px; height: 554px;"> &nbsp;
+        &nbsp; &nbsp; </h1>
+      <h1 style="text-align: center;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/anim-brainspin.GIF"
+          alt="brain" title="brain" style="width: 656px; height: 554px;"></h1>
+      <h1 style="text-align: center;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+        &nbsp; &nbsp; &nbsp; <span style="color: #f4ff24;">&nbsp; &nbsp; &nbsp;
+          <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"> <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"> <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"> <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"> <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"> <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"> <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10"></span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;">&nbsp;
+          &nbsp; &nbsp; <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+    </div>
+    <div class="content" style="text-align: center;">
+      <h1><span style="color: #f4ff24;">&nbsp; &nbsp; &nbsp; <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+    </div>
+    <div class="content" style="text-align: center;">
+      <h1><span style="color: #f4ff24;">&nbsp; &nbsp; &nbsp; <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+    </div>
+    <div class="content">
+      <h1 style="text-align: center;"><span style="color: #f4ff24;">&nbsp;
+          &nbsp; &nbsp; <span style="font-family: Comic Sans MS; Size: 10">SOMETIMES.............</span></span></h1>
+      <h1 style="text-align: center;"><span style="color: #f4ff24;"><span style="font-family: Comic Sans MS; Size: 10">I
+            THINK</span></span></h1>
+      <h1 style="text-align: center;">&nbsp;
+        <style>div.at-container {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -68,10 +117,12 @@ body {
     -webkit-transform: translateY(-2000px) translateX(-50px);
     transform: translateY(-2000px) translateX(-50px);
   }
-</style><div class="at-container">
+</style></h1>
+      <div class="at-container" style="text-align: center;">
         <div class="at-item"> </div>
       </div>
-      <style>
+      <div style="text-align: center;">
+        <style>
         * {
             margin: 0;
             padding: 0;
@@ -121,8 +172,8 @@ body {
   }
 }
 
-    </style>
-      <div class="imgbox"> <br>
+    </style></div>
+      <div class="imgbox" style="text-align: center;"> <br>
       </div>
     </div>
   </body>
