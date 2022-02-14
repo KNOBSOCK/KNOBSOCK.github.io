@@ -32,133 +32,41 @@
           &nbsp; &nbsp;&nbsp; <span style="color: #0000ee;"></span></span>&nbsp;</div>
       <p style="text-align: center;"><br>
       </p>
-      <div class="container">
-        <div>
-            <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/relaxingCube.gif"
-
-              alt="cube"> </a> </div>
-        <div class="content">
-          <h1><br>
-          </h1>
-          <p><br>
-          </p>
-          <p>
-          </p>
-          <p><br>
-          </p>
-        </div>
-      </div>
-      <a class="suppoprt-me" href="https://www.buymeacoffee.com/marioduarte" target="_blank"><img
-
-          src="https://img.buymeacoffee.com/button-api/?text=Buy+me+a+Coffee%A0&amp;emoji=&amp;slug=marioduarte&amp;button_colour=FF5F5F&amp;font_colour=ffffff&amp;font_family=Cookie&amp;outline_colour=000000&amp;coffee_colour=FFDD00"></a>
       &nbsp; <br>
       <h1 style="text-align: center;"><span style="color: #f4ff24;">&nbsp;
           &nbsp; &nbsp; </span><br>
       </h1>
+      <div class="float-area"> <img src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/relaxingCube.gif?raw=true"
+
+          class="floating-img" alt="my floating image"> <br>
+        <br>
+      </div>
       <p>&nbsp;</p>
       <h1 style="text-align: center;">
         <style>
 body {
   background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Space.gif');
 }
- orm: translate(0, -0px); }   
+          @keyframes floater {
+  0%{transform: translateY(-10%);transition: ease 0.5s;}
+  50%{transform: translateY(10%);transition: ease 0.5s;}
 }
-          body,
-html {
-	height: 100%;
-	margin: 0;
-	padding: 0;
-	font-family: 'Helvetica', sans-serif;
-	background: rgb(26, 188, 156);
-	background: -moz-linear-gradient(-45deg, rgba(26, 188, 156, 1) 0%, rgba(142, 68, 173, 1) 100%);
-	background: -webkit-linear-gradient(-45deg, rgba(26, 188, 156, 1) 0%, rgba(142, 68, 173, 1) 100%);
-	background: linear-gradient(135deg, rgba(26, 188, 156, 1) 0%, rgba(142, 68, 173, 1) 100%);
+          .float-area{
+  height:100vh;
+  display: flex;
+  flex-direction:column;
+  align-items: center;
+  justify-content: center;
 }
 
-h1 {
-	font-size: 24px;
-	margin: 10px 0 0 0;
-	font-weight: lighter;
-	text-transform: uppercase;
-	color: #eeeeee;
+.floating-img{
+  transform: translateY(-10%);
+  animation: floater 1.5s infinite;
+  transition: ease 0.5s;
+  width: 500px;
+  height:500px;
 }
 
-p {
-	font-size: 12px;
-	font-weight: light;
-	color: #333333;
-}
-
-span a {
-	font-size: 18px;
-	color: #cccccc;
-	text-decoration: none;
-	margin: 0 10px;
-	transition: all 0.4s ease-in-out;
-	&:hover {
-		color: #ffffff;
-	}
-}
-
-@keyframes float {
-	0% {
-		box-shadow: 0 5px 15px 0px rgba(0,0,0,0.6);
-		transform: translatey(0px);
-	}
-	50% {
-		box-shadow: 0 25px 15px 0px rgba(0,0,0,0.2);
-		transform: translatey(-20px);
-	}
-	100% {
-		box-shadow: 0 5px 15px 0px rgba(0,0,0,0.6);
-		transform: translatey(0px);
-	}
-}
-
-.container {
-	width: 100%;
-	height: 100%;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-}
-
-.avatar {
-	width: 150px;
-	height: 150px;
-	box-sizing: border-box;
-	border: 5px white solid;
-	border-radius: 50%;
-	overflow: hidden;
-	box-shadow: 0 5px 15px 0px rgba(0,0,0,0.6);
-	transform: translatey(0px);
-	animation: float 6s ease-in-out infinite;
-	img { width: 100%; height: auto; }
-}
-
-.content {
-	width: 100%;
-	max-width: 600px;
-	padding: 20px 40px;
-	box-sizing: border-box;
-	text-align: center;
-}
-
-.suppoprt-me {
-	display: inline-block;
-	position: fixed;
-	bottom: 10px;
-	left: 10px;
-	width: 20vw;
-	max-width: 250px;
-	min-width: 200px;
-	z-index: 9;
-	img {
-		width: 100%;
-		height: auto;
-	}
-}
 </style> </h1>&nbsp;&nbsp; &nbsp; &nbsp; </div>
   </body>
 </html>
