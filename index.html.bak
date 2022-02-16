@@ -1077,13 +1077,16 @@ body {
                     <h1><b style="font-family: Arial; color: #0000fd;"><span style="font-family: Comic Sans MS;"><b
                             style="color: #0000fd;"><span style="color: #ff0615;"></span></b></span></b></h1>
                     <b style="font-family: Arial; color: #0000fd;"> </b><b style="font-family: Arial; color: #0000fd;">
-                      <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><b
-                              style="font-family: Arial; color: #0000fd;">
-                              <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><span
-                                      style="color: #ff0615;"><br>
-                                    </span></b></span></h1>
-                            </b></b></span></h1>
-                    </b><span style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/made.GIF"
+                    </b></b></span></h1>
+              <h1><br>
+              </h1>
+              <h1><a href="/vaush"><span style="font-family: Comic Sans MS;"><b
+                      style="color: #0000fd;"><b style="font-family: Arial; color: #0000fd;"><img
+                          src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/addesign.gif?raw=true"
+                          alt="vaush" title="vaush"></b></b></span></a></h1>
+              <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><b
+                      style="font-family: Arial; color: #0000fd;">&nbsp;</b><span
+                      style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/made.GIF"
                         alt="Made on Mac" title="Made on Mac"><span style="color: #ffff33;">Yes</span>,
                       this webpage was made on a <u><span style="color: #000099;">M</span><span
                           style="color: #ffff33;">A</span>C<span style="color: #0fff20;">I</span><span
@@ -1297,6 +1300,5 @@ body {
 body{
 cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam1570.cur)
 }
-</style>
-  </body>
+</style> </body>
 </html>
