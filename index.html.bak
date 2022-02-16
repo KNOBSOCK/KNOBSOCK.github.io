@@ -1014,8 +1014,8 @@ body {
               </b></h1>
             <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
                 <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-                      size="+3"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/assign2_img1.jpg"
-                        alt="men" title="men" style="width: 230px; height: 237px;"><img
+                      size="+3"><a href="man1"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/assign2_img1.jpg"
+                          alt="men" title="men" style="width: 230px; height: 237px;"></a><img
                         src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/MotionCapture-normal.GIF"
                         alt="man 1" title="man 1" style="width: 212px; height: 238px;"><img
                         src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/face.JPG"
@@ -1297,5 +1297,6 @@ body {
 body{
 cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam1570.cur)
 }
-</style> </body>
+</style>
+  </body>
 </html>
