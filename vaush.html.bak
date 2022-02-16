@@ -86,7 +86,7 @@ body {
     visibility: hidden;
   }
   50% {
-    visibility: hidden;
+    visibility: visible;
   }
   100% {
     visibility: visible;
@@ -98,7 +98,7 @@ body {
     visibility: hidden;
   }
   50% {
-    visibility: hidden;
+    visibility: visible;
   }
   100% {
     visibility: visible;
