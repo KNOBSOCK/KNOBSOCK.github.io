@@ -20,7 +20,7 @@
 href="?S=A">Size</a>  <a href="?D=A">Description</a>
 <hr>
 <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
-alt="[DIR]"> <a href="/archive">Parent Directory</a>                                      14-Oct-2008 17:34      -     
+alt="[DIR]"> <a href="/movies">Parent Directory</a>                                      14-Oct-2008 17:34      -     
 
 <video controls="controls" height="500" width="300">
               <source src="videos/Video.mov" type="video/mp4"> <source src="movie.ogg"
@@ -35,6 +35,5 @@ type="video/ogg"> Your browser does not support the video tag. </video><br><br><
 body {
   background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Background%20color.jpg');
 }
-</style>
-  </body>
+</style> </body>
 </html>
