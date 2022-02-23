@@ -13,8 +13,13 @@
       <center><video controls="controls" height="1000" width="560"> <source src="videos/Video.mov"
             type="video/mp4"> <source src="movie.ogg" type="video/ogg"> Your
           browser does not support the video tag. </video></center>
-      <p style="text-align: center; height: 44px;"><a href="/"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/fBfP.gif"
-            alt="home" title="home" style="width: 357px; height: 77px;"></a> </p>
+      <p style="text-align: center; height: 44px;"><a href="/movies"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/fBfP.gif"
+            alt="home" title="home" style="width: 357px; height: 77px;"><br>
+        </a></p>
+      <p style="text-align: center; height: 44px;"><br>
+      </p>
+      <p style="text-align: center; height: 44px;"><br>
+        <a href="/movies"></a> </p>
       <style>
 body {
   background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/enhanced-buzz-30491-1540900508-9.jpg');
