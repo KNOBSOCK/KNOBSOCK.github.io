@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=windows-1252">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-1WSW5HNWBG"></script>
+    <script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1WSW5HNWBG');
+</script> <script src="/_assets/midi/bg-sound.min.js"></script>
+    <script>BgSound.enableCompatMode({baseUrl: "/_assets/midi/"})</script>
+    <title>ARCHIVE</title>
+  </head>
+  <body>
+    <h1>Archive of /Dynamite/</h1>
+    <pre> <a href="?N=D">Name</a>                    <a href="?M=A">Last modified</a>       <a
+
+href="?S=A">Size</a>  <a href="?D=A">Description</a>
+<hr>
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/back.gif"
+
+alt="[DIR]"> <a href="/archive">Parent Directory</a>                                      14-Oct-2008 17:34      -  
+<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/image2.gif"
+
+alt="[IMG]"> <a href="/one">ONE.MOV</a>                                               09-Jun-2021 14:29     18MB  &nbsp; </pre>
+    <hr style="height: 0px;">
+    <p><i>Apache/2.4.18 (Ubuntu) Server at Knobsock.net port 80<br>
+      </i></p>
+    <p><br>
+    </p>
+    <style>
+body {
+  background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Background%20color.jpg');
+}
+</style>
+  </body>
+</html>
