@@ -12,7 +12,7 @@
 
         alt="VIDOE UPODATEW" title="newest" style="width: 905px; height: 74px;">
       </p>
-    <center><video controls="controls" height="1000" width="560">
+    <center><video controls="controls" height="500" width="600">
               <source src="videos/Video.mov" type="video/mp4"> <source src="movie.ogg"
 
 type="video/ogg"> Your browser does not support the video tag. </video></center>
