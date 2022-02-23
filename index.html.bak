@@ -21,15 +21,9 @@
     <div class="content">
       <p><br>
       </p>
-      <p style="text-align: center;"><a href="/"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/home.gif"
-            alt="home" title="home"></a><span style="color: #fdfcfc;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; <span style="color: #0000ee;"></span></span>
-        <a href="/live"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/livetv.gif"
-            alt="live" title="live" style="width: 110px; height: 37px;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Red_circle.gif"
-            alt="live circle" title="live circle" style="width: 23px; height: 23px;"></a></p>
-      &nbsp; <br>
-      <p>&nbsp;</p>
-      <p><a style="text-align: center;" href="/"><img style="display: block; margin-left: auto; margin-right: auto; width: 409px; height: 76px;"
+      <span style="color: #fdfcfc;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><br>
+      <p><a style="text-align: center;" href="/"><img style="display: block; margin-left: auto; margin-right: auto; width: 614px; height: 114px;"
             src="https://picasion.com/gl/91/ePdH.gif" alt="KNOBSOCK LOGO"></a></p>
       <p style="text-align: center;"><a style="text-align: center;" href="/"></a></p>
       <b style="font-family: Arial; color: #0000fd;"><blink></blink></b><b style="font-family: Arial; color: #0000fd;"><blink></blink></b><b
@@ -686,6 +680,5 @@ body {
 body{
 cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam1570.cur)
 }
-</style>
-  </body>
+</style> </body>
 </html>
