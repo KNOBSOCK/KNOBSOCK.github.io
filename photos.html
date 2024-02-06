@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>photos!!!</title>
+    <title>Repeating GIF Wallpaper with Clickable Photos</title>
     <style>
         body {
             margin: 0;
@@ -45,11 +45,11 @@
             margin: 0 auto; /* Center the photo within the grid row */
         }
         .photo {
-            width: 6in; /* Set to fill at least half the page */
-            height: 4in; /* Set to maintain 3:2 aspect ratio */
+            width: 100%; /* Fill the entire width of the container */
+            height: 100%; /* Fill the entire height of the container */
             object-fit: cover;
-            border: 2px solid #000;
-            border-radius: 5px;
+            border: none; /* Remove border */
+            border-radius: 0; /* Remove border radius */
             transition: transform 0.3s ease-in-out; /* Add smooth transition */
         }
         .modal {
@@ -64,10 +64,9 @@
             align-items: center;
         }
         .modal img {
-            width: 80%;
-            max-width: 800px;
-            border: 2px solid #fff;
-            border-radius: 5px;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
         .ufo {
             width: 50px;
@@ -98,6 +97,18 @@
         @keyframes flyUFO2 {
             0% { left: -50px; top: calc(100vh * Math.random()); }
             100% { left: calc(100% + 50px); top: calc(100vh * Math.random()); }
+        }
+
+        /* Media Query for Mobile */
+        @media only screen and (max-width: 600px) {
+            .photo-container {
+                width: 90vw; /* 90% of the viewport width */
+            }
+            .photo {
+                width: 100%;
+                height: auto;
+                border-radius: 5px; /* Add border radius for a cleaner look on mobile */
+            }
         }
     </style>
 </head>
@@ -141,7 +152,8 @@
         document.getElementById('myModal').style.display = 'none';
     }
 
-    // Toggle full screen on click
+    //
+   // Toggle full screen on click
     document.querySelectorAll('.photo-container').forEach(function(container) {
         container.addEventListener('click', function() {
             var photo = this.querySelector('.photo');
