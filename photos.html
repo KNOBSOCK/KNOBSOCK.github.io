@@ -8,20 +8,42 @@
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            overflow-y: scroll; /* Enable vertical scrolling */
             background: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/c9ee34bdeff5c1dc155f18d1d5f773bf.gif') repeat;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-gap: 20px; /* Adjust the spacing as needed */
+            grid-template-rows: auto; /* Adjust for the number of photos */
+            gap: 20px; /* Adjust the spacing as needed */
+            position: relative;
+        }
+        #header {
+            font-family: 'Comic Sans MS', cursive;
+            font-size: 48px;
+            text-align: center;
+            color: transparent;
+            background-image: linear-gradient(to right, violet, indigo, blue, green, yellow, orange, red);
+            -webkit-background-clip: text;
+            animation: rainbowText 5s linear infinite;
+        }
+        @keyframes rainbowText {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+        .blinking {
+            animation: blink 1s linear infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
         }
         .photo-container {
             position: relative;
             overflow: hidden;
             cursor: pointer;
+            margin: 0 auto; /* Center the photo within the grid row */
         }
         .photo {
-            width: 100%;
-            height: 100%;
+            width: 3in; /* Set to 3 inches */
+            height: 3in; /* Set to 3 inches */
             object-fit: cover;
             border: 2px solid #000;
             border-radius: 5px;
@@ -43,11 +65,45 @@
             border: 2px solid #fff;
             border-radius: 5px;
         }
+        .ufo {
+            width: 50px;
+            height: 30px;
+            background-color: silver;
+            position: absolute;
+            top: calc(100vh * Math.random()); /* Random starting position from top */
+            left: -50px; /* Adjust the starting position */
+            border-radius: 25px 25px 0 0;
+            transform: rotate(45deg);
+            animation: flyUFO 8s linear infinite alternate;
+        }
+        .ufo2 {
+            width: 50px;
+            height: 30px;
+            background-color: gold;
+            position: absolute;
+            top: calc(100vh * Math.random()); /* Random starting position from top */
+            left: -50px; /* Adjust the starting position */
+            border-radius: 25px 25px 0 0;
+            transform: rotate(45deg);
+            animation: flyUFO2 8s linear infinite alternate;
+        }
+        @keyframes flyUFO {
+            0% { left: -50px; top: calc(100vh * Math.random()); }
+            100% { left: calc(100% + 50px); top: calc(100vh * Math.random()); }
+        }
+        @keyframes flyUFO2 {
+            0% { left: -50px; top: calc(100vh * Math.random()); }
+            100% { left: calc(100% + 50px); top: calc(100vh * Math.random()); }
+        }
     </style>
 </head>
 <body>
 
-<div></div>
+<div id="header" class="blinking">Photos!!!</div>
+
+<div class="ufo"></div>
+<div class="ufo2"></div>
+
 <div class="photo-container" onclick="openModal('your_image_url_1.jpg')">
     <img class="photo" src="your_image_url_1.jpg" alt="Photo 1">
 </div>
