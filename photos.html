@@ -1,45 +1,86 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="content-type" content="text/html; charset=windows-1252">
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-1WSW5HNWBG"></script>
-    <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repeating GIF Wallpaper with Clickable Photos</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/c9ee34bdeff5c1dc155f18d1d5f773bf.gif') repeat;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 20px; /* Adjust the spacing as needed */
+        }
+        .photo-container {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: 2px solid #000;
+            border-radius: 5px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal img {
+            width: 80%;
+            max-width: 800px;
+            border: 2px solid #fff;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
 
-  gtag('config', 'G-1WSW5HNWBG');
-</script> <title>KNOBSOCK</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="theme-color" content="#ffffff">
-  </head>
-  <body>
-    <div class="content">
-      <div style="text-align: center;"><a href="/index"><br>
-        </a></div>
-      <a href="/"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/home.gif"
-          alt="home" title="home"></a><span style="color: #fdfcfc;">&nbsp;&nbsp;&nbsp;
-        <br></span></div>
-    <div class="content"><span style="color: #fdfcfc;"><br>
-      </span></div>
-    <div class="content"><span style="color: #fdfcfc;"><br>
-      </span></div>
-    <div class="content">
-      <span style="color: #fdfcfc;"></span>
-      <div style="text-align: left;"><span style="color: #fdfcfc;">
-          <style>
-body {
-  background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/I4IF27V.png');
-}
-        </span></div>
-    </div>
-  </body>
-</html>
-</style></span></div></div>
-  </body>
+<div></div>
+<div class="photo-container" onclick="openModal('your_image_url_1.jpg')">
+    <img class="photo" src="your_image_url_1.jpg" alt="Photo 1">
+</div>
+<div class="photo-container" onclick="openModal('your_image_url_2.jpg')">
+    <img class="photo" src="your_image_url_2.jpg" alt="Photo 2">
+</div>
+<div class="photo-container" onclick="openModal('your_image_url_3.jpg')">
+    <img class="photo" src="your_image_url_3.jpg" alt="Photo 3">
+</div>
+<div class="photo-container" onclick="openModal('your_image_url_4.jpg')">
+    <img class="photo" src="your_image_url_4.jpg" alt="Photo 4">
+</div>
+<div class="photo-container" onclick="openModal('your_image_url_5.jpg')">
+    <img class="photo" src="your_image_url_5.jpg" alt="Photo 5">
+</div>
+<div class="photo-container" onclick="openModal('your_image_url_6.jpg')">
+    <img class="photo" src="your_image_url_6.jpg" alt="Photo 6">
+</div>
+
+<div id="myModal" class="modal" onclick="closeModal()">
+    <img id="modalImage" src="" alt="Enlarged Photo">
+</div>
+
+<script>
+    function openModal(imageUrl) {
+        document.getElementById('modalImage').src = imageUrl;
+        document.getElementById('myModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('myModal').style.display = 'none';
+    }
+</script>
+
+</body>
 </html>
