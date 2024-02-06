@@ -74,36 +74,7 @@
             max-height: 100%;
             object-fit: contain;
         }
-        .ufo {
-            width: 50px;
-            height: 30px;
-            background-color: silver;
-            position: absolute;
-            top: calc(100vh * Math.random());
-            left: -50px;
-            border-radius: 25px 25px 0 0;
-            transform: rotate(45deg);
-            animation: flyUFO 8s linear infinite alternate;
-        }
-        .ufo2 {
-            width: 50px;
-            height: 30px;
-            background-color: gold;
-            position: absolute;
-            top: calc(100vh * Math.random());
-            left: -50px;
-            border-radius: 25px 25px 0 0;
-            transform: rotate(45deg);
-            animation: flyUFO2 8s linear infinite alternate;
-        }
-        @keyframes flyUFO {
-            0% { left: -50px; top: calc(100vh * Math.random()); }
-            100% { left: calc(100% + 50px); top: calc(100vh * Math.random()); }
-        }
-        @keyframes flyUFO2 {
-            0% { left: -50px; top: calc(100vh * Math.random()); }
-            100% { left: calc(100% + 50px); top: calc(100vh * Math.random()); }
-        }
+       
 
         /* Media Query for Mobile */
         @media only screen and (max-width: 600px) {
