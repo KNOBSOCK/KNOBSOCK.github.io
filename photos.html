@@ -50,6 +50,7 @@
             object-fit: cover;
             border: 2px solid #000;
             border-radius: 5px;
+            transition: transform 0.3s ease-in-out; /* Add smooth transition */
         }
         .modal {
             display: none;
@@ -108,7 +109,7 @@
 <div class="ufo2"></div>
 
 <div class="photo-container" onclick="openModal('/photos/IMG_3511-2.jpg')">
-    <img class="photo" src="/photos/IMG_3511-2.jpg" alt="bus">
+    <img class="photo" src="/photos/IMG_3511-2.jpg" alt="Photo 1">
 </div>
 <div class="photo-container" onclick="openModal('your_image_url_2.jpg')">
     <img class="photo" src="your_image_url_2.jpg" alt="Photo 2">
@@ -139,8 +140,15 @@
     function closeModal() {
         document.getElementById('myModal').style.display = 'none';
     }
+
+    // Toggle full screen on click
+    document.querySelectorAll('.photo-container').forEach(function(container) {
+        container.addEventListener('click', function() {
+            var photo = this.querySelector('.photo');
+            photo.classList.toggle('full-screen');
+        });
+    });
 </script>
 
 </body>
 </html>
-
