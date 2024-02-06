@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Repeating GIF Wallpaper with Clickable Photos</title>
+    <title>photos!!!</title>
     <style>
         body {
             margin: 0;
@@ -13,6 +13,9 @@
             display: grid;
             grid-template-rows: auto; /* Adjust for the number of photos */
             gap: 20px; /* Adjust the spacing as needed */
+            min-height: 50vh; /* Ensure the grid fills at least half the page */
+            align-items: center; /* Center the grid vertically */
+            justify-content: center; /* Center the grid horizontally */
             position: relative;
         }
         #header {
@@ -42,8 +45,8 @@
             margin: 0 auto; /* Center the photo within the grid row */
         }
         .photo {
-            width: 3in; /* Set to 3 inches */
-            height: 3in; /* Set to 3 inches */
+            width: 6in; /* Set to fill at least half the page */
+            height: 4in; /* Set to maintain 3:2 aspect ratio */
             object-fit: cover;
             border: 2px solid #000;
             border-radius: 5px;
@@ -105,7 +108,7 @@
 <div class="ufo2"></div>
 
 <div class="photo-container" onclick="openModal('/photos/IMG_3511-2.jpg')">
-    <img class="photo" src="/photos/IMG_3511-2.jpg" alt="Photo 1">
+    <img class="photo" src="/photos/IMG_3511-2.jpg" alt="bus">
 </div>
 <div class="photo-container" onclick="openModal('your_image_url_2.jpg')">
     <img class="photo" src="your_image_url_2.jpg" alt="Photo 2">
@@ -140,3 +143,4 @@
 
 </body>
 </html>
+
