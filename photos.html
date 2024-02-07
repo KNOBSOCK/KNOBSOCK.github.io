@@ -1,11 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
- <body>
-    <div class="content">
-      <div style="text-align: center;"><a href="/index"><br>
-        </a></div>
-      <a href="/"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/home.gif"
-          alt="home" title="home"></a><span style="color: #fdfcfc;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -97,54 +91,58 @@
     </style>
 </head>
 <body>
-<center>
- <a href="/photos"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/photosgif.gif"
+    <div class="content">
+        <div style="text-align: center;">
+            <a href="/index"><br></a>
+        </div>
+        <a href="/"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/home.gif" alt="home" title="home"></a><span style="color: #fdfcfc;"></span>
+    </div>
 
-          alt="" title="PHOTOS" longdesc="PHOTOS" style="width: 300px; height: 80px;"><img
-      <div style="text-align: center;">
+    <center>
+        <a href="/photos"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/photosgif.gif" alt="" title="PHOTOS" longdesc="PHOTOS" style="width: 300px; height: 80px;"></a>
+    </center>
 
-<div class="photo-container" onclick="openModal('/photos/IMG_3511-2.jpg')">
-    <img class="photo
-    <img class="photo" src="/photos/IMG_3511-2.jpg" alt="Photo 1">
-</div>
-<div class="photo-container" onclick="openModal('/photos/IMG_3518.jpg')">
-    <img class="photo" src="/photos/IMG_3518.jpg" alt="Photo 2">
-</div>
-<div class="photo-container" onclick="openModal('/photos/IMG_3520.jpg')">
-    <img class="photo" src="/photos/IMG_3520.jpg" alt="Photo 3">
-</div>
-<div class="photo-container" onclick="openModal('/photos/IMG_3523-4.jpg')">
-    <img class="photo" src="/photos/IMG_3523-4.jpg" alt="Photo 4">
-</div>
-<div class="photo-container" onclick="openModal('your_image_url_5.jpg')">
-    <img class="photo" src="your_image_url_5.jpg" alt="Photo 5">
-</div>
-<div class="photo-container" onclick="openModal('your_image_url_6.jpg')">
-    <img class="photo" src="your_image_url_6.jpg" alt="Photo 6">
-</div>
+    <div class="photo-container" onclick="openModal('/photos/IMG_3511-2.jpg')">
+        <img class="photo" src="/photos/IMG_3511-2.jpg" alt="Photo 1">
+    </div>
+    <div class="photo-container" onclick="openModal('/photos/IMG_3518.jpg')">
+        <img class="photo" src="/photos/IMG_3518.jpg" alt="Photo 2">
+    </div>
+    <div class="photo-container" onclick="openModal('/photos/IMG_3520.jpg')">
+        <img class="photo" src="/photos/IMG_3520.jpg" alt="Photo 3">
+    </div>
+    <div class="photo-container" onclick="openModal('/photos/IMG_3523-4.jpg')">
+        <img class="photo" src="/photos/IMG_3523-4.jpg" alt="Photo 4">
+    </div>
+    <div class="photo-container" onclick="openModal('your_image_url_5.jpg')">
+        <img class="photo" src="your_image_url_5.jpg" alt="Photo 5">
+    </div>
+    <div class="photo-container" onclick="openModal('your_image_url_6.jpg')">
+        <img class="photo" src="your_image_url_6.jpg" alt="Photo 6">
+    </div>
 
-<div id="myModal" class="modal" onclick="closeModal()">
-    <img id="modalImage" src="" alt="Enlarged Photo">
-</div>
+    <div id="myModal" class="modal" onclick="closeModal()">
+        <img id="modalImage" src="" alt="Enlarged Photo">
+    </div>
 
-<script>
-    function openModal(imageUrl) {
-        document.getElementById('modalImage').src = imageUrl;
-        document.getElementById('myModal').style.display = 'flex';
-    }
+    <script>
+        function openModal(imageUrl) {
+            document.getElementById('modalImage').src = imageUrl;
+            document.getElementById('myModal').style.display = 'flex';
+        }
 
-    function closeModal() {
-        document.getElementById('myModal').style.display = 'none';
-    }
+        function closeModal() {
+            document.getElementById('myModal').style.display = 'none';
+        }
 
-    // Toggle full screen on click
-    document.querySelectorAll('.photo-container').forEach(function(container) {
-        container.addEventListener('click', function() {
-            var photo = this.querySelector('.photo');
-            photo.classList.toggle('full-screen');
+        // Toggle full screen on click
+        document.querySelectorAll('.photo-container').forEach(function(container) {
+            container.addEventListener('click', function() {
+                var photo = this.querySelector('.photo');
+                photo.classList.toggle('full-screen');
+            });
         });
-    });
-</script>
-
+    </script>
 </body>
 </html>
+
