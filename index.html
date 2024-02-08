@@ -139,7 +139,7 @@
 
           src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/cameraoy.gif"
                  
-                <!DOCTYPE html>
+               <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -153,23 +153,19 @@
 
     #bouncingImage {
       position: absolute;
-      width: 80%; /* Set the width to 80% of its original size */
     }
   </style>
 </head>
 <body>
-  <img id="bouncingImage" src="https://i.stack.imgur.com/KT8jA.gif" alt="Bouncing Image">
+  <img id="bouncingImage" src="https://i.stack.imgur.com/KT8jA.gif" alt="Bouncing Image" width="100">
 
   <script>
     const image = document.getElementById('bouncingImage');
 
-    // Adjust the initial size of the image
-    image.width = image.width * 0.8;
-    
     let x = Math.random() * window.innerWidth;
     let y = Math.random() * window.innerHeight;
-    let speedX = 5 * (Math.random() < 0.5 ? 1 : -1);
-    let speedY = 5 * (Math.random() < 0.5 ? 1 : -1);
+    let speedX = 1 * (Math.random() < 0.5 ? 1 : -1);
+    let speedY = 1 * (Math.random() < 0.5 ? 1 : -1);
 
     function update() {
       x += speedX;
@@ -192,7 +188,6 @@
     update();
   </script>
 </body>
-</html>
 </a>
                   </h2>
 
