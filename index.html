@@ -139,7 +139,61 @@
 
           src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/cameraoy.gif"
                  
-                  alt="planbeet" title="planet" style="width: 106px; height: 106px;"></marquee></a>
+                <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smaller Bouncing Image</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #bouncingImage {
+      position: absolute;
+      width: 80%; /* Set the width to 80% of its original size */
+    }
+  </style>
+</head>
+<body>
+  <img id="bouncingImage" src="https://i.stack.imgur.com/KT8jA.gif" alt="Bouncing Image">
+
+  <script>
+    const image = document.getElementById('bouncingImage');
+
+    // Adjust the initial size of the image
+    image.width = image.width * 0.8;
+    
+    let x = Math.random() * window.innerWidth;
+    let y = Math.random() * window.innerHeight;
+    let speedX = 5 * (Math.random() < 0.5 ? 1 : -1);
+    let speedY = 5 * (Math.random() < 0.5 ? 1 : -1);
+
+    function update() {
+      x += speedX;
+      y += speedY;
+
+      if (x < 0 || x + image.width > window.innerWidth) {
+        speedX = -speedX;
+      }
+
+      if (y < 0 || y + image.height > window.innerHeight) {
+        speedY = -speedY;
+      }
+
+      image.style.left = x + 'px';
+      image.style.top = y + 'px';
+
+      requestAnimationFrame(update);
+    }
+
+    update();
+  </script>
+</body>
+</html>
+</a>
                   </h2>
 
         <style>
