@@ -56,8 +56,6 @@
             height: auto;
         }
         .content {
-    height: 100vh; /* Example: Avoid fixed height that might cut off content */
-    /* Other styles... */
 }
 
 .content img {
@@ -67,7 +65,7 @@
 
         .animated-image {
             position: absolute;
-            animation: floatAnimation 5s infinite linear;
+            animation: floatAnimation 30s infinite linear;
             height: 100
             width: 100
         }
@@ -86,13 +84,13 @@
                 transform: translate(0, 0);
             }
             25% {
-                transform: translate(50vw, 50vh);
+                transform: translate(200vw, 200vh);
             }
             50% {
                 transform: translate(0, 100vh);
             }
             75% {
-                transform: translate(50vw, 0);
+                transform: translate(200vw, 200);
             }
             100% {
                 transform: translate(0, 0);
