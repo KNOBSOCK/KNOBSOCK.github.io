@@ -9,7 +9,7 @@
           alt="home" title="home"></a> </p>
     <div style="text-align: center;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/fBfF.gif"
         alt="VIDOE UPODATEW" title="newest" style="width: 905px; height: 74px;">
-      <center><video height="500" width="1000" autoplay muted playsinline controls controlsList="nodownload" style="background-color: transparent;"> <!-- Added 'controls', 'controlsList', and 'background-color' attributes -->
+      <center><video id="autoplayVideo" height="500" width="1000" autoplay muted playsinline controls controlsList="nodownload" style="background-color: transparent;"> <!-- Added 'id' attribute -->
           <source src="videos/weekend with my friend joe.mp4" type="video/mp4">
           <source src="movie.ogg" type="video/ogg">
           Your browser does not support the video tag.
@@ -29,5 +29,16 @@
           src="https://counter2.stat.ovh/private/freecounterstat.php?c=fja3mpaa65yf8cgmlgm2e5ldj7tnr8a6"
           title="web counter" alt="web counter" style="width: 364px; height: 40px;"
           border="0"></a></div>
+
+    <script>
+      // Hide controls until user interacts with the video
+      document.getElementById('autoplayVideo').addEventListener('mouseover', function() {
+        this.controls = true;
+      });
+
+      document.getElementById('autoplayVideo').addEventListener('mouseleave', function() {
+        this.controls = false;
+      });
+    </script>
   </body>
 </html>
