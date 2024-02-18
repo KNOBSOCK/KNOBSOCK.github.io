@@ -9,7 +9,7 @@
           alt="home" title="home"></a> </p>
     <div style="text-align: center;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/fBfF.gif"
         alt="VIDOE UPODATEW" title="newest" style="width: 905px; height: 74px;">
-      <center><video id="autoplayVideo" height="500" width="1000" autoplay playsinline controls controlsList="nodownload" style="background-color: transparent;"> <!-- Added 'id' attribute -->
+      <center><video id="autoplayVideo" height="500" width="1000" autoplay playsinline controls controlsList="nodownload" muted style="background-color: transparent;"> <!-- Added 'id' attribute and 'muted' attribute -->
           <source src="videos/weekend with my friend joe.mp4" type="video/mp4">
           <source src="movie.ogg" type="video/ogg">
           Your browser does not support the video tag.
@@ -38,6 +38,11 @@
 
       document.getElementById('autoplayVideo').addEventListener('mouseleave', function() {
         this.controls = false;
+      });
+
+      // Unmute the video after the page has loaded
+      window.addEventListener('load', function() {
+        document.getElementById('autoplayVideo').muted = false;
       });
     </script>
   </body>
