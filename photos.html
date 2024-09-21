@@ -9,6 +9,7 @@
             margin: 0;
             padding: 0;
             overflow-y: scroll;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
             background: url('') repeat;
             display: grid;
             grid-template-rows: auto;
@@ -17,6 +18,8 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            transform: scale(1.3); /* Scale up the entire page by 30% */
+            transform-origin: top center; /* Ensure the scaling is centered */
         }
         #header {
             font-family: 'Comic Sans MS', cursive;
@@ -41,16 +44,16 @@
         .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 40px; /* Adds space between the photos */
+            gap: 20px; /* Adds space between the photos */
             justify-items: center;
-            margin: 40px;
+            margin: 20px;
         }
         .photo-container {
             position: relative;
             overflow: hidden;
             cursor: pointer;
-            min-width: 600px; /* Sets a minimum width for the photo containers */
-            max-width: 500px;
+            min-width: 200px; /* Sets a minimum width for the photo containers */
+            max-width: 400px;
             margin: 0 auto;
         }
         .photo {
