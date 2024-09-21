@@ -38,6 +38,13 @@
             0%, 100% { opacity: 0; }
             50% { opacity: 1; }
         }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            justify-items: center;
+            margin: 20px;
+        }
         .photo-container {
             position: relative;
             overflow: hidden;
@@ -69,7 +76,6 @@
             object-fit: contain;
         }
        
-
         /* Media Query for Mobile */
         @media only screen and (max-width: 600px) {
             .photo-container {
@@ -100,44 +106,46 @@
     </div>
 
     <center>
-	  <h1><h2><header>NYWF 2024 by Bobby Wyckoff!!! - <a href="https://decreeofannihilation.com/">Fake News Decree</a></header></h2></h1>
+	  <h1><h2><header>NYFW 2024 by Bobby Wyckoff!!! - <a href="https://decreeofannihilation.com/">Fake News Decree</a></header></h2></h1>
     </center>
 
-    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1218.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1218.jpg" alt="Photo 1">
-    </div>
-    <div class="photo-container" onclick="openModal('https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1160.jpg?raw=true')">
-        <img class="photo" src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1160.jpg?raw=true" alt="Photo 2">
-    </div>
-    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1196.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1196.jpg" alt="Photo 3">
-    </div>
-    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1188.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1188.jpg" alt="Photo 4">
-    </div>
-    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1211.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1211.jpg" alt="Photo 5">
-    </div>
-    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1214.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1214.jpg" alt="Photo 6">
+    <div class="gallery">
+        <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1218.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1218.jpg" alt="Photo 1" style="width: 50%;">
+        </div>
+        <div class="photo-container" onclick="openModal('https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1160.jpg?raw=true')">
+            <img class="photo" src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1160.jpg?raw=true" alt="Photo 2" style="width: 50%;">
+        </div>
+        <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1196.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1196.jpg" alt="Photo 3" style="width: 50%;">
+        </div>
+        <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1188.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1188.jpg" alt="Photo 4" style="width: 50%;">
+        </div>
+        <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1211.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1211.jpg" alt="Photo 5" style="width: 50%;">
+        </div>
+        <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1214.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1214.jpg" alt="Photo 6" style="width: 50%;">
         </div>
         <div class="photo-container" onclick="openModal('https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1157.jpg?raw=true')">
-        <img class="photo" src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1157.jpg?raw=true" alt="Photo 7">
+            <img class="photo" src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/photos/NYCFW/Edited%20Batch-1157.jpg?raw=true" alt="Photo 7" style="width: 50%;">
         </div>
         <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1247.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1247.jpg" alt="Photo 8">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1247.jpg" alt="Photo 8" style="width: 50%;">
         </div>
         <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1251.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1251.jpg" alt="Photo 9">
-    </div>
-	<div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1254.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1254.jpg" alt="Photo 10">
-    </div>
-	<div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1275.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1275.jpg" alt="Photo 11">
-    </div>
-	<div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1276.jpg')">
-        <img class="photo" src="photos/NYCFW/Edited Batch-1276.jpg" alt="Photo 12">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1251.jpg" alt="Photo 9" style="width: 50%;">
+        </div>
+	    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1254.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1254.jpg" alt="Photo 10" style="width: 50%;">
+        </div>
+	    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1275.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1275.jpg" alt="Photo 11" style="width: 50%;">
+        </div>
+	    <div class="photo-container" onclick="openModal('photos/NYCFW/Edited Batch-1276.jpg')">
+            <img class="photo" src="photos/NYCFW/Edited Batch-1276.jpg" alt="Photo 12" style="width: 50%;">
+        </div>
     </div>
 
     <div id="myModal" class="modal" onclick="closeModal()">
@@ -145,23 +153,28 @@
     </div>
 
     <script>
+        let clickCount = 0;
+
         function openModal(imageUrl) {
             document.getElementById('modalImage').src = imageUrl;
             document.getElementById('myModal').style.display = 'flex';
+            clickCount = 1; // Reset click count when opening a new photo
         }
 
         function closeModal() {
             document.getElementById('myModal').style.display = 'none';
         }
 
-        // Toggle full screen on click
-        document.querySelectorAll('.photo-container').forEach(function(container) {
-            container.addEventListener('click', function() {
-                var photo = this.querySelector('.photo');
-                photo.classList.toggle('full-screen');
-            });
+        // Toggle zoom and close on click
+        document.getElementById('myModal').addEventListener('click', function() {
+            clickCount++;
+            if (clickCount === 2) {
+                document.getElementById('modalImage').style.transform = 'scale(2)'; // Zoom in
+            } else if (clickCount === 3) {
+                closeModal(); // Close modal on third click
+                clickCount = 0;
+            }
         });
     </script>
 </body>
 </html>
-
