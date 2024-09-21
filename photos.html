@@ -18,8 +18,6 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            transform: scale(1.3); /* Scale up the entire page by 30% */
-            transform-origin: top center; /* Ensure the scaling is centered */
         }
         #header {
             font-family: 'Comic Sans MS', cursive;
@@ -83,6 +81,10 @@
        
         /* Media Query for Mobile */
         @media only screen and (max-width: 600px) {
+            body {
+                transform: scale(1.3); /* Scale up the entire page by 30% on mobile */
+                transform-origin: top center;
+            }
             .photo-container {
                 width: 90vw;
             }
