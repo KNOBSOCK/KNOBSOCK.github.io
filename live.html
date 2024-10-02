@@ -33,8 +33,7 @@
         max-width: 100%; /* Ensures it never exceeds the viewport width */
         width: 90%; /* Default width is 90% of the viewport */
         max-height: 100%; /* Ensures it never exceeds the viewport height */
-        background-color: rgba(255, 255, 255, 0.8); /* Optional: semi-transparent background */
-        border: 2px solid #000; /* Optional: adds a border to the container */
+        
         padding: 20px; /* Add some padding */
         box-sizing: border-box; /* Ensures padding and border are included in the size */
       }
@@ -66,8 +65,8 @@
     <!-- Create a Twitch.Embed object that will render within the "twitch-embed" element -->
     <script type="text/javascript">
       new Twitch.Embed("twitch-embed", {
-        width: 854,
-        height: 480,
+        width: 1920,
+        height: 1280,
         channel: "gunoguap",
         // Only needed if this page is going to be embedded on other websites
         parent: ["knobsock.net"]
