@@ -31,10 +31,10 @@
         justify-content: center;
         align-items: center;
         max-width: 100%; /* Ensures it never exceeds the viewport width */
-        width: 100%; /* Default width is 90% of the viewport */
+        width: 90%; /* Default width is 90% of the viewport */
         max-height: 100%; /* Ensures it never exceeds the viewport height */
         
-        padding: 0px; /* Add some padding */
+        padding: 20px; /* Add some padding */
         box-sizing: border-box; /* Ensures padding and border are included in the size */
       }
 
@@ -65,8 +65,8 @@
     <!-- Create a Twitch.Embed object that will render within the "twitch-embed" element -->
     <script type="text/javascript">
       new Twitch.Embed("twitch-embed", {
-        width: 1920,
-        height: 1280,
+        width: 1280,
+        height: 720,
         channel: "gunoguap",
         // Only needed if this page is going to be embedded on other websites
         parent: ["knobsock.net"]
