@@ -1,146 +1,79 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta http-equiv="content-type" content="text/html; charset=windows-1252">
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-1WSW5HNWBG"></script>
-    <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-1WSW5HNWBG');
-</script> <title>KNOBSOCK</title>
+    <title>KNOBSOCK</title>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="theme-color" content="#ffffff">
+
+    <style>
+      /* Apply the repeating background */
+      body {
+        background-image: url('Space.gif');
+        background-repeat: repeat;
+        background-position: top left;
+        background-size: auto;
+        margin: 0; /* Remove default body margin */
+        padding: 0; /* Remove default body padding */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh; /* Ensure the body takes the full viewport height */
+      }
+
+      /* Container that automatically resizes */
+      .responsive-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        max-width: 100%; /* Ensures it never exceeds the viewport width */
+        width: 90%; /* Default width is 90% of the viewport */
+        max-height: 100%; /* Ensures it never exceeds the viewport height */
+        background-color: rgba(255, 255, 255, 0.8); /* Optional: semi-transparent background */
+        border: 2px solid #000; /* Optional: adds a border to the container */
+        padding: 20px; /* Add some padding */
+        box-sizing: border-box; /* Ensures padding and border are included in the size */
+      }
+
+      /* Ensures the contents inside the container are also responsive */
+      .responsive-content {
+        width: 100%;
+        height: auto;
+      }
+
+      @media only screen and (max-width: 600px) {
+        .responsive-container {
+          width: 100%; /* On smaller screens, container takes full width */
+        }
+      }
+    </style>
   </head>
+
   <body>
-    <div class="content">
-      <p style="text-align: center;"><a href="/"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/home.gif"
-
-            alt="home" title="home"></a><span style="color: #fdfcfc;"></span></p>
-      &nbsp; <br>
-      <p></p>
-      <p>&nbsp;</p>
-      <p><a style="text-align: center;" href="/"><img style="display: block; margin-left: auto; margin-right: auto; width: 409px; height: 76px;"
-
-            src="https://picasion.com/gl/91/ePdH.gif" alt="KNOBSOCK LOGO"></a></p>
-      <p style="text-align: center;"><a style="text-align: center;" href="/index"></a></p>
-<style>
-body {
-  background-image: url('Space.gif');
-}
-</style> 
-		<div class="at-container">
-        <div class="at-item"> </div>
-	<body>
-		<center>
+    <!-- Responsive container -->
+    <div class="responsive-container">
+		<body>
     <!-- Add a placeholder for the Twitch embed -->
     <div id="twitch-embed"></div>
 
     <!-- Load the Twitch embed JavaScript file -->
     <script src="https://embed.twitch.tv/embed/v1.js"></script>
-</center> </body>
-    <!-- This script will display the Twitch video -->
+
+    <!-- Create a Twitch.Embed object that will render within the "twitch-embed" element -->
     <script type="text/javascript">
       new Twitch.Embed("twitch-embed", {
-        width: 1280,  // Video player width
-        height: 720, // Video player height
-        channel: "gunoguap",  // Twitch channel to embed (you can change this)
-        parent: ["knobsock.net"] // Parent domain, put your website URL if you're embedding it on a specific site
-
+        width: 854,
+        height: 480,
+        channel: "gunoguap",
+        // Only needed if this page is going to be embedded on other websites
+        parent: ["knobsock.net"]
       });
-	
     </script>
-      </div>
-      <style>div.at-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-.at-item {
-  width: 413px;
-  height: 357px;
-  background:url();
-  animation-name: slide-tl;
-  animation-duration: 20.2s;
-  animation-timing-function: linear;
-  animation-delay: 2s;
-  animation-iteration-count: infinite;
-  animation-direction: reverse;
-  animation-fill-mode: none;
-}
-@keyframes slide-tl {
-  0%{
-    -webkit-transform: translateY(2000px) translateX(50px);
-    transform: translateY(2000px) translateX(50px);
-  }
-  100%{
-    -webkit-transform: translateY(-2000px) translateX(-50px);
-    transform: translateY(-2000px) translateX(-50px);
-  }
-</style><div class="at-container">
-        <div class="at-item"> </div>
-      </div>
-      <style>
-        * {
-            margin: 0;
-            padding: 0;
-        }
-        .imgbox {
-            display: grid;
-            height: 100%;
-        }
-        .center-fit {
-            max-width: 100%;
-            max-height: 100vh;
-            margin: auto;
-        }
-		.fix{
-    position:fixed;
-    bottom:0px;
-    left:50%;
-}
-        
-        blink {
-  -webkit-animation: 2s linear infinite condemned_blink_effect; /* for Safari 4.0 - 8.0 */
-  animation: 2s linear infinite condemned_blink_effect;
-}
-
-/* for Safari 4.0 - 8.0 */
-@-webkit-keyframes condemned_blink_effect {
-  0% {
-    visibility: hidden;
-  }
-  50% {
-    visibility: hidden;
-  }
-  100% {
-    visibility: visible;
-  }
-}
-
-@keyframes condemned_blink_effect {
-  0% {
-    visibility: hidden;
-  }
-  50% {
-    visibility: hidden;
-  }
-  100% {
-    visibility: visible;
-  }
-}
-
-    </style>
-      <div class="imgbox"> <br>
-      </div>
-      
+  </body>
     </div>
   </body>
 </html>
