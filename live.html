@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>KNOBSOCK</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Add this to ensure mobile scaling -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -10,7 +11,7 @@
     <meta name="theme-color" content="#ffffff">
     
     <style>
-      /* Body setup with a repeating background */
+      /* Ensure no body margin/padding */
       body {
         background-image: url('Space.gif');
         background-repeat: repeat;
@@ -19,41 +20,35 @@
         margin: 0;
         padding: 0;
         text-align: center;
-        font-family: Arial, sans-serif;
       }
 
-      /* Logo container that is centered at the top */
-      .logo-container {
-        margin-top: 20px; /* Controls the top margin of the logo */
-      }
-
-      /* Centered image styling */
+      /* Centered image for the logo */
       .centered-image {
         display: block;
         margin-left: auto;
         margin-right: auto;
-        max-width: 100%; /* Makes sure it's responsive */
+        max-width: 100%;
         height: auto;
       }
 
-      /* Responsive container for content */
-     /* Center the container properly */
-.responsive-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center; /* Ensures it's centered vertically within the container */
-  width: 90%; /* Default width is 90% of the viewport */
-  max-width: 1280px; /* Optional, to limit container width */
-  margin: 0 auto; /* This ensures it's centered within the viewport */
-  padding: 20px;
-  box-sizing: border-box;
-}
+      /* Responsive container */
+      .responsive-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 85%; /* Slightly reduce width to prevent overflow */
+        max-width: 1280px; /* Optional, limit max width */
+        margin: 0 auto;
+        padding: 10px; /* Reduce padding */
+        box-sizing: border-box;
+      }
 
-      /* Responsive container adjusts on smaller screens */
+      /* Mobile adjustments */
       @media only screen and (max-width: 600px) {
         .responsive-container {
-          width: 100%;
+          width: 95%; /* Take slightly less width on mobile */
+          padding: 5px; /* Reduce padding on mobile */
         }
       }
     </style>
@@ -69,13 +64,11 @@
 
     <!-- Responsive content container -->
     <div class="responsive-container">
-      <!-- Add a placeholder for the Twitch embed -->
+      <!-- Twitch embed -->
       <div id="twitch-embed"></div>
 
-      <!-- Load the Twitch embed JavaScript file -->
+      <!-- Load Twitch embed JavaScript -->
       <script src="https://embed.twitch.tv/embed/v1.js"></script>
-
-      <!-- Create a Twitch.Embed object that will render within the "twitch-embed" element -->
       <script type="text/javascript">
         new Twitch.Embed("twitch-embed", {
           width: 1280,
