@@ -42,6 +42,22 @@ body {
 }
 </style> <div class="at-container">
         <div class="at-item"> </div>
+	<body>
+    <!-- Add a placeholder for the Twitch embed -->
+    <div id="twitch-embed"></div>
+
+    <!-- Load the Twitch embed JavaScript file -->
+    <script src="https://embed.twitch.tv/embed/v1.js"></script>
+
+    <!-- This script will display the Twitch video -->
+    <script type="text/javascript">
+      new Twitch.Embed("twitch-embed", {
+        width: 854,  // Video player width
+        height: 480, // Video player height
+        channel: "gunoguap",  // Twitch channel to embed (you can change this)
+        parent: ["knobsock.net"] // Parent domain, put your website URL if you're embedding it on a specific site
+      });
+    </script>
       </div>
       <style>div.at-container {
   display: flex;
