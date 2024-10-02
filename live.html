@@ -8,74 +8,82 @@
     <link rel="manifest" href="/site.webmanifest">
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="theme-color" content="#ffffff">
-  <p><a style="text-align: center;" href="/"><img style="display: block; margin-left: auto; margin-right: auto; width: 409px; height: 76px;"
-
-            src="https://picasion.com/gl/91/ePdH.gif" alt="KNOBSOCK LOGO"></a></p>
-      <p style="text-align: center;"><a style="text-align: center;" href="/index"></a></p>
-	 </head>  
+    
     <style>
-      /* Apply the repeating background */
+      /* Body setup with a repeating background */
       body {
         background-image: url('Space.gif');
         background-repeat: repeat;
         background-position: top left;
         background-size: auto;
-        margin: 0; /* Remove default body margin */
-        padding: 0; /* Remove default body padding */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh; /* Ensure the body takes the full viewport height */
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        font-family: Arial, sans-serif;
       }
 
-      /* Container that automatically resizes */
-      .responsive-container {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        max-width: 100%; /* Ensures it never exceeds the viewport width */
-        width: 90%; /* Default width is 90% of the viewport */
-        max-height: 100%; /* Ensures it never exceeds the viewport height */
-        
-        padding: 20px; /* Add some padding */
-        box-sizing: border-box; /* Ensures padding and border are included in the size */
+      /* Logo container that is centered at the top */
+      .logo-container {
+        margin-top: 20px; /* Controls the top margin of the logo */
       }
 
-      /* Ensures the contents inside the container are also responsive */
-      .responsive-content {
-        width: 100%;
+      /* Centered image styling */
+      .centered-image {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 100%; /* Makes sure it's responsive */
         height: auto;
       }
 
+      /* Responsive container for content */
+     /* Center the container properly */
+.responsive-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Ensures it's centered vertically within the container */
+  width: 90%; /* Default width is 90% of the viewport */
+  max-width: 1280px; /* Optional, to limit container width */
+  margin: 0 auto; /* This ensures it's centered within the viewport */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+      /* Responsive container adjusts on smaller screens */
       @media only screen and (max-width: 600px) {
         .responsive-container {
-          width: 100%; /* On smaller screens, container takes full width */
+          width: 100%;
         }
       }
     </style>
+  </head>
 
   <body>
-    <!-- Responsive container -->
+    <!-- Logo section -->
+    <div class="logo-container">
+      <a href="/">
+        <img class="centered-image" src="https://picasion.com/gl/91/ePdH.gif" alt="KNOBSOCK LOGO" width="409" height="76">
+      </a>
+    </div>
+
+    <!-- Responsive content container -->
     <div class="responsive-container">
-		<body>
-    <!-- Add a placeholder for the Twitch embed -->
-    <div id="twitch-embed"></div>
+      <!-- Add a placeholder for the Twitch embed -->
+      <div id="twitch-embed"></div>
 
-    <!-- Load the Twitch embed JavaScript file -->
-    <script src="https://embed.twitch.tv/embed/v1.js"></script>
+      <!-- Load the Twitch embed JavaScript file -->
+      <script src="https://embed.twitch.tv/embed/v1.js"></script>
 
-    <!-- Create a Twitch.Embed object that will render within the "twitch-embed" element -->
-    <script type="text/javascript">
-      new Twitch.Embed("twitch-embed", {
-        width: 1280,
-        height: 720,
-        channel: "gunoguap",
-        // Only needed if this page is going to be embedded on other websites
-        parent: ["knobsock.net"]
-      });
-    </script>
-  </body>
+      <!-- Create a Twitch.Embed object that will render within the "twitch-embed" element -->
+      <script type="text/javascript">
+        new Twitch.Embed("twitch-embed", {
+          width: 1280,
+          height: 720,
+          channel: "gunoguap",
+          parent: ["knobsock.net"]
+        });
+      </script>
     </div>
   </body>
 </html>
