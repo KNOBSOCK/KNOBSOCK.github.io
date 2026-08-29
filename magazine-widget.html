@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Magazine</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* Universe's "ratio" code-block sizing gives the iframe a FIXED box (2:3),
+     not an auto-growing height — so instead of letting the page scroll
+     natively, we go back to filling that box exactly (100% width/height) and
+     scrolling INSIDE it via .page-wrapper, so content never overflows or
+     leaves a gap within the box itself. */
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: yellow;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .headline-clickable { cursor: pointer; }
+  a { text-decoration: none; color: inherit; }
+
+  /* Logo header — transparent, fixed height at the top of the box, never scrolls away */
+  .site-header {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 0 12px;
+    background: transparent;
+  }
+  .site-header img {
+    display: block;
+    max-height: 70px;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+  }
+  @media (min-width: 768px) {
+    .site-header img { max-height: 90px; }
+  }
+
+  /* Solid-ish blue card background, starting right below the logo header (which
+     stays transparent above it) — rounded corners like the reference swatch,
+     with a 50% frosted blur (our 1-100 scale: 100% = 20px, so 50% = 10px)
+     blurring whatever's behind the widget beneath that blue tint. */
+  .page-wrapper {
+    width: auto;
+    margin: 0 20px;
+    padding: 12px 36px 44px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: rgba(0, 19, 156, 0.5);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    border-radius: 38px;
+  }
+  @media (min-width: 768px) {
+    .page-wrapper { margin: 0 50px; }
+  }
+  /* Mobile only: hide the scrollbar, and pull everything up tight against the
+     top of the box (minimal top padding on the header/wrapper/headline/article)
+     while trimming the bottom padding too, so the last line of content sits
+     right at the box edge instead of a full whitespace gutter — a visual cue
+     that there's more to scroll to, without touching the desktop spacing. */
+  @media (max-width: 767px) {
+    .site-header { padding: 2px 0 4px; }
+    .page-wrapper {
+      padding: 4px 36px 4px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .page-wrapper::-webkit-scrollbar { display: none; }
+    .headline { padding: 8px 0 0; margin: 0 0 10px; }
+    .article-view { padding: 8px 0; }
+  }
+
+  /* ---------- HOMEPAGE VIEW ---------- */
+  /* Caps the overall content width so the two-column layout below stays
+     proportionate on very large/wide screens instead of stretching edge to
+     edge — without this, the grid columns get huge and everything (especially
+     the capped, centered headline photo) ends up looking oddly spaced out */
+  #homepage-view { max-width: 1400px; margin: 0 auto; }
+
+  /* Headline (feature story) + Recent Articles side by side on wider screens,
+     stacked on mobile — same pattern as the Music/Politics row below */
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 768px) {
+    .top-row {
+      grid-template-columns: 2fr 1fr;
+      gap: 0 40px;
+      align-items: start;
+    }
+  }
+  .headline {
+    padding: 24px 0;
+    margin: 14px 0;
+  }
+  /* On mobile the headline and Recent Articles stack vertically (the desktop
+     two-column layout below separates them visually on its own), so add a
+     divider line between them here to match the other section dividers. */
+  @media (max-width: 767px) {
+    .headline { border-bottom: 1px solid rgba(255,255,255,0.15); }
+  }
+  /* Wraps just the image so the category badge below can anchor to the
+     photo's own box, not the wider headline-clickable container around it */
+  .headline-media { position: relative; }
+  .headline img { width: 100%; height: auto; border-radius: 12px; cursor: pointer; display: block; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+  /* Photo credit — pulled from the post's Excerpt field in WordPress, shown as
+     a small caption line right under the photo, the way most publications
+     caption a photo */
+  .photo-credit { color: yellow; font-size: 11px; opacity: 0.6; letter-spacing: 0.2px; margin-top: 6px; }
+  .headline h1 { font-size: clamp(28px, 5vw, 48px); margin: 20px 0 10px; cursor: pointer; }
+  .headline .meta { color: yellow; font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
+  /* Positioned relative to .headline-media (the image itself), so the badge sits
+     pinned to the photo's top-left corner regardless of screen size */
+  .headline .cat-tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: inline-block;
+    background: #333;
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .section { padding: 32px 0; border-bottom: 1px solid rgba(255,255,255,0.15); }
+  .section h2 { font-size: 22px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .article-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .article-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+  }
+  .article-card img {
+    width: 84px;
+    height: 84px;
+    min-width: 84px;
+    object-fit: cover;
+    border-radius: 10px;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    background: #222;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  }
+  .article-card .article-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .article-card h3 { font-size: 17px; line-height: 1.3; margin-bottom: 0; }
+  .article-card span { font-size: 13px; color: yellow; }
+
+  .category-section h2 { border-left: 4px solid limegreen; padding-left: 10px; }
+
+  /* Music & Politics side by side on wider screens, stacked on mobile */
+  .categories-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 768px) {
+    .categories-row {
+      grid-template-columns: 1fr 1fr;
+      gap: 0 32px;
+    }
+  }
+
+  .loading { color: yellow; font-size: 14px; padding: 20px 0; }
+
+  /* ---------- ARTICLE VIEW ---------- */
+  .article-view { padding: 40px 0; display: none; }
+  /* Computer/desktop screens: keep the article text in a centered, readable
+     column instead of stretching edge-to-edge — blank space on the sides is fine */
+  @media (min-width: 768px) {
+    .article-view { max-width: 760px; margin: 0 auto; }
+  }
+  .back-link { display: inline-block; margin-bottom: 24px; color: yellow; font-size: 14px; cursor: pointer; }
+  .back-link:hover { color: #fff; }
+  .article-view .cat-tag { display: inline-block; background: #333; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .article-view h1 { font-size: clamp(28px, 5vw, 42px); margin-bottom: 12px; line-height: 1.15; }
+  .article-view .meta { color: yellow; font-size: 14px; opacity: 0.75; }
+
+  /* Header block: category + headline + date, closed off by a divider */
+  .article-header {
+    padding-bottom: 24px;
+    margin-bottom: 28px;
+    border-bottom: 2px solid rgba(255, 80, 80, 0.45);
+  }
+
+  /* Featured image sits in its own band with dividers above and below */
+  .article-hero {
+    padding-bottom: 28px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid rgba(255, 80, 80, 0.3);
+  }
+  .article-hero img { width: 100%; height: auto; border-radius: 12px; display: block; }
+
+  /* Computer/desktop screens, article page only: cap the hero photo with a
+     max-width so it stays proportionate to the text instead of growing huge
+     on very large monitors. (The homepage headline photo used to get this
+     same treatment, but now that the whole homepage is already capped by
+     #homepage-view's max-width, centering it again here just added an extra
+     indent that the Music/Politics row didn't have — staggering the two
+     rows' left edges instead of lining them up.) */
+  @media (min-width: 768px) {
+    .article-hero img { width: 100%; max-width: 700px; margin: 0 auto; }
+    .article-hero .photo-credit { text-align: center; }
+  }
+
+  /* Body copy, visually distinct from the header/image above it */
+  .article-view .body-content { font-size: 17px; line-height: 1.8; color: yellow; }
+  .article-view .body-content p { margin-bottom: 20px; }
+  .article-view .body-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; }
+  .article-view .body-content h2,
+  .article-view .body-content h3 { margin: 28px 0 12px; line-height: 1.3; }
+
+  /* ---------- SHARE BAR ---------- */
+  .share-bar {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .share-bar span.label { font-size: 14px; color: yellow; }
+  .share-bar button {
+    background: #fff;
+    color: #111;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .share-bar button:hover { background: #ddd; }
+  .share-bar .copied-msg {
+    font-size: 13px;
+    color: #4ade80;
+    display: none;
+  }
+
+  /* ---------- BOTTOM ACTIONS ---------- */
+  .bottom-actions {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .wp-link {
+    color: yellow;
+    font-size: 14px;
+  }
+  .wp-link:hover { color: #fff; }
+  .back-btn {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+  <header class="site-header">
+    <a href="https://knobsock.net/main" target="_top">
+      <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
+    </a>
+  </header>
+
+  <div class="page-wrapper">
+
+    <!-- HOMEPAGE VIEW -->
+    <div id="homepage-view">
+      <div class="top-row">
+        <section class="headline" id="headline">
+          <p class="loading">Loading headline...</p>
+        </section>
+
+        <section class="section recent-articles-section">
+          <h2>Recent Articles</h2>
+          <div class="article-grid" id="recent-articles">
+            <p class="loading">Loading articles...</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="categories-row">
+        <section class="section category-section">
+          <h2>Music</h2>
+          <div class="article-grid" id="category-music">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+
+        <section class="section category-section">
+          <h2>Politics</h2>
+          <div class="article-grid" id="category-politics">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+
+        <section class="section category-section">
+          <h2>Media</h2>
+          <div class="article-grid" id="category-media">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+
+        <section class="section category-section">
+          <h2>Knobsock</h2>
+          <div class="article-grid" id="category-knobsock">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ARTICLE VIEW -->
+    <div class="article-view" id="article-view">
+      <span class="back-link" id="back-link">&larr; Back to homepage</span>
+      <div id="article-content">
+        <p class="loading">Loading article...</p>
+      </div>
+      <div class="share-bar">
+        <span class="label">Share this article:</span>
+        <button id="copy-link-btn">Copy Link</button>
+        <span class="copied-msg" id="copied-msg">Link copied!</span>
+      </div>
+      <div class="bottom-actions">
+        <a id="wordpress-link" href="#" target="_blank" class="wp-link">View original post &rarr;</a>
+        <button class="back-btn" id="back-btn-bottom">&larr; Back to homepage</button>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  // ====== CONFIG: your WordPress.com site ======
+  // WordPress.com subdomain sites use a different API than self-hosted WordPress —
+  // this is the correct endpoint format, no settings to change on your end.
+  const SITE = "knobsock4.wordpress.com";
+  const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
+
+  const CATEGORIES = [
+    { slug: "music", elementId: "category-music" },
+    { slug: "politics", elementId: "category-politics" },
+    { slug: "media", elementId: "category-media" },
+    { slug: "knobsock", elementId: "category-knobsock" }
+  ];
+
+  const pageWrapper = document.querySelector(".page-wrapper");
+  const homepageView = document.getElementById("homepage-view");
+  const articleView = document.getElementById("article-view");
+  const articleContent = document.getElementById("article-content");
+
+  // Tracks the currently-open article's real WordPress URL (same value used
+  // for "View original post"), so Copy Link can just reuse it directly.
+  let currentArticleUrl = "";
+
+  // Resets scroll to the top of the widget. .page-wrapper's own internal
+  // scrollbar is the one real scrolling context in this fixed 2:3 box, so
+  // just reset it directly — no scrollIntoView here, since that walks up
+  // every scrollable ancestor (including body, which is only user-scroll-
+  // blocked via overflow:hidden, not programmatic-scroll-blocked) and was
+  // shoving the whole page down to align things, permanently hiding the logo.
+  function scrollToTop() {
+    pageWrapper.scrollTop = 0;
+  }
+
+  // No external image request here — this is generated inline as an SVG, so it
+  // can never be blocked by a sandboxed iframe's network/content restrictions.
+  const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+  function getImage(post) {
+    return post.featured_image || NO_IMAGE_PLACEHOLDER;
+  }
+
+  function getCategoryName(post) {
+    const cats = post.categories;
+    if (!cats) return "";
+    const firstKey = Object.keys(cats)[0];
+    return firstKey ? cats[firstKey].name : "";
+  }
+
+  function getAuthorName(post) {
+    return (post.author && post.author.name) || "";
+  }
+
+  function cleanExcerpt(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return (div.textContent || div.innerText || "").trim();
+  }
+
+  // Pulls the photo credit from the post's Excerpt field in WordPress — the
+  // easiest field for typing something like "Photos by Wali Khan" without
+  // digging into the Media Library's Caption field for the image itself.
+  function getPhotoCredit(post) {
+    return cleanExcerpt(post.excerpt || "");
+  }
+
+  // Under 1 hour: minutes ago. Under 24 hours: hours ago. Under 5 days: days
+  // ago. 5 days or older: the full date.
+  function formatRelativeDate(dateStr) {
+    const posted = new Date(dateStr);
+    const diffMs = Date.now() - posted.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = diffHours / 24;
+
+    if (diffHours < 1) {
+      const mins = Math.max(1, Math.floor(diffMs / 60000));
+      return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+    }
+    if (diffHours < 24) {
+      const hrs = Math.floor(diffHours);
+      return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+    }
+    if (diffDays < 5) {
+      const days = Math.floor(diffDays);
+      return `${days} day${days === 1 ? "" : "s"} ago`;
+    }
+    return posted.toLocaleDateString();
+  }
+
+  // Build a clickable article card (uses a div with data-slug, not a real link,
+  // so clicking it never triggers browser navigation inside the sandboxed iframe)
+  function articleCard(post) {
+    return `
+      <div class="article-card" data-slug="${post.slug}">
+        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
+        <div class="article-text">
+          <h3>${post.title}</h3>
+          <span>${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${formatRelativeDate(post.date)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadHeadline() {
+    const res = await fetch(`${API_BASE}/posts/?number=1`);
+    const data = await res.json();
+    const post = data.posts && data.posts[0];
+    if (!post) return;
+
+    document.getElementById("headline").innerHTML = `
+      <div data-slug="${post.slug}" class="headline-clickable">
+        <div class="headline-media">
+          <span class="cat-tag">${getCategoryName(post)}</span>
+          <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
+        </div>
+        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
+        <h1>${post.title}</h1>
+        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
+      </div>
+    `;
+  }
+
+  async function loadRecentArticles() {
+    const res = await fetch(`${API_BASE}/posts/?number=6`);
+    const data = await res.json();
+    const posts = data.posts || [];
+    document.getElementById("recent-articles").innerHTML = posts.length
+      ? posts.map(articleCard).join("")
+      : `<p class="loading">No articles published yet.</p>`;
+  }
+
+  async function loadCategory(slug, elementId) {
+    const res = await fetch(`${API_BASE}/posts/?category=${slug}&number=4`);
+    const data = await res.json();
+    const posts = data.posts || [];
+    document.getElementById(elementId).innerHTML = posts.length
+      ? posts.map(articleCard).join("")
+      : `<p class="loading">No articles yet in this category.</p>`;
+  }
+
+  // ---------- ARTICLE VIEW LOGIC ----------
+
+  async function loadArticleBySlug(slug) {
+    homepageView.style.display = "none";
+    articleView.style.display = "block";
+    articleContent.innerHTML = `<p class="loading">Loading article...</p>`;
+    scrollToTop();
+
+    const res = await fetch(`${API_BASE}/posts/slug:${slug}`);
+    const post = await res.json();
+
+    if (!post || post.error) {
+      articleContent.innerHTML = `<p>Article not found.</p>`;
+      return;
+    }
+
+    articleContent.innerHTML = `
+      <div class="article-header">
+        <span class="cat-tag">${getCategoryName(post)}</span>
+        <h1>${post.title}</h1>
+        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
+      </div>
+      <div class="article-hero">
+        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
+        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
+      </div>
+      <div class="body-content">${post.content}</div>
+    `;
+
+    // Point the "View original post" link at the actual WordPress URL for this
+    // article, and remember it so Copy Link can share the exact same URL.
+    currentArticleUrl = post.URL || "";
+    document.getElementById("wordpress-link").href = currentArticleUrl || "#";
+  }
+
+  // Navigate to an article WITHOUT using a real link click — this avoids the
+  // sandboxed iframe treating it as a page navigation (which caused the blank page).
+  // pushState can throw inside a sandboxed iframe, so we wrap it — if it fails,
+  // we still load the article, just without updating the visible URL.
+  function goToArticle(slug) {
+    try {
+      history.pushState("", document.title, window.location.pathname + window.location.search + "#article=" + slug);
+    } catch (err) {
+      console.warn("Could not update URL (sandboxed iframe) — loading article anyway.");
+    }
+    loadArticleBySlug(slug);
+  }
+
+  // Event delegation: catches clicks on any current or future element with data-slug
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest("[data-slug]");
+    if (target) {
+      e.preventDefault();
+      goToArticle(target.getAttribute("data-slug"));
+    }
+  });
+
+  function showHomepage() {
+    articleView.style.display = "none";
+    homepageView.style.display = "block";
+    scrollToTop();
+  }
+
+  // Handle back button clicks (top and bottom)
+  function goBack() {
+    try {
+      history.pushState("", document.title, window.location.pathname + window.location.search);
+    } catch (err) {
+      console.warn("Could not update URL (sandboxed iframe) — going back anyway.");
+    }
+    showHomepage();
+  }
+  document.getElementById("back-link").addEventListener("click", goBack);
+  document.getElementById("back-btn-bottom").addEventListener("click", goBack);
+
+  // Handle copy link button — shares the actual WordPress post URL (the same
+  // one "View original post" points to), not this widget's own address, which
+  // inside a sandboxed iframe is meaningless (just "about:srcdoc").
+  document.getElementById("copy-link-btn").addEventListener("click", () => {
+    const shareUrl = currentArticleUrl;
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      const msg = document.getElementById("copied-msg");
+      msg.style.display = "inline";
+      setTimeout(() => { msg.style.display = "none"; }, 2000);
+    }).catch(() => {
+      alert("Couldn't copy automatically — link: " + shareUrl);
+    });
+  });
+
+  // Check the URL hash on load — if it points to an article, show that article directly.
+  // This is what makes the link shareable: e.g. yoursite.com/page#article=my-article-slug
+  function checkHashAndRoute() {
+    const hash = window.location.hash; // e.g. "#article=my-post-slug"
+    if (hash.startsWith("#article=")) {
+      const slug = decodeURIComponent(hash.replace("#article=", ""));
+      loadArticleBySlug(slug);
+    } else {
+      showHomepage();
+    }
+  }
+
+  // Re-route whenever the hash changes (e.g. clicking an article card, or using back/forward)
+  window.addEventListener("hashchange", checkHashAndRoute);
+
+  // Initial load
+  loadHeadline();
+  loadRecentArticles();
+  CATEGORIES.forEach(cat => loadCategory(cat.slug, cat.elementId));
+  checkHashAndRoute();
+</script>
+
+</body>
+</html>
