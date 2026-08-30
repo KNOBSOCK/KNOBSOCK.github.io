@@ -981,6 +981,17 @@ function fetchTitles() {
       if (!authors.includes(v.author)) authors.push(v.author);
     });
 
+    // Sorted automatically (A→Z, case-insensitive) rather than left in
+    // whatever order each video's fetch happened to resolve in — without
+    // this the chip order would reshuffle unpredictably on every page
+    // load depending on network timing. "Unknown" always goes last since
+    // it's a fallback, not a real channel name.
+    authors.sort((a, b) => {
+      if (a === 'Unknown') return 1;
+      if (b === 'Unknown') return -1;
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+
     const allChip = `<button class="creator-chip${!activeAuthorFilter ? ' active' : ''}" data-author="">All</button>`;
     const authorChips = authors.map(a => {
       const label = a === 'Unknown' ? 'Unknown Channel' : a;
