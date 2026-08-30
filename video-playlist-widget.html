@@ -129,10 +129,13 @@
     padding: 2px;
     overflow-x: auto;
     overflow-y: hidden;
+    /* Scrolling (swipe/drag/shift+wheel) still works when there are more
+       chips than fit — this just hides the visible scrollbar itself, on
+       every device, not just phones. */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* old Edge/IE */
   }
-  .creator-chin::-webkit-scrollbar { height: 6px; }
-  .creator-chin::-webkit-scrollbar-track { background: transparent; }
-  .creator-chin::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 3px; }
+  .creator-chin::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
   .creator-chip {
     flex: none;
@@ -798,10 +801,34 @@ function extractVideoId(input) {
   return null;
 }
 
-function buildPlaylist(list) {
+// previousPlaylist carries over already-resolved title/author data for any
+// video that appears in both the old and new list, by id — instead of
+// wiping every entry back to null and re-fetching from scratch every time
+// this runs. This matters because Firestore's onSnapshot listener fires
+// more than once on a normal page load (once immediately from its local
+// cache, then again once the server confirms the same data), and without
+// this, that second firing was resetting every author back to null right
+// as the first round's fetches were finishing — which is what caused the
+// creator chin to get stuck showing "Loading" even though the data had
+// already been fetched successfully (a manual click just happened to
+// force a re-render against whichever round's data had settled by then).
+function buildPlaylist(list, previousPlaylist) {
+  const previousById = new Map();
+  (previousPlaylist || []).forEach(v => { if (v.id) previousById.set(v.id, v); });
+
   return list
-    .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : null, author: null }))
-    .filter(v => v.id);
+    .map(v => {
+      const id = extractVideoId(v.url);
+      if (!id) return null;
+      const prev = previousById.get(id);
+      const manualTitle = (v.title && v.title.trim()) ? v.title.trim() : null;
+      return {
+        id,
+        title: manualTitle || (prev ? prev.title : null),
+        author: prev ? prev.author : null
+      };
+    })
+    .filter(Boolean);
 }
 
 let PLAYLIST = buildPlaylist(currentVideoList);
@@ -1174,7 +1201,7 @@ function fetchTitles() {
   // a page reload, and try to keep whatever's currently playing playing.
   function handlePlaylistSnapshot(list) {
     currentVideoList = list;
-    const newPlaylist = buildPlaylist(currentVideoList);
+    const newPlaylist = buildPlaylist(currentVideoList, PLAYLIST);
 
     if (!firestoreDataReady) {
       firestoreDataReady = true;
