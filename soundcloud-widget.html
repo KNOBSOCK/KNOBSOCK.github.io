@@ -83,10 +83,24 @@
        before settling gives the little bounce, rather than a flat ease. */
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .play-btn:hover:not(:disabled) {
-    transform: scale(1.12) rotate(-4deg);
+  .play-btn:hover:not(:disabled):not(.bounce-spin) {
+    /* A bigger pop on hover than before. */
+    transform: scale(1.22) rotate(-6deg);
   }
   .play-btn:disabled { opacity: 0.5; cursor: default; }
+  /* Happy little bounce-and-spin on click: scale up, dip down, then spin
+     a full 360 while popping back to size. JS (below) adds/removes this
+     class on each click so it can replay every time instead of only once. */
+  @keyframes playBtnBounceSpin {
+    0%   { transform: scale(1) rotate(0deg); }
+    30%  { transform: scale(1.35) rotate(0deg); }
+    55%  { transform: scale(0.88) rotate(180deg); }
+    80%  { transform: scale(1.15) rotate(360deg); }
+    100% { transform: scale(1) rotate(360deg); }
+  }
+  .play-btn.bounce-spin {
+    animation: playBtnBounceSpin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
   .now-playing-info { min-width: 0; flex: 1 1 auto; }
   .track-title {
     font-size: 15px;
@@ -304,6 +318,25 @@
 
   playBtn.addEventListener("click", () => {
     widget.toggle();
+    // Restart the bounce-spin animation even if clicked again mid-spin —
+    // removing the class, forcing a reflow, then re-adding it is what
+    // makes the browser replay it from the start instead of no-op'ing
+    // because the class was "already there".
+    playBtn.classList.remove("bounce-spin");
+    void playBtn.offsetWidth;
+    playBtn.classList.add("bounce-spin");
+  });
+
+  playBtn.addEventListener("animationend", (e) => {
+    if (e.animationName !== "playBtnBounceSpin") return;
+    // The spin ends at rotate(360deg), which looks identical to 0deg but
+    // isn't the same number — removing the class right away would let the
+    // hover transition animate "backward" from 360 to 0. Turning the
+    // transition off for one frame makes that reset instant instead.
+    playBtn.style.transition = "none";
+    playBtn.classList.remove("bounce-spin");
+    void playBtn.offsetWidth;
+    playBtn.style.transition = "";
   });
 
   // Click-to-seek: figure out where along the bar the click landed, then
