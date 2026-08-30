@@ -818,9 +818,21 @@ function fetchTitles() {
     const needsTitle = !v.title;
     if (!needsTitle && v.author) return; // nothing left to fetch for this one
     const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
-    fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json')
+
+    // Some desktop setups (ad blockers, browser extensions, corporate
+    // networks) silently hang a request to a third-party domain like
+    // noembed.com instead of erroring outright — no CORS error, no
+    // rejection, it just never comes back. That left the chin stuck on
+    // "Loading" forever on some machines while it worked fine on mobile
+    // (where those blockers are far less common). Aborting after 8s
+    // guarantees this always settles one way or the other.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
       .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
       .then(data => {
+        clearTimeout(timeoutId);
         if (needsTitle) {
           const t = data && typeof data.title === 'string' ? data.title.trim() : '';
           v.title = t ? t : ('Video ' + (i + 1));
@@ -831,6 +843,7 @@ function fetchTitles() {
         renderCreatorChin();
       })
       .catch(() => {
+        clearTimeout(timeoutId);
         if (needsTitle) v.title = 'Video ' + (i + 1);
         v.author = v.author || 'Unknown';
         renderPlaylist();
@@ -998,7 +1011,7 @@ function fetchTitles() {
       return `<button class="creator-chip${activeAuthorFilter === a ? ' active' : ''}" data-author="${escapeHtml(a)}">${escapeHtml(label)}</button>`;
     });
     const loadingChip = stillLoading
-      ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading creators…</span>'
+      ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading</span>'
       : '';
     creatorChinEl.innerHTML = [allChip].concat(authorChips).join('') + loadingChip;
 
