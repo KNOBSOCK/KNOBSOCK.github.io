@@ -47,19 +47,30 @@
   }
 
   /* ---------- PAGE LAYOUT ----------
-     Desktop: big player + playlist side by side.
-     Mobile (<= 860px wide): player on top, playlist scrolls below —
-     same breakpoint and stacking pattern as the livestream widget. */
+     Desktop: big player + playlist side by side, with the creator chin
+     (below) as a fixed-height strip under both. Mobile (<= 860px wide):
+     player on top, playlist scrolls below — same breakpoint and stacking
+     pattern as the livestream widget; the chin stays pinned to the
+     bottom either way since it's a sibling of .main-row inside .layout,
+     not part of the row that flips direction. */
   .layout {
     position: relative;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     width: 100%;
     height: 100%;
     margin: 0;
-    gap: 14px;
+    gap: 10px;
     padding: clamp(18px, 3.5vw, 36px);
     background: transparent;
+  }
+
+  .main-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 14px;
   }
 
   .video-pane {
@@ -96,13 +107,53 @@
   }
 
   @media (max-width: 860px) {
-    .layout { flex-direction: column; }
+    .main-row { flex-direction: column; }
     .video-pane { flex: 0 0 38vh; }
     .playlist-pane { flex: 1 1 auto; min-width: 0; }
   }
 
   .layout.playlist-hidden .playlist-pane { display: none; }
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
+
+  /* ---------- CREATOR CHIN ----------
+     A row of pill buttons across the bottom, one per creator seen in the
+     playlist (plus "All"). Auto-populated as each video's author comes
+     back from the oEmbed fetch below — clicking one filters the same
+     "Up Next" list to just that creator's videos, it doesn't touch
+     what's currently playing. */
+  .creator-chin {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 10px);
+    padding: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .creator-chin::-webkit-scrollbar { height: 6px; }
+  .creator-chin::-webkit-scrollbar-track { background: transparent; }
+  .creator-chin::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 3px; }
+
+  .creator-chip {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    border-radius: 999px;
+    padding: clamp(6px, 1.6vw, 9px) clamp(14px, 3vw, 18px);
+    font-size: clamp(11px, 2.6vw, 13px);
+    white-space: nowrap;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .creator-chip:hover { background: var(--accent-dim); }
+  .creator-chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
 
   .pill-btn {
     -webkit-appearance: none;
@@ -606,6 +657,7 @@
 
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
+ <div class="main-row" id="mainRow">
   <div class="video-pane" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
     <div class="video-pane-actions">
@@ -641,6 +693,11 @@
       </div>
     </div>
   </div>
+ </div>
+
+  <!-- Auto-populated from each video's YouTube author — see
+       renderCreatorChin() below. "All" chip clears the filter. -->
+  <div class="creator-chin" id="creatorChin"></div>
 </div>
 
 <!-- Hidden admin access point — nearly invisible, tucked in the corner.
@@ -743,31 +800,41 @@ function extractVideoId(input) {
 
 function buildPlaylist(list) {
   return list
-    .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : null }))
+    .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : null, author: null }))
     .filter(v => v.id);
 }
 
 let PLAYLIST = buildPlaylist(currentVideoList);
 
-// Pull each video's real title from YouTube's oEmbed data (via noembed.com,
-// which mirrors YouTube's oEmbed response but reliably sends the CORS
-// headers a browser needs — calling youtube.com/oembed directly often
-// fails silently or gets blocked cross-origin). Only runs for entries
-// where no title was typed in.
+// Pull each video's real title AND creator name from YouTube's oEmbed data
+// (via noembed.com, which mirrors YouTube's oEmbed response — including
+// author_name — but reliably sends the CORS headers a browser needs;
+// calling youtube.com/oembed directly often fails silently or gets
+// blocked cross-origin). Title-fetching is skipped for entries where one
+// was typed in manually, but the author is always pulled since that's
+// what drives the creator chin below.
 function fetchTitles() {
   PLAYLIST.forEach((v, i) => {
-    if (v.title) return; // already have a manual title, skip fetching
+    const needsTitle = !v.title;
+    if (!needsTitle && v.author) return; // nothing left to fetch for this one
     const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
     fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json')
       .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
       .then(data => {
-        const t = data && typeof data.title === 'string' ? data.title.trim() : '';
-        v.title = t ? t : ('Video ' + (i + 1));
+        if (needsTitle) {
+          const t = data && typeof data.title === 'string' ? data.title.trim() : '';
+          v.title = t ? t : ('Video ' + (i + 1));
+        }
+        const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
+        v.author = a || 'Unknown';
         renderPlaylist();
+        renderCreatorChin();
       })
       .catch(() => {
-        v.title = 'Video ' + (i + 1);
+        if (needsTitle) v.title = 'Video ' + (i + 1);
+        v.author = v.author || 'Unknown';
         renderPlaylist();
+        renderCreatorChin();
       });
   });
 }
@@ -791,12 +858,14 @@ function fetchTitles() {
   const videoPane = document.getElementById('videoPane');
   const playlistItemsEl = document.getElementById('playlistItems');
   const playlistCountEl = document.getElementById('playlistCount');
+  const creatorChinEl = document.getElementById('creatorChin');
   const ytFrame = document.getElementById('ytFrame');
 
   let ytPlayer = null;
   let isDragging = false;
   let pollTimer = null;
   let activeIndex = 0;
+  let activeAuthorFilter = null; // null = "All"; a creator's name filters the list below
   let apiReady = false;       // true once the YT.Player instance has fired onReady
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
@@ -844,14 +913,29 @@ function fetchTitles() {
   }
 
   // ---------- PLAYLIST RENDER ----------
+  // Filtering by creator happens here, over the same PLAYLIST array/data
+  // used everywhere else — data-index still points at the real index in
+  // PLAYLIST (not the filtered array's position), so clicking a filtered
+  // row still plays the right video and activeIndex stays meaningful.
   function renderPlaylist() {
     if (!PLAYLIST.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No videos added yet.</div>';
       playlistCountEl.textContent = '';
       return;
     }
-    playlistCountEl.textContent = PLAYLIST.length + (PLAYLIST.length === 1 ? ' video' : ' videos');
-    playlistItemsEl.innerHTML = PLAYLIST.map((v, i) => {
+
+    const visible = PLAYLIST
+      .map((v, i) => ({ v, i }))
+      .filter(({ v }) => !activeAuthorFilter || v.author === activeAuthorFilter);
+
+    if (!visible.length) {
+      playlistItemsEl.innerHTML = '<div class="empty-state">No videos from this creator yet.</div>';
+      playlistCountEl.textContent = '0 videos';
+      return;
+    }
+
+    playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' video' : ' videos');
+    playlistItemsEl.innerHTML = visible.map(({ v, i }) => {
       const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
       return `
       <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
@@ -871,6 +955,38 @@ function fetchTitles() {
       btn.addEventListener('click', function () {
         const idx = parseInt(this.getAttribute('data-index'), 10);
         playIndex(idx);
+      });
+    });
+  }
+
+  // ---------- CREATOR CHIN RENDER ----------
+  // Auto-populated from whichever authors have shown up on PLAYLIST
+  // entries so far (fetchTitles fills v.author in asynchronously, so this
+  // gets called again each time one resolves). Clicking a chip only
+  // changes the filter used by renderPlaylist above — it never touches
+  // what's currently playing.
+  function renderCreatorChin() {
+    const authors = [];
+    PLAYLIST.forEach(v => {
+      if (v.author && v.author !== 'Unknown' && !authors.includes(v.author)) authors.push(v.author);
+    });
+
+    if (!authors.length) {
+      creatorChinEl.innerHTML = '';
+      return;
+    }
+
+    const allChip = `<button class="creator-chip${!activeAuthorFilter ? ' active' : ''}" data-author="">All</button>`;
+    const authorChips = authors.map(a =>
+      `<button class="creator-chip${activeAuthorFilter === a ? ' active' : ''}" data-author="${escapeHtml(a)}">${escapeHtml(a)}</button>`
+    );
+    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('');
+
+    creatorChinEl.querySelectorAll('.creator-chip').forEach(btn => {
+      btn.addEventListener('click', function () {
+        activeAuthorFilter = this.getAttribute('data-author') || null;
+        renderCreatorChin();
+        renderPlaylist();
       });
     });
   }
@@ -1031,6 +1147,7 @@ function fetchTitles() {
       firestoreDataReady = true;
       PLAYLIST = newPlaylist;
       activeIndex = 0;
+      renderCreatorChin();
       renderPlaylist();
       fetchTitles();
       tryInitPlayer();
@@ -1041,6 +1158,12 @@ function fetchTitles() {
     PLAYLIST = newPlaylist;
     const stillThereIndex = currentId ? PLAYLIST.findIndex(v => v.id === currentId) : -1;
     activeIndex = stillThereIndex >= 0 ? stillThereIndex : 0;
+    // If the creator currently filtered on has no videos left in the
+    // updated list, drop back to "All" instead of showing an empty list.
+    if (activeAuthorFilter && !PLAYLIST.some(v => v.author === activeAuthorFilter)) {
+      activeAuthorFilter = null;
+    }
+    renderCreatorChin();
     renderPlaylist();
     fetchTitles();
 
@@ -1060,6 +1183,7 @@ function fetchTitles() {
     handlePlaylistSnapshot(DEFAULT_VIDEO_LIST);
   });
 
+  renderCreatorChin();
   renderPlaylist();
 })();
 </script>
