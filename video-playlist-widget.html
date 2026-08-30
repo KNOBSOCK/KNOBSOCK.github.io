@@ -385,9 +385,14 @@
   }
   .playlist-item:hover { background: var(--accent-dim); }
   .playlist-item.active {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    box-shadow: 0 0 8px rgba(47, 128, 237, 0.5);
+    /* Highlighted in yellow (matching the creator chin's active chip)
+       instead of blue, so the selected video stands out from the rest
+       of the blue UI the same way the active creator filter does. Kept
+       as a translucent wash rather than a solid fill so the white title
+       text stays legible over it. */
+    background: rgba(255, 221, 0, 0.18);
+    border-color: var(--accent-yellow);
+    box-shadow: 0 0 8px rgba(255, 221, 0, 0.5);
   }
 
   @media (max-width: 860px) {
@@ -416,7 +421,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    border: 2px solid var(--accent);
+    border: 2px solid var(--accent-yellow);
     border-radius: inherit;
   }
   .now-playing-badge {
@@ -424,7 +429,7 @@
     left: 4px;
     bottom: 4px;
     background: rgba(10, 58, 10, 0.85);
-    color: var(--accent);
+    color: var(--accent-yellow);
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.04em;
