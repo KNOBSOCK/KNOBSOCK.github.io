@@ -7,17 +7,10 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* Fully transparent — sits directly on the front page's starfield
-     background, not a panel of its own. Fills the EXACT box Universe
-     gives it (width and height) — this is a fixed grid cell you control
-     directly, not an auto-sizing code block. */
   html, body {
     background: transparent;
     width: 100%;
     height: 100%;
-    /* Anything that overflows this box (like the hover pop below) gets
-       clipped by the iframe boundary rather than spilling visibly, so the
-       button-item sizing below deliberately leaves room for that. */
     overflow: hidden;
   }
 
@@ -31,22 +24,11 @@
 
   .button-item {
     position: relative;
-    /* Deliberately smaller than the full box — this is the headroom the
-       hover pop below grows into. At 80% resting size, scaling by 1.2 on
-       hover lands at 96%, still safely inside the box instead of getting
-       clipped at its edge. */
     width: 80%;
     height: 80%;
     cursor: pointer;
   }
 
-  /* Slow idle "floating in space" bob — on its own wrapper so it doesn't
-     fight with the hover pop below (a CSS animation and a hover transition
-     on the very same element and property would just override each other
-     every frame). translateY is in %, so the bob scales with whatever size
-     this button actually renders at instead of a fixed pixel drift.
-     Negative animation-delay staggers this button's phase against the
-     other three so they don't all bob in lockstep. */
   .button-float {
     width: 100%;
     height: 100%;
@@ -59,11 +41,6 @@
     100% { transform: translateY(-3%); }
   }
 
-  /* Cartoonish "pop": same spring-y cubic-bezier used on the other
-     widgets' hover animations (recent articles, SoundCloud player) —
-     overshoots past 1.0 before settling, instead of a flat ease. Lives on
-     its own inner wrapper (see above) so it composes with the float
-     instead of replacing it. */
   .button-pop {
     width: 100%;
     height: 100%;
@@ -74,11 +51,6 @@
     transform: scale(1.2) rotate(-3deg);
   }
 
-  /* object-fit:contain "brute forces" the image to fit inside whatever
-     width/height this box ends up being (letterboxing rather than
-     stretching/distorting if the box's aspect ratio doesn't exactly match
-     the image's own) — width/height attributes below still help the
-     browser reserve the right space before the image finishes loading. */
   .btn-base {
     display: block;
     width: 100%;
@@ -86,18 +58,11 @@
     object-fit: contain;
   }
 
-  /* The gif sits inside a BOUNDING BOX (not just a width cap) — capping
-     both width and height and using object-fit:contain on the gif itself
-     means it always shrinks to fit whichever dimension is tighter, so it
-     can never poke out past the blob's edge regardless of the gif's own
-     aspect ratio (this is specifically what was letting the "PARTY" text
-     on this balloon gif hang outside the blob's bottom edge before).
-     Nudge this box's top/width/height if the icon still looks off. */
   .btn-icon-wrap {
     position: absolute;
     left: 50%;
     top: 28%;
-    width: 58%;
+    width: 100%;
     height: 60%;
     transform: translateX(-50%);
     display: flex;
@@ -109,8 +74,24 @@
     display: block;
     max-width: 100%;
     max-height: 100%;
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* On hover, the icon gif itself gets a fast little scale/rotate jitter
+     looped on top of it — a raw <img> gif's own frame timing can't be sped
+     up with CSS/JS (that's baked into the file), so this fakes "excited"
+     by shaking and pulsing the whole gif faster than it could animate on
+     its own. Scoped to :hover only, so it's inert the rest of the time. */
+  @keyframes iconExcited {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    20% { transform: scale(1.08) rotate(-4deg); }
+    40% { transform: scale(0.96) rotate(3deg); }
+    60% { transform: scale(1.06) rotate(-3deg); }
+    80% { transform: scale(0.98) rotate(2deg); }
+  }
+  .button-item:hover .btn-icon {
+    animation: iconExcited 0.35s ease-in-out infinite;
   }
 </style>
 </head>
