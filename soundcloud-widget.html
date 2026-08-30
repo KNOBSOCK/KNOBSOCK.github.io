@@ -102,22 +102,42 @@
     animation: playBtnBounceSpin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .now-playing-info { min-width: 0; flex: 1 1 auto; }
+
+  /* The clipping window for the title — a fixed-width strip that hides
+     whatever's scrolled outside it, like the little window on a car
+     radio's display. */
+  .track-title-wrap {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* The scrolling row itself. Sized to its content (not the wrap), so it
+     can be wider than the visible window and get pushed sideways by the
+     marquee animation below instead of wrapping. */
   .track-title {
+    display: inline-flex;
     font-size: 15px;
     font-weight: 600;
-    overflow-wrap: break-word;
   }
-  /* A thin black outline around each letter, done with layered text-shadow
-     so it works everywhere (unlike -webkit-text-stroke, which Firefox
-     doesn't support) — keeps the greenish-yellow text readable over any
-     background. */
-  .track-title,
-  .track-item .name,
-  .track-item .index {
-    text-shadow:
-      -1px -1px 0 #000, 0 -1px 0 #000, 1px -1px 0 #000,
-      -1px  0   0 #000,               1px  0   0 #000,
-      -1px  1px 0 #000, 0  1px 0 #000, 1px  1px 0 #000;
+  /* Each copy of the title text — padded on the right so that when a
+     second copy is appended back-to-back for a seamless loop, there's a
+     gap between "...end of title" and "Start of title..." instead of
+     them running together. */
+  .title-copy {
+    white-space: nowrap;
+    padding-right: 40px;
+  }
+  /* Only added by JS once the title's actually too long to fit — short
+     titles just sit still. Translating by exactly -50% works because at
+     that point .track-title holds two identical copies back-to-back, so
+     halfway through it looks exactly like the start again. */
+  .track-title.scrolling {
+    animation-name: marquee-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
   }
   /* Draggable/clickable scrub bar — a little taller hit target than the
      visible bar itself so it's easy to tap on a phone. */
@@ -231,7 +251,9 @@
     <div class="now-playing">
       <button class="play-btn" id="playBtn" disabled>&#9654;</button>
       <div class="now-playing-info">
-        <div class="track-title" id="trackTitle">Loading…</div>
+        <div class="track-title-wrap" id="trackTitleWrap">
+          <div class="track-title" id="trackTitle"><span class="title-copy">Loading…</span></div>
+        </div>
         <div class="progress-track" id="progressTrack">
           <div class="progress-track-bg"><div class="progress-fill" id="progressFill"></div></div>
         </div>
@@ -244,6 +266,7 @@
 <script>
   const iframeEl = document.getElementById("scWidget");
   const playBtn = document.getElementById("playBtn");
+  const trackTitleWrapEl = document.getElementById("trackTitleWrap");
   const trackTitleEl = document.getElementById("trackTitle");
   const progressTrackEl = document.getElementById("progressTrack");
   const progressFillEl = document.getElementById("progressFill");
@@ -254,6 +277,40 @@
   let currentIndex = 0;
   let isPlaying = false;
   let currentDuration = 0;
+
+  // Sets the now-playing title, and — only if it's too long to fit in the
+  // available width — turns on a car-radio-style scrolling ticker instead
+  // of letting it wrap mid-word. A single copy is measured first; if it
+  // overflows, a second identical copy is appended right after it and the
+  // whole row is scrolled left by exactly one copy's width on a loop, so
+  // it reads as one continuous, seamless scroll rather than a jump-cut.
+  function setTrackTitle(text) {
+    trackTitleEl.classList.remove("scrolling");
+    trackTitleEl.style.animationDuration = "";
+    trackTitleEl.innerHTML = "";
+
+    const firstCopy = document.createElement("span");
+    firstCopy.className = "title-copy";
+    firstCopy.textContent = text;
+    trackTitleEl.appendChild(firstCopy);
+
+    requestAnimationFrame(() => {
+      if (trackTitleEl.scrollWidth <= trackTitleWrapEl.clientWidth) return;
+
+      const secondCopy = document.createElement("span");
+      secondCopy.className = "title-copy";
+      secondCopy.textContent = text;
+      trackTitleEl.appendChild(secondCopy);
+
+      // Speed stays constant (px/sec) so a short title doesn't fly by and
+      // a long one doesn't crawl — duration is just how long it takes to
+      // cover one copy's width at that speed.
+      const pxPerSecond = 45;
+      const duration = (trackTitleEl.scrollWidth / 2) / pxPerSecond;
+      trackTitleEl.style.animationDuration = duration + "s";
+      trackTitleEl.classList.add("scrolling");
+    });
+  }
 
   function renderTrackList() {
     trackListEl.innerHTML = sounds.map((sound, i) => `
@@ -287,7 +344,7 @@
     });
 
     widget.getCurrentSound((sound) => {
-      if (sound) trackTitleEl.textContent = sound.title;
+      if (sound) setTrackTitle(sound.title);
     });
   });
 
@@ -296,7 +353,7 @@
     updatePlayIcon();
     widget.getCurrentSound((sound) => {
       if (!sound) return;
-      trackTitleEl.textContent = sound.title;
+      setTrackTitle(sound.title);
       currentDuration = sound.duration || 0;
       const idx = sounds.findIndex((s) => s.id === sound.id);
       if (idx !== -1) setActiveTrack(idx);
