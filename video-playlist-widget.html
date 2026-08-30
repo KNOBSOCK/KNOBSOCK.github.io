@@ -833,52 +833,6 @@ function buildPlaylist(list, previousPlaylist) {
 
 let PLAYLIST = buildPlaylist(currentVideoList);
 
-// Pull each video's real title AND creator name from YouTube's oEmbed data
-// (via noembed.com, which mirrors YouTube's oEmbed response — including
-// author_name — but reliably sends the CORS headers a browser needs;
-// calling youtube.com/oembed directly often fails silently or gets
-// blocked cross-origin). Title-fetching is skipped for entries where one
-// was typed in manually, but the author is always pulled since that's
-// what drives the creator chin below.
-function fetchTitles() {
-  PLAYLIST.forEach((v, i) => {
-    const needsTitle = !v.title;
-    if (!needsTitle && v.author) return; // nothing left to fetch for this one
-    const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
-
-    // Some desktop setups (ad blockers, browser extensions, corporate
-    // networks) silently hang a request to a third-party domain like
-    // noembed.com instead of erroring outright — no CORS error, no
-    // rejection, it just never comes back. That left the chin stuck on
-    // "Loading" forever on some machines while it worked fine on mobile
-    // (where those blockers are far less common). Aborting after 8s
-    // guarantees this always settles one way or the other.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
-      .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
-      .then(data => {
-        clearTimeout(timeoutId);
-        if (needsTitle) {
-          const t = data && typeof data.title === 'string' ? data.title.trim() : '';
-          v.title = t ? t : ('Video ' + (i + 1));
-        }
-        const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
-        v.author = a || 'Unknown';
-        renderPlaylist();
-        renderCreatorChin();
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
-        if (needsTitle) v.title = 'Video ' + (i + 1);
-        v.author = v.author || 'Unknown';
-        renderPlaylist();
-        renderCreatorChin();
-      });
-  });
-}
-
 (function () {
   const layout = document.getElementById('layout');
   const toggleBtn = document.getElementById('togglePlaylistBtn');
@@ -1055,6 +1009,59 @@ function fetchTitles() {
     return String(s).replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
+  }
+
+  // Pull each video's real title AND creator name from YouTube's oEmbed
+  // data (via noembed.com, which mirrors YouTube's oEmbed response —
+  // including author_name — but reliably sends the CORS headers a
+  // browser needs; calling youtube.com/oembed directly often fails
+  // silently or gets blocked cross-origin). Title-fetching is skipped for
+  // entries where one was typed in manually, but the author is always
+  // pulled since that's what drives the creator chin.
+  //
+  // This has to live in here (not at the top level of the script) so its
+  // calls to renderPlaylist()/renderCreatorChin() below can actually see
+  // those functions — they're declared inside this same IIFE. Calling
+  // them from an outer-scope fetchTitles() silently threw a
+  // ReferenceError on every fetch completion (visible only in the
+  // browser console), which is what left the creator chin permanently
+  // stuck showing "Loading" even though the author data itself had
+  // already been fetched successfully.
+  function fetchTitles() {
+    PLAYLIST.forEach((v, i) => {
+      const needsTitle = !v.title;
+      if (!needsTitle && v.author) return; // nothing left to fetch for this one
+      const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
+
+      // Some desktop setups (ad blockers, browser extensions, corporate
+      // networks) silently hang a request to a third-party domain like
+      // noembed.com instead of erroring outright — no CORS error, no
+      // rejection, it just never comes back. Aborting after 8s guarantees
+      // this always settles one way or the other.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
+        .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
+        .then(data => {
+          clearTimeout(timeoutId);
+          if (needsTitle) {
+            const t = data && typeof data.title === 'string' ? data.title.trim() : '';
+            v.title = t ? t : ('Video ' + (i + 1));
+          }
+          const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
+          v.author = a || 'Unknown';
+          renderPlaylist();
+          renderCreatorChin();
+        })
+        .catch(() => {
+          clearTimeout(timeoutId);
+          if (needsTitle) v.title = 'Video ' + (i + 1);
+          v.author = v.author || 'Unknown';
+          renderPlaylist();
+          renderCreatorChin();
+        });
+    });
   }
 
   function playIndex(idx) {
