@@ -8,10 +8,9 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   /* Fully transparent — sits directly on the front page's starfield
-     background, not a panel of its own. This version fills the EXACT box
-     Universe gives it (width and height), rather than sizing off the
-     image's own aspect ratio — since that box is now a fixed grid cell you
-     control directly, not an auto-sizing code block. */
+     background, not a panel of its own. Fills the EXACT box Universe
+     gives it (width and height) — this is a fixed grid cell you control
+     directly, not an auto-sizing code block. */
   html, body {
     background: transparent;
     width: 100%;
@@ -33,19 +32,20 @@
   .button-item {
     position: relative;
     /* Deliberately smaller than the full box — this is the headroom the
-       hover pop below grows into. At 88% resting size, scaling by 1.08 on
-       hover lands at ~95%, still safely inside the box instead of getting
+       hover pop below grows into. At 80% resting size, scaling by 1.2 on
+       hover lands at 96%, still safely inside the box instead of getting
        clipped at its edge. */
-    width: 88%;
-    height: 88%;
+    width: 80%;
+    height: 80%;
     cursor: pointer;
     /* Cartoonish "pop": same spring-y cubic-bezier used on the other
        widgets' hover animations (recent articles, SoundCloud player) —
-       overshoots past 1.0 before settling, instead of a flat ease. */
+       overshoots past 1.0 before settling, instead of a flat ease.
+       Bumped from 1.08 to 1.2 for a bigger jump. */
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .button-item:hover {
-    transform: scale(1.08) rotate(-2deg);
+    transform: scale(1.2) rotate(-3deg);
   }
 
   /* object-fit:contain "brute forces" the image to fit inside whatever
@@ -60,18 +60,31 @@
     object-fit: contain;
   }
 
-  /* The animated gif/icon layered on top of the blob (paste its URL
-     below). Centered over the blob; pointer-events:none so it never
-     blocks the link/hover underneath it. Nudge top/width here if it looks
-     off-center once the real gif is in. */
-  .btn-icon {
+  /* The gif sits inside a BOUNDING BOX (not just a width cap) — capping
+     both width and height and using object-fit:contain on the gif itself
+     means it always shrinks to fit whichever dimension is tighter, so it
+     can never poke out past the blob's edge regardless of the gif's own
+     aspect ratio (this is specifically what was letting the "PARTY" text
+     on this balloon gif hang outside the blob's bottom edge before).
+     Nudge this box's top/width/height if the icon still looks off. */
+  .btn-icon-wrap {
     position: absolute;
     left: 50%;
-    top: 32%;
-    width: 55%;
-    height: auto;
+    top: 28%;
+    width: 58%;
+    height: 60%;
     transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
+  }
+  .btn-icon {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
   }
 </style>
 </head>
@@ -79,9 +92,11 @@
 
   <!-- EDIT: href is the page this button should link to; the second img's
        src is the animated gif/icon that sits on top of the blob. -->
-  <a class="button-item" href="PASTE_LIVE_LINK_HERE" target="_top">
+  <a class="button-item" href="https://knobsock.net/live" target="_top">
     <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_EEB436D1-F728-456D-BEA8-1AE7ACE238BE.PNG" width="964" height="1377" alt="Live">
-    <img class="btn-icon" src="PASTE_LIVE_GIF_URL_HERE" alt="">
+    <div class="btn-icon-wrap">
+      <img class="btn-icon" src="https://knobsock.net/_assets/74933DB9-7D1F-44E3-A973-943ED2E6B522?w=750&auto=compress&fit=clip&gif-q=50" alt="">
+    </div>
   </a>
 
 </body>
