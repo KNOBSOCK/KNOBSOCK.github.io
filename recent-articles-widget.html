@@ -108,7 +108,10 @@
       aspect-ratio: 16 / 10;
       margin: 0 auto;
     }
-    .article-card .article-text { width: 100%; }
+    /* Match the image's own width (not the full card width) so the text
+       block lines up with — and centers as one unit with — the photo above
+       it, instead of spanning wider than the photo and drifting left of it. */
+    .article-card .article-text { width: 75%; }
     .article-card h3 { font-size: clamp(11px, 3.75vw, 14px); }
   }
 
