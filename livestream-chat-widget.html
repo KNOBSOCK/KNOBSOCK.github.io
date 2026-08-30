@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Live Stream + Chat</title>
+<style>
+  :root {
+    --ink: #0a3a0a;
+    --panel: rgba(10, 58, 10, 0.32);
+    --panel-2: rgba(10, 58, 10, 0.8);
+    --line: rgba(180, 255, 150, 0.6);
+    --accent: #32cd32;
+    --accent-dim: #1e6e1e;
+    --text: #ffffff;
+    --text-dim: #c9f5c9;
+    --error: #ffb3b3;
+    --font-display: Tahoma, Arial, sans-serif;
+    --font-body: Tahoma, Arial, sans-serif;
+    --stats-h: 38px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* body is the positioning context for .bg-glow below (absolute,
+     not fixed — position:fixed inside an iframe embed is a known
+     trouble spot in Safari). */
+  body {
+    position: relative;
+  }
+
+  /* ---------- BACKDROP ----------
+     A padded, rounded panel with a 50% frosted backdrop blur — same blur
+     treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
+     so 50% = 10px). */
+  .bg-glow {
+    position: absolute;
+    inset: clamp(16px, 3vw, 32px);
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: rgba(50, 205, 50, 0.45);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* ---------- PAGE LAYOUT ----------
+     Desktop: video and chat sit side by side.
+     Mobile (<= 860px wide): video sits on top, chat below. */
+  .layout {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 14px;
+    padding: clamp(18px, 3.5vw, 36px);
+    background: transparent;
+  }
+
+  .video-pane {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border-radius: 10px;
+    flex: 1 1 62%;
+    container-type: size;
+    container-name: videobox;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: var(--stats-h);
+  }
+
+  .video-frame-wrap {
+    width: min(100cqw, calc(100cqh * 16 / 9));
+    height: min(100cqh, calc(100cqw * 9 / 16));
+  }
+
+  .video-frame-wrap iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .chat-pane {
+    flex: 1 1 38%;
+    min-width: 300px;
+    display: flex;
+    container-type: size;
+    container-name: chatbox;
+  }
+
+  @media (max-width: 860px) {
+    .layout {
+      flex-direction: column;
+    }
+    .video-pane {
+      flex: 0 0 38vh;
+    }
+    .chat-pane {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+  }
+
+  /* When chat is hidden, the video takes the whole layout */
+  .layout.chat-hidden .chat-pane {
+    display: none;
+  }
+  .layout.chat-hidden .video-pane {
+    flex: 1 1 100%;
+  }
+
+  /* When chat has been popped out into its own window, show a small
+     centered placeholder in its place instead of the normal layout. */
+  .chat-pane.popped-out {
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Live stats bar (active viewers + total views). .video-pane reserves
+     a fixed strip at its bottom via padding-bottom, so the video itself
+     (sized via cqw/cqh above) never extends into this area — the bar
+     sits right below the video instead of overlaying it. */
+  .stream-stats {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--stats-h);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    background: rgba(10, 58, 10, 0.55);
+    border-top: 1px solid var(--line);
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(11px, 1.6vw, 14px);
+    white-space: nowrap;
+  }
+
+  .stat-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    flex: none;
+  }
+
+  .stat-divider {
+    color: var(--accent-dim);
+  }
+
+  .pill-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    line-height: 1;
+    border-radius: clamp(4px, 1.5cqw, 8px);
+    padding: clamp(6px, 1.8cqh, 10px) clamp(12px, 3.4cqw, 18px);
+    font-size: clamp(11px, 3cqw, 14px);
+    white-space: nowrap;
+    background: var(--accent);
+    border: 1px solid var(--accent-dim);
+    color: #ffffff;
+  }
+  .pill-btn:hover:not(:disabled) { background: var(--accent-dim); }
+  .pill-btn:active:not(:disabled) { background: var(--accent-dim); }
+  .pill-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* Wrapper for the top-right video pane action buttons (hide chat /
+     pop out chat), so they sit side by side. */
+  .video-pane-actions {
+    position: absolute;
+    top: clamp(8px, 2cqh, 14px);
+    right: clamp(8px, 2cqw, 14px);
+    z-index: 5;
+    display: flex;
+    gap: clamp(6px, 1.5cqw, 10px);
+  }
+
+  .unmute-btn {
+    position: absolute;
+    top: clamp(8px, 2cqh, 14px);
+    left: clamp(8px, 2cqw, 14px);
+    z-index: 5;
+  }
+
+  .auth-submit-btn {
+    width: 100%;
+  }
+
+  /* Overlay controls stay hidden until the video pane is hovered/focused */
+  .video-pane .unmute-btn,
+  .video-pane .video-pane-actions,
+  .video-pane .video-controls {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .video-pane:hover .unmute-btn,
+  .video-pane:hover .video-pane-actions,
+  .video-pane:hover .video-controls,
+  .video-pane:focus-within .unmute-btn,
+  .video-pane:focus-within .video-pane-actions,
+  .video-pane:focus-within .video-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
+  .video-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: var(--stats-h);
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2cqw, 12px);
+    padding: clamp(10px, 2.6cqh, 14px) clamp(10px, 3cqw, 16px);
+    background: linear-gradient(to top, rgba(10, 58, 10, 0.85), rgba(10, 58, 10, 0));
+  }
+
+  .play-pause-btn {
+    width: clamp(26px, 7.5cqw, 34px);
+    font-size: clamp(11px, 3.2cqw, 15px);
+    flex: none;
+  }
+  .play-pause-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .fullscreen-btn {
+    width: clamp(26px, 7.5cqw, 34px);
+    font-size: clamp(11px, 3.2cqw, 15px);
+    flex: none;
+  }
+
+  /* Fallback for browsers (iOS Safari) that don't support the real
+     Fullscreen API on non-video elements — simulate it with CSS. */
+  .video-pane.pseudo-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    z-index: 9999;
+  }
+
+  .scrub-range {
+    flex: 1 1 auto;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent-dim);
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .scrub-range:disabled { opacity: 0.5; cursor: default; }
+  .scrub-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: transparent;
+  }
+  .scrub-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    margin-top: -4.5px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #ffffff;
+    cursor: pointer;
+  }
+  .scrub-range::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent-dim);
+  }
+  .scrub-range::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .scrub-range::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #ffffff;
+    cursor: pointer;
+  }
+
+  .time-label {
+    flex: none;
+    font-size: clamp(9px, 2.6cqw, 12px);
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    white-space: nowrap;
+  }
+
+  /* ---------- CHAT WIDGET (scales with .chat-pane's own size) ---------- */
+  /* Fully transparent shell — only the text boxes (inputs, message
+     bubbles) get a readable background. */
+  .chat-card {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-body);
+    color: var(--text);
+  }
+
+  .chat-screen {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .who {
+    font-size: clamp(10px, 3cqw, 13px);
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .who b { color: var(--text); font-weight: 600; }
+
+  /* ---------- FLAT CIRCULAR BUTTONS (Windows 98 blue, no 3D shadow) ---------- */
+  .round-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 50%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--accent);
+    border: 1px solid var(--line);
+    color: #ffffff;
+  }
+  .round-btn:hover:not(:disabled) { background: var(--accent-dim); }
+  .round-btn:active:not(:disabled) { background: var(--accent-dim); }
+  .round-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .signout {
+    width: clamp(22px, 7cqw, 28px);
+    font-size: clamp(11px, 3.4cqw, 14px);
+    background: var(--accent-dim);
+    color: #ffffff;
+    border-color: var(--line);
+    flex: none;
+  }
+
+  /* Auth screen now fills the whole chat card and centers its content,
+     since the top tab/header bar has been removed on this screen. */
+  .auth {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 5cqh, 28px) clamp(14px, 4cqw, 24px) clamp(14px, 4cqh, 24px);
+    overflow-y: auto;
+  }
+  .auth-inner {
+    width: 100%;
+    max-width: 320px;
+  }
+  label {
+    display: block;
+    font-size: clamp(9px, 2.6cqw, 12px);
+    color: var(--text-dim);
+    margin: clamp(8px, 2.5cqh, 14px) 0 clamp(4px, 1.2cqh, 6px);
+    font-family: var(--font-display);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  /* Readable text box — flat, no inset/bevel shadow */
+  input[type="text"] {
+    width: 100%;
+    padding: clamp(8px, 2.4cqh, 11px) clamp(8px, 2.4cqw, 12px);
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: clamp(2px, 1cqw, 4px);
+    color: var(--text);
+    font-size: max(16px, 3.6cqw);
+    font-family: var(--font-body);
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .auth-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(4px, 1.4cqh, 6px);
+    margin-top: clamp(14px, 4.5cqh, 22px);
+  }
+
+  .auth-msg {
+    margin-top: clamp(8px, 2.4cqh, 12px);
+    font-size: clamp(10px, 2.8cqw, 13px);
+    color: var(--error);
+    min-height: 16px;
+  }
+
+  .messages {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: clamp(10px, 3.2cqh, 16px) clamp(10px, 3.4cqw, 18px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 2.4cqh, 12px);
+  }
+  /* flat, thin scrollbar */
+  .messages::-webkit-scrollbar { width: 8px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb {
+    background: var(--accent-dim);
+    border-radius: 4px;
+  }
+
+  .msg {
+    max-width: 82%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .msg.mine { align-self: flex-end; align-items: flex-end; }
+
+  .msg-meta {
+    font-size: clamp(8px, 2.2cqw, 11px);
+    color: var(--text-dim);
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+  }
+  .msg.mine .msg-meta { color: var(--accent); }
+
+  /* Message bubbles are the one readable "text box" in the message list */
+  .msg-bubble {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: clamp(6px, 1.8cqh, 8px) clamp(8px, 2.4cqw, 12px);
+    border-radius: clamp(6px, 2cqw, 10px);
+    font-size: clamp(11px, 2.8cqw, 14px);
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .msg.mine .msg-bubble {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #ffffff;
+  }
+
+  .empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: clamp(10px, 2.8cqw, 13px);
+    padding: 20px;
+  }
+
+  /* Shown in the chat-pane's spot on the main page while the chat is
+     popped out into its own window. */
+  .popout-placeholder {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: clamp(11px, 2.8cqw, 14px);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 2.4cqh, 12px);
+  }
+
+  .composer-bar {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--line);
+    background: transparent;
+  }
+
+  .composer-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(5px, 1.6cqh, 8px) clamp(10px, 3cqw, 14px) 0;
+  }
+
+  .composer {
+    display: flex;
+    gap: clamp(5px, 1.8cqw, 8px);
+    padding: clamp(8px, 2.8cqh, 14px);
+    flex: 0 0 auto;
+  }
+  .composer input {
+    flex: 1;
+  }
+  .send-btn {
+    width: clamp(34px, 10cqw, 42px);
+    font-size: clamp(14px, 3.8cqw, 18px);
+    flex: none;
+  }
+
+  .loading {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: clamp(10px, 2.8cqw, 13px);
+    padding: 40px 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="layout" id="layout">
+  <div class="video-pane" id="videoPane">
+    <div class="video-stage" id="videoStage">
+      <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
+      <div class="video-pane-actions">
+        <button class="pill-btn popout-chat-btn" id="popoutChatBtn" title="Pop out chat into a separate window">Pop Out Chat</button>
+        <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
+      </div>
+      <div class="video-frame-wrap">
+        <iframe
+          id="ytFrame"
+          src="https://www.youtube.com/embed/91UOOY-od88?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0"
+          allowfullscreen
+          scrolling="no"
+          allow="accelerometer *; autoplay *; clipboard-write *; encrypted-media *; gyroscope *; picture-in-picture *; web-share *;"
+          referrerpolicy="strict-origin"
+          style="pointer-events: none;">
+        </iframe>
+      </div>
+      <div class="video-controls" id="videoControls">
+        <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
+        <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
+        <span class="time-label" id="timeLabel">0:00 / 0:00</span>
+        <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
+      </div>
+    </div>
+    <div class="stream-stats" id="streamStats">
+      <span class="" aria-hidden="true"></span>
+      <span id="activeViewersCount">0</span>watching
+      <span class="stat-divider">&middot;</span>
+      <span id="totalViewsCount">0</span>views
+    </div>
+  </div>
+
+  <div class="chat-pane" id="chatPane">
+    <div class="chat-card" id="app">
+      <div class="loading">Loading chat…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var layout = document.getElementById('layout');
+  var toggleBtn = document.getElementById('toggleChatBtn');
+  toggleBtn.addEventListener('click', function () {
+    var hidden = layout.classList.toggle('chat-hidden');
+    toggleBtn.textContent = hidden ? 'Show Chat' : 'Hide Chat';
+    toggleBtn.title = hidden ? 'Show chat' : 'Hide chat';
+  });
+})();
+
+(function () {
+  // Browsers block unmuted autoplay, so the video has to start muted.
+  // The YouTube IFrame Player API attaches to the existing #ytFrame embed
+  // (it must have enablejsapi=1 in its src, which it does) so the custom
+  // controls below can drive real playback without reloading the video.
+  var unmuteBtn = document.getElementById('unmuteBtn');
+  var playPauseBtn = document.getElementById('playPauseBtn');
+  var scrubRange = document.getElementById('scrubRange');
+  var timeLabel = document.getElementById('timeLabel');
+  var fullscreenBtn = document.getElementById('fullscreenBtn');
+  var videoPane = document.getElementById('videoPane');
+  var ytPlayer = null;
+  var isDragging = false;
+  var pollTimer = null;
+
+  unmuteBtn.disabled = true;
+
+  function formatTime(sec) {
+    if (!isFinite(sec) || sec < 0) sec = 0;
+    var m = Math.floor(sec / 60);
+    var s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function updateRangeFill() {
+    var min = parseFloat(scrubRange.min) || 0;
+    var max = parseFloat(scrubRange.max) || 100;
+    var val = parseFloat(scrubRange.value) || 0;
+    var pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+    scrubRange.style.background =
+      'linear-gradient(to right, var(--accent) 0%, var(--accent) ' + pct +
+      '%, var(--accent-dim) ' + pct + '%, var(--accent-dim) 100%)';
+  }
+
+  function updatePlayPauseIcon(state) {
+    if (state === YT.PlayerState.PLAYING) {
+      playPauseBtn.innerHTML = '&#10074;&#10074;';
+      playPauseBtn.title = 'Pause';
+    } else {
+      playPauseBtn.innerHTML = '&#9658;';
+      playPauseBtn.title = 'Play';
+    }
+  }
+
+  function updateProgress() {
+    if (!ytPlayer || isDragging) return;
+    var duration = ytPlayer.getDuration();
+    var current = ytPlayer.getCurrentTime();
+    if (duration > 0) {
+      scrubRange.max = duration;
+      scrubRange.value = current;
+      updateRangeFill();
+      timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
+    }
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    ytPlayer = new YT.Player('ytFrame', {
+      events: {
+        onReady: function () {
+          unmuteBtn.disabled = false;
+          playPauseBtn.disabled = false;
+          scrubRange.disabled = false;
+          updatePlayPauseIcon(YT.PlayerState.PLAYING);
+          updateProgress();
+          if (pollTimer) clearInterval(pollTimer);
+          pollTimer = setInterval(updateProgress, 500);
+        },
+        onStateChange: function (event) {
+          updatePlayPauseIcon(event.data);
+        }
+      }
+    });
+  };
+
+  unmuteBtn.addEventListener('click', function () {
+    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
+    if (ytPlayer.isMuted()) {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(100);
+      unmuteBtn.textContent = 'Mute';
+      unmuteBtn.title = 'Mute';
+    } else {
+      ytPlayer.mute();
+      unmuteBtn.textContent = 'Unmute';
+      unmuteBtn.title = 'Unmute';
+    }
+  });
+
+  playPauseBtn.addEventListener('click', function () {
+    if (!ytPlayer) return;
+    var state = ytPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) {
+      ytPlayer.pauseVideo();
+    } else {
+      ytPlayer.playVideo();
+    }
+  });
+
+  scrubRange.addEventListener('input', function () {
+    isDragging = true;
+    updateRangeFill();
+    var duration = ytPlayer ? ytPlayer.getDuration() : parseFloat(scrubRange.max);
+    timeLabel.textContent = formatTime(parseFloat(scrubRange.value)) + ' / ' + formatTime(duration);
+  });
+
+  scrubRange.addEventListener('change', function () {
+    if (ytPlayer) ytPlayer.seekTo(parseFloat(scrubRange.value), true);
+    isDragging = false;
+  });
+
+  var usingPseudoFullscreen = false;
+
+  function hasNativeFullscreenSupport(el) {
+    return !!(
+      el.requestFullscreen ||
+      el.webkitRequestFullscreen ||
+      el.mozRequestFullScreen ||
+      el.msRequestFullscreen
+    );
+  }
+
+  function isFullscreen() {
+    return (
+      usingPseudoFullscreen ||
+      !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      )
+    );
+  }
+
+  function requestFs(el) {
+    try {
+      var result;
+      if (el.requestFullscreen) result = el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) result = el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) result = el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) result = el.msRequestFullscreen();
+      if (result && typeof result.catch === 'function') {
+        result.catch(function () { enterPseudoFullscreen(); });
+      }
+    } catch (e) {
+      enterPseudoFullscreen();
+    }
+  }
+
+  function exitFs() {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  }
+
+  function handleEscKey(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') exitPseudoFullscreen();
+  }
+
+  function enterPseudoFullscreen() {
+    videoPane.classList.add('pseudo-fullscreen');
+    usingPseudoFullscreen = true;
+    document.addEventListener('keydown', handleEscKey);
+    updateFullscreenIcon();
+  }
+
+  function exitPseudoFullscreen() {
+    videoPane.classList.remove('pseudo-fullscreen');
+    usingPseudoFullscreen = false;
+    document.removeEventListener('keydown', handleEscKey);
+    updateFullscreenIcon();
+  }
+
+  function updateFullscreenIcon() {
+    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+
+  fullscreenBtn.addEventListener('click', function () {
+    if (isFullscreen()) {
+      if (usingPseudoFullscreen) exitPseudoFullscreen();
+      else exitFs();
+      return;
+    }
+    if (hasNativeFullscreenSupport(videoPane)) {
+      requestFs(videoPane);
+    } else {
+      enterPseudoFullscreen();
+    }
+  });
+
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(
+    function (evt) {
+      document.addEventListener(evt, updateFullscreenIcon);
+    }
+  );
+})();
+</script>
+
+<!-- ---------- CHAT POP-OUT WINDOW ----------
+     Lets the chat widget be popped into its own separate browser window
+     (handy for screen-capturing/streaming just the chat as its own
+     source). It works by literally moving the #app DOM node into a new
+     window's document (adopting it), so all of the chat script's event
+     listeners and its live Firestore subscription keep working exactly
+     as before — nothing about the chat logic itself is touched. -->
+<script>
+(function () {
+  var popoutBtn = document.getElementById('popoutChatBtn');
+  var chatPane = document.getElementById('chatPane');
+  var appEl = document.getElementById('app');
+  var popoutWindow = null;
+  var closingFromHere = false;
+
+  function getPageStyles() {
+    var styleEl = document.querySelector('style');
+    return styleEl ? styleEl.textContent : '';
+  }
+
+  function buildPopoutHtml() {
+    return '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>Chat</title><style>' + getPageStyles() +
+      // Black base layer on the window itself, with a lime-green glow
+      // layer sitting on top of it — same technique as the main page's
+      // .layout / .layout::before pair: a padded, rounded box
+      // (.popout-bg) whose ::before is an oversized, blurred color
+      // layer, so the tint reads as a soft glow instead of a flat,
+      // edge-to-edge block.
+      'html, body { margin:0; width:100%; height:100%; background: #000000; overflow: hidden; }' +
+      '.popout-bg { position: fixed; inset: clamp(8px, 3vw, 24px); border-radius: clamp(10px, 2.5vw, 28px); z-index: 0; }' +
+      '.popout-bg::before { content: ""; position: absolute; inset: -60px; background: rgba(50, 205, 50, 0.5); filter: blur(50px); border-radius: inherit; z-index: -1; }' +
+      '.chat-pane { position: relative; z-index: 1; width:100%; height:100%; min-width:0; }' +
+      '</style></head><body><div class="popout-bg"></div></body></html>';
+  }
+
+  function returnChatToMain() {
+    if (!popoutWindow) return;
+    closingFromHere = true;
+    var win = popoutWindow;
+    popoutWindow = null;
+
+    chatPane.classList.remove('popped-out');
+    chatPane.innerHTML = '';
+    chatPane.appendChild(appEl);
+
+    popoutBtn.textContent = 'Pop Out Chat';
+    popoutBtn.title = 'Pop out chat into a separate window';
+
+    if (win && !win.closed) win.close();
+    closingFromHere = false;
+  }
+
+  function openPopout() {
+    if (popoutWindow && !popoutWindow.closed) {
+      popoutWindow.focus();
+      return;
+    }
+
+    var popW = 400;
+    var popH = 650;
+    var screenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX || 0;
+    var screenTop = window.screenTop !== undefined ? window.screenTop : window.screenY || 0;
+    var screenW = window.screen.availWidth || popW;
+    var screenH = window.screen.availHeight || popH;
+    var popLeft = Math.max(0, Math.round(screenLeft + (screenW - popW) / 2));
+    var popTop = Math.max(0, Math.round(screenTop + (screenH - popH) / 2));
+    // Explicit width/height/left/top (plus the no-chrome flags below)
+    // signal to the browser that this is a small popup window, not a
+    // maximized/fullscreen one.
+    var features = 'width=' + popW + ',height=' + popH +
+      ',left=' + popLeft + ',top=' + popTop +
+      ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no';
+    var win = window.open('', 'chatPopoutWindow', features);
+    if (win) {
+      try {
+        win.resizeTo(popW, popH);
+        win.moveTo(popLeft, popTop);
+      } catch (e) {}
+    }
+    if (!win) {
+      alert('Your browser blocked the pop-out window. Please allow pop-ups for this page and try again.');
+      return;
+    }
+
+    var doc = win.document;
+    doc.open();
+    doc.write(buildPopoutHtml());
+    doc.close();
+
+    var wrapper = doc.createElement('div');
+    wrapper.className = 'chat-pane';
+    wrapper.id = 'chatPane';
+    doc.body.appendChild(wrapper);
+    wrapper.appendChild(appEl); // moves (adopts) the live chat node as-is
+
+    popoutWindow = win;
+
+    chatPane.classList.add('popped-out');
+    chatPane.innerHTML =
+      '<div class="popout-placeholder">Chat is popped out into a separate window.<br>' +
+      '<button class="pill-btn" id="returnChatBtn">Return Chat Here</button></div>';
+    var returnBtn = document.getElementById('returnChatBtn');
+    if (returnBtn) returnBtn.addEventListener('click', returnChatToMain);
+
+    popoutBtn.textContent = 'Return Chat';
+    popoutBtn.title = 'Bring chat back to this page';
+
+    win.addEventListener('unload', function () {
+      if (!closingFromHere) returnChatToMain();
+    });
+  }
+
+  popoutBtn.addEventListener('click', function () {
+    if (popoutWindow && !popoutWindow.closed) {
+      returnChatToMain();
+    } else {
+      openPopout();
+    }
+  });
+
+  // If the main page/tab closes while the chat is popped out, close the
+  // pop-out window too instead of leaving it orphaned.
+  window.addEventListener('beforeunload', function () {
+    if (popoutWindow && !popoutWindow.closed) {
+      try { popoutWindow.close(); } catch (e) {}
+    }
+  });
+})();
+</script>
+
+<!-- YouTube IFrame Player API (lets the Unmute button control the existing embed) -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<!-- Firebase SDK (compat build, no build tools needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+(function () {
+  const app = document.getElementById('app');
+
+  // Looks up an element by id within the chat widget itself, instead of
+  // `document.getElementById`. Plain `document.getElementById` always
+  // searches the main page's document, which breaks once the widget is
+  // popped out into a separate window (its elements live in that
+  // window's document at that point). Searching from `app` works either
+  // way, since `app` moves along with the widget.
+  function $(id) {
+    return app.querySelector('#' + id);
+  }
+
+  // ====================================================================
+  // Your Firebase config
+  // ====================================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410",
+    measurementId: "G-RQF7G6VD1L"
+  };
+  // ====================================================================
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const usernamesRef = db.collection('chat_usernames');
+  const messagesRef = db.collection('chat_messages');
+
+  let session = null; // { username }
+  let unsubscribeMessages = null;
+
+  async function isUsernameTaken(key) {
+    const doc = await usernamesRef.doc(key).get();
+    return doc.exists;
+  }
+
+  async function claimUsername(username, key) {
+    await usernamesRef.doc(key).set({
+      username: username,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  async function sendMessageToFirestore(entry) {
+    await messagesRef.add({
+      username: entry.username,
+      text: entry.text,
+      ts: Date.now()
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  // ---------- SLUR / PROFANITY FILTER ----------
+  // Words are censored wherever they appear (own word boundaries), case-insensitive,
+  // and tolerant of a few common letter substitutions (0 for o, 1 for i, etc).
+  const CENSORED_WORDS = [
+    'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
+    'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
+    'towelhead', 'raghead', 'cunt'
+  ];
+
+  function buildCensorRegex(word) {
+    // Map each letter to itself plus common leetspeak substitutes.
+    const subs = {
+      a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
+      s: '[s$5]', g: '[g9]', t: '[t7]'
+    };
+    const pattern = word
+      .split('')
+      .map(ch => subs[ch] || ch)
+      .join('[\\W_]*'); // allow stray symbols/spaces slipped between letters
+    return new RegExp('\\b' + pattern + '\\b', 'gi');
+  }
+
+  const CENSOR_REGEXES = CENSORED_WORDS.map(buildCensorRegex);
+
+  function censorText(text) {
+    let result = text;
+    CENSOR_REGEXES.forEach(re => {
+      result = result.replace(re, match => '*'.repeat(match.length));
+    });
+    return result;
+  }
+
+  function timeLabel(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ---------- RENDER: AUTH ----------
+  // No top tab/header bar here — the whole card centers the join form.
+  function renderAuth(errorMsg) {
+    app.innerHTML = `
+      <div class="chat-screen">
+        <div class="auth">
+          <div class="auth-inner">
+            <label for="username">what are you gonna call yourself?</label>
+            <input type="text" id="username" autocomplete="username" placeholder="e.g. gunoguap" />
+            <div class="auth-actions">
+              <button class="pill-btn auth-submit-btn" id="authSubmit" title="Join Chat">Join Chat</button>
+            </div>
+            <div class="auth-msg">${errorMsg ? escapeHtml(errorMsg) : ''}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    $('authSubmit').addEventListener('click', handleAuthSubmit);
+    $('username').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAuthSubmit();
+    });
+    $('username').focus();
+  }
+
+  async function handleAuthSubmit() {
+    const username = $('username').value.trim();
+    const btn = $('authSubmit');
+
+    if (!username) {
+      renderAuth('Enter a username.');
+      return;
+    }
+    if (username.length > 24 || /\s/.test(username)) {
+      renderAuth('Username must be 24 chars or fewer, no spaces.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Joining…';
+
+    try {
+      const key = username.toLowerCase();
+      const taken = await isUsernameTaken(key);
+      if (taken) {
+        renderAuth('That username is taken. Try another one.');
+        return;
+      }
+      await claimUsername(username, key);
+      session = { username };
+      startChat();
+    } catch (e) {
+      console.error(e);
+      renderAuth('Something went wrong. Please try again.');
+    }
+  }
+
+  // ---------- RENDER: CHAT ----------
+  function renderChatShell() {
+    app.innerHTML = `
+      <div class="chat-screen">
+        <div class="messages" id="messages">
+          <div class="empty-state">Loading messages…</div>
+        </div>
+        <div class="composer-bar">
+          <div class="composer-status">
+            <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
+            <button class="round-btn signout" id="signoutBtn" title="Sign out">&times;</button>
+          </div>
+          <div class="composer">
+            <input type="text" id="msgInput" placeholder="Type a message…" maxlength="500" />
+            <button class="round-btn send-btn" id="sendBtn" title="Send">&#9658;</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    $('signoutBtn').addEventListener('click', () => {
+      session = null;
+      if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+      renderAuth();
+    });
+
+    $('sendBtn').addEventListener('click', sendMessage);
+    $('msgInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  }
+
+  function renderMessages(msgs) {
+    const container = $('messages');
+    if (!container) return;
+    if (!msgs.length) {
+      container.innerHTML = `<div class="empty-state">No messages yet. Say hello 👋</div>`;
+      return;
+    }
+
+    container.innerHTML = msgs.map(m => {
+      const mine = m.username === session.username;
+      return `
+        <div class="msg ${mine ? 'mine' : ''}">
+          <div class="msg-meta">${escapeHtml(m.username)} · ${timeLabel(m.ts)}</div>
+          <div class="msg-bubble">${escapeHtml(censorText(m.text))}</div>
+        </div>
+      `;
+    }).join('');
+
+    container.scrollTop = container.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const input = $('msgInput');
+    const text = censorText(input.value.trim());
+    if (!text) return;
+    input.value = '';
+    input.disabled = true;
+
+    try {
+      await sendMessageToFirestore({
+        username: session.username,
+        text: text
+      });
+    } catch (e) {
+      console.error(e);
+      input.value = text;
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  function startChat() {
+    renderChatShell();
+
+    if (unsubscribeMessages) unsubscribeMessages();
+
+    unsubscribeMessages = messagesRef
+      .orderBy('ts', 'asc')
+      .limitToLast(200)
+      .onSnapshot(
+        (snapshot) => {
+          const msgs = snapshot.docs.map(doc => doc.data());
+          renderMessages(msgs);
+        },
+        (err) => {
+          console.error(err);
+          const container = $('messages');
+          if (container) {
+            container.innerHTML = `<div class="empty-state">Couldn't load messages. Check your Firebase config and Firestore rules.</div>`;
+          }
+        }
+      );
+
+    $('msgInput').focus();
+  }
+
+  // ---------- INIT ----------
+  renderAuth();
+})();
+</script>
+
+<!-- ---------- LIVE STATS (active viewers + total views) ----------
+     Reuses the same Firebase app/project the chat above already
+     initialized — no separate config needed. "Views" increments once
+     per browser tab/session. "Watching now" is a lightweight presence
+     system: each open tab writes a heartbeat every 15s, and every
+     client independently counts how many heartbeats are still fresh
+     to get a live concurrent-viewer count, with no extra backend. -->
+<script>
+(function () {
+  const activeEl = document.getElementById('activeViewersCount');
+  const totalEl = document.getElementById('totalViewsCount');
+  if (!activeEl || !totalEl) return;
+
+  const db = firebase.firestore(); // reuses the app the chat widget already initialized
+  const statsRef = db.collection('chat_stats').doc('overview');
+  const presenceId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+  const presenceRef = db.collection('chat_presence').doc(presenceId);
+
+  const HEARTBEAT_MS = 15000;      // how often this tab refreshes its own presence
+  const ACTIVE_WINDOW_MS = 40000;  // a presence doc counts as "active" if newer than this
+  const STALE_CLEANUP_MS = 120000; // opportunistically delete very old presence docs
+
+  // ---- total view count: count this tab once, then just listen live ----
+  if (!sessionStorage.getItem('streamViewCounted')) {
+    sessionStorage.setItem('streamViewCounted', '1');
+    statsRef
+      .set({ totalViews: firebase.firestore.FieldValue.increment(1) }, { merge: true })
+      .catch((e) => console.error(e));
+  }
+
+  statsRef.onSnapshot(
+    (doc) => {
+      const data = doc.data();
+      totalEl.textContent = data && typeof data.totalViews === 'number' ? data.totalViews : 0;
+    },
+    (err) => console.error(err)
+  );
+
+  // ---- active viewers: heartbeat presence, counted client-side ----
+  let presenceById = {};
+
+  function writeHeartbeat() {
+    presenceRef.set({ lastSeen: Date.now() }).catch((e) => console.error(e));
+  }
+
+  function recomputeActiveCount() {
+    const now = Date.now();
+    let count = 0;
+    Object.keys(presenceById).forEach((id) => {
+      if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
+    });
+    activeEl.textContent = count;
+  }
+
+  db.collection('chat_presence').onSnapshot(
+    (snapshot) => {
+      const next = {};
+      const now = Date.now();
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const lastSeen = data && typeof data.lastSeen === 'number' ? data.lastSeen : 0;
+        next[doc.id] = lastSeen;
+        // Opportunistic cleanup so this collection doesn't grow forever —
+        // any client that notices a very stale doc removes it.
+        if (now - lastSeen > STALE_CLEANUP_MS) {
+          doc.ref.delete().catch(() => {});
+        }
+      });
+      presenceById = next;
+      recomputeActiveCount();
+    },
+    (err) => console.error(err)
+  );
+
+  writeHeartbeat();
+  setInterval(writeHeartbeat, HEARTBEAT_MS);
+  setInterval(recomputeActiveCount, 5000);
+
+  function leavePresence() {
+    presenceRef.delete().catch(() => {});
+  }
+  window.addEventListener('pagehide', leavePresence);
+  window.addEventListener('beforeunload', leavePresence);
+})();
+</script>
+
+</body>
+</html>
