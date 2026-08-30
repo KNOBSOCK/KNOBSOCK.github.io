@@ -32,15 +32,14 @@
   body { position: relative; }
 
   /* ---------- BACKDROP ----------
-     A padded, rounded panel with a soft glow via box-shadow, plus a 50%
-     frosted backdrop blur — same blur treatment as the truth zone page's
-     card (our 1-100 scale: 100% = 20px, so 50% = 10px). */
+     A padded, rounded panel with a 50% frosted backdrop blur — same blur
+     treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
+     so 50% = 10px). */
   .bg-glow {
     position: absolute;
     inset: clamp(16px, 3vw, 32px);
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(47, 128, 237, 0.45);
-    box-shadow: 0 0 40px rgba(47, 128, 237, 0.35);
     backdrop-filter: blur(10px) saturate(150%);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
     z-index: -1;
