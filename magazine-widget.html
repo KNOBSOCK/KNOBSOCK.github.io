@@ -301,7 +301,10 @@
     .page-wrapper {
       flex: none;
       height: 700px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
+    .page-wrapper::-webkit-scrollbar { display: none; }
   }
 
   /* Mobile only: pull everything up tight against the top of the box (near-zero
