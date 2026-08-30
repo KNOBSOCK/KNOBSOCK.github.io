@@ -71,22 +71,6 @@
   @media (min-width: 768px) {
     .page-wrapper { margin: 0 50px; }
   }
-  /* Mobile only: hide the scrollbar, and pull everything up tight against the
-     top of the box (minimal top padding on the header/wrapper/headline/article)
-     while trimming the bottom padding too, so the last line of content sits
-     right at the box edge instead of a full whitespace gutter — a visual cue
-     that there's more to scroll to, without touching the desktop spacing. */
-  @media (max-width: 767px) {
-    .site-header { padding: 2px 0 4px; }
-    .page-wrapper {
-      padding: 4px 36px 4px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .page-wrapper::-webkit-scrollbar { display: none; }
-    .headline { padding: 8px 0 0; margin: 0 0 10px; }
-    .article-view { padding: 8px 0; }
-  }
 
   /* ---------- HOMEPAGE VIEW ---------- */
   /* Caps the overall content width so the two-column layout below stays
@@ -295,6 +279,26 @@
     cursor: pointer;
   }
   .back-btn:hover { background: rgba(255,255,255,0.1); }
+
+  /* Mobile only: pull everything up tight against the top of the box (near-zero
+     top padding on the header/wrapper/headline/article) and trim the bottom
+     padding too, so the last line of content sits right at the box edge
+     instead of a full whitespace gutter — a visual cue that there's more to
+     scroll to. Placed last in the stylesheet (not just inside a media query
+     earlier in the file) so these overrides win the cascade against the base
+     .headline / .article-view rules above, which share the same specificity
+     and would otherwise take priority just by coming later in source order. */
+  @media (max-width: 767px) {
+    .site-header { padding: 0 0 2px; }
+    .page-wrapper {
+      padding: 2px 36px 2px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .page-wrapper::-webkit-scrollbar { display: none; }
+    .headline { padding: 4px 0 0; margin: 0 0 10px; }
+    .article-view { padding: 4px 0; }
+  }
 </style>
 </head>
 <body>
