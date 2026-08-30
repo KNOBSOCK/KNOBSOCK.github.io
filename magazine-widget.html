@@ -54,7 +54,7 @@
 
   /* Solid-ish blue card background, starting right below the logo header (which
      stays transparent above it) — rounded corners like the reference swatch,
-     with a 50% frosted blur (our 1-100 scale: 100% = 20px, so 50% = 10px)
+     with an 80% frosted blur (our 1-100 scale: 100% = 20px, so 80% = 16px)
      blurring whatever's behind the widget beneath that blue tint. */
   .page-wrapper {
     width: auto;
@@ -72,8 +72,8 @@
     flex: 1 1 auto;
     min-height: 0;
     background: rgba(0, 19, 156, 0.5);
-    backdrop-filter: blur(10px) saturate(150%);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
     border-radius: 38px;
   }
   @media (min-width: 768px) {
