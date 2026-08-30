@@ -368,7 +368,13 @@
   .playlist-items::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
   @media (max-width: 860px) {
-    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    /* align-items: flex-start stops each card from being stretched to
+       the row's full height (flex's default "stretch") — without it, a
+       card's own background/border extended far past its actual
+       thumbnail+text content, since the row itself was as tall as
+       whatever leftover vertical space existed, not just as tall as one
+       card needs to be. */
+    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: flex-start; }
   }
 
   .playlist-item {
@@ -728,16 +734,22 @@
   }
 
   .sc-section {
+    /* No fixed height — sized to whatever .sc-card actually needs, so
+       there's no leftover empty space stretching the panel taller than
+       its one row of controls plus one row of track tabs. */
     flex: 0 0 auto;
-    height: clamp(140px, 24vh, 220px);
   }
 
   .sc-card {
-    height: 100%;
+    /* Capped and centered so this stays a compact, contained control
+       strip instead of stretching edge-to-edge on a wide desktop screen
+       — the empty space on either side reads as padding around it. */
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 1.5vw, 10px);
-    min-height: 0;
     overflow: hidden;
     background: var(--panel);
     border: 1px solid var(--line);
@@ -772,6 +784,45 @@
     display: flex;
     align-items: center;
     gap: clamp(8px, 2vw, 12px);
+  }
+
+  /* Cover art, pulled live from SoundCloud for whatever's currently
+     playing — see setScNowPlaying() in the script block near the bottom
+     of this file. Clicking it opens the track's real SoundCloud page. */
+  .sc-artwork-link {
+    display: block;
+    flex: none;
+    width: clamp(40px, 9vw, 56px);
+    height: clamp(40px, 9vw, 56px);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--panel-2);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+    /* Same spring-y "pop" used for the video controls' round buttons —
+       overshoots past 1.0 before settling, giving a little jump instead
+       of a flat scale. */
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .sc-artwork-link:hover,
+  .sc-artwork-link:focus-visible {
+    transform: scale(1.12) translateY(-2px);
+  }
+  /* Added/removed by JS on click so it replays every time instead of
+     only once — same technique as the play button's bounce-spin on the
+     homepage Listen widget. */
+  .sc-artwork-link.jump {
+    animation: sc-artwork-jump 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes sc-artwork-jump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.22) translateY(-6px); }
+    100% { transform: scale(1); }
+  }
+  .sc-artwork {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   .sc-play-btn {
@@ -827,8 +878,10 @@
   }
 
   .sc-track-list {
-    flex: 1 1 auto;
-    min-height: 0;
+    /* Natural height (not flex:1 growing to fill leftover room) — it's a
+       single row that only ever scrolls horizontally, so there's never
+       a reason for it to claim more vertical space than one row needs. */
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: clamp(6px, 1.5vw, 8px);
@@ -839,6 +892,10 @@
   }
   .sc-track-list::-webkit-scrollbar { display: none; }
 
+  /* Deliberately NOT styled like .creator-chip (rounded pill, solid fill
+     when active) — these pick a track, not a creator, so they read as
+     underline-style tabs instead: flat, square-ish, no background fill,
+     just a bottom bar that lights up gold when that track is selected. */
   .sc-track-item {
     flex: none;
     max-width: 55vw;
@@ -846,22 +903,23 @@
     appearance: none;
     cursor: pointer;
     font-family: var(--font-body);
-    font-weight: 700;
+    font-weight: 600;
     font-size: clamp(10px, 2.4vw, 12px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    border-radius: 999px;
-    padding: clamp(6px, 1.4vw, 8px) clamp(12px, 2.6vw, 16px);
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    color: var(--text);
+    border-radius: 4px 4px 0 0;
+    padding: clamp(6px, 1.4vw, 8px) clamp(10px, 2.2vw, 14px);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid var(--line);
+    color: var(--text-dim);
   }
-  .sc-track-item:hover { background: var(--accent-dim); color: #ffffff; }
+  .sc-track-item:hover { color: var(--text); border-bottom-color: var(--accent-dim); }
   .sc-track-item.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--ink);
+    background: rgba(242, 183, 5, 0.12);
+    border-bottom-color: var(--accent);
+    color: var(--accent);
   }
 </style>
 </head>
@@ -935,6 +993,9 @@
         <span class="sc-count" id="scCount"></span>
       </div>
       <div class="sc-now-playing">
+        <a class="sc-artwork-link" id="scArtworkLink" href="#" target="_blank" rel="noopener noreferrer" title="Open on SoundCloud">
+          <img class="sc-artwork" id="scArtwork" src="" alt="" />
+        </a>
         <button class="round-btn sc-play-btn" id="scPlayBtn" title="Play" disabled>&#9658;</button>
         <div class="sc-info">
           <div class="sc-title-wrap" id="scTitleWrap">
@@ -1072,6 +1133,15 @@ let activeAuthorFilter = null;
 // IIFE, further down) always has something safe to call even before that
 // section finishes initializing.
 let refreshScTrackList = function () {};
+
+// Mutual exclusivity between the YouTube video and the SoundCloud
+// player — unmuting the video pauses whatever SoundCloud track is
+// playing, and starting a SoundCloud track pauses + re-mutes the video,
+// so the two never play audio at the same time. Same no-op-until-ready
+// bridging pattern as refreshScTrackList above: each gets replaced with
+// the real implementation once that section's own IIFE runs.
+let pauseScTrack = function () {};
+let pauseAndMuteVideo = function () {};
 
 function resolveAuthorDisplay(rawAuthor) {
   if (!rawAuthor) return rawAuthor;
@@ -1424,12 +1494,26 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       ytPlayer.setVolume(100);
       unmuteBtn.textContent = 'Mute';
       unmuteBtn.title = 'Mute';
+      // Only one of the video/SoundCloud should have audio at a time —
+      // unmuting the video pauses whatever's playing on SoundCloud.
+      pauseScTrack();
     } else {
       ytPlayer.mute();
       unmuteBtn.textContent = 'Unmute';
       unmuteBtn.title = 'Unmute';
     }
   });
+
+  // Called from the SoundCloud section's own IIFE (via the top-level
+  // pauseAndMuteVideo bridge above) whenever a track starts playing
+  // there, so the video's audio never overlaps with it.
+  pauseAndMuteVideo = function () {
+    if (!ytPlayer) return;
+    if (typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+    if (typeof ytPlayer.mute === 'function') ytPlayer.mute();
+    unmuteBtn.textContent = 'Unmute';
+    unmuteBtn.title = 'Unmute';
+  };
 
   playPauseBtn.addEventListener('click', function () {
     if (!ytPlayer) return;
@@ -1879,6 +1963,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 // ============================================================
 (function () {
   const scFrame = document.getElementById('scWidgetFrame');
+  const scArtworkLinkEl = document.getElementById('scArtworkLink');
+  const scArtworkImgEl = document.getElementById('scArtwork');
   const scPlayBtn = document.getElementById('scPlayBtn');
   const scTitleWrapEl = document.getElementById('scTitleWrap');
   const scTitleEl = document.getElementById('scTitle');
@@ -1910,6 +1996,24 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   function scMatchesFilter(sound) {
     if (!activeAuthorFilter) return true;
     return getScAuthor(sound).toLowerCase() === activeAuthorFilter.toLowerCase();
+  }
+
+  // SoundCloud's default artwork_url points at a small "-large" (100x100)
+  // image — swapping in "-t500x500" gets a much sharper version at the
+  // same URL. Falls back to the uploader's avatar for tracks with no
+  // artwork of their own (SoundCloud does this too on the real site).
+  function getScArtworkUrl(sound) {
+    const raw = (sound && (sound.artwork_url || (sound.user && sound.user.avatar_url))) || '';
+    return raw ? raw.replace('-large.jpg', '-t500x500.jpg') : '';
+  }
+
+  // Updates the title (with marquee), cover art, and the art's link to
+  // the track's real SoundCloud page — called every time the current
+  // sound changes (first load and every track change after).
+  function setScNowPlaying(sound) {
+    setScTitle(sound.title);
+    scArtworkImgEl.src = getScArtworkUrl(sound);
+    scArtworkLinkEl.href = sound.permalink_url || '#';
   }
 
   // Same car-radio marquee technique as the homepage Listen widget: a
@@ -1993,16 +2097,19 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       renderScTrackList();
     });
     scWidget.getCurrentSound(function (sound) {
-      if (sound) setScTitle(sound.title);
+      if (sound) setScNowPlaying(sound);
     });
   });
 
   scWidget.bind(SC.Widget.Events.PLAY, function () {
     scIsPlaying = true;
     updateScPlayIcon();
+    // Only one of the video/SoundCloud should have audio at a time —
+    // starting a track here pauses (and re-mutes) the video.
+    pauseAndMuteVideo();
     scWidget.getCurrentSound(function (sound) {
       if (!sound) return;
-      setScTitle(sound.title);
+      setScNowPlaying(sound);
       scDuration = sound.duration || 0;
       const idx = scSounds.findIndex(function (s) { return s.id === sound.id; });
       if (idx !== -1) { scCurrentIndex = idx; renderScTrackList(); }
@@ -2022,8 +2129,31 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     scProgressFillEl.style.width = '0%';
   });
 
+  // Explicit play()/pause() based on our own tracked scIsPlaying, rather
+  // than the widget's toggle() — toggle() is unreliable on the very
+  // first click before any play/pause state has been established with
+  // the widget yet, which is what made this need two clicks to actually
+  // start playing.
   scPlayBtn.addEventListener('click', function () {
-    scWidget.toggle();
+    if (scIsPlaying) scWidget.pause();
+    else scWidget.play();
+  });
+
+  scArtworkLinkEl.addEventListener('click', function (e) {
+    // Nothing's loaded yet — don't navigate to a bare "#".
+    if (!scArtworkLinkEl.getAttribute('href') || scArtworkLinkEl.getAttribute('href') === '#') {
+      e.preventDefault();
+      return;
+    }
+    // Same restart-the-animation trick as the homepage Listen widget's
+    // play button: remove the class, force a reflow, then re-add it so
+    // it replays even if clicked again before the last jump finished.
+    scArtworkLinkEl.classList.remove('jump');
+    void scArtworkLinkEl.offsetWidth;
+    scArtworkLinkEl.classList.add('jump');
+  });
+  scArtworkLinkEl.addEventListener('animationend', function (e) {
+    if (e.animationName === 'sc-artwork-jump') scArtworkLinkEl.classList.remove('jump');
   });
 
   scProgressTrackEl.addEventListener('click', function (e) {
@@ -2040,6 +2170,12 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // this file's own history already hit with fetchTitles()), so the
   // handoff goes through the shared top-level variable instead.
   refreshScTrackList = renderScTrackList;
+
+  // Lets the video player's unmute button (a different IIFE) pause this
+  // section's playback, same bridging pattern as refreshScTrackList.
+  pauseScTrack = function () {
+    scWidget.pause();
+  };
 })();
 </script>
 
