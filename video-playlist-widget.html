@@ -965,24 +965,33 @@ function fetchTitles() {
   // gets called again each time one resolves). Clicking a chip only
   // changes the filter used by renderPlaylist above — it never touches
   // what's currently playing.
+  //
+  // The "All" chip always renders immediately, even before any author has
+  // loaded — a panel that only appears once the network fetch succeeds is
+  // a panel that can silently never appear at all (one failed request and
+  // there's nothing on screen to show something's wrong). "Unknown" is
+  // kept as a real, clickable chip too instead of being hidden, so a
+  // failed lookup still leaves a working filter rather than making the
+  // whole feature vanish.
   function renderCreatorChin() {
     const authors = [];
+    let stillLoading = false;
     PLAYLIST.forEach(v => {
-      if (v.author && v.author !== 'Unknown' && !authors.includes(v.author)) authors.push(v.author);
+      if (v.author === null) { stillLoading = true; return; }
+      if (!authors.includes(v.author)) authors.push(v.author);
     });
 
-    if (!authors.length) {
-      creatorChinEl.innerHTML = '';
-      return;
-    }
-
     const allChip = `<button class="creator-chip${!activeAuthorFilter ? ' active' : ''}" data-author="">All</button>`;
-    const authorChips = authors.map(a =>
-      `<button class="creator-chip${activeAuthorFilter === a ? ' active' : ''}" data-author="${escapeHtml(a)}">${escapeHtml(a)}</button>`
-    );
-    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('');
+    const authorChips = authors.map(a => {
+      const label = a === 'Unknown' ? 'Unknown Channel' : a;
+      return `<button class="creator-chip${activeAuthorFilter === a ? ' active' : ''}" data-author="${escapeHtml(a)}">${escapeHtml(label)}</button>`;
+    });
+    const loadingChip = stillLoading
+      ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading creators…</span>'
+      : '';
+    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('') + loadingChip;
 
-    creatorChinEl.querySelectorAll('.creator-chip').forEach(btn => {
+    creatorChinEl.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
       btn.addEventListener('click', function () {
         activeAuthorFilter = this.getAttribute('data-author') || null;
         renderCreatorChin();
