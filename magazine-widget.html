@@ -283,6 +283,27 @@
   }
   .back-btn:hover { background: rgba(255,255,255,0.1); }
 
+  /* Desktop only: this code block is set to Universe's "auto" sizing (not a
+     fixed "ratio" box like mobile appears to use), meaning Universe measures
+     our page's natural content height and resizes the iframe to match —
+     overflow:hidden above only hides the visual overflow, it doesn't change
+     that natural layout height, so a short homepage produces a small iframe
+     and a long article produces a huge one, and .page-wrapper's own internal
+     scrolling never gets a chance to kick in. Giving .page-wrapper a fixed
+     pixel height (not a %/vh-based one) here makes its own rendered size
+     content-independent, so the whole page's natural height — and therefore
+     the auto-resized iframe — stays the same whether it's showing the
+     homepage or an article, with any extra content scrolling inside instead
+     of growing the iframe. html/body switch to height:auto so nothing gets
+     clipped if this fixed box ends up taller than 100dvh happened to report. */
+  @media (min-width: 768px) {
+    html, body { height: auto; min-height: 0; overflow: visible; }
+    .page-wrapper {
+      flex: none;
+      height: 700px;
+    }
+  }
+
   /* Mobile only: pull everything up tight against the top of the box (near-zero
      top padding on the header/wrapper/headline/article) and trim the bottom
      padding too, so the last line of content sits right at the box edge
