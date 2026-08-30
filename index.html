@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=windows-1252">
@@ -119,8 +120,8 @@
           alt="camera" title="camera"></a>
       <div style="text-align: center;">
         <style>
-body {
-  background-image: url('https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/c9ee34bdeff5c1dc155f18d1d5f773bf.gif');
+html, body {
+  background: transparent;
 }
 </style><style>div.at-container {
   display: flex;
@@ -836,5 +837,84 @@ cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam157
         margin: -340px 0 0 -210px;
     }
 </style>
+
+<style>
+  /* Scroll-triggered "fly in through space" reveal, applied broadly by the
+     script below to every heading/paragraph/image on the page rather than
+     by hand-tagging elements throughout the markup above — this page's
+     tag nesting is deep and fragile enough that touching it by hand
+     everywhere risks breaking something. Once an element has flown in it
+     stays revealed (see the IntersectionObserver below, which stops
+     watching an element the moment it's shown), so scrolling back up
+     never re-hides anything — by the time you've scrolled to the bottom
+     the whole page stays "unfolded". */
+  .fly-in {
+    opacity: 0;
+    transform: translate3d(var(--fly-dx, -140px), var(--fly-dy, 70px), 0)
+               scale(0.72) rotate(var(--fly-rot, -10deg));
+    transition: opacity 1.15s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 1.15s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+  .fly-in-visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  /* Respect a visitor's OS/browser "reduce motion" setting by just
+     showing everything immediately instead of animating it in. */
+  @media (prefers-reduced-motion: reduce) {
+    .fly-in, .fly-in-visible {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+</style>
+<script>
+(function () {
+  // Every heading, paragraph and image on the page gets the "fly in"
+  // treatment. Picked automatically here (instead of editing the markup
+  // above by hand) because so much of it is deeply nested — an element is
+  // skipped if it contains another matching element inside it, so only
+  // the innermost, actually-visible piece of content animates; otherwise
+  // a wrapper and its own nested heading/image would both animate at
+  // once and the transforms would visibly compound.
+  var targets = Array.prototype.slice.call(
+    document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, img, marquee')
+  ).filter(function (el) {
+    if (el.tagName === 'IMG') return true;
+    var hasNestedTarget = el.querySelector('h1, h2, h3, h4, h5, h6, p, img, marquee');
+    if (hasNestedTarget) return false;
+    return el.textContent.replace(/\s+/g, '').length > 0;
+  });
+
+  targets.forEach(function (el, i) {
+    el.classList.add('fly-in');
+    // Alternate the entry direction left/right with some vertical drift
+    // and a bit of tumble so pieces don't all fly in identically, plus a
+    // small stagger so elements revealed together don't land in unison.
+    var fromLeft = i % 2 === 0;
+    el.style.setProperty('--fly-dx', (fromLeft ? -140 : 140) + 'px');
+    el.style.setProperty('--fly-dy', (50 + (i % 5) * 18) + 'px');
+    el.style.setProperty('--fly-rot', (fromLeft ? -10 : 10) + 'deg');
+    el.style.transitionDelay = ((i % 6) * 0.07) + 's';
+  });
+
+  var observer = new IntersectionObserver(function (entries, obs) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('fly-in-visible');
+        obs.unobserve(entry.target);
+      }
+    });
+  }, {
+    root: null,
+    rootMargin: '0px 0px -10% 0px',
+    threshold: 0.15
+  });
+
+  targets.forEach(function (el) { observer.observe(el); });
+})();
+</script>
   </body>
 </html>
