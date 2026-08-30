@@ -40,7 +40,7 @@
 </head>
 <body>
 
-<span class="count" id="viewCount">–</span>
+<span class="count" id="viewCount">– views</span>
 
 <!-- ============================================================
      FIREBASE — reuses the same project as the other widgets on the site
@@ -86,10 +86,10 @@
   COUNTER_DOC_REF.onSnapshot(doc => {
     const data = doc.data();
     const count = (data && typeof data.count === 'number') ? data.count : 0;
-    countEl.textContent = count.toLocaleString('en-US');
+    countEl.textContent = count.toLocaleString('en-US') + ' views';
   }, err => {
     console.error('View count read failed:', err);
-    countEl.textContent = '0';
+    countEl.textContent = '0 views';
   });
 </script>
 
