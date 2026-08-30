@@ -25,39 +25,39 @@
         margin: 0;
         padding: 0;
         width: 100%;
-        /* A fluid layout (below) never needs to grow wider than its box,
-           so this is just a safety net against a sideways scrollbar/crop
-           from any one oversized element slipping through. */
-        overflow-x: hidden;
+        height: 100%;
+        /* No scrolling, no scrollbars, anywhere on this page — whatever
+           doesn't fit gets shrunk by the scale-to-fit script near the end
+           of the page instead. */
+        overflow: hidden;
       }
       body {
         display: flex;
+        align-items: center;
         justify-content: center;
       }
-      /* Fluid container: full width of whatever box this page ends up in
-         (a phone screen or a wide desktop iframe alike), capped at a
-         comfortable reading width and centered on wider screens. This is
-         what makes it "scale with the site" automatically, with no JS and
-         no fixed reference width — text reflows/wraps to whatever width
-         is actually available instead of being laid out at one fixed size
-         and then shrunk as a single flat image. */
-      .content {
-        width: 100%;
-        max-width: 900px;
+      /* The whole page is laid out normally (text wraps, everything
+         centered) inside this box at a fixed 900px reference width, then
+         the box as a single unit gets scaled by the script near the end
+         of the page to brute-force it into whatever the actual screen/
+         box size turns out to be — that's what makes it consistent on a
+         phone and a desktop alike without the text ever having to
+         reflow differently at different sizes. */
+      #ks-content {
+        width: 900px;
         margin: 0 auto;
         padding: 24px 16px;
         text-align: center;
+        transform-origin: center center;
       }
-      /* Every image in the page below carries an old fixed pixel width/
-         height (inline style or attribute) from when this was built for a
-         single fixed-width desktop layout. max-width caps the USED width
-         regardless of that literal value, and height:auto (needs
-         !important to beat the inline height) recomputes height from the
-         image's real aspect ratio instead of leaving it stretched/
-         squished at its old fixed number — together these are what let
-         every image shrink to fit any screen without cropping or
-         distorting. */
-      .content img {
+      /* Every image below carries an old fixed pixel width/height (inline
+         style or attribute) from when this was built for a single
+         fixed-width desktop layout. max-width caps the USED width at the
+         900px reference frame regardless of that literal value, and
+         height:auto (needs !important to beat the inline height)
+         recomputes height from the image's real aspect ratio instead of
+         leaving it stretched/squished at its old fixed number. */
+      #ks-content img {
         max-width: 100%;
         height: auto !important;
       }
@@ -83,7 +83,7 @@
     </style>
   </head>
   <body>
-    <div class="content">
+    <div class="content" id="ks-content">
         <h1> <span style="font-family: Comic Sans MS;"> <span style="color: red;">CLICK
               FOR TRUTH------&gt;</span></span><b style="font-family: Arial; color: #0000fd;">
             <a href="/archive"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Click01.gif"
@@ -740,15 +740,75 @@ cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam157
     });
   }, {
     root: null,
-    // The page scrolls normally again (no more forced single-screen fit),
-    // so elements fly in progressively as they're scrolled to rather than
-    // all at once — -10% keeps things from firing right at the very
-    // bottom edge of the screen.
-    rootMargin: '0px 0px -10% 0px',
-    threshold: 0.15
+    // Scrolling is disabled again (see the scale-to-fit script below), so
+    // the whole page sits inside one screen at once — this just needs to
+    // be lenient enough to still catch anything right at the bottom edge
+    // of that scaled-down box.
+    rootMargin: '0px',
+    threshold: 0.01
   });
 
   targets.forEach(function (el) { observer.observe(el); });
+})();
+</script>
+
+<script>
+(function () {
+  // "Brute force" scale-to-fit: the #ks-content box above is laid out
+  // normally at a fixed 900px reference width (so text wraps and
+  // everything centers exactly like a normal page), then this shrinks or
+  // grows that whole box as one unit so it always exactly fills whatever
+  // box this page ends up embedded in — a phone screen, a wide desktop
+  // iframe, anything — with no scrollbars and nothing cropped.
+  var content = document.getElementById('ks-content');
+  if (!content) return;
+
+  var REF_WIDTH = 900;
+
+  function fitToViewport() {
+    // Reset first so this measures the box's true natural size instead
+    // of compounding on top of whatever scale was last applied.
+    content.style.transform = 'none';
+
+    var naturalHeight = content.scrollHeight || content.offsetHeight || 1;
+    var boxWidth = document.documentElement.clientWidth || window.innerWidth || REF_WIDTH;
+    var boxHeight = document.documentElement.clientHeight || window.innerHeight || naturalHeight;
+
+    var scale = Math.min(boxWidth / REF_WIDTH, boxHeight / naturalHeight);
+    if (!isFinite(scale) || scale <= 0) scale = 1;
+
+    content.style.transform = 'scale(' + scale + ')';
+  }
+
+  fitToViewport();
+  window.addEventListener('load', fitToViewport);
+  window.addEventListener('resize', fitToViewport);
+  window.addEventListener('orientationchange', fitToViewport);
+
+  // Keep re-fitting any time the content's own natural size changes for
+  // any reason (a late-loading image, a font swap, a marquee reflowing).
+  // Transform doesn't affect layout size, so this can't loop on itself.
+  if (window.ResizeObserver) {
+    var pending = false;
+    var recheck = function () {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(function () {
+        pending = false;
+        fitToViewport();
+      });
+    };
+    var ro = new ResizeObserver(recheck);
+    ro.observe(content);
+    ro.observe(document.documentElement);
+  }
+
+  // Belt-and-suspenders: some embed platforms (e.g. a Universe/Squarespace
+  // code-block iframe) finish sizing the actual box a moment after this
+  // page's own load event fires, so a couple of delayed re-checks catch
+  // that instead of leaving an early, wrong measurement in place.
+  setTimeout(fitToViewport, 300);
+  setTimeout(fitToViewport, 1000);
 })();
 </script>
   </body>
