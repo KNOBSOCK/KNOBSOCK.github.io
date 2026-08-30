@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UFO</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* This code block sits as a full-page overlay so the UFO can roam
+     anywhere on screen — without an explicit transparent background here,
+     the browser's default opaque white page background would sit behind
+     the UFO and block every click on whatever's underneath it. Same idea
+     with pointer-events: none — by default the page (and anywhere on it
+     that ISN'T the UFO itself) lets clicks fall straight through to
+     whatever's actually underneath; only the UFO link below turns
+     pointer-events back on for its own pixels. */
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  #ufo-link {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 70px;
+    z-index: 9999;
+    display: block;
+    pointer-events: auto;
+    transition: top 4s ease-in-out, left 4s ease-in-out;
+  }
+  #ufo-link img {
+    display: block;
+    width: 100%;
+    /* Clicks are handled by the link wrapping it, not the image itself. */
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+  <a id="ufo-link" href="https://knobsock.net/live" target="_top">
+    <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0729.gif" alt="UFO">
+  </a>
+
+<script>
+  const ufoLink = document.getElementById('ufo-link');
+
+  function moveUFO() {
+    const x = Math.random() * (window.innerWidth - 120);
+    const y = Math.random() * (window.innerHeight - 120);
+    ufoLink.style.left = x + 'px';
+    ufoLink.style.top = y + 'px';
+  }
+
+  moveUFO();
+  setInterval(moveUFO, 4000); // moves every 4 seconds
+</script>
+
+</body>
+</html>
