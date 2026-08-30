@@ -8,18 +8,14 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   /* Fully transparent — sits directly on the front page's starfield
-     background, not a panel of its own. */
+     background, not a panel of its own. Deliberately NOT forced to
+     height:100% here — that (plus centering) was leaving dead space above
+     and below the row whenever Universe's code block gave this a taller
+     box than the content actually needed. Leaving height unset lets the
+     box shrink-wrap to exactly the row's own rendered size instead. */
   html, body {
     background: transparent;
     width: 100%;
-    height: 100%;
-    min-height: 100%;
-  }
-
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   a { text-decoration: none; color: inherit; }
@@ -41,7 +37,6 @@
     align-items: flex-start;
     justify-content: center;
     gap: 4vw;
-    padding: 2vw;
   }
 
   .button-item {
