@@ -767,6 +767,25 @@ cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam157
   window.addEventListener('load', fitToViewport);
   window.addEventListener('resize', fitToViewport);
   window.addEventListener('orientationchange', fitToViewport);
+
+  // Also watch the content's own rendered size directly, so it keeps
+  // re-fitting itself automatically any time that size changes for any
+  // other reason too — an image finishing loading later, a font
+  // swapping in, a marquee reflowing — instead of only reacting to the
+  // page-level load/resize events above. Transform (what fitToViewport
+  // itself sets) doesn't affect layout size, so this can't loop.
+  if (window.ResizeObserver) {
+    var resizePending = false;
+    var ro = new ResizeObserver(function () {
+      if (resizePending) return;
+      resizePending = true;
+      requestAnimationFrame(function () {
+        resizePending = false;
+        fitToViewport();
+      });
+    });
+    ro.observe(content);
+  }
 })();
 </script>
   </body>
