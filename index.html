@@ -20,6 +20,31 @@
     <style>
       html, body {
         background: transparent;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        /* No scrolling, no scrollbars, ever — whatever doesn't fit inside
+           the box just gets scaled down instead (see the fit-to-viewport
+           script near the end of the page). */
+        overflow: hidden;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* The whole page is laid out at a fixed 1600px reference width (wide
+         enough that none of the page's images or image rows ever need to
+         wrap awkwardly), then scaled as a single unit to fit whatever box
+         this ends up embedded in — that's what makes "everything fits, no
+         cropping, no scrollbars, consistent on every screen size including
+         phones" all true at once: the box's actual pixel size never
+         matters, only its aspect ratio, since the scale factor is
+         recalculated for it specifically. */
+      .content {
+        width: 1600px;
+        transform-origin: center center;
       }
       /* Moved up here from further down the page when the intro content
          above "CLICK FOR TRUTH" was removed — several <blink> tags further
@@ -700,11 +725,47 @@ cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam157
     });
   }, {
     root: null,
-    rootMargin: '0px 0px -10% 0px',
-    threshold: 0.15
+    // With scrolling disabled (see the fit-to-viewport script below) the
+    // whole page now sits inside one screen at once, so this only needs
+    // to be lenient enough to still catch anything sitting right at the
+    // very bottom edge of that scaled-down box.
+    rootMargin: '0px',
+    threshold: 0.01
   });
 
   targets.forEach(function (el) { observer.observe(el); });
+})();
+</script>
+
+<script>
+(function () {
+  var content = document.querySelector('.content');
+  if (!content) return;
+
+  // The page is laid out at a fixed 1600px reference width (set in the
+  // <style> block up in <head>) so its natural height is always measured
+  // consistently, then scaled as one unit to exactly fit whatever box
+  // this ends up in — recalculated here for the current window/screen
+  // size, so it's consistent whether that box is a huge desktop monitor
+  // or a phone in portrait.
+  function fitToViewport() {
+    content.style.transform = 'scale(1)';
+    var naturalWidth = content.offsetWidth || 1600;
+    var naturalHeight = content.scrollHeight;
+    var scale = Math.min(
+      window.innerWidth / naturalWidth,
+      window.innerHeight / naturalHeight
+    );
+    content.style.transform = 'scale(' + scale + ')';
+  }
+
+  fitToViewport();
+  // Re-run once everything (including images) has actually finished
+  // loading — measuring scrollHeight before images load in can under-
+  // count the page's real height and produce too large a scale.
+  window.addEventListener('load', fitToViewport);
+  window.addEventListener('resize', fitToViewport);
+  window.addEventListener('orientationchange', fitToViewport);
 })();
 </script>
   </body>
