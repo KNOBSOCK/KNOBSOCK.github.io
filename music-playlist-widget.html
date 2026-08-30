@@ -34,10 +34,17 @@
   /* ---------- BACKDROP ----------
      A padded, rounded panel with a 50% frosted backdrop blur — same blur
      treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
-     so 50% = 10px). */
+     so 50% = 10px). It's a sibling of .layout (not nested inside it), so
+     its width is capped/centered the same way .layout is — otherwise on a
+     big monitor the glow panel would keep stretching edge-to-edge even
+     after the content inside .layout got capped at 1200px. */
   .bg-glow {
     position: absolute;
-    inset: clamp(16px, 3vw, 32px);
+    top: clamp(16px, 3vw, 32px);
+    bottom: clamp(16px, 3vw, 32px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(100% - clamp(32px, 6vw, 64px)), calc(1200px - clamp(32px, 6vw, 64px)));
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(242, 183, 5, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
@@ -47,19 +54,32 @@
   }
 
   /* ---------- PAGE LAYOUT ----------
-     Desktop: big player + playlist side by side.
-     Mobile (<= 860px wide): player on top, playlist scrolls below —
-     same breakpoint and stacking pattern as the livestream widget. */
+     Desktop: big player + playlist side by side, with the creator chin
+     (below) as a fixed-height strip under both. Mobile (<= 860px wide):
+     player on top, playlist scrolls below — same breakpoint and stacking
+     pattern as the livestream widget; the chin stays pinned to the
+     bottom either way since it's a sibling of .main-row inside .layout,
+     not part of the row that flips direction. Capped at 1200px and
+     centered so the player doesn't stretch edge-to-edge on a big monitor. */
   .layout {
     position: relative;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     width: 100%;
     height: 100%;
-    margin: 0;
-    gap: 14px;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 10px;
     padding: clamp(18px, 3.5vw, 36px);
     background: transparent;
+  }
+
+  .main-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 14px;
   }
 
   .video-pane {
@@ -96,13 +116,61 @@
   }
 
   @media (max-width: 860px) {
-    .layout { flex-direction: column; }
+    .main-row { flex-direction: column; }
     .video-pane { flex: 0 0 38vh; }
     .playlist-pane { flex: 1 1 auto; min-width: 0; }
   }
 
   .layout.playlist-hidden .playlist-pane { display: none; }
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
+
+  /* ---------- CREATOR CHIN ----------
+     A row of pill buttons across the bottom, one per creator seen in the
+     playlist (plus "All"). Auto-populated as each track's author comes
+     back from the oEmbed fetch below — clicking one filters the same
+     "Up Next" list to just that creator's tracks, it doesn't touch
+     what's currently playing. */
+  .creator-chin {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 10px);
+    padding: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Scrolling (swipe/drag/shift+wheel) still works when there are more
+       chips than fit — this just hides the visible scrollbar itself, on
+       every device, not just phones. */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* old Edge/IE */
+  }
+  .creator-chin::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
+
+  .creator-chip {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    border-radius: 999px;
+    padding: clamp(6px, 1.6vw, 9px) clamp(14px, 3vw, 18px);
+    font-size: clamp(11px, 2.6vw, 13px);
+    white-space: nowrap;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .creator-chip:hover { background: var(--accent-dim); color: #ffffff; }
+  .creator-chip.active {
+    /* The selected chip (including "All") stands out using the same
+       gold accent every other button already uses for its default
+       state — text flips to the dark ink color here, same as the
+       existing pill-btn/round-btn convention. */
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ink);
+  }
 
   .pill-btn {
     -webkit-appearance: none;
@@ -516,6 +584,23 @@
   .admin-modal input:focus,
   .admin-row input:focus { border-color: var(--accent); }
 
+  .admin-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin: 12px 0 0;
+    cursor: pointer;
+  }
+  .admin-checkbox-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
   .admin-modal-actions {
     margin-top: 16px;
     display: flex;
@@ -530,17 +615,33 @@
     min-height: 14px;
   }
 
-  .admin-video-list {
-    flex: 1 1 auto;
+  .admin-video-list,
+  .admin-creator-list {
+    flex: 1 1 0;
+    min-height: 110px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding-right: 4px;
   }
-  .admin-video-list::-webkit-scrollbar { width: 8px; }
-  .admin-video-list::-webkit-scrollbar-track { background: transparent; }
-  .admin-video-list::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+  .admin-video-list::-webkit-scrollbar,
+  .admin-creator-list::-webkit-scrollbar { width: 8px; }
+  .admin-video-list::-webkit-scrollbar-track,
+  .admin-creator-list::-webkit-scrollbar-track { background: transparent; }
+  .admin-video-list::-webkit-scrollbar-thumb,
+  .admin-creator-list::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  .admin-section-heading {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
 
   .admin-row {
     background: var(--panel-2);
@@ -606,6 +707,7 @@
 
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
+ <div class="main-row" id="mainRow">
   <div class="video-pane" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
     <div class="video-pane-actions">
@@ -641,6 +743,11 @@
       </div>
     </div>
   </div>
+ </div>
+
+  <!-- Auto-populated from each track's YouTube author — see
+       renderCreatorChin() below. "All" chip clears the filter. -->
+  <div class="creator-chin" id="creatorChin"></div>
 </div>
 
 <!-- Hidden admin access point — nearly invisible, tucked in the corner.
@@ -671,6 +778,14 @@
       <button class="round-btn admin-panel-close" id="adminPanelClose" title="Close">&times;</button>
     </div>
     <div class="admin-video-list" id="adminVideoList"></div>
+    <div class="admin-section-heading">Creators</div>
+    <!-- One row per creator name detected across the tracks above.
+         "Display As" lets you rename a creator, and giving two rows the
+         same Display As combines them into a single chip. The up/down
+         arrows set the order the chips appear in; unchecking a track
+         doesn't remove a creator here — hide them with the checkbox
+         instead. -->
+    <div class="admin-creator-list" id="adminCreatorList"></div>
     <div class="admin-panel-footer">
       <div class="admin-footer-actions">
         <button class="pill-btn" id="addVideoBtn">+ Add Track</button>
@@ -732,6 +847,23 @@ const DEFAULT_VIDEO_LIST = [
 
 let currentVideoList = DEFAULT_VIDEO_LIST;
 
+// Creator settings, editable from the admin panel's "Creators" section and
+// synced the same way the track list is: creatorAliases renames/combines a
+// raw detected author name into a display name (two raw names sharing the
+// same display name become one chip), creatorOrder is the explicit chip
+// order set there, and hiddenCreators removes a raw author from the chin
+// entirely (their tracks still show under "All"). Declared at this outer
+// script level — not inside either IIFE below — so both the player logic
+// and the admin panel can read and update them directly.
+let creatorAliases = {};
+let creatorOrder = [];
+let hiddenCreators = [];
+
+function resolveAuthorDisplay(rawAuthor) {
+  if (!rawAuthor) return rawAuthor;
+  return creatorAliases[rawAuthor] || rawAuthor;
+}
+
 function extractVideoId(input) {
   if (!input) return null;
   const trimmed = input.trim();
@@ -746,36 +878,36 @@ function extractVideoId(input) {
   return null;
 }
 
-function buildPlaylist(list) {
+// previousPlaylist carries over already-resolved title/author data for any
+// track that appears in both the old and new list, by id — instead of
+// wiping every entry back to null and re-fetching from scratch every time
+// this runs. This matters because Firestore's onSnapshot listener fires
+// more than once on a normal page load (once immediately from its local
+// cache, then again once the server confirms the same data), and without
+// this, that second firing would reset every author back to null right as
+// the first round's fetches were finishing — which is what would leave the
+// creator chin stuck showing "Loading" even though the data had already
+// been fetched successfully.
+function buildPlaylist(list, previousPlaylist) {
+  const previousById = new Map();
+  (previousPlaylist || []).forEach(v => { if (v.id) previousById.set(v.id, v); });
+
   return list
-    .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : null }))
-    .filter(v => v.id);
+    .map(v => {
+      const id = extractVideoId(v.url);
+      if (!id) return null;
+      const prev = previousById.get(id);
+      const manualTitle = (v.title && v.title.trim()) ? v.title.trim() : null;
+      return {
+        id,
+        title: manualTitle || (prev ? prev.title : null),
+        author: prev ? prev.author : null
+      };
+    })
+    .filter(Boolean);
 }
 
 let PLAYLIST = buildPlaylist(currentVideoList);
-
-// Pull each track's real title from YouTube's oEmbed data (via noembed.com,
-// which mirrors YouTube's oEmbed response but reliably sends the CORS
-// headers a browser needs — calling youtube.com/oembed directly often
-// fails silently or gets blocked cross-origin). Only runs for entries
-// where no title was typed in.
-function fetchTitles() {
-  PLAYLIST.forEach((v, i) => {
-    if (v.title) return; // already have a manual title, skip fetching
-    const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
-    fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json')
-      .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
-      .then(data => {
-        const t = data && typeof data.title === 'string' ? data.title.trim() : '';
-        v.title = t ? t : ('Track ' + (i + 1));
-        renderPlaylist();
-      })
-      .catch(() => {
-        v.title = 'Track ' + (i + 1);
-        renderPlaylist();
-      });
-  });
-}
 
 (function () {
   const layout = document.getElementById('layout');
@@ -796,12 +928,14 @@ function fetchTitles() {
   const videoPane = document.getElementById('videoPane');
   const playlistItemsEl = document.getElementById('playlistItems');
   const playlistCountEl = document.getElementById('playlistCount');
+  const creatorChinEl = document.getElementById('creatorChin');
   const ytFrame = document.getElementById('ytFrame');
 
   let ytPlayer = null;
   let isDragging = false;
   let pollTimer = null;
   let activeIndex = 0;
+  let activeAuthorFilter = null; // null = "All"; a creator's name filters the list below
   let apiReady = false;       // true once the YT.Player instance has fired onReady
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
@@ -849,15 +983,36 @@ function fetchTitles() {
   }
 
   // ---------- PLAYLIST RENDER ----------
+  // Filtering by creator happens here, over the same PLAYLIST array/data
+  // used everywhere else — data-index still points at the real index in
+  // PLAYLIST (not the filtered array's position), so clicking a filtered
+  // row still plays the right track and activeIndex stays meaningful.
   function renderPlaylist() {
     if (!PLAYLIST.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No tracks added yet.</div>';
       playlistCountEl.textContent = '';
       return;
     }
-    playlistCountEl.textContent = PLAYLIST.length + (PLAYLIST.length === 1 ? ' track' : ' tracks');
-    playlistItemsEl.innerHTML = PLAYLIST.map((v, i) => {
+
+    const visible = PLAYLIST
+      .map((v, i) => ({ v, i }))
+      .filter(({ v }) => !activeAuthorFilter || resolveAuthorDisplay(v.author) === activeAuthorFilter);
+
+    if (!visible.length) {
+      playlistItemsEl.innerHTML = '<div class="empty-state">No tracks from this creator yet.</div>';
+      playlistCountEl.textContent = '0 tracks';
+      return;
+    }
+
+    playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' track' : ' tracks');
+    playlistItemsEl.innerHTML = visible.map(({ v, i }) => {
       const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
+      // Shows who made it instead of a generic "Tap to play" once the
+      // author's known — falls back to "Tap to play" only while it's
+      // still being fetched.
+      const sub = i === activeIndex
+        ? 'Now playing'
+        : (v.author ? escapeHtml(resolveAuthorDisplay(v.author)) : 'Tap to play');
       return `
       <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
@@ -866,7 +1021,7 @@ function fetchTitles() {
         </div>
         <div class="playlist-meta">
           <div class="playlist-item-title">${escapeHtml(title)}</div>
-          <div class="playlist-item-sub">${i === activeIndex ? 'Now playing' : 'Tap to play'}</div>
+          <div class="playlist-item-sub">${sub}</div>
         </div>
       </button>
     `;
@@ -880,10 +1035,122 @@ function fetchTitles() {
     });
   }
 
+  // ---------- CREATOR CHIN RENDER ----------
+  // Auto-populated from whichever authors have shown up on PLAYLIST
+  // entries so far (fetchTitles fills v.author in asynchronously, so this
+  // gets called again each time one resolves). Clicking a chip only
+  // changes the filter used by renderPlaylist above — it never touches
+  // what's currently playing.
+  //
+  // The "All" chip always renders immediately, even before any author has
+  // loaded — a panel that only appears once the network fetch succeeds is
+  // a panel that can silently never appear at all (one failed request and
+  // there's nothing on screen to show something's wrong). "Unknown" is
+  // kept as a real, clickable chip too instead of being hidden, so a
+  // failed lookup still leaves a working filter rather than making the
+  // whole feature vanish.
+  function renderCreatorChin() {
+    const authors = [];
+    let stillLoading = false;
+    PLAYLIST.forEach(v => {
+      if (v.author === null) { stillLoading = true; return; }
+      if (hiddenCreators.includes(v.author)) return; // hidden from the chin (its tracks still show under "All")
+      const display = resolveAuthorDisplay(v.author);
+      if (!authors.includes(display)) authors.push(display);
+    });
+
+    // Sorted by the admin-set creatorOrder first (from the "Creators"
+    // section of the editor); anything not explicitly ordered falls back
+    // to A→Z (case-insensitive) so the chin never looks scrambled just
+    // because a brand-new creator hasn't been given a position yet.
+    // "Unknown" always goes last since it's a fallback, not a real name.
+    authors.sort((a, b) => {
+      const ia = creatorOrder.indexOf(a);
+      const ib = creatorOrder.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      if (a === 'Unknown') return 1;
+      if (b === 'Unknown') return -1;
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+
+    const allChip = `<button class="creator-chip${!activeAuthorFilter ? ' active' : ''}" data-author="">All</button>`;
+    const authorChips = authors.map(a => {
+      const label = a === 'Unknown' ? 'Unknown Channel' : a;
+      return `<button class="creator-chip${activeAuthorFilter === a ? ' active' : ''}" data-author="${escapeHtml(a)}">${escapeHtml(label)}</button>`;
+    });
+    const loadingChip = stillLoading
+      ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading</span>'
+      : '';
+    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('') + loadingChip;
+
+    creatorChinEl.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
+      btn.addEventListener('click', function () {
+        activeAuthorFilter = this.getAttribute('data-author') || null;
+        renderCreatorChin();
+        renderPlaylist();
+      });
+    });
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
+  }
+
+  // Pull each track's real title AND creator name from YouTube's oEmbed
+  // data (via noembed.com, which mirrors YouTube's oEmbed response —
+  // including author_name — but reliably sends the CORS headers a
+  // browser needs; calling youtube.com/oembed directly often fails
+  // silently or gets blocked cross-origin). Title-fetching is skipped for
+  // entries where one was typed in manually, but the author is always
+  // pulled since that's what drives the creator chin.
+  //
+  // This has to live in here (not at the top level of the script) so its
+  // calls to renderPlaylist()/renderCreatorChin() below can actually see
+  // those functions — they're declared inside this same IIFE. Calling
+  // them from an outer-scope fetchTitles() would silently throw a
+  // ReferenceError on every fetch completion (visible only in the
+  // browser console), leaving the creator chin permanently stuck showing
+  // "Loading" even though the author data itself had already been
+  // fetched successfully.
+  function fetchTitles() {
+    PLAYLIST.forEach((v, i) => {
+      const needsTitle = !v.title;
+      if (!needsTitle && v.author) return; // nothing left to fetch for this one
+      const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
+
+      // Some desktop setups (ad blockers, browser extensions, corporate
+      // networks) silently hang a request to a third-party domain like
+      // noembed.com instead of erroring outright — no CORS error, no
+      // rejection, it just never comes back. Aborting after 8s guarantees
+      // this always settles one way or the other.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
+        .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
+        .then(data => {
+          clearTimeout(timeoutId);
+          if (needsTitle) {
+            const t = data && typeof data.title === 'string' ? data.title.trim() : '';
+            v.title = t ? t : ('Track ' + (i + 1));
+          }
+          const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
+          v.author = a || 'Unknown';
+          renderPlaylist();
+          renderCreatorChin();
+        })
+        .catch(() => {
+          clearTimeout(timeoutId);
+          if (needsTitle) v.title = 'Track ' + (i + 1);
+          v.author = v.author || 'Unknown';
+          renderPlaylist();
+          renderCreatorChin();
+        });
+    });
   }
 
   function playIndex(idx) {
@@ -1030,12 +1297,13 @@ function fetchTitles() {
   // a page reload, and try to keep whatever's currently playing playing.
   function handlePlaylistSnapshot(list) {
     currentVideoList = list;
-    const newPlaylist = buildPlaylist(currentVideoList);
+    const newPlaylist = buildPlaylist(currentVideoList, PLAYLIST);
 
     if (!firestoreDataReady) {
       firestoreDataReady = true;
       PLAYLIST = newPlaylist;
       activeIndex = 0;
+      renderCreatorChin();
       renderPlaylist();
       fetchTitles();
       tryInitPlayer();
@@ -1046,6 +1314,12 @@ function fetchTitles() {
     PLAYLIST = newPlaylist;
     const stillThereIndex = currentId ? PLAYLIST.findIndex(v => v.id === currentId) : -1;
     activeIndex = stillThereIndex >= 0 ? stillThereIndex : 0;
+    // If the creator currently filtered on has no tracks left in the
+    // updated list, drop back to "All" instead of showing an empty list.
+    if (activeAuthorFilter && !PLAYLIST.some(v => v.author === activeAuthorFilter)) {
+      activeAuthorFilter = null;
+    }
+    renderCreatorChin();
     renderPlaylist();
     fetchTitles();
 
@@ -1059,12 +1333,16 @@ function fetchTitles() {
   PLAYLIST_DOC_REF.onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
     const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : DEFAULT_VIDEO_LIST;
+    creatorAliases = (data && data.creatorAliases && typeof data.creatorAliases === 'object') ? data.creatorAliases : {};
+    creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
+    hiddenCreators = (data && Array.isArray(data.hiddenCreators)) ? data.hiddenCreators : [];
     handlePlaylistSnapshot(list);
   }, function (err) {
     console.error('Playlist sync error:', err);
     handlePlaylistSnapshot(DEFAULT_VIDEO_LIST);
   });
 
+  renderCreatorChin();
   renderPlaylist();
 })();
 </script>
@@ -1091,6 +1369,7 @@ function fetchTitles() {
   const adminOverlay = document.getElementById('adminOverlay');
   const adminPanelClose = document.getElementById('adminPanelClose');
   const adminVideoList = document.getElementById('adminVideoList');
+  const adminCreatorList = document.getElementById('adminCreatorList');
   const addVideoBtn = document.getElementById('addVideoBtn');
   const saveVideosBtn = document.getElementById('saveVideosBtn');
   const resetDefaultBtn = document.getElementById('resetDefaultBtn');
@@ -1098,6 +1377,7 @@ function fetchTitles() {
   const adminSaveStatus = document.getElementById('adminSaveStatus');
 
   let draftList = [];
+  let draftCreators = [];
 
   function openLogin() {
     loginError.textContent = '';
@@ -1108,9 +1388,91 @@ function fetchTitles() {
   }
   function closeLogin() { loginOverlay.hidden = true; }
 
+  // One row per raw creator name PLAYLIST (the live, already-fetched
+  // playlist — a top-level variable shared with the player logic) has
+  // seen an author come back as, plus any raw name already referenced by
+  // saved settings so editing something mid-fetch or briefly absent
+  // doesn't just disappear from the list.
+  function collectKnownRawAuthors() {
+    const seen = new Set();
+    const list = [];
+    PLAYLIST.forEach(v => {
+      if (v.author && !seen.has(v.author)) { seen.add(v.author); list.push(v.author); }
+    });
+    Object.keys(creatorAliases).forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
+    hiddenCreators.forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
+    return list;
+  }
+
+  function buildDraftCreators() {
+    const rows = collectKnownRawAuthors().map(raw => ({
+      raw,
+      displayAs: creatorAliases[raw] || raw,
+      hidden: hiddenCreators.includes(raw)
+    }));
+    // Pre-sort rows to match the saved creatorOrder (by each row's current
+    // Display As), so reopening the editor doesn't visually shuffle
+    // creators that already have an explicit order set.
+    rows.sort((a, b) => {
+      const ia = creatorOrder.indexOf(a.displayAs);
+      const ib = creatorOrder.indexOf(b.displayAs);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.raw.localeCompare(b.raw, undefined, { sensitivity: 'base' });
+    });
+    return rows;
+  }
+
+  function renderAdminCreatorList() {
+    if (!draftCreators.length) {
+      adminCreatorList.innerHTML = '<div class="empty-state">No creators detected yet.</div>';
+      return;
+    }
+    adminCreatorList.innerHTML = draftCreators.map((row, i) => `
+      <div class="admin-row" data-index="${i}">
+        <div class="admin-row-top">
+          <span class="admin-row-title">${escapeAttr(row.raw)}</span>
+          <div class="admin-row-btns">
+            <button class="round-btn admin-creator-up" title="Move up" ${i === 0 ? 'disabled' : ''}>&uarr;</button>
+            <button class="round-btn admin-creator-down" title="Move down" ${i === draftCreators.length - 1 ? 'disabled' : ''}>&darr;</button>
+          </div>
+        </div>
+        <label>Display As</label>
+        <input type="text" class="admin-creator-displayas-input" value="${escapeAttr(row.displayAs)}" />
+        <label class="admin-checkbox-label">
+          <input type="checkbox" class="admin-creator-hide-input" ${row.hidden ? 'checked' : ''} />
+          Hide from creator filter
+        </label>
+      </div>
+    `).join('');
+
+    adminCreatorList.querySelectorAll('.admin-row').forEach(row => {
+      const idx = parseInt(row.getAttribute('data-index'), 10);
+      row.querySelector('.admin-creator-displayas-input').addEventListener('input', e => {
+        draftCreators[idx].displayAs = e.target.value;
+      });
+      row.querySelector('.admin-creator-hide-input').addEventListener('change', e => {
+        draftCreators[idx].hidden = e.target.checked;
+      });
+      row.querySelector('.admin-creator-up').addEventListener('click', () => {
+        if (idx === 0) return;
+        [draftCreators[idx - 1], draftCreators[idx]] = [draftCreators[idx], draftCreators[idx - 1]];
+        renderAdminCreatorList();
+      });
+      row.querySelector('.admin-creator-down').addEventListener('click', () => {
+        if (idx === draftCreators.length - 1) return;
+        [draftCreators[idx + 1], draftCreators[idx]] = [draftCreators[idx], draftCreators[idx + 1]];
+        renderAdminCreatorList();
+      });
+    });
+  }
+
   function openAdminPanel() {
     draftList = currentVideoList.map(v => ({ url: v.url, title: v.title || '' }));
+    draftCreators = buildDraftCreators();
     renderAdminList();
+    renderAdminCreatorList();
     adminSaveStatus.textContent = '';
     adminOverlay.hidden = false;
   }
@@ -1232,12 +1594,34 @@ function fetchTitles() {
       return;
     }
 
+    // Turn the Creators rows into the three fields the player reads:
+    // aliases for any row renamed away from its raw detected name (giving
+    // two rows the same Display As combines them), hiddenCreators for any
+    // row checked "Hide," and creatorOrder as the surviving (non-hidden)
+    // Display As values in their current row order, deduped so a combined
+    // pair only claims one slot.
+    const creatorAliasesToSave = {};
+    const creatorOrderToSave = [];
+    const hiddenCreatorsToSave = [];
+    draftCreators.forEach(row => {
+      const display = (row.displayAs || '').trim() || row.raw;
+      if (display !== row.raw) creatorAliasesToSave[row.raw] = display;
+      if (row.hidden) {
+        hiddenCreatorsToSave.push(row.raw);
+      } else if (!creatorOrderToSave.includes(display)) {
+        creatorOrderToSave.push(display);
+      }
+    });
+
     saveVideosBtn.disabled = true;
     adminSaveStatus.style.color = 'var(--accent)';
     adminSaveStatus.textContent = 'Saving…';
     try {
       await PLAYLIST_DOC_REF.set({
         videos: cleaned,
+        creatorAliases: creatorAliasesToSave,
+        creatorOrder: creatorOrderToSave,
+        hiddenCreators: hiddenCreatorsToSave,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: auth.currentUser.email || auth.currentUser.uid
       });
