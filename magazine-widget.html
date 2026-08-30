@@ -348,6 +348,10 @@
   @media (max-width: 767px) {
     .site-header { padding: 0 0 2px; }
     .page-wrapper {
+      /* Shrinks the outer gap between the card and the screen edge — the
+         base rule's 28px side margin was left untouched here before, so
+         mobile still got the full desktop-ish gutter on both sides. */
+      margin: 0 12px;
       padding: 20px 18px 2px;
       scrollbar-width: none;
       -ms-overflow-style: none;
