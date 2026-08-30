@@ -72,6 +72,12 @@
     justify-content: flex-start;
     gap: clamp(7px, 2.6vw, 12px);
     cursor: pointer;
+    /* Cartoonish "pop": a spring-y cubic-bezier that overshoots past 1.0
+       before settling gives the little bounce, rather than a flat ease. */
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .article-card:hover {
+    transform: scale(1.08) rotate(-2deg);
   }
   .article-card img {
     width: clamp(39px, 13.5vw, 63px);
