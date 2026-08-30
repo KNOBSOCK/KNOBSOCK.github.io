@@ -87,6 +87,10 @@
     border-radius: 8px;
     flex-shrink: 0;
     background: #222;
+    /* Drop shadow to lift the thumbnail off the page — offset down/right
+       plus a soft blur reads as the thumbnail floating above the
+       background rather than sitting flush with it. */
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
   }
   .article-card .article-text {
     display: flex;
