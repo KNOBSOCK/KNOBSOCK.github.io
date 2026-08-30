@@ -318,7 +318,12 @@
     body { zoom: 0.85; }
     .page-wrapper {
       flex: none;
-      height: 700px;
+      /* Bumped up from 700px: widening the box's max-width also widened the
+         headline column, and since the headline image is height:auto (its
+         height follows its width to keep its aspect ratio), the wider column
+         made the image taller too — 700px was no longer enough to show the
+         heading below it before the box's own edge clipped it. */
+      height: 950px;
       scrollbar-width: none;
       -ms-overflow-style: none;
     }
