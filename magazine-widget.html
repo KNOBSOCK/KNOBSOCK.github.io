@@ -64,6 +64,11 @@
     padding: 12px 36px 44px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    /* Stops scroll input from chaining past this box's own top/bottom edge —
+       without it, once you scroll past the end of the article/homepage
+       content, the wheel/touch gesture "spills over" into the outer page
+       this widget is embedded on, scrolling that instead. */
+    overscroll-behavior: contain;
     flex: 1 1 auto;
     min-height: 0;
     background: rgba(0, 19, 156, 0.5);
