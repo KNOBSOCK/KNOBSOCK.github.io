@@ -76,15 +76,16 @@
   }
   @media (min-width: 768px) {
     /* On very wide/full-screen desktop displays, a plain 50px side margin
-       keeps growing the box (and everything proportionally inside it,
-       including the headline photo) with the screen — capping the width
-       here stops that growth past a reasonable size instead of letting it
-       sprawl edge-to-edge on big monitors, while behaving exactly like the
-       old "margin: 0 50px" on narrower desktop/laptop widths that don't
-       hit the cap. */
+       keeps growing the box with the screen — capping the width here stops
+       that growth past a reasonable size instead of letting it sprawl
+       edge-to-edge on big monitors, while behaving exactly like the old
+       "margin: 0 50px" on narrower desktop/laptop widths that don't hit the
+       cap. Kept modest (rather than wide) on purpose: the box's size should
+       stay stable — it's the headline photo's own max-height below, not the
+       box width, that keeps oversized content from blowing the box up. */
     .page-wrapper {
       width: calc(100% - 100px);
-      max-width: 1600px;
+      max-width: 1400px;
       margin: 0 auto;
     }
   }
@@ -94,7 +95,7 @@
      proportionate on very large/wide screens instead of stretching edge to
      edge — without this, the grid columns get huge and everything (especially
      the capped, centered headline photo) ends up looking oddly spaced out */
-  #homepage-view { max-width: 1600px; margin: 0 auto; }
+  #homepage-view { max-width: 1400px; margin: 0 auto; }
 
   /* Headline (feature story) + Recent Articles side by side on wider screens,
      stacked on mobile — same pattern as the Music/Politics row below */
@@ -123,6 +124,15 @@
      photo's own box, not the wider headline-clickable container around it */
   .headline-media { position: relative; }
   .headline img { width: 100%; height: auto; border-radius: 12px; cursor: pointer; display: block; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+  /* Desktop only: without a height cap, this image's rendered height is
+     purely a function of its column's width (height:auto keeps its aspect
+     ratio) — so any future width change balloons its height too, and with
+     it the whole box's height. Capping it and cropping with object-fit
+     keeps the photo (and the box around it) a stable, readable size no
+     matter how wide the desktop column gets. */
+  @media (min-width: 768px) {
+    .headline img { max-height: 420px; object-fit: cover; }
+  }
   /* Photo credit — pulled from the post's Excerpt field in WordPress, shown as
      a small caption line right under the photo, the way most publications
      caption a photo */
@@ -318,12 +328,7 @@
     body { zoom: 0.85; }
     .page-wrapper {
       flex: none;
-      /* Bumped up from 700px: widening the box's max-width also widened the
-         headline column, and since the headline image is height:auto (its
-         height follows its width to keep its aspect ratio), the wider column
-         made the image taller too — 700px was no longer enough to show the
-         heading below it before the box's own edge clipped it. */
-      height: 950px;
+      height: 700px;
       scrollbar-width: none;
       -ms-overflow-style: none;
     }
