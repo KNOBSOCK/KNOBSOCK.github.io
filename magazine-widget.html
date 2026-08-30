@@ -303,6 +303,10 @@
      clipped if this fixed box ends up taller than 100dvh happened to report. */
   @media (min-width: 768px) {
     html, body { height: auto; min-height: 0; overflow: visible; }
+    /* Scales the entire desktop layout down ~15% (logo, spacing, fonts,
+       images all together) without touching any of the mobile-only rules
+       above/below — confined to this desktop-only media query. */
+    body { zoom: 0.85; }
     .page-wrapper {
       flex: none;
       height: 700px;
