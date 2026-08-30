@@ -12,6 +12,7 @@
     --line: rgba(150, 200, 255, 0.6);
     --accent: #2f80ed;
     --accent-dim: #1c4e8a;
+    --accent-yellow: #ffdd00;
     --text: #ffffff;
     --text-dim: #c9dcf5;
     --font-display: Arial, Helvetica, sans-serif;
@@ -59,7 +60,10 @@
     flex-direction: column;
     width: 100%;
     height: 100%;
-    margin: 0;
+    /* Capped so the player doesn't stretch edge-to-edge on a big monitor —
+       centered within the full-bleed background glow behind it instead. */
+    max-width: 1200px;
+    margin: 0 auto;
     gap: 10px;
     padding: clamp(18px, 3.5vw, 36px);
     background: transparent;
@@ -154,8 +158,12 @@
   }
   .creator-chip:hover { background: var(--accent-dim); }
   .creator-chip.active {
-    background: var(--accent);
-    border-color: var(--accent);
+    /* The selected chip (including "All") stands out in yellow while
+       everything else on the page stays blue — text flips to the dark
+       ink color here since white-on-yellow doesn't read well. */
+    background: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+    color: var(--ink);
   }
 
   .pill-btn {
@@ -570,6 +578,23 @@
   .admin-modal input:focus,
   .admin-row input:focus { border-color: var(--accent); }
 
+  .admin-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin: 12px 0 0;
+    cursor: pointer;
+  }
+  .admin-checkbox-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
   .admin-modal-actions {
     margin-top: 16px;
     display: flex;
@@ -584,17 +609,33 @@
     min-height: 14px;
   }
 
-  .admin-video-list {
-    flex: 1 1 auto;
+  .admin-video-list,
+  .admin-creator-list {
+    flex: 1 1 0;
+    min-height: 110px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding-right: 4px;
   }
-  .admin-video-list::-webkit-scrollbar { width: 8px; }
-  .admin-video-list::-webkit-scrollbar-track { background: transparent; }
-  .admin-video-list::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+  .admin-video-list::-webkit-scrollbar,
+  .admin-creator-list::-webkit-scrollbar { width: 8px; }
+  .admin-video-list::-webkit-scrollbar-track,
+  .admin-creator-list::-webkit-scrollbar-track { background: transparent; }
+  .admin-video-list::-webkit-scrollbar-thumb,
+  .admin-creator-list::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  .admin-section-heading {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
 
   .admin-row {
     background: var(--panel-2);
@@ -731,6 +772,14 @@
       <button class="round-btn admin-panel-close" id="adminPanelClose" title="Close">&times;</button>
     </div>
     <div class="admin-video-list" id="adminVideoList"></div>
+    <div class="admin-section-heading">Creators</div>
+    <!-- One row per creator name detected across the videos above.
+         "Display As" lets you rename a creator, and giving two rows the
+         same Display As combines them into a single chip. The up/down
+         arrows set the order the chips appear in; unchecking a video
+         doesn't remove a creator here — hide them with the checkbox
+         instead. -->
+    <div class="admin-creator-list" id="adminCreatorList"></div>
     <div class="admin-panel-footer">
       <div class="admin-footer-actions">
         <button class="pill-btn" id="addVideoBtn">+ Add Video</button>
@@ -786,6 +835,23 @@ const DEFAULT_VIDEO_LIST = [
 // ============================================================
 
 let currentVideoList = DEFAULT_VIDEO_LIST;
+
+// Creator settings, editable from the admin panel's "Creators" section and
+// synced the same way the video list is: creatorAliases renames/combines a
+// raw detected author name into a display name (two raw names sharing the
+// same display name become one chip), creatorOrder is the explicit chip
+// order set there, and hiddenCreators removes a raw author from the chin
+// entirely (their videos still show under "All"). Declared at this outer
+// script level — not inside either IIFE below — so both the player logic
+// and the admin panel can read and update them directly.
+let creatorAliases = {};
+let creatorOrder = [];
+let hiddenCreators = [];
+
+function resolveAuthorDisplay(rawAuthor) {
+  if (!rawAuthor) return rawAuthor;
+  return creatorAliases[rawAuthor] || rawAuthor;
+}
 
 function extractVideoId(input) {
   if (!input) return null;
@@ -920,7 +986,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 
     const visible = PLAYLIST
       .map((v, i) => ({ v, i }))
-      .filter(({ v }) => !activeAuthorFilter || v.author === activeAuthorFilter);
+      .filter(({ v }) => !activeAuthorFilter || resolveAuthorDisplay(v.author) === activeAuthorFilter);
 
     if (!visible.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No videos from this creator yet.</div>';
@@ -931,6 +997,12 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' video' : ' videos');
     playlistItemsEl.innerHTML = visible.map(({ v, i }) => {
       const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
+      // Shows who made it instead of a generic "Tap to play" once the
+      // author's known — falls back to "Tap to play" only while it's
+      // still being fetched.
+      const sub = i === activeIndex
+        ? 'Now playing'
+        : (v.author ? escapeHtml(resolveAuthorDisplay(v.author)) : 'Tap to play');
       return `
       <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
@@ -939,7 +1011,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
         </div>
         <div class="playlist-meta">
           <div class="playlist-item-title">${escapeHtml(title)}</div>
-          <div class="playlist-item-sub">${i === activeIndex ? 'Now playing' : 'Tap to play'}</div>
+          <div class="playlist-item-sub">${sub}</div>
         </div>
       </button>
     `;
@@ -972,15 +1044,22 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     let stillLoading = false;
     PLAYLIST.forEach(v => {
       if (v.author === null) { stillLoading = true; return; }
-      if (!authors.includes(v.author)) authors.push(v.author);
+      if (hiddenCreators.includes(v.author)) return; // hidden from the chin (its videos still show under "All")
+      const display = resolveAuthorDisplay(v.author);
+      if (!authors.includes(display)) authors.push(display);
     });
 
-    // Sorted automatically (A→Z, case-insensitive) rather than left in
-    // whatever order each video's fetch happened to resolve in — without
-    // this the chip order would reshuffle unpredictably on every page
-    // load depending on network timing. "Unknown" always goes last since
-    // it's a fallback, not a real channel name.
+    // Sorted by the admin-set creatorOrder first (from the "Creators"
+    // section of the editor); anything not explicitly ordered falls back
+    // to A→Z (case-insensitive) so the chin never looks scrambled just
+    // because a brand-new creator hasn't been given a position yet.
+    // "Unknown" always goes last since it's a fallback, not a real name.
     authors.sort((a, b) => {
+      const ia = creatorOrder.indexOf(a);
+      const ib = creatorOrder.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
       if (a === 'Unknown') return 1;
       if (b === 'Unknown') return -1;
       return a.localeCompare(b, undefined, { sensitivity: 'base' });
@@ -1244,6 +1323,9 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   PLAYLIST_DOC_REF.onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
     const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : DEFAULT_VIDEO_LIST;
+    creatorAliases = (data && data.creatorAliases && typeof data.creatorAliases === 'object') ? data.creatorAliases : {};
+    creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
+    hiddenCreators = (data && Array.isArray(data.hiddenCreators)) ? data.hiddenCreators : [];
     handlePlaylistSnapshot(list);
   }, function (err) {
     console.error('Playlist sync error:', err);
@@ -1277,6 +1359,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const adminOverlay = document.getElementById('adminOverlay');
   const adminPanelClose = document.getElementById('adminPanelClose');
   const adminVideoList = document.getElementById('adminVideoList');
+  const adminCreatorList = document.getElementById('adminCreatorList');
   const addVideoBtn = document.getElementById('addVideoBtn');
   const saveVideosBtn = document.getElementById('saveVideosBtn');
   const resetDefaultBtn = document.getElementById('resetDefaultBtn');
@@ -1284,6 +1367,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const adminSaveStatus = document.getElementById('adminSaveStatus');
 
   let draftList = [];
+  let draftCreators = [];
 
   function openLogin() {
     loginError.textContent = '';
@@ -1294,9 +1378,91 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   }
   function closeLogin() { loginOverlay.hidden = true; }
 
+  // One row per raw creator name PLAYLIST (the live, already-fetched
+  // playlist — a top-level variable shared with the player logic) has
+  // seen an author come back as, plus any raw name already referenced by
+  // saved settings so editing something mid-fetch or briefly absent
+  // doesn't just disappear from the list.
+  function collectKnownRawAuthors() {
+    const seen = new Set();
+    const list = [];
+    PLAYLIST.forEach(v => {
+      if (v.author && !seen.has(v.author)) { seen.add(v.author); list.push(v.author); }
+    });
+    Object.keys(creatorAliases).forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
+    hiddenCreators.forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
+    return list;
+  }
+
+  function buildDraftCreators() {
+    const rows = collectKnownRawAuthors().map(raw => ({
+      raw,
+      displayAs: creatorAliases[raw] || raw,
+      hidden: hiddenCreators.includes(raw)
+    }));
+    // Pre-sort rows to match the saved creatorOrder (by each row's current
+    // Display As), so reopening the editor doesn't visually shuffle
+    // creators that already have an explicit order set.
+    rows.sort((a, b) => {
+      const ia = creatorOrder.indexOf(a.displayAs);
+      const ib = creatorOrder.indexOf(b.displayAs);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.raw.localeCompare(b.raw, undefined, { sensitivity: 'base' });
+    });
+    return rows;
+  }
+
+  function renderAdminCreatorList() {
+    if (!draftCreators.length) {
+      adminCreatorList.innerHTML = '<div class="empty-state">No creators detected yet.</div>';
+      return;
+    }
+    adminCreatorList.innerHTML = draftCreators.map((row, i) => `
+      <div class="admin-row" data-index="${i}">
+        <div class="admin-row-top">
+          <span class="admin-row-title">${escapeAttr(row.raw)}</span>
+          <div class="admin-row-btns">
+            <button class="round-btn admin-creator-up" title="Move up" ${i === 0 ? 'disabled' : ''}>&uarr;</button>
+            <button class="round-btn admin-creator-down" title="Move down" ${i === draftCreators.length - 1 ? 'disabled' : ''}>&darr;</button>
+          </div>
+        </div>
+        <label>Display As</label>
+        <input type="text" class="admin-creator-displayas-input" value="${escapeAttr(row.displayAs)}" />
+        <label class="admin-checkbox-label">
+          <input type="checkbox" class="admin-creator-hide-input" ${row.hidden ? 'checked' : ''} />
+          Hide from creator filter
+        </label>
+      </div>
+    `).join('');
+
+    adminCreatorList.querySelectorAll('.admin-row').forEach(row => {
+      const idx = parseInt(row.getAttribute('data-index'), 10);
+      row.querySelector('.admin-creator-displayas-input').addEventListener('input', e => {
+        draftCreators[idx].displayAs = e.target.value;
+      });
+      row.querySelector('.admin-creator-hide-input').addEventListener('change', e => {
+        draftCreators[idx].hidden = e.target.checked;
+      });
+      row.querySelector('.admin-creator-up').addEventListener('click', () => {
+        if (idx === 0) return;
+        [draftCreators[idx - 1], draftCreators[idx]] = [draftCreators[idx], draftCreators[idx - 1]];
+        renderAdminCreatorList();
+      });
+      row.querySelector('.admin-creator-down').addEventListener('click', () => {
+        if (idx === draftCreators.length - 1) return;
+        [draftCreators[idx + 1], draftCreators[idx]] = [draftCreators[idx], draftCreators[idx + 1]];
+        renderAdminCreatorList();
+      });
+    });
+  }
+
   function openAdminPanel() {
     draftList = currentVideoList.map(v => ({ url: v.url, title: v.title || '' }));
+    draftCreators = buildDraftCreators();
     renderAdminList();
+    renderAdminCreatorList();
     adminSaveStatus.textContent = '';
     adminOverlay.hidden = false;
   }
@@ -1420,12 +1586,34 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       return;
     }
 
+    // Turn the Creators rows into the three fields the player reads:
+    // aliases for any row renamed away from its raw detected name (giving
+    // two rows the same Display As combines them), hiddenCreators for any
+    // row checked "Hide," and creatorOrder as the surviving (non-hidden)
+    // Display As values in their current row order, deduped so a combined
+    // pair only claims one slot.
+    const creatorAliasesToSave = {};
+    const creatorOrderToSave = [];
+    const hiddenCreatorsToSave = [];
+    draftCreators.forEach(row => {
+      const display = (row.displayAs || '').trim() || row.raw;
+      if (display !== row.raw) creatorAliasesToSave[row.raw] = display;
+      if (row.hidden) {
+        hiddenCreatorsToSave.push(row.raw);
+      } else if (!creatorOrderToSave.includes(display)) {
+        creatorOrderToSave.push(display);
+      }
+    });
+
     saveVideosBtn.disabled = true;
     adminSaveStatus.style.color = 'var(--accent)';
     adminSaveStatus.textContent = 'Saving\u2026';
     try {
       await PLAYLIST_DOC_REF.set({
         videos: cleaned,
+        creatorAliases: creatorAliasesToSave,
+        creatorOrder: creatorOrderToSave,
+        hiddenCreators: hiddenCreatorsToSave,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: auth.currentUser.email || auth.currentUser.uid
       });
