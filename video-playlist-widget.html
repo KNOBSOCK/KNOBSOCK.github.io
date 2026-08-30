@@ -35,10 +35,17 @@
   /* ---------- BACKDROP ----------
      A padded, rounded panel with a 50% frosted backdrop blur — same blur
      treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
-     so 50% = 10px). */
+     so 50% = 10px). It's a sibling of .layout (not nested inside it), so
+     its width is capped/centered the same way .layout is — otherwise on a
+     big monitor the glow panel would keep stretching edge-to-edge even
+     after the content inside .layout got capped at 1200px. */
   .bg-glow {
     position: absolute;
-    inset: clamp(16px, 3vw, 32px);
+    top: clamp(16px, 3vw, 32px);
+    bottom: clamp(16px, 3vw, 32px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(100% - clamp(32px, 6vw, 64px)), calc(1200px - clamp(32px, 6vw, 64px)));
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(47, 128, 237, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
