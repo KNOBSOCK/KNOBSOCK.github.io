@@ -23,11 +23,14 @@
 
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: yellow;
+    color: #fff;
     padding: 0;
     display: flex;
     flex-direction: column;
   }
+  /* Headlines/titles stay yellow; everything else (meta lines, captions,
+     body copy, labels) uses body's white by default. */
+  h1, h2, h3 { color: yellow; }
   .headline-clickable { cursor: pointer; }
   a { text-decoration: none; color: inherit; }
 
@@ -109,9 +112,9 @@
   /* Photo credit — pulled from the post's Excerpt field in WordPress, shown as
      a small caption line right under the photo, the way most publications
      caption a photo */
-  .photo-credit { color: yellow; font-size: 11px; opacity: 0.6; letter-spacing: 0.2px; margin-top: 6px; }
+  .photo-credit { color: #fff; font-size: 11px; opacity: 0.6; letter-spacing: 0.2px; margin-top: 6px; }
   .headline h1 { font-size: clamp(28px, 5vw, 48px); margin: 20px 0 10px; cursor: pointer; }
-  .headline .meta { color: yellow; font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
+  .headline .meta { color: #fff; font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
   /* Positioned relative to .headline-media (the image itself), so the badge sits
      pinned to the photo's top-left corner regardless of screen size */
   .headline .cat-tag {
@@ -160,7 +163,7 @@
     gap: 6px;
   }
   .article-card h3 { font-size: 17px; line-height: 1.3; margin-bottom: 0; }
-  .article-card span { font-size: 13px; color: yellow; }
+  .article-card span { font-size: 13px; color: #fff; }
 
   .category-section h2 { border-left: 4px solid limegreen; padding-left: 10px; }
 
@@ -176,7 +179,7 @@
     }
   }
 
-  .loading { color: yellow; font-size: 14px; padding: 20px 0; }
+  .loading { color: #fff; font-size: 14px; padding: 20px 0; }
 
   /* ---------- ARTICLE VIEW ---------- */
   .article-view { padding: 40px 0; display: none; }
@@ -185,11 +188,11 @@
   @media (min-width: 768px) {
     .article-view { max-width: 760px; margin: 0 auto; }
   }
-  .back-link { display: inline-block; margin-bottom: 24px; color: yellow; font-size: 14px; cursor: pointer; }
+  .back-link { display: inline-block; margin-bottom: 24px; color: #fff; font-size: 14px; cursor: pointer; }
   .back-link:hover { color: #fff; }
   .article-view .cat-tag { display: inline-block; background: #333; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
   .article-view h1 { font-size: clamp(28px, 5vw, 42px); margin-bottom: 12px; line-height: 1.15; }
-  .article-view .meta { color: yellow; font-size: 14px; opacity: 0.75; }
+  .article-view .meta { color: #fff; font-size: 14px; opacity: 0.75; }
 
   /* Header block: category + headline + date, closed off by a divider */
   .article-header {
@@ -219,7 +222,7 @@
   }
 
   /* Body copy, visually distinct from the header/image above it */
-  .article-view .body-content { font-size: 17px; line-height: 1.8; color: yellow; }
+  .article-view .body-content { font-size: 17px; line-height: 1.8; color: #fff; }
   .article-view .body-content p { margin-bottom: 20px; }
   .article-view .body-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; }
   .article-view .body-content h2,
@@ -235,7 +238,7 @@
     gap: 12px;
     flex-wrap: wrap;
   }
-  .share-bar span.label { font-size: 14px; color: yellow; }
+  .share-bar span.label { font-size: 14px; color: #fff; }
   .share-bar button {
     background: #fff;
     color: #111;
@@ -265,7 +268,7 @@
     gap: 16px;
   }
   .wp-link {
-    color: yellow;
+    color: #fff;
     font-size: 14px;
   }
   .wp-link:hover { color: #fff; }
