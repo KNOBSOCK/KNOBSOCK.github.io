@@ -359,10 +359,13 @@
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 2cqh, 10px);
+    /* Scrolling still works (vertical on desktop, horizontal on mobile
+       below) — this just hides the visible scrollbar itself, matching
+       the creator chin and SoundCloud track list elsewhere on this page. */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* old Edge/IE */
   }
-  .playlist-items::-webkit-scrollbar { width: 8px; }
-  .playlist-items::-webkit-scrollbar-track { background: transparent; }
-  .playlist-items::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+  .playlist-items::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
   @media (max-width: 860px) {
     .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
@@ -390,7 +393,15 @@
   }
 
   @media (max-width: 860px) {
-    .playlist-item { width: clamp(160px, 42vw, 220px); flex-direction: column; align-items: stretch; }
+    /* Was a stacked "card" (thumbnail on top, text below) — but stacking
+       a full 16:9 thumbnail plus two lines of text needed more vertical
+       room than the row actually has, so the text got clipped off below
+       the image. Keeping the normal side-by-side row layout (same as
+       desktop) instead means the card's height is only ever as tall as
+       its content needs, so the title and subtitle are always visible
+       next to the thumbnail regardless of how much vertical space this
+       row is given. */
+    .playlist-item { width: clamp(220px, 62vw, 280px); }
   }
 
   .playlist-thumb-wrap {
@@ -401,9 +412,6 @@
     border-radius: clamp(4px, 1cqw, 6px);
     overflow: hidden;
     background: #000;
-  }
-  @media (max-width: 860px) {
-    .playlist-thumb-wrap { width: 100%; }
   }
   .playlist-thumb-wrap img {
     width: 100%;
