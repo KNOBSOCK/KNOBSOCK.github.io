@@ -701,6 +701,160 @@
     color: var(--accent);
     min-height: 14px;
   }
+
+  /* ---------- SOUNDCLOUD MINI PLAYER ----------
+     Fills the extra space left over below the creator chin — a sibling
+     of .main-row/.creator-chin inside .layout, so it automatically
+     claims whatever vertical room those two don't use — with a compact
+     player pulling from the same SoundCloud profile as the homepage's
+     standalone Listen widget. Selecting a creator chip above filters
+     this track list to that same artist too; see the script block near
+     the bottom of this file. */
+  .sc-widget-frame {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+  }
+
+  .sc-section {
+    flex: 0 0 auto;
+    height: clamp(140px, 24vh, 220px);
+  }
+
+  .sc-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.5vw, 10px);
+    min-height: 0;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: clamp(8px, 2vw, 14px);
+    padding: clamp(8px, 2vw, 14px);
+    font-family: var(--font-body);
+    color: var(--text);
+  }
+
+  .sc-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sc-title-label {
+    font-size: clamp(11px, 2.6vw, 13px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .sc-count {
+    font-size: clamp(9px, 2.2vw, 11px);
+    color: var(--text-dim);
+  }
+
+  .sc-now-playing {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+  }
+
+  .sc-play-btn {
+    width: clamp(28px, 6vw, 36px);
+    font-size: clamp(11px, 2.6vw, 14px);
+    flex: none;
+  }
+
+  .sc-info { min-width: 0; flex: 1 1 auto; }
+
+  .sc-title-wrap {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .sc-title {
+    display: inline-flex;
+    font-size: clamp(11px, 2.6vw, 13px);
+    font-weight: 700;
+  }
+  .sc-title-copy {
+    white-space: nowrap;
+    padding-right: 32px;
+  }
+  .sc-title.scrolling {
+    animation-name: sc-marquee-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes sc-marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .sc-progress-track {
+    margin-top: 4px;
+    width: 100%;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .sc-progress-track-bg {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(242, 183, 5, 0.2);
+    overflow: hidden;
+  }
+  .sc-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--accent);
+  }
+
+  .sc-track-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 8px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sc-track-list::-webkit-scrollbar { display: none; }
+
+  .sc-track-item {
+    flex: none;
+    max-width: 55vw;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(10px, 2.4vw, 12px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 999px;
+    padding: clamp(6px, 1.4vw, 8px) clamp(12px, 2.6vw, 16px);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .sc-track-item:hover { background: var(--accent-dim); color: #ffffff; }
+  .sc-track-item.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -748,6 +902,46 @@
   <!-- Auto-populated from each track's YouTube author — see
        renderCreatorChin() below. "All" chip clears the filter. -->
   <div class="creator-chin" id="creatorChin"></div>
+
+  <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
+       Real playback runs through SoundCloud's own Widget API via the
+       invisible iframe below, same technique as the homepage's
+       standalone Listen widget, pointed at the same profile. Clicking a
+       creator chip above filters this track list to that same artist
+       too (matched against each track's SoundCloud uploader username) —
+       see refreshScTrackList() in the script block near the bottom of
+       this file. -->
+  <div class="sc-section">
+    <div class="sc-card">
+      <iframe
+        id="scWidgetFrame"
+        class="sc-widget-frame"
+        title="SoundCloud audio engine"
+        scrolling="no"
+        frameborder="no"
+        allow="autoplay"
+        src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fbobbywyckoffnyc&auto_play=false&show_artwork=false">
+      </iframe>
+      <div class="sc-header">
+        <span class="sc-title-label">SoundCloud</span>
+        <span class="sc-count" id="scCount"></span>
+      </div>
+      <div class="sc-now-playing">
+        <button class="round-btn sc-play-btn" id="scPlayBtn" title="Play" disabled>&#9658;</button>
+        <div class="sc-info">
+          <div class="sc-title-wrap" id="scTitleWrap">
+            <div class="sc-title" id="scTitle"><span class="sc-title-copy">Loading…</span></div>
+          </div>
+          <div class="sc-progress-track" id="scProgressTrack">
+            <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sc-track-list" id="scTrackList">
+        <div class="empty-state">Loading tracks…</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Hidden admin access point — nearly invisible, tucked in the corner.
@@ -859,6 +1053,18 @@ let creatorAliases = {};
 let creatorOrder = [];
 let hiddenCreators = [];
 
+// Which creator the chin is currently filtering to — null means "All".
+// Declared at this outer script level (not inside the player IIFE below)
+// so the SoundCloud mini player's own IIFE can read the same filter and
+// match it against each track's SoundCloud username.
+let activeAuthorFilter = null;
+
+// Set by the SoundCloud section's own IIFE once it's ready — starts as a
+// harmless no-op so the creator chin's click handler (in a different
+// IIFE, further down) always has something safe to call even before that
+// section finishes initializing.
+let refreshScTrackList = function () {};
+
 function resolveAuthorDisplay(rawAuthor) {
   if (!rawAuthor) return rawAuthor;
   return creatorAliases[rawAuthor] || rawAuthor;
@@ -935,7 +1141,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   let isDragging = false;
   let pollTimer = null;
   let activeIndex = 0;
-  let activeAuthorFilter = null; // null = "All"; a creator's name filters the list below
   let apiReady = false;       // true once the YT.Player instance has fired onReady
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
@@ -1090,6 +1295,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
         activeAuthorFilter = this.getAttribute('data-author') || null;
         renderCreatorChin();
         renderPlaylist();
+        refreshScTrackList();
       });
     });
   }
@@ -1649,6 +1855,185 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 
 <!-- YouTube IFrame Player API -->
 <script src="https://www.youtube.com/iframe_api"></script>
+
+<!-- SoundCloud Widget API — same one the homepage's standalone Listen
+     widget uses, for the mini player added below. -->
+<script src="https://w.soundcloud.com/player/api.js"></script>
+<script>
+// ============================================================
+// SOUNDCLOUD MINI PLAYER — fills the extra space below the creator chin
+// with a compact player pulling from the same SoundCloud profile as the
+// homepage's standalone Listen widget. Selecting a creator chip above
+// (activeAuthorFilter, declared at the top level near DEFAULT_VIDEO_LIST
+// so both this and the video player IIFE can read it) also filters this
+// track list down to that same artist, matched against each track's
+// SoundCloud uploader username.
+// ============================================================
+(function () {
+  const scFrame = document.getElementById('scWidgetFrame');
+  const scPlayBtn = document.getElementById('scPlayBtn');
+  const scTitleWrapEl = document.getElementById('scTitleWrap');
+  const scTitleEl = document.getElementById('scTitle');
+  const scProgressTrackEl = document.getElementById('scProgressTrack');
+  const scProgressFillEl = document.getElementById('scProgressFill');
+  const scTrackListEl = document.getElementById('scTrackList');
+  const scCountEl = document.getElementById('scCount');
+
+  const scWidget = SC.Widget(scFrame);
+  let scSounds = [];
+  let scCurrentIndex = 0;
+  let scIsPlaying = false;
+  let scDuration = 0;
+
+  function scEscapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  // The SoundCloud track's uploader username — matched case-insensitively
+  // against activeAuthorFilter, which holds the currently-selected
+  // creator chip's YouTube display name. This assumes the same person's
+  // SoundCloud username lines up with their YouTube channel name.
+  function getScAuthor(sound) {
+    return (sound && sound.user && sound.user.username) ? sound.user.username : 'Unknown';
+  }
+
+  function scMatchesFilter(sound) {
+    if (!activeAuthorFilter) return true;
+    return getScAuthor(sound).toLowerCase() === activeAuthorFilter.toLowerCase();
+  }
+
+  // Same car-radio marquee technique as the homepage Listen widget: a
+  // short title just sits still, a long one gets a second copy appended
+  // and scrolls left on a seamless loop instead of wrapping mid-word.
+  function setScTitle(text) {
+    scTitleEl.classList.remove('scrolling');
+    scTitleEl.style.animationDuration = '';
+    scTitleEl.innerHTML = '';
+
+    const firstCopy = document.createElement('span');
+    firstCopy.className = 'sc-title-copy';
+    firstCopy.textContent = text;
+    scTitleEl.appendChild(firstCopy);
+
+    requestAnimationFrame(function () {
+      if (scTitleEl.scrollWidth <= scTitleWrapEl.clientWidth) return;
+      const secondCopy = document.createElement('span');
+      secondCopy.className = 'sc-title-copy';
+      secondCopy.textContent = text;
+      scTitleEl.appendChild(secondCopy);
+      const pxPerSecond = 45;
+      const duration = (scTitleEl.scrollWidth / 2) / pxPerSecond;
+      scTitleEl.style.animationDuration = duration + 's';
+      scTitleEl.classList.add('scrolling');
+    });
+  }
+
+  function updateScPlayIcon() {
+    scPlayBtn.innerHTML = scIsPlaying ? '&#10074;&#10074;' : '&#9658;';
+  }
+
+  // Filtered by the same activeAuthorFilter the creator chin sets above —
+  // re-rendered whenever a chip is clicked (via refreshScTrackList) —
+  // without touching whatever's currently playing, same behavior as the
+  // YouTube "Up Next" list.
+  function renderScTrackList() {
+    if (!scSounds.length) {
+      scTrackListEl.innerHTML = '<div class="empty-state">Loading tracks…</div>';
+      scCountEl.textContent = '';
+      return;
+    }
+
+    const visible = scSounds
+      .map(function (s, i) { return { s: s, i: i }; })
+      .filter(function (entry) { return scMatchesFilter(entry.s); });
+
+    if (!visible.length) {
+      scTrackListEl.innerHTML = '<div class="empty-state">No tracks from this creator yet.</div>';
+      scCountEl.textContent = '0 tracks';
+      return;
+    }
+
+    scCountEl.textContent = visible.length + (visible.length === 1 ? ' track' : ' tracks');
+    scTrackListEl.innerHTML = visible.map(function (entry) {
+      const title = entry.s.title || 'Untitled';
+      return '<button class="sc-track-item' + (entry.i === scCurrentIndex ? ' active' : '') +
+        '" data-index="' + entry.i + '" title="' + scEscapeHtml(title) + '">' +
+        scEscapeHtml(title) + '</button>';
+    }).join('');
+
+    scTrackListEl.querySelectorAll('.sc-track-item').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        scPlayIndex(parseInt(this.getAttribute('data-index'), 10));
+      });
+    });
+  }
+
+  function scPlayIndex(idx) {
+    if (idx < 0 || idx >= scSounds.length) return;
+    scCurrentIndex = idx;
+    renderScTrackList();
+    scWidget.skip(idx);
+    scWidget.play();
+  }
+
+  scWidget.bind(SC.Widget.Events.READY, function () {
+    scPlayBtn.disabled = false;
+    scWidget.getSounds(function (sounds) {
+      scSounds = sounds || [];
+      renderScTrackList();
+    });
+    scWidget.getCurrentSound(function (sound) {
+      if (sound) setScTitle(sound.title);
+    });
+  });
+
+  scWidget.bind(SC.Widget.Events.PLAY, function () {
+    scIsPlaying = true;
+    updateScPlayIcon();
+    scWidget.getCurrentSound(function (sound) {
+      if (!sound) return;
+      setScTitle(sound.title);
+      scDuration = sound.duration || 0;
+      const idx = scSounds.findIndex(function (s) { return s.id === sound.id; });
+      if (idx !== -1) { scCurrentIndex = idx; renderScTrackList(); }
+    });
+  });
+
+  scWidget.bind(SC.Widget.Events.PAUSE, function () {
+    scIsPlaying = false;
+    updateScPlayIcon();
+  });
+
+  scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
+    scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
+  });
+
+  scWidget.bind(SC.Widget.Events.FINISH, function () {
+    scProgressFillEl.style.width = '0%';
+  });
+
+  scPlayBtn.addEventListener('click', function () {
+    scWidget.toggle();
+  });
+
+  scProgressTrackEl.addEventListener('click', function (e) {
+    if (!scDuration) return;
+    const rect = scProgressTrackEl.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    scWidget.seekTo(fraction * scDuration);
+    scProgressFillEl.style.width = (fraction * 100) + '%';
+  });
+
+  // Exposes this section's re-render to the creator chin's click handler,
+  // which lives in a different IIFE — calling a function declared inside
+  // another IIFE directly would throw a ReferenceError (the exact bug
+  // this file's own history already hit with fetchTitles()), so the
+  // handoff goes through the shared top-level variable instead.
+  refreshScTrackList = renderScTrackList;
+})();
+</script>
 
 </body>
 </html>
