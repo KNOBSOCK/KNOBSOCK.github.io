@@ -75,7 +75,18 @@
     border-radius: 38px;
   }
   @media (min-width: 768px) {
-    .page-wrapper { margin: 0 50px; }
+    /* On very wide/full-screen desktop displays, a plain 50px side margin
+       keeps growing the box (and everything proportionally inside it,
+       including the headline photo) with the screen — capping the width
+       here stops that growth past a reasonable size instead of letting it
+       sprawl edge-to-edge on big monitors, while behaving exactly like the
+       old "margin: 0 50px" on narrower desktop/laptop widths that don't
+       hit the cap. */
+    .page-wrapper {
+      width: calc(100% - 100px);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
   }
 
   /* ---------- HOMEPAGE VIEW ---------- */
