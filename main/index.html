@@ -15,8 +15,10 @@
 <meta name="description" content="Official Website for Knobsock">
 <style>
   /* Standalone reconstruction of knobsock.net/main, same approach as
-     truth.html: a real hosted page (no Universe iframe sandboxing), with
-     the same fixed full-bleed background video Universe used here.
+     truth.html: a real hosted page (no Universe iframe sandboxing).
+     Background is a tiled repeating GIF (old-GeoCities style) instead
+     of the video Universe used here — a deliberate departure, not a
+     port of Universe's own background.
 
      This is a simplified rebuild, not a pixel-for-pixel copy of
      Universe's absolute grid layout — that layout was built for
@@ -30,28 +32,17 @@
      same as the truth.html build. */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    background: #fff;
     min-height: 100%;
   }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
+    /* Old-GeoCities-style tiled background — a repeating GIF instead of
+       Universe's looping video. Scrolls with the page (not fixed), same
+       as a classic tiled page background. */
+    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
   }
   a { text-decoration: none; color: inherit; }
-
-  /* Same looping background video Universe plays behind this page. */
-  .bg-video {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    /* No z-index — see truth.html for why: DOM order alone is enough
-       when nothing else declares a z-index, and a NEGATIVE one here
-       would sink this behind body's own opaque background instead of
-       in front of it. */
-  }
 
   /* Drifting satellite gif — same free-floating overlay Universe used,
      wanders slowly around the screen and wraps at the edges. Its own
@@ -240,10 +231,6 @@
 </style>
 </head>
 <body>
-  <video class="bg-video" muted playsinline autoplay loop>
-    <source src="https://onuniverse-assets.imgix.net/4AFAE73B-4843-4415-93AE-F327D9297ACF.mp4" type="video/mp4">
-  </video>
-
   <img id="satellite" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0732.gif" alt="">
 
   <div class="page">
