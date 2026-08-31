@@ -24,21 +24,15 @@
     color: yellow;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
-    /* Leaving this unset (the initial "visible") while overflow-y is set
-       computes it to "auto" too per spec — that's what let the widget
-       still be dragged/scrolled sideways even with no visible bar,
-       whenever a card's hover pop pushed a hair past the container's
-       own width. */
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    /* Hidden on every screen size, not just phones — scrolling (touch/
-       wheel/drag) still works, this only hides the visible track/thumb,
-       which was showing up as a stray bar across embeds on desktop. */
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    /* Not scrollable at all, in either direction — this widget is meant
+       to sit fixed to the size of whatever colored panel it's embedded
+       in. Hiding the CSS scrollbar wasn't enough on iOS: the little pill
+       that still showed up there is Safari's own native momentum-scroll
+       overlay indicator, which isn't a CSS scrollbar and ignores
+       scrollbar-width/::-webkit-scrollbar entirely — the only way to
+       actually get rid of it is to make the content not scroll at all. */
+    overflow: hidden;
   }
-  body::-webkit-scrollbar { display: none; }
 
   a { text-decoration: none; color: inherit; }
 
