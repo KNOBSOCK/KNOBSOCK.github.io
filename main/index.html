@@ -143,7 +143,11 @@
   }
 
   .articles-panel {
-    margin-bottom: clamp(10px, 2.5vw, 20px);
+    /* Capped and centered instead of stretching to the full page width —
+       the actual Recent Articles content is nowhere near that wide, so
+       a full-width box was mostly empty purple padding on both sides. */
+    max-width: 560px;
+    margin: 0 auto clamp(10px, 2.5vw, 20px);
     background: #310098;
   }
   .articles-panel iframe {
