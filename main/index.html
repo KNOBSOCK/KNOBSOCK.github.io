@@ -179,7 +179,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: clamp(10px, 2.5vw, 20px);
-    margin-bottom: clamp(10px, 2.5vw, 20px);
+    margin: clamp(28px, 4vw, 48px) 0 clamp(10px, 2.5vw, 20px);
     height: clamp(420px, 60vh, 680px);
   }
   /* overflow stays visible here on purpose — the panel-label above is
@@ -210,18 +210,23 @@
   }
   .listen-panel { background: #980237; }
 
-  /* Mobile: stack instead of squeezing 3 columns into a phone's width —
-     each panel gets its own generous height (not the row's shared one,
-     since a single stacked row can't divide a fixed total three ways
-     without shrinking each panel down to nothing). */
+  /* Mobile: stack instead of squeezing 3 columns into a phone's width.
+     One shared height (like the row split three ways on desktop) doesn't
+     work here — a single stacked panel isn't sharing space with the
+     other two, so the same clamp per panel meant each one kept its full
+     desktop-ish height with barely any content to fill it, leaving a
+     wall of empty color below. Each gets its OWN height instead, sized
+     to what it actually holds — a short article list, a portrait video
+     player plus a thumbnail row, a handful of tracks. */
   @media (max-width: 720px) {
     .columns-row {
       grid-template-columns: 1fr;
       height: auto;
     }
-    .columns-row .panel {
-      height: clamp(320px, 62vh, 480px);
-    }
+    .video-panel { margin-top: 0; }
+    .articles-panel { height: 260px; }
+    .video-panel { height: 360px; }
+    .listen-panel { height: 300px; }
   }
 
   /* ---------- FOOTER ---------- */
