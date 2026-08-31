@@ -149,13 +149,12 @@
   const SITE = "knobsock4.wordpress.com";
   const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
 
-  // Where an article click sends the visitor — the truth zone page, opened
-  // directly to that article via the same #article=slug hash routing the
-  // truth zone page already reads on load. Points at the GitHub-hosted
-  // truth.knobsock.net rather than the old Universe page, since that one
-  // is a real top-level page where the hash routing actually works for
-  // an incoming link.
-  const TRUTH_ZONE_URL = "https://truth.knobsock.net/";
+  // Where an article click sends the visitor — the article's own
+  // generated page (see scripts/build-articles.mjs), not the truth zone
+  // page with a #article= hash. Absolute rather than root-relative
+  // because this widget is iframed onto pages on other domains, where a
+  // root-relative path would resolve against the wrong host.
+  const ARTICLE_BASE = "https://truth.knobsock.net/article/";
 
   const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -194,7 +193,7 @@
   // the front page, so a real navigating link (not JS routing) is what
   // actually breaks out and sends the visitor to the truth zone page.
   function articleCard(post) {
-    const href = `${TRUTH_ZONE_URL}#article=${encodeURIComponent(post.slug)}`;
+    const href = `${ARTICLE_BASE}${encodeURIComponent(post.slug)}/`;
     return `
       <a class="article-card" href="${href}" target="_top">
         <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">

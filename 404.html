@@ -4,31 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Knobsock</title>
-<!-- Keeps Safari's status bar and toolbar dark to match this page,
-     same as the Truth Zone page — see the note there for why the
-     declared color matters more than what's actually on screen. -->
 <meta name="theme-color" content="#0a0e2a">
 <meta name="color-scheme" content="dark">
-<style>
-  /* This page exists for exactly one reason: the magazine widget embedded
-     on knobsock.net/truth runs inside a sandboxed iframe Universe builds
-     around the code block, where the widget can't see the real browser
-     URL at all (window.location is just "about:srcdoc", and even
-     document.referrer — the one other lever that sometimes gets a sandboxed
-     iframe the embedding page's URL — turned out to be blocked too). So an
-     external link to knobsock.net/truth?article=some-slug has no way to
-     tell the widget which article to open.
+<meta name="robots" content="noindex">
+<!-- GitHub Pages serves this file for any path it has no file for.
 
-     This page sidesteps that completely by not being embedded in anything.
-     It's a plain, ordinary GitHub Pages page — window.location works
-     exactly the way it's supposed to — so a link to
-     knobsock.github.io/article.html?slug=some-slug reliably opens straight
-     to that article. Share/Copy Link on the widget points here now. */
+     That makes it the safety net for the gap between publishing a post
+     and the hourly sync generating its page: the magazine reads
+     WordPress live, so a brand-new article shows up in the listings
+     immediately, but /article/<slug>/ doesn't exist on disk until
+     .github/workflows/sync-articles.yml next runs. Without this, every
+     freshly published post would 404 for up to an hour.
+
+     So: if the path looks like an article, render it client-side from
+     the same API the generator uses — the visitor sees the article at
+     its real URL, and once the sync runs the static file takes over and
+     this page stops being involved. Anything else gets a plain
+     not-found message.
+
+     The styles below are a copy of the generator's template
+     (scripts/build-articles.mjs) so the two render identically; change
+     them together. Note this page is still served with a 404 status, so
+     it renders for people but won't be indexed — that's why the real
+     generated file matters and this is only a stopgap. -->
+<style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  /* Solid navy fallback (shows if the video is slow to load, blocked, or
-     unsupported) behind the same looping background video Universe uses
-     on the knobsock.net/truth page itself, so this standalone page reads
-     as part of the same site instead of a bare, unbranded page. */
   /* The fallback color goes on html ONLY, never on body. An opaque body
      background paints OVER the fixed video behind it: a z-index:-1
      element paints beneath block-level backgrounds, so body's own
@@ -40,8 +40,6 @@
   }
   html, body {
     color-scheme: dark;
-    /* Scrolling still works — this only hides the visible scrollbar
-       track/thumb, same technique used sitewide on this site. */
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -51,30 +49,12 @@
     color: #fff;
     min-height: 100vh;
   }
-  .bg-video {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: -1;
-  }
+  .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
   h1, h2, h3 { color: yellow; }
   a { text-decoration: none; color: inherit; }
 
-  .site-header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 0;
-  }
-  .site-header img {
-    display: block;
-    max-height: 90px;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-  }
+  .site-header { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
+  .site-header img { display: block; max-height: 90px; max-width: 100%; width: auto; height: auto; }
 
   .page-wrapper {
     width: calc(100% - 24px);
@@ -86,9 +66,6 @@
     -webkit-backdrop-filter: blur(16px) saturate(150%);
     border-radius: 28px;
   }
-
-  .loading { color: #fff; font-size: 15px; padding: 20px 0; }
-  .loading a { color: yellow; text-decoration: underline; }
 
   .back-link { display: inline-block; margin-bottom: 24px; color: #fff; font-size: 14px; opacity: 0.85; }
   .back-link:hover { opacity: 1; }
@@ -124,6 +101,7 @@
   .body-content p { margin-bottom: 20px; }
   .body-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; }
   .body-content h2, .body-content h3 { margin: 28px 0 12px; line-height: 1.3; }
+  .body-content iframe { max-width: 100%; }
 
   .share-bar {
     margin-top: 40px;
@@ -159,7 +137,6 @@
     gap: 16px;
   }
   .wp-link { color: #fff; font-size: 14px; }
-  .wp-link:hover { color: #fff; }
   .back-btn {
     display: inline-block;
     background: transparent;
@@ -170,8 +147,7 @@
     font-size: 14px;
   }
   .back-btn:hover { background: rgba(255,255,255,0.1); }
-</style>
-</head>
+</style></head>
 <body>
   <video class="bg-video" autoplay muted loop playsinline aria-hidden="true">
     <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
@@ -185,95 +161,108 @@
   <div class="page-wrapper">
     <a class="back-link" href="https://truth.knobsock.net/">&larr; Back to Knobsock</a>
     <main id="article-wrap">
-      <p class="loading">Loading article&hellip;</p>
+      <p class="loading">Loading&hellip;</p>
     </main>
   </div>
 
 <script>
   const SITE = "knobsock4.wordpress.com";
-  const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
+  const API_BASE = "https://public-api.wordpress.com/rest/v1.1/sites/" + SITE;
   const HOME_URL = "https://truth.knobsock.net/";
+  const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27900%27%20height=%27500%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23222%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20fill=%27%2339ff14%27%20font-family=%27sans-serif%27%20font-size=%2728%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3ENo%20Image%3C/text%3E%3C/svg%3E";
 
-  const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+  const wrap = document.getElementById("article-wrap");
 
-  function getImage(post) {
-    return post.featured_image || NO_IMAGE_PLACEHOLDER;
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function toText(html) {
+    const d = document.createElement("div");
+    d.innerHTML = html || "";
+    return (d.textContent || "").trim();
   }
   function getCategoryName(post) {
     const cats = post.categories;
     if (!cats) return "";
-    const firstKey = Object.keys(cats)[0];
-    return firstKey ? cats[firstKey].name : "";
+    const first = Object.keys(cats)[0];
+    return first ? cats[first].name : "";
   }
-  function getAuthorName(post) {
-    return (post.author && post.author.name) || "";
-  }
-  function cleanExcerpt(html) {
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    return (div.textContent || div.innerText || "").trim();
-  }
-  function getPhotoCredit(post) {
-    return cleanExcerpt(post.excerpt || "");
-  }
-
-  const wrap = document.getElementById("article-wrap");
-  const slug = new URLSearchParams(window.location.search).get("slug");
 
   function showMessage(text) {
-    wrap.innerHTML = `<p class="loading">${text} <a href="${HOME_URL}">Go to Knobsock &rarr;</a></p>`;
+    wrap.innerHTML = '<p class="loading">' + esc(text) +
+      ' <a href="' + HOME_URL + '">Go to Knobsock &rarr;</a></p>';
+  }
+
+  // Matches /article/<slug>/ and /article/<slug>, and keeps working if
+  // the prefix later becomes /truth/article/ — it anchors on the
+  // "article" segment rather than the start of the path.
+  function slugFromPath() {
+    const m = window.location.pathname.match(/\/article\/([^\/]+)\/?$/);
+    return m ? decodeURIComponent(m[1]) : null;
   }
 
   async function load() {
+    const slug = slugFromPath();
     if (!slug) {
-      showMessage("No article specified.");
+      document.title = "Page not found — Knobsock";
+      showMessage("That page doesn't exist.");
       return;
     }
+
     let post;
     try {
-      const res = await fetch(`${API_BASE}/posts/slug:${encodeURIComponent(slug)}`);
+      const res = await fetch(API_BASE + "/posts/slug:" + encodeURIComponent(slug));
       post = await res.json();
     } catch (e) {
       showMessage("Something went wrong loading this article.");
       return;
     }
     if (!post || post.error) {
-      showMessage("Article not found.");
+      document.title = "Article not found — Knobsock";
+      showMessage("That article doesn't exist.");
       return;
     }
 
-    document.title = post.title + " — Knobsock";
+    const title = toText(post.title) || "Untitled";
+    const image = post.featured_image || NO_IMAGE_PLACEHOLDER;
+    const credit = toText(post.excerpt || "");
+    const author = (post.author && post.author.name) || "";
+    const category = getCategoryName(post);
 
-    wrap.innerHTML = `
-      <div class="article-header">
-        <span class="cat-tag">${getCategoryName(post)}</span>
-        <h1>${post.title}</h1>
-        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
-      </div>
-      <div class="article-hero">
-        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
-        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
-      </div>
-      <div class="body-content">${post.content}</div>
-      <div class="share-bar">
-        <span class="label">Share this article:</span>
-        <button id="copy-link-btn">Copy Link</button>
-        <span class="copied-msg" id="copied-msg">Link copied!</span>
-      </div>
-      <div class="bottom-actions">
-        <a href="${post.URL || '#'}" target="_blank" class="wp-link">View original post &rarr;</a>
-        <a class="back-btn" href="${HOME_URL}">&larr; Back to Knobsock</a>
-      </div>
-    `;
+    document.title = title + " — Knobsock";
 
-    document.getElementById("copy-link-btn").addEventListener("click", () => {
-      const shareUrl = window.location.origin + window.location.pathname + "?slug=" + encodeURIComponent(slug);
-      navigator.clipboard.writeText(shareUrl).then(() => {
+    wrap.innerHTML =
+      '<div class="article-header">' +
+        (category ? '<span class="cat-tag">' + esc(category) + '</span>' : '') +
+        '<h1>' + esc(title) + '</h1>' +
+        '<div class="meta">' + (author ? 'By ' + esc(author) + ' &middot; ' : '') +
+          esc(new Date(post.date).toLocaleDateString()) + '</div>' +
+      '</div>' +
+      '<div class="article-hero">' +
+        '<img src="' + esc(image) + '" alt="">' +
+        (credit ? '<div class="photo-credit">' + esc(credit) + '</div>' : '') +
+      '</div>' +
+      '<div class="body-content">' + (post.content || "") + '</div>' +
+      '<div class="share-bar">' +
+        '<span class="label">Share this article:</span>' +
+        '<button id="copy-link-btn">Copy Link</button>' +
+        '<span class="copied-msg" id="copied-msg">Link copied!</span>' +
+      '</div>' +
+      '<div class="bottom-actions">' +
+        '<a href="' + esc(post.URL || "#") + '" target="_blank" rel="noopener" class="wp-link">View original post &rarr;</a>' +
+        '<a class="back-btn" href="' + HOME_URL + '">&larr; Back to Knobsock</a>' +
+      '</div>';
+
+    document.getElementById("copy-link-btn").addEventListener("click", function () {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(function () {
         const msg = document.getElementById("copied-msg");
         msg.style.display = "inline";
-        setTimeout(() => { msg.style.display = "none"; }, 2000);
-      }).catch(() => {
-        alert("Couldn't copy automatically — link: " + shareUrl);
+        setTimeout(function () { msg.style.display = "none"; }, 2000);
+      }).catch(function () {
+        alert("Couldn't copy automatically \u2014 link: " + url);
       });
     });
   }

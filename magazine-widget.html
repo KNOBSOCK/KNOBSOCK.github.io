@@ -454,6 +454,15 @@
   // owns the root domain, but a subdomain can still point elsewhere).
   const ARTICLE_PAGE_URL = "https://truth.knobsock.net/article.html";
 
+  // Each article's own generated page (scripts/build-articles.mjs).
+  // Absolute, not root-relative: this widget is embedded on another
+  // domain, where a root-relative path would resolve against that host.
+  const ARTICLE_BASE = "https://truth.knobsock.net/article/";
+
+  function articleUrl(slug) {
+    return ARTICLE_BASE + encodeURIComponent(slug) + "/";
+  }
+
   const CATEGORIES = [
     { slug: "music", elementId: "category-music" },
     { slug: "politics", elementId: "category-politics" },
@@ -624,17 +633,24 @@
     document.getElementById("wordpress-link").href = currentArticleUrl || "#";
   }
 
-  // Navigate to an article WITHOUT using a real link click — this avoids the
-  // sandboxed iframe treating it as a page navigation (which caused the blank page).
-  // pushState can throw inside a sandboxed iframe, so we wrap it — if it fails,
-  // we still load the article, just without updating the visible URL.
+  // Articles are real generated pages now, so a click leaves this widget
+  // instead of swapping views inside it.
+  //
+  // Still driven from JS rather than a real <a>: the cards are divs
+  // precisely because a link click inside this sandboxed iframe used to
+  // produce a blank page, and that markup is left alone here. Navigating
+  // the top frame is what a sandbox is most likely to block — it throws
+  // in some browsers and silently does nothing in others — so a throw
+  // falls back to opening the article in a new tab, which only needs
+  // allow-popups.
   function goToArticle(slug) {
+    const url = articleUrl(slug);
     try {
-      history.pushState("", document.title, window.location.pathname + window.location.search + "#article=" + slug);
+      const top = window.top || window;
+      top.location.href = url;
     } catch (err) {
-      console.warn("Could not update URL (sandboxed iframe) — loading article anyway.");
+      window.open(url, "_blank", "noopener");
     }
-    loadArticleBySlug(slug);
   }
 
   // Event delegation: catches clicks on any current or future element with data-slug
@@ -671,7 +687,7 @@
   // separately.
   document.getElementById("copy-link-btn").addEventListener("click", () => {
     if (!currentArticleSlug) return;
-    const shareUrl = ARTICLE_PAGE_URL + "?slug=" + encodeURIComponent(currentArticleSlug);
+    const shareUrl = articleUrl(currentArticleSlug);
     navigator.clipboard.writeText(shareUrl).then(() => {
       const msg = document.getElementById("copied-msg");
       msg.style.display = "inline";
@@ -690,8 +706,10 @@
   function checkHashAndRoute() {
     const hash = window.location.hash; // e.g. "#article=my-post-slug"
     if (hash.startsWith("#article=")) {
+      // Left over from before articles had their own pages — send it on
+      // rather than rendering the old in-widget view.
       const slug = decodeURIComponent(hash.replace("#article=", ""));
-      loadArticleBySlug(slug);
+      goToArticle(slug);
     } else {
       showHomepage();
     }

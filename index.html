@@ -605,12 +605,23 @@
     document.getElementById("wordpress-link").href = currentArticleUrl || "#";
   }
 
-  // A real page now (not a sandboxed iframe), so pushState just works —
-  // this genuinely updates the address bar, and back/forward genuinely
-  // navigate between articles and the homepage.
+  // Articles are their own real pages now, generated from WordPress by
+  // scripts/build-articles.mjs. Clicking a card navigates to one instead
+  // of rendering it inside this page, so the address bar, sharing and
+  // link previews all show the article's own URL.
+  //
+  // Root-relative on purpose — it follows whatever domain this page is
+  // served from, so it keeps working when the Truth Zone moves to
+  // knobsock.net/truth. Only the prefix below changes then, matching
+  // OUT_DIR in scripts/build-articles.mjs.
+  const ARTICLE_PATH = "/article/";
+
+  function articleUrl(slug) {
+    return ARTICLE_PATH + encodeURIComponent(slug) + "/";
+  }
+
   function goToArticle(slug) {
-    history.pushState("", document.title, window.location.pathname + window.location.search + "#article=" + slug);
-    loadArticleBySlug(slug);
+    window.location.href = articleUrl(slug);
   }
 
   // Event delegation: catches clicks on any current or future element with data-slug
@@ -640,7 +651,7 @@
   // it's a real, directly-reachable URL now.
   document.getElementById("copy-link-btn").addEventListener("click", () => {
     if (!currentArticleSlug) return;
-    const shareUrl = window.location.origin + window.location.pathname + "#article=" + encodeURIComponent(currentArticleSlug);
+    const shareUrl = window.location.origin + articleUrl(currentArticleSlug);
     navigator.clipboard.writeText(shareUrl).then(() => {
       const msg = document.getElementById("copied-msg");
       msg.style.display = "inline";
@@ -655,11 +666,16 @@
   // not a sandboxed iframe), so a link like
   // truth.knobsock.net/#article=my-post-slug opens straight to that
   // article for anyone, not just in-page navigation.
+  // Old #article=slug links are still out there — shared in messages,
+  // sitting in someone's history. Forward them to the article's real
+  // page rather than breaking them. replace() rather than assignment so
+  // the back button skips this page and returns where the visitor
+  // actually came from, instead of bouncing them forward again.
   function checkHashAndRoute() {
     const hash = window.location.hash; // e.g. "#article=my-post-slug"
     if (hash.startsWith("#article=")) {
       const slug = decodeURIComponent(hash.replace("#article=", ""));
-      loadArticleBySlug(slug);
+      window.location.replace(articleUrl(slug));
     } else {
       showHomepage();
     }
