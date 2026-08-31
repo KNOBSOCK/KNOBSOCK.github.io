@@ -53,6 +53,11 @@
 
   .wrap {
     width: 100%;
+    /* auto margins on a flex item soak up the leftover space above and
+       below evenly, which centers this block. Doing it here as well as
+       with justify-content on the body means the centering holds even
+       where one of the two gets overridden or ignored. */
+    margin: auto 0;
     padding: 4px 4px 12px;
     text-align: left;
   }
