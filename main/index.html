@@ -103,20 +103,26 @@
   .live-badge img { display: block; width: 100%; height: auto; }
 
   /* ---------- NAV BUTTONS ---------- */
+  /* Each button is a fixed, capped size (not a share of the row's width)
+     — a grid with "1fr" columns was making each iframe stretch to fill
+     whatever slice of the row it got, so fewer columns on a narrow phone
+     meant a BIGGER button instead of a smaller one. flex-wrap plus a
+     clamped width keeps every button close to the same real size on any
+     screen; it just wraps into more rows on narrow ones instead of
+     growing to fill them. */
   .nav-buttons {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: clamp(8px, 2vw, 18px);
     margin: clamp(10px, 3vw, 24px) 0;
   }
   .nav-buttons iframe {
     display: block;
-    width: 100%;
+    flex: 0 0 auto;
+    width: clamp(90px, 22vw, 150px);
     aspect-ratio: 2 / 3;
     border: 0;
-  }
-  @media (max-width: 560px) {
-    .nav-buttons { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* ---------- SECTION CARDS ---------- */
