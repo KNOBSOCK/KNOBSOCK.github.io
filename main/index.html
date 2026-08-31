@@ -205,25 +205,45 @@
   .video-panel {
     background: #7890f6;
     /* Offsets the middle column up relative to the other two, so the
-       row reads as staggered instead of three flush-aligned boxes. */
+       row reads as staggered instead of three flush-aligned boxes.
+       Desktop only — see the mobile block below, which cancels this. */
     margin-top: clamp(-40px, -4vw, -20px);
   }
   .listen-panel { background: #980237; }
 
-  /* Mobile: stack instead of squeezing 3 columns into a phone's width.
-     One shared height (like the row split three ways on desktop) doesn't
-     work here — a single stacked panel isn't sharing space with the
-     other two, so the same clamp per panel meant each one kept its full
-     desktop-ish height with barely any content to fill it, leaving a
-     wall of empty color below. Each gets its OWN height instead, sized
-     to what it actually holds — a short article list, a portrait video
-     player plus a thumbnail row, a handful of tracks. */
+  /* Two lightweight duplicates (background color + label only, no live
+     iframe) bookending the real 3 panels, purely so the loop below has
+     something to show for one instant mid-swipe before snapping back to
+     the real card — see the JS. Invisible/inert on desktop; only
+     switched on inside the mobile block below. */
+  .panel-clone { display: none; }
+
+  /* Mobile: instead of stacking the 3 panels in a tall scrolling column
+     (which is what kept causing scroll/scrollbar problems inside each
+     widget), they become a horizontal swipe carousel — one full-width
+     card at a time, native scroll-snap for the swipe feel, with a tiny
+     bit of JS to make it loop (swipe past the last card and you're back
+     at the first, and vice versa). */
   @media (max-width: 720px) {
     .columns-row {
-      grid-template-columns: 1fr;
+      display: flex;
+      grid-template-columns: none;
       height: auto;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: auto;
+      touch-action: pan-x;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
-    .video-panel { margin-top: 0; }
+    .columns-row::-webkit-scrollbar { display: none; }
+    .columns-row .panel {
+      flex: 0 0 100%;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      margin-top: 0;
+    }
+    .panel-clone { display: flex; }
     .articles-panel { height: 260px; }
     .video-panel { height: 360px; }
     .listen-panel { height: 300px; }
@@ -268,7 +288,17 @@
       <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
     </div>
 
-    <div class="columns-row">
+    <div class="columns-row" id="columnsRow">
+      <!-- Leading clone (mobile only) — a static stand-in for Music Spot,
+           the card the loop lands on for an instant when you swipe
+           backward past Truth Zone. No live iframe: it only needs to
+           look right for a moment before the JS snaps to the real one. -->
+      <div class="panel listen-panel panel-clone" aria-hidden="true">
+        <span class="panel-label">
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="">
+        </span>
+      </div>
+
       <div class="panel articles-panel">
         <a class="panel-label" href="/truth" target="_top">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
@@ -286,6 +316,14 @@
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="Music Spot">
         </span>
         <iframe src="/soundcloud-widget.html" title="Listen" loading="lazy"></iframe>
+      </div>
+
+      <!-- Trailing clone (mobile only) — same idea, stands in for Truth
+           Zone when you swipe forward past Music Spot. -->
+      <div class="panel articles-panel panel-clone" aria-hidden="true">
+        <span class="panel-label">
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="">
+        </span>
       </div>
     </div>
 
@@ -327,6 +365,66 @@
   }
 
   drift();
+</script>
+
+<script>
+  // ---------- MOBILE CARD LOOP ----------
+  // On mobile, .columns-row is a horizontal swipe carousel with 5 cards:
+  // [Music Spot clone, Truth Zone, Newest Video, Music Spot, Truth Zone clone]
+  // (see the CSS above) — indexes 0-4, with 1-3 being the real cards.
+  // Landing on a clone (0 or 4) after a swipe silently jumps to the real
+  // card it stands in for, with no animation, so it reads as an
+  // infinite loop instead of stopping at the ends.
+  (function () {
+    const row = document.getElementById('columnsRow');
+    if (!row) return;
+
+    function isCarouselActive() {
+      return window.matchMedia('(max-width: 720px)').matches;
+    }
+
+    function cardWidth() {
+      return row.clientWidth;
+    }
+
+    function jumpTo(index) {
+      row.scrollTo({ left: cardWidth() * index, behavior: 'instant' });
+    }
+
+    // Starts centered on the first real card (Truth Zone, index 1) —
+    // otherwise a fresh page load would open on the leading clone.
+    function resetToStart() {
+      if (!isCarouselActive()) return;
+      jumpTo(1);
+    }
+
+    let scrollSettleTimer = null;
+    row.addEventListener('scroll', function () {
+      if (!isCarouselActive()) return;
+      clearTimeout(scrollSettleTimer);
+      // Debounced instead of reacting to every scroll tick — this only
+      // needs to run once the swipe gesture has actually settled on a
+      // card, not mid-motion.
+      scrollSettleTimer = setTimeout(function () {
+        const width = cardWidth();
+        if (!width) return;
+        const index = Math.round(row.scrollLeft / width);
+        if (index === 0) {
+          jumpTo(3); // leading clone (Music Spot) -> the real Music Spot
+        } else if (index === 4) {
+          jumpTo(1); // trailing clone (Truth Zone) -> the real Truth Zone
+        }
+      }, 80);
+    }, { passive: true });
+
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resetToStart, 150);
+    });
+
+    resetToStart();
+  })();
 </script>
 
 </body>
