@@ -12,6 +12,8 @@
     --line: rgba(255, 220, 120, 0.6);
     --accent: #f2b705;
     --accent-dim: #b8890a;
+    --lime: #a3e635;
+    --lime-dim: #65a30d;
     --text: #ffffff;
     --text-dim: #f5e9c9;
     --font-display: Arial, Helvetica, sans-serif;
@@ -54,13 +56,23 @@
   }
 
   /* ---------- PAGE LAYOUT ----------
-     Desktop: big player + playlist side by side, with the creator chin
-     (below) as a fixed-height strip under both. Mobile (<= 860px wide):
-     player on top, playlist scrolls below — same breakpoint and stacking
-     pattern as the livestream widget; the chin stays pinned to the
-     bottom either way since it's a sibling of .main-row inside .layout,
-     not part of the row that flips direction. Capped at 1200px and
-     centered so the player doesn't stretch edge-to-edge on a big monitor. */
+     Desktop (CSS Grid, >= 861px): video, creator chin, and SoundCloud
+     stacked in a left column; "Up Next" filling a right column that
+     spans all three rows. Mobile (<= 860px): a single flex column in
+     plain DOM order (video, playlist, creator chin, SoundCloud), so
+     SoundCloud naturally lands flush at the very bottom, acting as a
+     chin under the whole widget — no reordering needed. Capped at
+     1200px and centered so the player doesn't stretch edge-to-edge on
+     a big monitor.
+
+     An earlier version grouped video/chin/SoundCloud in a wrapper div
+     and used display:contents + order to reflow it for mobile — that
+     combination has real cross-browser flexbox bugs (a positioned/
+     display:contents child can lose its flex-grow sizing), which is
+     what caused the "Up Next" list to collapse to zero height on a
+     narrower window and SoundCloud to render misaligned. Grid
+     placement on desktop plus plain DOM order on mobile avoids
+     display:contents and flex reordering entirely. */
   .layout {
     position: relative;
     display: flex;
@@ -74,12 +86,38 @@
     background: transparent;
   }
 
-  .main-row {
-    display: flex;
-    flex-direction: row;
-    flex: 1 1 auto;
-    min-height: 0;
-    gap: 14px;
+  @media (min-width: 861px) {
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr minmax(280px, 34%);
+      grid-template-rows: auto auto 1fr;
+      grid-template-areas:
+        "video      playlist"
+        "chin       playlist"
+        "soundcloud playlist";
+      gap: 14px;
+    }
+    .layout.playlist-hidden {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "video"
+        "chin"
+        "soundcloud";
+    }
+    .video-pane { grid-area: video; }
+    .creator-chin { grid-area: chin; }
+    .sc-section {
+      grid-area: soundcloud;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      /* Pins the card to the bottom of whatever vertical room this 1fr
+         row has left — like a chin — instead of floating centered with
+         gaps above and below that read as misaligned with everything
+         else on the page. */
+      justify-content: flex-end;
+    }
+    .playlist-pane { grid-area: playlist; min-height: 0; }
   }
 
   .video-pane {
@@ -101,20 +139,6 @@
     justify-content: center;
   }
 
-  /* Stacks the video, creator chin, and SoundCloud player into one left
-     column on desktop, so the SoundCloud card can fill whatever vertical
-     room the (now thumbnail-sized) video no longer needs, flush with the
-     video's own left edge and width — instead of spanning full width
-     below both columns and floating centered with empty space around it. */
-  .video-col {
-    flex: 1 1 66%;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
   .video-frame-wrap {
     width: min(100cqw, calc(100cqh * 16 / 9));
     height: min(100cqh, calc(100cqw * 9 / 16));
@@ -127,30 +151,42 @@
     border: 0;
   }
 
+  /* Shown in place of the video when a SoundCloud track without a
+     matching video is playing — see showVideoCoverArt() near the
+     bottom of this file. Sits above the iframe but below the hover
+     controls (z-index 5/6) so Unmute/Fullscreen/playback controls stay
+     usable even while the cover art is showing. */
+  .video-cover-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+  .video-cover-overlay[hidden] { display: none; }
+  .video-cover-art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
   .playlist-pane {
-    flex: 1 1 34%;
-    min-width: 280px;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
     display: flex;
     container-type: size;
     container-name: playlistbox;
   }
 
+  .layout.playlist-hidden .playlist-pane { display: none; }
   @media (max-width: 860px) {
-    .main-row { flex-direction: column; }
-    .playlist-pane { flex: 1 1 auto; min-width: 0; }
-    /* .video-col only exists to stack things into a left column on
-       desktop — on mobile it's unwrapped back to flat siblings of
-       .main-row, then put back in the original stacking order (video,
-       playlist, creator chin, SoundCloud) with order. */
-    .video-col { display: contents; }
-    .video-pane { order: 1; }
-    .playlist-pane { order: 2; }
-    .creator-chin { order: 3; }
-    .sc-section { order: 4; flex: 0 0 auto; }
+    .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; }
   }
 
-  .layout.playlist-hidden .playlist-pane { display: none; }
-  .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
 
   /* ---------- CREATOR CHIN ----------
      A row of pill buttons across the bottom, one per creator seen in the
@@ -294,6 +330,13 @@
     width: clamp(26px, 7.5cqw, 34px);
     font-size: clamp(11px, 3.2cqw, 15px);
     flex: none;
+    /* Same spring-y "pop" as the homepage Listen widget's play button —
+       overshoots past 1.0 before settling, so hovering gives it a little
+       dance instead of a flat color swap. */
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .play-pause-btn:hover:not(:disabled) {
+    transform: scale(1.22) rotate(-6deg);
   }
 
   .fullscreen-btn {
@@ -419,23 +462,27 @@
     font-family: var(--font-body);
     flex: none;
   }
-  .playlist-item:hover { background: var(--accent-dim); }
+  .playlist-item:hover { background: var(--lime-dim); }
   .playlist-item.active {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    box-shadow: 0 0 8px rgba(242, 183, 5, 0.5);
+    background: var(--lime-dim);
+    border-color: var(--lime);
+    box-shadow: 0 0 8px rgba(163, 230, 53, 0.5);
   }
 
   @media (max-width: 860px) {
-    /* Was a stacked "card" (thumbnail on top, text below) — but stacking
-       a full 16:9 thumbnail plus two lines of text needed more vertical
-       room than the row actually has, so the text got clipped off below
-       the image. Keeping the normal side-by-side row layout (same as
-       desktop) instead means the card's height is only ever as tall as
-       its content needs, so the title and subtitle are always visible
-       next to the thumbnail regardless of how much vertical space this
-       row is given. */
-    .playlist-item { width: clamp(220px, 62vw, 280px); }
+    /* Thumbnail on top (scaled up to fill the card's own width instead
+       of a small side icon), title + creator underneath, left-aligned —
+       a different format than desktop's side-by-side row, since a
+       bigger thumbnail reads much better on a phone. align-items on
+       .playlist-items above already stops this taller card from being
+       stretched by flex's default "stretch," so the card's height is
+       still only ever as tall as the thumbnail + text actually need. */
+    .playlist-item {
+      flex-direction: column;
+      align-items: flex-start;
+      width: clamp(150px, 46vw, 210px);
+    }
+    .playlist-thumb-wrap { width: 100%; }
   }
 
   .playlist-thumb-wrap {
@@ -457,7 +504,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    border: 2px solid var(--accent);
+    border: 2px solid var(--lime);
     border-radius: inherit;
   }
   .now-playing-badge {
@@ -465,7 +512,7 @@
     left: 4px;
     bottom: 4px;
     background: rgba(58, 42, 0, 0.85);
-    color: var(--accent);
+    color: var(--lime);
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -745,13 +792,15 @@
   }
 
   /* ---------- SOUNDCLOUD MINI PLAYER ----------
-     Fills the extra space left over below the creator chin — a sibling
-     of .main-row/.creator-chin inside .layout, so it automatically
-     claims whatever vertical room those two don't use — with a compact
-     player pulling from the same SoundCloud profile as the homepage's
-     standalone Listen widget. Selecting a creator chip above filters
-     this track list to that same artist too; see the script block near
-     the bottom of this file. */
+     A sibling of .creator-chin inside .layout — on mobile it's
+     content-sized and lands right after the chin, flush at the very
+     bottom of the widget (a chin of its own); on desktop the
+     min-width:861px block above puts it in the left grid column and
+     lets it fill the leftover vertical room there instead. Real
+     playback pulls from the same SoundCloud profile as the homepage's
+     standalone Listen widget; selecting a creator chip above filters
+     this track list to that same artist too — see the script block
+     near the bottom of this file. */
   .sc-widget-frame {
     position: absolute;
     width: 1px;
@@ -759,18 +808,6 @@
     opacity: 0;
     pointer-events: none;
     border: 0;
-  }
-
-  .sc-section {
-    /* Grows to fill whatever vertical room is left in .video-col below
-       the (now thumbnail-sized) video and the creator chin, instead of
-       being sized to just its own content and leaving empty space below
-       it and to its right. */
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
   }
 
   .sc-card {
@@ -966,9 +1003,7 @@
 
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
- <div class="main-row" id="mainRow">
-  <div class="video-col" id="videoCol">
-   <div class="video-pane" id="videoPane">
+  <div class="video-pane" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
     <div class="video-pane-actions">
       <button class="pill-btn toggle-playlist-btn" id="togglePlaylistBtn" title="Hide playlist">Hide Playlist</button>
@@ -984,27 +1019,34 @@
         style="pointer-events: none;">
       </iframe>
     </div>
+    <!-- Shown instead of the video when a SoundCloud track with no
+         matching video is playing, so the video pane and the SoundCloud
+         player feel like one unit — see showVideoCoverArt() near the
+         bottom of this file. -->
+    <div class="video-cover-overlay" id="videoCoverOverlay" hidden>
+      <img class="video-cover-art" id="videoCoverArt" src="" alt="" />
+    </div>
     <div class="video-controls" id="videoControls">
       <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
       <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
       <span class="time-label" id="timeLabel">0:00 / 0:00</span>
       <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
     </div>
-   </div>
+  </div>
 
-   <!-- Auto-populated from each track's YouTube author — see
-        renderCreatorChin() below. "All" chip clears the filter. -->
-   <div class="creator-chin" id="creatorChin"></div>
+  <!-- Auto-populated from each track's YouTube author — see
+       renderCreatorChin() below. "All" chip clears the filter. -->
+  <div class="creator-chin" id="creatorChin"></div>
 
-   <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
-        Real playback runs through SoundCloud's own Widget API via the
-        invisible iframe below, same technique as the homepage's
-        standalone Listen widget, pointed at the same profile. Clicking a
-        creator chip above filters this track list to that same artist
-        too (matched against each track's SoundCloud uploader username) —
-        see refreshScTrackList() in the script block near the bottom of
-        this file. -->
-   <div class="sc-section">
+  <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
+       Real playback runs through SoundCloud's own Widget API via the
+       invisible iframe below, same technique as the homepage's
+       standalone Listen widget, pointed at the same profile. Clicking a
+       creator chip above filters this track list to that same artist
+       too (matched against each track's SoundCloud uploader username) —
+       see refreshScTrackList() in the script block near the bottom of
+       this file. -->
+  <div class="sc-section">
     <div class="sc-card">
       <iframe
         id="scWidgetFrame"
@@ -1038,7 +1080,6 @@
         <div class="empty-state">Loading tracks…</div>
       </div>
     </div>
-   </div>
   </div>
 
   <div class="playlist-pane" id="playlistPane">
@@ -1052,7 +1093,6 @@
       </div>
     </div>
   </div>
- </div>
 </div>
 
 <!-- Hidden admin access point — nearly invisible, tucked in the corner.
@@ -1185,6 +1225,25 @@ let refreshScTrackList = function () {};
 let pauseScTrack = function () {};
 let pauseAndMuteVideo = function () {};
 
+// One-player-many-sources bridges — let the SoundCloud IIFE (further
+// down) drive the video pane when a SoundCloud track has a matching
+// video, and let it show cover art in the video pane for a track that
+// doesn't. All start as no-ops and get replaced once the video IIFE
+// runs, same pattern as the bridges above.
+let showVideoCoverArt = function () {};
+let hideVideoCoverArt = function () {};
+let playVideoByIndex = function () {};
+let pauseCurrentVideo = function () {};
+let resumeCurrentVideo = function () {};
+let seekVideoToFraction = function () {};
+let notifyManualVideoSelect = function () {};
+
+// The reverse direction — the video IIFE calls these (replaced by the
+// SoundCloud IIFE) so the SoundCloud panel's progress bar and play icon
+// stay in sync whenever a matched video is actually the one playing.
+let notifyVideoProgress = function () {};
+let notifyVideoPlayState = function () {};
+
 function resolveAuthorDisplay(rawAuthor) {
   if (!rawAuthor) return rawAuthor;
   return creatorAliases[rawAuthor] || rawAuthor;
@@ -1256,6 +1315,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const playlistCountEl = document.getElementById('playlistCount');
   const creatorChinEl = document.getElementById('creatorChin');
   const ytFrame = document.getElementById('ytFrame');
+  const videoCoverOverlay = document.getElementById('videoCoverOverlay');
+  const videoCoverArt = document.getElementById('videoCoverArt');
 
   let ytPlayer = null;
   let isDragging = false;
@@ -1305,6 +1366,10 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       updateRangeFill();
       timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
     }
+    // Lets the SoundCloud panel's own progress bar track this video's
+    // playhead when a SoundCloud track with a matching video is the one
+    // actually playing (see scPlayIndex() near the bottom of this file).
+    notifyVideoProgress(current, duration);
   }
 
   // ---------- PLAYLIST RENDER ----------
@@ -1355,6 +1420,9 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     playlistItemsEl.querySelectorAll('.playlist-item').forEach(btn => {
       btn.addEventListener('click', function () {
         const idx = parseInt(this.getAttribute('data-index'), 10);
+        // A direct click on a video is a manual choice — it should
+        // override any SoundCloud-driven sync currently in effect.
+        notifyManualVideoSelect();
         playIndex(idx);
       });
     });
@@ -1483,6 +1551,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (idx < 0 || idx >= PLAYLIST.length) return;
     activeIndex = idx;
     renderPlaylist();
+    hideVideoCoverArt();
     const id = PLAYLIST[idx].id;
     if (ytPlayer && apiReady) {
       ytPlayer.loadVideoById(id);
@@ -1516,6 +1585,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
         },
         onStateChange: function (event) {
           updatePlayPauseIcon(event.data);
+          // Keeps the SoundCloud panel's play icon in sync when this
+          // video is the one actually playing for a matched SoundCloud
+          // track (e.g. the user paused/resumed from the video's own
+          // controls instead of SoundCloud's).
+          notifyVideoPlayState(event.data === YT.PlayerState.PLAYING);
           if (event.data === YT.PlayerState.ENDED) {
             playIndex((activeIndex + 1) % PLAYLIST.length);
           }
@@ -1539,6 +1613,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       // Only one of the video/SoundCloud should have audio at a time —
       // unmuting the video pauses whatever's playing on SoundCloud.
       pauseScTrack();
+      hideVideoCoverArt();
     } else {
       ytPlayer.mute();
       unmuteBtn.textContent = 'Unmute';
@@ -1555,6 +1630,39 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (typeof ytPlayer.mute === 'function') ytPlayer.mute();
     unmuteBtn.textContent = 'Unmute';
     unmuteBtn.title = 'Unmute';
+  };
+
+  // ---------- ONE PLAYER, MANY SOURCES ----------
+  // Lets the SoundCloud IIFE (further down) drive this video pane: show
+  // this track's cover art in place of the video for a SoundCloud track
+  // with no matching video, or play/scrub the actual video when a
+  // SoundCloud track DOES have a matching one — see scPlayIndex() there.
+  showVideoCoverArt = function (artworkUrl) {
+    videoCoverArt.src = artworkUrl;
+    videoCoverOverlay.hidden = false;
+  };
+  hideVideoCoverArt = function () {
+    videoCoverOverlay.hidden = true;
+  };
+  playVideoByIndex = function (idx) {
+    playIndex(idx);
+    if (ytPlayer && typeof ytPlayer.isMuted === 'function' && ytPlayer.isMuted()) {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(100);
+      unmuteBtn.textContent = 'Mute';
+      unmuteBtn.title = 'Mute';
+    }
+  };
+  pauseCurrentVideo = function () {
+    if (ytPlayer) ytPlayer.pauseVideo();
+  };
+  resumeCurrentVideo = function () {
+    if (ytPlayer) ytPlayer.playVideo();
+  };
+  seekVideoToFraction = function (fraction) {
+    if (!ytPlayer) return;
+    const duration = ytPlayer.getDuration();
+    if (duration > 0) ytPlayer.seekTo(fraction * duration, true);
   };
 
   playPauseBtn.addEventListener('click', function () {
@@ -2021,6 +2129,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   let scCurrentIndex = 0;
   let scIsPlaying = false;
   let scDuration = 0;
+  // True while the currently "playing" SoundCloud track is actually
+  // being played through the matching YouTube video instead (see
+  // scPlayIndex() below) — so this panel's play button and progress bar
+  // control/reflect the video rather than the (paused) SC widget.
+  let scSyncedToVideo = false;
 
   function scEscapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -2039,6 +2152,23 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   function scMatchesFilter(sound) {
     if (!activeAuthorFilter) return true;
     return getScAuthor(sound).toLowerCase() === activeAuthorFilter.toLowerCase();
+  }
+
+  // Loose title match so a SoundCloud track can find its corresponding
+  // YouTube video (same song, uploaded to both places) — normalizes both
+  // titles down to lowercase alphanumerics before comparing, so
+  // punctuation/casing/parenthetical differences ("Melted Ice" vs
+  // "MELTED ICE (Official Video)") don't prevent a match.
+  function normalizeTitleForMatch(t) {
+    return (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function findMatchingVideoIndex(sound) {
+    const scNorm = normalizeTitleForMatch(sound && sound.title);
+    if (!scNorm) return -1;
+    return PLAYLIST.findIndex(function (v) {
+      const vNorm = normalizeTitleForMatch(v.title);
+      return vNorm && (vNorm === scNorm || vNorm.includes(scNorm) || scNorm.includes(vNorm));
+    });
   }
 
   // SoundCloud's default artwork_url points at a small "-large" (100x100)
@@ -2126,12 +2256,36 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     });
   }
 
+  // One player, many sources: a SoundCloud track that has a matching
+  // video (same song uploaded both places) just plays that video
+  // instead — real audio+picture from one source, no risk of two audios
+  // overlapping — with this panel staying in sync (progress bar, play
+  // icon) via the notifyVideoProgress/notifyVideoPlayState bridges
+  // below. A track with no matching video plays through SoundCloud as
+  // before, but shows its cover art in the video pane so the two
+  // players still read as one unit.
   function scPlayIndex(idx) {
     if (idx < 0 || idx >= scSounds.length) return;
     scCurrentIndex = idx;
     renderScTrackList();
-    scWidget.skip(idx);
-    scWidget.play();
+
+    const sound = scSounds[idx];
+    const matchedVideoIndex = findMatchingVideoIndex(sound);
+
+    if (matchedVideoIndex !== -1) {
+      scSyncedToVideo = true;
+      scWidget.pause();
+      setScNowPlaying(sound);
+      scDuration = (sound.duration || 0) / 1000;
+      scIsPlaying = true;
+      updateScPlayIcon();
+      playVideoByIndex(matchedVideoIndex);
+    } else {
+      scSyncedToVideo = false;
+      showVideoCoverArt(getScArtworkUrl(sound));
+      scWidget.skip(idx);
+      scWidget.play();
+    }
   }
 
   scWidget.bind(SC.Widget.Events.READY, function () {
@@ -2146,6 +2300,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   });
 
   scWidget.bind(SC.Widget.Events.PLAY, function () {
+    // Only fires for genuine SoundCloud playback (the matched-video path
+    // above never calls scWidget.play()), so this track has no matching
+    // video — showing its cover art here too covers the widget's own
+    // "resume" controls, not just clicks that went through scPlayIndex.
+    scSyncedToVideo = false;
     scIsPlaying = true;
     updateScPlayIcon();
     // Only one of the video/SoundCloud should have audio at a time —
@@ -2155,17 +2314,20 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       if (!sound) return;
       setScNowPlaying(sound);
       scDuration = sound.duration || 0;
+      showVideoCoverArt(getScArtworkUrl(sound));
       const idx = scSounds.findIndex(function (s) { return s.id === sound.id; });
       if (idx !== -1) { scCurrentIndex = idx; renderScTrackList(); }
     });
   });
 
   scWidget.bind(SC.Widget.Events.PAUSE, function () {
+    if (scSyncedToVideo) return; // this panel's state follows the video instead
     scIsPlaying = false;
     updateScPlayIcon();
   });
 
   scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
+    if (scSyncedToVideo) return; // progress comes from notifyVideoProgress instead
     scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
   });
 
@@ -2179,8 +2341,16 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // the widget yet, which is what made this need two clicks to actually
   // start playing.
   scPlayBtn.addEventListener('click', function () {
-    if (scIsPlaying) scWidget.pause();
-    else scWidget.play();
+    if (scSyncedToVideo) {
+      if (scIsPlaying) pauseCurrentVideo();
+      else resumeCurrentVideo();
+      // scIsPlaying itself is kept accurate by notifyVideoPlayState,
+      // which fires from the video's own onStateChange right after this.
+    } else if (scIsPlaying) {
+      scWidget.pause();
+    } else {
+      scWidget.play();
+    }
   });
 
   scArtworkLinkEl.addEventListener('click', function (e) {
@@ -2204,7 +2374,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (!scDuration) return;
     const rect = scProgressTrackEl.getBoundingClientRect();
     const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    scWidget.seekTo(fraction * scDuration);
+    if (scSyncedToVideo) {
+      seekVideoToFraction(fraction);
+    } else {
+      scWidget.seekTo(fraction * scDuration);
+    }
     scProgressFillEl.style.width = (fraction * 100) + '%';
   });
 
@@ -2219,6 +2393,25 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // section's playback, same bridging pattern as refreshScTrackList.
   pauseScTrack = function () {
     scWidget.pause();
+  };
+
+  // Reverse direction of the one-player bridges above: the video IIFE
+  // calls these so this panel's progress bar and play icon keep
+  // reflecting the video whenever a matched track is the one actually
+  // playing, and so a manual video pick (bypassing SoundCloud entirely)
+  // clears the synced state.
+  notifyVideoProgress = function (current, duration) {
+    if (!scSyncedToVideo || !duration) return;
+    scDuration = duration;
+    scProgressFillEl.style.width = ((current / duration) * 100) + '%';
+  };
+  notifyVideoPlayState = function (isPlaying) {
+    if (!scSyncedToVideo) return;
+    scIsPlaying = isPlaying;
+    updateScPlayIcon();
+  };
+  notifyManualVideoSelect = function () {
+    scSyncedToVideo = false;
   };
 })();
 </script>
