@@ -41,6 +41,12 @@
     color: yellow;
     display: flex;
     flex-direction: column;
+    /* Sits the heading, thumbnail and title as one block in the middle
+       of whatever box this is given, rather than stacked against the top
+       with the leftover room pooling underneath — most visible on the
+       square mobile card, where only one article fits and the rest of
+       the square was reading as empty. */
+    justify-content: center;
   }
 
   a { text-decoration: none; color: inherit; }
