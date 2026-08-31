@@ -48,7 +48,13 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
-    z-index: -1;
+    /* No z-index here on purpose — this element is already first in the
+       DOM, so later siblings (header, page-wrapper) naturally paint over
+       it without it needing one. A NEGATIVE z-index on a position:fixed
+       element (what this had before) commonly sinks it behind the
+       <body>'s own opaque background fill instead of in front of it,
+       which is exactly what was showing as a wall of plain white with
+       only a sliver of video peeking through. */
   }
 
   /* Logo header — transparent, sits above the video */
