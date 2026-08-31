@@ -195,6 +195,17 @@
     gap: 6px;
     cursor: pointer;
     min-width: 0;
+    /* Stripping the browser's own button chrome — these are <button>s so
+       they can't navigate anywhere (see renderList), not for the look. */
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
   }
 
   .video-thumb {
@@ -619,8 +630,17 @@
         return;
       }
 
+      // Deliberately a <button>, not an <a href="youtube.com/watch?v=...">.
+      // These tiles always play inline in the mini player above, so the
+      // href never got used — it was only ever suppressed by the
+      // preventDefault below. That made it a loaded gun: any moment the
+      // handler didn't run (Safari replaying a queued tap when you
+      // reopen the app, the listener not attached yet, an exception
+      // earlier in this script) and the browser would just follow the
+      // link straight to youtube.com. A button has nowhere to navigate
+      // to, so that can't happen at all.
       videoListEl.innerHTML = videos.map(v => `
-        <a class="video-tile" href="https://www.youtube.com/watch?v=${v.id}" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
+        <button type="button" class="video-tile" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
           <span class="video-thumb">
             <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy">
             <span class="play-icon">
@@ -628,7 +648,7 @@
             </span>
           </span>
           <span class="video-title">${escapeHtml(v.title)}</span>
-        </a>
+        </button>
       `).join('');
 
       // Only auto-load a video the very first time the list arrives —
