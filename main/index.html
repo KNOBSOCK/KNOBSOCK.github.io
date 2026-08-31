@@ -288,16 +288,36 @@
     .columns-row.dragging .panel {
       transition: none;
     }
-    /* Only the front card is interactive; without this a tap meant for
-       the side cards would land inside their widget iframe instead of
-       bringing that card forward. */
-    .columns-row .panel:not(.is-active) iframe {
-      pointer-events: none;
+    /* THE thing that makes swiping actually work over a card.
+       Touch events never cross an iframe boundary — a finger landing on
+       the widget inside a card sends its touches to that widget's own
+       document, where this page's swipe handler can't see them at all.
+       Since the iframe covers nearly the whole card, the only swipeable
+       strip left was the ~14px of colored padding around it, which is
+       why swiping worked once in a while and otherwise seemed dead.
+       This transparent layer sits over the iframe, in THIS document, so
+       the gesture lands somewhere the carousel can read it.
+       A tap (as opposed to a swipe) lifts the layer for that card, so
+       the widget underneath is still usable — play buttons, scrubbers,
+       article links. Moving to another card puts it back, so swiping
+       never stays broken. */
+    .columns-row .card-touch {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      border-radius: inherit;
+    }
+    .columns-row .panel.unlocked .card-touch {
+      display: none;
     }
     .columns-row .panel:not(.is-active) {
       cursor: pointer;
     }
   }
+  /* Desktop never needs the capture layer — there's no carousel to
+     swipe and it would just block the widgets. */
+  .card-touch { display: none; }
 
   /* ---------- FOOTER ---------- */
   .bottom-row {
@@ -344,18 +364,21 @@
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
         </a>
         <iframe src="/recent-articles-widget.html" title="Recent Articles" loading="lazy"></iframe>
+        <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel video-panel">
         <span class="panel-label">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
         </span>
         <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"></iframe>
+        <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel listen-panel">
         <span class="panel-label">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="Music Spot">
         </span>
         <iframe src="/soundcloud-widget.html" title="Listen" loading="lazy"></iframe>
+        <span class="card-touch" aria-hidden="true"></span>
       </div>
     </div>
 
@@ -424,6 +447,8 @@
     let startX = 0;
     let startY = 0;
     let dx = 0;
+    let touchedCard = null;
+    let swiped = false;
 
     function isCarousel() {
       return window.matchMedia('(max-width: 720px)').matches;
@@ -467,6 +492,9 @@
 
     function go(delta) {
       index = (index + delta % count + count) % count;
+      // Every card gets its capture layer back on a move, so the next
+      // swipe works no matter which card was unlocked before.
+      cards.forEach(function (card) { card.classList.remove('unlocked'); });
       layout(0);
     }
 
@@ -477,6 +505,7 @@
       dx = 0;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
+      touchedCard = e.target.closest ? e.target.closest('.panel') : null;
     }, { passive: true });
 
     row.addEventListener('touchmove', function (e) {
@@ -504,22 +533,44 @@
       // Past about a fifth of a card's width counts as a deliberate
       // swipe; anything shorter settles back where it started.
       if (axis === 'x' && Math.abs(dx) > width * 0.18) {
+        swiped = true;
         go(dx < 0 ? 1 : -1);
+      } else if (axis === null && touchedCard) {
+        // Barely moved, so it was a tap rather than a swipe. On a side
+        // card that means "bring me forward"; on the front card it means
+        // "let me actually use this widget", so its capture layer lifts.
+        const i = cards.indexOf(touchedCard);
+        if (i !== -1) {
+          if (offsetFor(i) === 0) {
+            touchedCard.classList.add('unlocked');
+          } else {
+            swiped = true;
+            go(offsetFor(i));
+          }
+        }
       } else {
         layout(0);
       }
       axis = null;
       dx = 0;
+      touchedCard = null;
     }
 
     row.addEventListener('touchend', endDrag, { passive: true });
     row.addEventListener('touchcancel', endDrag, { passive: true });
 
-    // Tapping a side card brings it forward.
+    // Mouse/pointer fallback (and desktop dev tools' touch emulation) —
+    // taps handled above already fire a click afterwards on real touch
+    // devices, so a just-handled gesture is skipped to keep the carousel
+    // from advancing twice for the same tap.
     cards.forEach(function (card, i) {
       card.addEventListener('click', function () {
         if (!isCarousel()) return;
-        if (offsetFor(i) === 0) return;
+        if (swiped) { swiped = false; return; }
+        if (offsetFor(i) === 0) {
+          card.classList.add('unlocked');
+          return;
+        }
         go(offsetFor(i));
       });
     });
