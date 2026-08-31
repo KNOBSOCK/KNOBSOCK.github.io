@@ -106,21 +106,28 @@
   /* Each button is a fixed, capped size (not a share of the row's width)
      — a grid with "1fr" columns was making each iframe stretch to fill
      whatever slice of the row it got, so fewer columns on a narrow phone
-     meant a BIGGER button instead of a smaller one. flex-wrap plus a
-     clamped width keeps every button close to the same real size on any
-     screen; it just wraps into more rows on narrow ones instead of
-     growing to fill them. */
+     meant a BIGGER button instead of a smaller one.
+     All 4 always stay on one row (flex-wrap: nowrap) instead of the
+     4th one dropping to its own line — sized off this row's own actual
+     width via calc(), not raw vw (vw is the whole browser window, which
+     doesn't account for .page's own side padding narrowing the row's
+     real available space — that mismatch was exactly what made the 4th
+     button run out of room and wrap). Capped at 150px each so they don't
+     grow huge on a wide screen either; below that, all 4 shrink together
+     to whatever the row actually has room for. */
   .nav-buttons {
+    --nav-gap: clamp(6px, 2vw, 18px);
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
-    gap: clamp(8px, 2vw, 18px);
+    gap: var(--nav-gap);
     margin: clamp(10px, 3vw, 24px) 0;
   }
   .nav-buttons iframe {
     display: block;
-    flex: 0 0 auto;
-    width: clamp(90px, 22vw, 150px);
+    flex: 0 1 auto;
+    min-width: 0;
+    width: min(150px, calc((100% - 3 * var(--nav-gap)) / 4));
     aspect-ratio: 2 / 3;
     border: 0;
   }
