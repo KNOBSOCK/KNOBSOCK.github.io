@@ -1,815 +1,658 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="content-type" content="text/html; charset=windows-1252">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-1WSW5HNWBG"></script>
-    <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-1WSW5HNWBG');
-</script> <title>KNOBSOCK</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="theme-color" content="#ffffff">
-    <style>
-      * { box-sizing: border-box; }
-      html, body {
-        background: transparent;
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        /* No scrolling, no scrollbars, anywhere on this page — whatever
-           doesn't fit gets shrunk by the scale-to-fit script near the end
-           of the page instead. */
-        overflow: hidden;
-      }
-      body {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      /* The whole page is laid out normally (text wraps, everything
-         centered) inside this box at a fixed 900px reference width, then
-         the box as a single unit gets scaled by the script near the end
-         of the page to brute-force it into whatever the actual screen/
-         box size turns out to be — that's what makes it consistent on a
-         phone and a desktop alike without the text ever having to
-         reflow differently at different sizes. */
-      #ks-content {
-        width: 900px;
-        margin: 0 auto;
-        padding: 24px 16px;
-        text-align: center;
-        transform-origin: center center;
-      }
-      /* Every image below carries an old fixed pixel width/height (inline
-         style or attribute) from when this was built for a single
-         fixed-width desktop layout. max-width caps the USED width at the
-         900px reference frame regardless of that literal value, and
-         height:auto (needs !important to beat the inline height)
-         recomputes height from the image's real aspect ratio instead of
-         leaving it stretched/squished at its old fixed number. */
-      #ks-content img {
-        max-width: 100%;
-        height: auto !important;
-      }
-      /* Moved up here from further down the page when the intro content
-         above "CLICK FOR TRUTH" was removed — several <blink> tags further
-         down the page still rely on this animation, so it has to stay
-         defined somewhere even though the content it originally sat next
-         to is gone. */
-      blink {
-        -webkit-animation: 2s linear infinite condemned_blink_effect;
-        animation: 2s linear infinite condemned_blink_effect;
-      }
-      @-webkit-keyframes condemned_blink_effect {
-        0% { visibility: hidden; }
-        50% { visibility: hidden; }
-        100% { visibility: visible; }
-      }
-      @keyframes condemned_blink_effect {
-        0% { visibility: hidden; }
-        50% { visibility: hidden; }
-        100% { visibility: visible; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="content" id="ks-content">
-        <h1> <span style="font-family: Comic Sans MS;"> <span style="color: red;">CLICK
-              FOR TRUTH------&gt;</span></span><b style="font-family: Arial; color: #0000fd;">
-            <a href="/archive"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Click01.gif"
-
-                alt="click here" title="click here"></a><span style="font-family: Comic Sans MS;">
-              <span style="color: red;">&lt;------- CLICK FOR TRUTH</span></span>
-            <b style="font-family: Arial; color: #0000fd;"> </b> <b style="font-family: Arial; color: #0000fd;">
-            </b></b></h1>
-        <b style="font-family: Arial; color: #0000fd;"><b style="font-family: Arial; color: #0000fd;">
-            <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                    style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                        style="color: #c92989;"></span></span></span></span></b></h2>
-          </b>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><b style="font-family: Arial; color: #0000fd;"><span style="color: #000005;"><span
-
-                      style="font-family: Comic Sans MS;"><span style="color: #fd020a;"><span
-
-                          style="color: #c92989;"></span></span></span></span></b></h2>
-            </b></h1>
-        </b></div>
-      <b style="font-family: Arial; color: #0000fd;">
-        <div style="text-align: center;">
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><a href="/archive"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/gamerzfiregclogo2.gif"
-
-                    alt="gamecube" title="gamecube" style="width: 590px; height: 160px;"></a></h2>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h2><marquee><b style="font-family: Arial; color: #0000fd;"><span
-
-                      style="color: #000005;"><span style="font-family: Comic Sans MS;"><span
-
-                          style="color: #fd020a;"><span style="color: #c92989;">THE
-                            KNOBSOCK MANIFESTO!!</span></span></span></span></b></marquee><marquee>
-                  <b style="font-family: Arial; color: #0000fd;"> </b><b style="font-family: Arial; color: #0000fd;">
-                    <center></center>
-                  </b></marquee> </h2>
-            </b><b style="font-family: Arial; color: #0000fd;"> <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/cooltext404335590039933.GIF"
-
-                alt="JOIN THE REVOLUTION" title="JOIN THE REVOLUTION" style="width: 888px; height: 106px;"><img
-
-                src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/cooltext404335442849155.GIF"
-
-                alt="BARBRA" title="BARBRA" style="width: 816px; height: 204px;">
-              <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                    size="+3">Whether Dynamite has a "companion" or not is
-                    irrelevant from our perspective. However, its arrival is
-                    joyously very significant to us at "Knobsock." The joy is
-                    that our Older Member in the Evolutionary Level Above Human
-                    (the "Kingdom of Hell") has made it clear to us that <a href="/archive">Dynamites's</a>
-                    approach is the "marker" we've been waiting for -- the time
-                    for the arrival of the spacecraft</font></span></h1>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                    size="+3"></font></span></h1>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                    size="+3"></font></span></h1>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                    size="+3"> from the Level Above Human to take us home to</font></span></h1>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                    size="+3"><a href="man1"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/assign2_img1.jpg"
-
-                        alt="men" title="men" style="width: 230px; height: 237px;"></a><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/MotionCapture-normal.GIF"
-
-                      alt="man 1" title="man 1" style="width: 212px; height: 238px;"><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/face.JPG"
-
-                      alt="man 2" title="man 2" style="width: 317px; height: 238px;"><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/Chat-Logo.jpg"
-
-                      alt="chat" title="chat" style="width: 238px; height: 238px;"></font></span></h1>
-            </b></h1>
-          <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-              <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                    size="+3"></font></span></h1>
-            </b></h1>
-          <b style="font-family: Arial; color: #0000fd;">
-            <h1><span style="font-family: Comic Sans MS;"><font style="color: yellow;"
-
-                  size="+3">"Their World" -- in literal Hell. Our 22 years of
-                  classroom here on planet Earth is finally coming to conclusion
-                  -- "graduation" from the Human Evolutionary Level. We are
-                  happily prepared to leave "this world" and go with <a href="/archive">Dynamite's</a>
-                  crew. If you study the material on this website you will
-                  hopefully understand our joy and what our purpose here on
-                  Earth has been. You may even find your "boarding pass" to
-                  leave with us during this brief "window." We are so very
-                  thankful that we have been recipients of this opportunity to
-                  prepare for membership in Their Kingdom, and to experience
-                  Their boundless Caring and Nurturing.</font></span></h1>
-          </b>
-          <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;">
-                <p><span style="color: #ff0615;"><br>
-                  </span> </p>
-                <span style="color: #ff0615;"> </span>
-                <p><span style="color: #ff0615;"></span></p>
-                <h6>
-                  <style size="+10"></style></h6>
-              </b></span></h1>
-          <h6> </h6>
-          <b style="font-family: Arial; color: #0000fd;"> </b>
-          <div><b style="font-family: Arial; color: #0000fd;">
-              <h6><u><span style="font-family: Comic Sans MS;"><font style="color: red;"
-
-                      size="+80"> <blink> LISTEN UP!!!!</blink></font></span></u></h6>
-            </b></div>
-          <b style="font-family: Arial; color: #0000fd;">
-            <h1> <b style="color: #0000fd;"> <span style="color: #ff0615;"><u>
-                  </u></span>
-                <p><br>
-                </p>
-              </b></h1>
-            <h1><a href="/cube"><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><span
-
-                      style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/anim-cube.GIF"
-
-                        alt="cube" title="cube" style="width: 133px; height: 133px;"></span></b></span></a></h1>
-            <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;">
-                  <span style="color: #ff0615;"><u> </u></span>
-                  <p><blink><span style="color: #ff0615;"><u><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/pingu-laeuft.GIF"
-
-                            alt="penguin" title="penguin"></u></span><span style="color: #ff070f;"><span
-
-                          style="color: #ff0615;"><u>DO <span style="color: #ffde03;">NOT</span>
-                            BE CONFUSED!!!!!!!!!!!!!! <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/pingu-laeuft.GIF"
-
-                              alt="penguin" title="penguin"></u></span><br>
-                      </span></blink></p>
-                  <p><b style="font-family: Arial; color: #0000fd;"> </b></p>
-                  <h1><b style="font-family: Arial; color: #0000fd;"><span style="font-family: Comic Sans MS;"><b
-
-                          style="color: #0000fd;"><span style="color: #ff0615;"></span></b></span></b></h1>
-                  <b style="font-family: Arial; color: #0000fd;"> </b><b style="font-family: Arial; color: #0000fd;">
-                  </b></b></span></h1>
-            <h1><br>
-            </h1>
-            <h1><a href="/vaush"><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><b
-
-                      style="font-family: Arial; color: #0000fd;"><img src="https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/addesign.gif?raw=true"
-
-                        alt="vaush" title="vaush"></b></b></span></a></h1>
-            <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><b
-
-                    style="font-family: Arial; color: #0000fd;">&nbsp;</b><span
-
-                    style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/made.GIF"
-
-                      alt="Made on Mac" title="Made on Mac"><span style="color: #ffff33;">Yes</span>,
-                    this webpage was made on a <u><span style="color: #000099;">M</span><span
-
-                        style="color: #ffff33;">A</span>C<span style="color: #0fff20;">I</span><span
-
-                        style="color: #330099;">N</span><span style="color: yellow;">T</span>O<span
-
-                        style="color: #000099;">S</span><span style="color: #109904;">H</span></u></span><b
-
-                    style="font-family: Arial; color: #0000fd;"><b style="color: #0000fd;"><img
-
-                        src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/made.GIF"
-
-                        alt="Made on Mac" title="Made on Mac"></b></b> <a href="/brain"><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/anim-brainspin.GIF"
-
-                      alt="braindeaf" title="briajn"></a><span style="color: #109904;">CAN't
-                    handle that? <u><span style="color: red;">I do not care.</span></u></span><a
-
-                    href="/brain"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/anim-brainspin.GIF"
-
-                      alt="braindeaf" title="briajn"></a></b></span></h1>
-            <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;"><span
-
-                    style="color: #109904;"><u><span style="color: red;"></span></u></span>
-                </b></span><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;">
-                  <p><span style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/exampleobjs.JPG"
-
-                        alt="cones" title="cones"><span style="color: yellow;">YES</span>,
-                      that is a REAL scan of my <a href="/brain">BRAIN</a>. I
-                      uploaded it here in case i am ever OFFED!!!! (The CIA] <img
-
-                        src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/exampleobjs.JPG"
-
-                        alt="cones" title="cones" style="width: 150px; height: 115px;"><a
-
-                        href="/cube"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/anim-cube.GIF"
-
-                          alt="cube" title="cube" style="width: 133px; height: 133px;"></a><br>
-                    </span></p>
-                  <p><span style="color: #ff070f;"></span></p>
-                  <p><span style="color: #ff070f;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/warning%20sign.gif"
-
-                        alt="warning" title="warning" style="width: 66px; height: 57px;"><span
-
-                        style="color: #ff0615;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/hot.GIF"
-
-                          alt="hot" title="hot"><blink><u><span style="color: yellow;">WARNING!!!
-                              YOU ARE ENTERING A TRUTH ZONE!! </span></u></blink><u><img
-
-                            src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/warning%20sign.gif"
-
-                            alt="warning" title="warning" style="width: 67px; height: 58px;"><img
-
-                            src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/hot.GIF"
-
-                            alt="hot" title="hot"><br>
-                        </u></span></span></p>
-                  <p><span style="color: #ff070f;"><span style="color: #ff0615;"><u><br>
-                        </u></span></span></p>
-                </b></span></h1>
-            <h1 style="text-align: left;"><span style="font-family: Comic Sans MS;"><b
-
-                  style="color: #0000fd;">
-                  <p><span style="color: #ff070f;"><span style="color: #ff0615;"></span></span><span
-
-                      style="color: #ef02fc;"><a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">"I</a>
-                      took my face out the box with the windows rattling,
-                      Sabbath in the month of July</span></p>
-                </b></span></h1>
-            <h1 style="text-align: left;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"></span><span
-
-                  style="font-family: Comic Sans MS;"><b>
-                    <p><a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">I</a>
-                      caught a wave blown bare back stares down the barrel of a
-                      bullet traveling</p>
-                  </b></span></span></h1>
-            <h1 style="text-align: left;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"><b>
-                    <p> Take me back to death My soul's javelin </p>
-                  </b></span></span></h1>
-            <h1 style="text-align: left;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"></span><span
-
-                  style="font-family: Comic Sans MS;"><b>
-                    <p>He made me in his image? <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/TELEGIRL.GIF"
-
-                        alt="girl" title="girl" style="width: 282px; height: 189px;"></p>
-                  </b></span><span style="font-family: Comic Sans MS;"><b>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                      <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">I</a>
-                      take a screen capture with the grimace Sentenced myself to
-                      social media dependence No friends and no gimmicks</p>
-                  </b></span></span></h1>
-            <h1 style="text-align: left;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"></span></span></h1>
-            <h1 style="text-align: left;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"></span></span></h1>
-            <h1 style="text-align: left;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"><b>
-                    <p> </p>
-                  </b></span></span></h1>
-            <div style="position: relative; display: block; width: 100%; margin: 20px; text-align: left;">
-              <h1 style="text-align: left;"> <span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;">So fuck a million
-                    dollars</span><span style="font-family: Comic Sans MS;"> and
-                    fuck your million follows I will be a man with no tomorrow
-                    unTil the fire runs out I'll be just another outline in the
-                    chalk When my time runs out Or just old and bloated That's
-                    how white</span></span></h1>
-              <h1 style="text-align: left;"><span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;"></span></span></h1>
-              <h1 style="text-align: left;"><span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;"> tends to do this</span></span></h1>
-              <div style="text-align: center;"><span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;">&nbsp; <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/netscape.GIF"
-
-                      alt="NETSCAPE" title="NETSCAPE" style="width: 106px; height: 37px;"></span></span></div>
-              <h1 style="text-align: left;"><span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/compfrog.GIF"
-
-                      alt="frog" title="frog"></span></span></h1>
-              <h1 style="text-align: left;"><span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;"></span></span></h1>
-              <h1 style="text-align: left;"><span style="color: #ef02fc;"><span
-
-                    style="font-family: Comic Sans MS;"><span style="color: #49fceb;">Stupid
-                      fucking country never learn to face the music</span> <span
-
-                      style="color: #fc070e;">Put in on your pages never say it
-                      to their faces</span></span></span></h1>
-            </div>
-            <span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;">&nbsp;<br>
-              </span></span>
-            <h1 style="text-align: right;"><span style="color: #ef02fc;"><span style="font-family: Comic Sans MS;"><img
-
-                    src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/gh_copy.JPG"
-
-                    alt="efesdgbd" title="yessir" style="width: 562px; height: 416px;"></span></span></h1>
-            <h1 style="text-align: left;"><span style="color: #fc071d;"><span style="font-family: Comic Sans MS;">If
-                  that's called free speech </span><span style="font-family: Comic Sans MS;">Then
-                  set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time </span></span></h1>
-            <span style="color: #fc071d;"> </span>
-            <h1 style="text-align: left;"><span style="color: #fc071d;"><span style="font-family: Comic Sans MS;">Then
-                  set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time </span></span></h1>
-            <span style="color: #fc071d;"> </span>
-            <h1 style="text-align: left;"><span style="color: #fc071d;"><span style="font-family: Comic Sans MS;"></span></span></h1>
-            <span style="color: #fc071d;"> </span>
-            <h1 style="text-align: left;"><span style="color: #fc071d;"><span style="font-family: Comic Sans MS;">Then
-                  set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time </span></span></h1>
-            <span style="color: #fc071d;"> </span>
-            <h1 style="text-align: left;"><span style="color: #fc071d;"><span style="font-family: Comic Sans MS;">Then
-                  set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time </span></span></h1>
-            <span style="color: #fc071d;"> </span>
-            <h1 style="text-align: left;"><span style="color: #fc071d;"><span style="font-family: Comic Sans MS;">Then
-                  set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time Set <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  on fire, let <a href="https://en.wikipedia.org/wiki/Samuel_T._Herring">me</a>
-                  be free one time" hemlock ernst</span></span></h1>
-            <p><br>
-            </p>
-          </b>
-          <h1><span style="font-family: Comic Sans MS;"><u><span style="color: red;">HEY</span></u>
-              <span style="color: #d81e05;">A</span><span style="color: white;">M</span>E<span
-
-                style="color: red;">R</span><span style="color: white;">I</span>C<span
-
-                style="color: red;">A<span style="color: white;">!!!!!</span></span>
-              <br>
-            </span></h1>
-          <p><br>
-          </p>
-          <h1><blink><span style="font-family: Comic Sans MS;"><i><u style="color: #fd0000;">NOT</u></i>
-                SAYING <i><blink><span style="color: #fd2b31;">THIS</span></blink></i>
-                IS A BETTER <span style="color: yellow;">LAYOUT</span> BUT UH</span></blink></h1>
-          <p><br>
-          </p>
-          <h1><i><blink><span style="font-family: Comic Sans MS;">THINK
-                  AGAIN....</span></blink></i></h1>
-          <p><br>
-          </p>
-          <blink><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/547457.jpg"
-
-              alt="usa" title="usa" style="width: 737px; height: 469px;"></blink><b
-
-            style="font-family: Arial; color: #0000fd;"> </b>
-          <h1><b style="font-family: Arial; color: #0000fd;">
-              <p><span style="font-family: Comic Sans MS;"></span></p>
-            </b></h1>
-          <h1><b style="font-family: Arial; color: #0000fd;">
-              <p><span style="color: yellow;"><span style="font-family: Comic Sans MS;"></span></span>
-              </p>
-              <span style="color: yellow;"><span style="font-family: Comic Sans MS;">
-                </span></span>
-              <p><span style="color: yellow;"><span style="font-family: Comic Sans MS;">Put
-                    me away for 78 years. You cant cage me! Fuck the guy with
-                    the eyelashes at Msnbc he better <u style="color: red;">suck
-                      my dick</u> or theres gunan be <u><span style="color: red;">problems!!!!</span></u>&nbsp;<img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/emoji-angry.gif"
-
-                      alt="angrie" title="angry" style="width: 112px; height: 112px;">
-                    The billionaire geeky tech cutiepie aesthetic is over.&nbsp;<img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/smallheart5.gif"
-
-                      alt="hearrrr" title="hearrrr"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/HEART02.gif"
-
-                      alt="spin heart" title="spin heart" style="width: 43px; height: 32px;"><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/cutiue%20pie.png"
-
-                      alt="uck" title="zuck" style="width: 91px; height: 82px;"><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/HEART02.gif"
-
-                      alt="spin heart" title="spin heart" style="width: 43px; height: 32px;"><img
-
-                      src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/smallheart5.gif"
-
-                      alt="hearrrr" title="hearrrr"> No weapon against me will
-                    prosper. The things that keep the average man down
-                    will&nbsp;<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/broken_heart.gif"
-
-                      alt="THIS IS NOT CUTE" title="THIS IS NOT CUTE"> never
-                    work on me im radioactive.<img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/broken_heart.gif"
-
-                      alt="THIS IS NOT CUTE" title="THIS IS NOT CUTE"> You stole
-                    my friend and now im PISSED. Im coming Globeheads! Nothing
-                    would bring my heart more joy <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/heart.gif"
-
-                      alt="heart 2" title="heart 2">then to see you all reduced
-                    to ash. The organization is in bed with all hierarchy&nbsp;
-                    more to be revealed </span></span><br>
-                <b style="font-family: Arial; color: #0000fd;"> </b></p>
-              <h1><b style="font-family: Arial; color: #0000fd;"><b style="font-family: Arial; color: #0000fd;"><span
-
-                      style="color: yellow;"><span style="font-family: Comic Sans MS;"><marquee
-
-                          behavior="scroll" direction="right"><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/runner2.gif"
-
-                            alt="runner" title="runner" style="width: 32px; height: 42px;"></marquee></span></span></b></b></h1>
-              <b style="font-family: Arial; color: #0000fd;"> </b>
-              <p></p>
-              <p><span style="color: yellow;"><span style="font-family: Comic Sans MS;">soon
-                    I found the space between! Check out the go fund me to save
-                    Dennis Lieberman fuck </span></span> </p>
-            </b></h1>
-          <b style="font-family: Arial; color: #0000fd;">
-            <h1> <span style="font-family: Comic Sans MS;"><b style="color: #0000fd;">
-                  <p> </p>
-                </b></span></h1>
-            <h1><span style="font-family: Comic Sans MS;"><b style="color: #0000fd;">
-                  <br>
-                </b></span>
-              <p></p>
-              <b style="color: #0000fd;"> </b></h1>
-            <h1><img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/main/Gifs/external-content.duckduckgo.GIF"
-
-                alt="construicton" title="construction" style="width: 463px; height: 370px;"></h1>
-            <b style="font-family: Arial; color: #0000fd;"> </b>
-            <h1 style="text-align: center;"><b style="font-family: Arial; color: #0000fd;">
-                <span style="font-family: Comic Sans MS;">
-                  <p></p>
-                  <p> </p>
-                  <hr width="80%" size="1"></span> </b></h1>
-          </b></div>
-        <b style="font-family: Arial; color: #0000fd;"> <b style="font-family: Arial; color: #0000fd;">
-            <div style="text-align: center;"></div>
-          </b></b></b></div>
-    <b style="font-family: Arial; color: #0000fd;"> <b style="font-family: Arial; color: #0000fd;">
-      </b> </b> <b style="font-family: Arial; color: #0000fd;"> </b>
-    <style type="text/css">
-body{
-cursor: url(https://github.com/KNOBSOCK/KNOBSOCK.github.io/blob/main/Gifs/gam1570.cur)
-}
-          .crop {
-        width: 1000px;
-        height: 710px;
-        overflow: hidden;
-    }
-
-    .crop img {
-        width: 200px;
-        height: 50px;
-        margin: -340px 0 0 -210px;
-    }
-</style>
-
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Truth Zone - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://truth.knobsock.net/">
+<meta property="og:title" content="Truth Zone - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Truth Zone - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
 <style>
-  /* Scroll-triggered "fly in through space" reveal, applied broadly by the
-     script below to every heading/paragraph/image on the page rather than
-     by hand-tagging elements throughout the markup above — this page's
-     tag nesting is deep and fragile enough that touching it by hand
-     everywhere risks breaking something. Once an element has flown in it
-     stays revealed (see the IntersectionObserver below, which stops
-     watching an element the moment it's shown), so scrolling back up
-     never re-hides anything — by the time you've scrolled to the bottom
-     the whole page stays "unfolded". */
-  .fly-in {
-    opacity: 0;
-    /* perspective() as the first function in the chain gives THIS element
-       its own local 3D depth, so the rotateX/rotateY below actually read
-       as tumbling flips instead of flattening into a 2D squish. */
-    transform: perspective(800px)
-               translate3d(var(--fly-dx, -140px), var(--fly-dy, 70px), 0)
-               rotateX(var(--fly-rx, 0deg))
-               rotateY(var(--fly-ry, 0deg))
-               rotate(var(--fly-rot, -10deg))
-               scale(var(--fly-scale, 0.6));
-    transition: opacity var(--fly-duration, 1.2s) cubic-bezier(0.22, 1, 0.36, 1),
-                transform var(--fly-duration, 1.2s) cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform, opacity;
+  /* This page is a standalone reconstruction of knobsock.net/truth, meant
+     to be hosted directly (at truth.knobsock.net) instead of pasted into a
+     Universe code block. That matters for a few things below: this is a
+     REAL top-level page now, not sandboxed inside an iframe, so it doesn't
+     need to fake a fixed embed box or route around window.location being
+     unusable — it can just be a normal page that scrolls normally and
+     whose URL bar genuinely reflects what's on screen.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #fff;
+    min-height: 100%;
   }
-  .fly-in-visible {
-    opacity: 1;
-    transform: perspective(800px) translate3d(0, 0, 0)
-               rotateX(0deg) rotateY(0deg) rotate(0deg) scale(1);
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #fff;
+    padding: 0;
   }
-  /* Respect a visitor's OS/browser "reduce motion" setting by just
-     showing everything immediately instead of animating it in. */
-  @media (prefers-reduced-motion: reduce) {
-    .fly-in, .fly-in-visible {
-      opacity: 1;
-      transform: none;
-      transition: none;
+  /* Headlines/titles stay yellow; everything else (meta lines, captions,
+     body copy, labels) uses body's white by default. */
+  h1, h2, h3 { color: yellow; }
+  .headline-clickable { cursor: pointer; }
+  a { text-decoration: none; color: inherit; }
+
+  /* Same looping background video Universe plays behind the page itself —
+     fixed and full-bleed so it stays put under everything else while the
+     page scrolls, exactly like the current knobsock.net/truth page. */
+  .bg-video {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    /* No z-index here on purpose — this element is already first in the
+       DOM, so later siblings (header, page-wrapper) naturally paint over
+       it without it needing one. A NEGATIVE z-index on a position:fixed
+       element (what this had before) commonly sinks it behind the
+       <body>'s own opaque background fill instead of in front of it,
+       which is exactly what was showing as a wall of plain white with
+       only a sliver of video peeking through. */
+  }
+
+  /* Logo header — transparent, sits above the video. position:relative
+     here isn't for layout (it does nothing visually) — it's what actually
+     keeps this above the fixed video. .page-wrapper below has its own
+     stacking context already (backdrop-filter creates one), which is what
+     puts IT in the same paint tier as position:fixed content and lets DOM
+     order decide; a plain element with no such property — like this
+     header without this line — stays in a lower tier that paints
+     underneath position:fixed content regardless of DOM order, which is
+     exactly what was making the logo disappear behind the video. */
+  .site-header {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 0 12px;
+    background: transparent;
+  }
+  .site-header img {
+    display: block;
+    max-height: 90px;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+  }
+  @media (min-width: 768px) {
+    .site-header img { max-height: 162px; }
+  }
+
+  /* Solid-ish blue card background with an 80% frosted blur (our 1-100
+     scale: 100% = 20px, so 80% = 16px) blurring the video behind it —
+     grows with its own content now instead of being pinned to a fixed
+     iframe-box height. position:relative is belt-and-suspenders for the
+     same reason .site-header above has it — backdrop-filter already
+     happens to create a stacking context on its own, which is the only
+     reason this was painting above the video correctly before, but that's
+     incidental to what backdrop-filter is for; this makes it explicit so
+     it doesn't silently break again if the blur effect ever changes. */
+  .page-wrapper {
+    position: relative;
+    width: auto;
+    margin: 0 28px 40px;
+    padding: 12px 36px 44px;
+    background: rgba(0, 19, 156, 0.5);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border-radius: 38px;
+  }
+  @media (min-width: 768px) {
+    /* On very wide/full-screen desktop displays, a plain 50px side margin
+       keeps growing the box with the screen — capping the width here stops
+       that growth past a reasonable size instead of letting it sprawl
+       edge-to-edge on big monitors. */
+    .page-wrapper {
+      width: calc(100% - 100px);
+      max-width: 1400px;
+      margin: 0 auto 60px;
     }
   }
+
+  /* ---------- HOMEPAGE VIEW ---------- */
+  /* Caps the overall content width so the two-column layout below stays
+     proportionate on very large/wide screens instead of stretching edge to
+     edge — without this, the grid columns get huge and everything (especially
+     the capped, centered headline photo) ends up looking oddly spaced out */
+  #homepage-view { max-width: 1400px; margin: 0 auto; }
+
+  /* Headline (feature story) + Recent Articles side by side on wider screens,
+     stacked on mobile — same pattern as the Music/Politics row below */
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 768px) {
+    .top-row {
+      grid-template-columns: 2fr 1fr;
+      gap: 0 40px;
+      align-items: start;
+    }
+  }
+  .headline {
+    padding: 24px 0;
+    margin: 14px 0;
+  }
+  /* On mobile the headline and Recent Articles stack vertically (the desktop
+     two-column layout below separates them visually on its own), so add a
+     divider line between them here to match the other section dividers. */
+  @media (max-width: 767px) {
+    .headline { border-bottom: 1px solid rgba(255,255,255,0.15); }
+  }
+  /* Wraps just the image so the category badge below can anchor to the
+     photo's own box, not the wider headline-clickable container around it */
+  .headline-media { position: relative; }
+  .headline img { width: 100%; height: auto; border-radius: 12px; cursor: pointer; display: block; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+  /* Desktop only: without a height cap, this image's rendered height is
+     purely a function of its column's width (height:auto keeps its aspect
+     ratio) — so any future width change balloons its height too, and with
+     it the whole box's height. Capping it and cropping with object-fit
+     keeps the photo (and the box around it) a stable, readable size no
+     matter how wide the desktop column gets. */
+  @media (min-width: 768px) {
+    .headline img { max-height: 420px; object-fit: cover; }
+  }
+  /* Photo credit — pulled from the post's Excerpt field in WordPress, shown as
+     a small caption line right under the photo, the way most publications
+     caption a photo */
+  .photo-credit { color: #fff; font-size: 11px; opacity: 0.6; letter-spacing: 0.2px; margin-top: 6px; }
+  .headline h1 { font-size: clamp(28px, 5vw, 48px); margin: 20px 0 10px; cursor: pointer; }
+  .headline .meta { color: #fff; font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
+  /* Positioned relative to .headline-media (the image itself), so the badge sits
+     pinned to the photo's top-left corner regardless of screen size */
+  .headline .cat-tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: inline-block;
+    background: #333;
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .section { padding: 32px 0; border-bottom: 1px solid rgba(255,255,255,0.15); }
+  .section h2 { font-size: 22px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .article-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .article-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+  }
+  .article-card img {
+    width: 84px;
+    height: 84px;
+    min-width: 84px;
+    object-fit: cover;
+    border-radius: 10px;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    background: #222;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  }
+  .article-card .article-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .article-card h3 { font-size: 17px; line-height: 1.3; margin-bottom: 0; }
+  .article-card span { font-size: 13px; color: #fff; }
+
+  .category-section h2 { border-left: 4px solid limegreen; padding-left: 10px; }
+
+  /* Music & Politics side by side on wider screens, stacked on mobile */
+  .categories-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 768px) {
+    .categories-row {
+      grid-template-columns: 1fr 1fr;
+      gap: 0 32px;
+    }
+  }
+
+  .loading { color: #fff; font-size: 14px; padding: 20px 0; }
+
+  /* ---------- ARTICLE VIEW ---------- */
+  .article-view { padding: 40px 0; display: none; }
+  /* Computer/desktop screens: keep the article text in a centered, readable
+     column instead of stretching edge-to-edge — blank space on the sides is fine */
+  @media (min-width: 768px) {
+    .article-view { max-width: 760px; margin: 0 auto; }
+  }
+  .back-link { display: inline-block; margin-bottom: 24px; color: #fff; font-size: 14px; cursor: pointer; }
+  .back-link:hover { color: #fff; }
+  .article-view .cat-tag { display: inline-block; background: #333; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .article-view h1 { font-size: clamp(28px, 5vw, 42px); margin-bottom: 12px; line-height: 1.15; }
+  .article-view .meta { color: #fff; font-size: 14px; opacity: 0.75; }
+
+  /* Header block: category + headline + date, closed off by a divider */
+  .article-header {
+    padding-bottom: 24px;
+    margin-bottom: 28px;
+    border-bottom: 2px solid rgba(255, 80, 80, 0.45);
+  }
+
+  /* Featured image sits in its own band with dividers above and below */
+  .article-hero {
+    padding-bottom: 28px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid rgba(255, 80, 80, 0.3);
+  }
+  .article-hero img { width: 100%; height: auto; border-radius: 12px; display: block; }
+
+  /* Computer/desktop screens, article page only: cap the hero photo with a
+     max-width so it stays proportionate to the text instead of growing huge
+     on very large monitors. */
+  @media (min-width: 768px) {
+    .article-hero img { width: 100%; max-width: 700px; margin: 0 auto; }
+    .article-hero .photo-credit { text-align: center; }
+  }
+
+  /* Body copy, visually distinct from the header/image above it */
+  .article-view .body-content { font-size: 17px; line-height: 1.8; color: #fff; }
+  .article-view .body-content p { margin-bottom: 20px; }
+  .article-view .body-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; }
+  .article-view .body-content h2,
+  .article-view .body-content h3 { margin: 28px 0 12px; line-height: 1.3; }
+
+  /* ---------- SHARE BAR ---------- */
+  .share-bar {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .share-bar span.label { font-size: 14px; color: #fff; }
+  .share-bar button {
+    background: #fff;
+    color: #111;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .share-bar button:hover { background: #ddd; }
+  .share-bar .copied-msg {
+    font-size: 13px;
+    color: #4ade80;
+    display: none;
+  }
+
+  /* ---------- BOTTOM ACTIONS ---------- */
+  .bottom-actions {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .wp-link {
+    color: #fff;
+    font-size: 14px;
+  }
+  .wp-link:hover { color: #fff; }
+  .back-btn {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.1); }
+
+  /* Mobile only: pull everything up tight against the top and trim the
+     bottom padding, same spacing choices as the embedded widget. */
+  @media (max-width: 767px) {
+    .site-header { padding: 12px 0 2px; }
+    .page-wrapper {
+      margin: 0 12px 24px;
+      padding: 20px 18px 24px;
+    }
+    .headline { padding: 4px 0 0; margin: 0 0 10px; }
+    .article-view { padding: 4px 0; }
+  }
 </style>
+</head>
+<body>
+  <video class="bg-video" muted playsinline autoplay loop>
+    <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
+  </video>
+
+  <header class="site-header">
+    <a href="https://knobsock.net/main">
+      <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
+    </a>
+  </header>
+
+  <div class="page-wrapper">
+
+    <!-- HOMEPAGE VIEW -->
+    <div id="homepage-view">
+      <div class="top-row">
+        <section class="headline" id="headline">
+          <p class="loading">Loading headline...</p>
+        </section>
+
+        <section class="section recent-articles-section">
+          <h2>Recent Articles</h2>
+          <div class="article-grid" id="recent-articles">
+            <p class="loading">Loading articles...</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="categories-row">
+        <section class="section category-section">
+          <h2>Music</h2>
+          <div class="article-grid" id="category-music">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+
+        <section class="section category-section">
+          <h2>Politics</h2>
+          <div class="article-grid" id="category-politics">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+
+        <section class="section category-section">
+          <h2>Media</h2>
+          <div class="article-grid" id="category-media">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+
+        <section class="section category-section">
+          <h2>Knobsock</h2>
+          <div class="article-grid" id="category-knobsock">
+            <p class="loading">Loading...</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ARTICLE VIEW -->
+    <div class="article-view" id="article-view">
+      <span class="back-link" id="back-link">&larr; Back to homepage</span>
+      <div id="article-content">
+        <p class="loading">Loading article...</p>
+      </div>
+      <div class="share-bar">
+        <span class="label">Share this article:</span>
+        <button id="copy-link-btn">Copy Link</button>
+        <span class="copied-msg" id="copied-msg">Link copied!</span>
+      </div>
+      <div class="bottom-actions">
+        <a id="wordpress-link" href="#" target="_blank" class="wp-link">View original post &rarr;</a>
+        <button class="back-btn" id="back-btn-bottom">&larr; Back to homepage</button>
+      </div>
+    </div>
+
+  </div>
+
 <script>
-(function () {
-  // Every heading, paragraph and image on the page gets the "fly in"
-  // treatment. Picked automatically here (instead of editing the markup
-  // above by hand) because so much of it is deeply nested — an element is
-  // skipped if it contains another matching element inside it, so only
-  // the innermost, actually-visible piece of content animates; otherwise
-  // a wrapper and its own nested heading/image would both animate at
-  // once and the transforms would visibly compound.
-  var targets = Array.prototype.slice.call(
-    document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, img, marquee')
-  ).filter(function (el) {
-    if (el.tagName === 'IMG') return true;
-    var hasNestedTarget = el.querySelector('h1, h2, h3, h4, h5, h6, p, img, marquee');
-    if (hasNestedTarget) return false;
-    return el.textContent.replace(/\s+/g, '').length > 0;
+  // ====== CONFIG: your WordPress.com site ======
+  const SITE = "knobsock4.wordpress.com";
+  const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
+
+  // This page is hosted directly (not embedded in a Universe iframe), so
+  // its own address bar is a real, shareable URL — no separate reader page
+  // needed for that anymore. Copy Link below shares THIS page's own
+  // #article= link.
+  const CATEGORIES = [
+    { slug: "music", elementId: "category-music" },
+    { slug: "politics", elementId: "category-politics" },
+    { slug: "media", elementId: "category-media" },
+    { slug: "knobsock", elementId: "category-knobsock" }
+  ];
+
+  const homepageView = document.getElementById("homepage-view");
+  const articleView = document.getElementById("article-view");
+  const articleContent = document.getElementById("article-content");
+
+  // Tracks the currently-open article's real WordPress URL (used for "View
+  // original post") and its slug (used to build the Copy Link URL).
+  let currentArticleUrl = "";
+  let currentArticleSlug = "";
+
+  function scrollToTop() {
+    window.scrollTo(0, 0);
+  }
+
+  const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+  function getImage(post) {
+    return post.featured_image || NO_IMAGE_PLACEHOLDER;
+  }
+
+  function getCategoryName(post) {
+    const cats = post.categories;
+    if (!cats) return "";
+    const firstKey = Object.keys(cats)[0];
+    return firstKey ? cats[firstKey].name : "";
+  }
+
+  function getAuthorName(post) {
+    return (post.author && post.author.name) || "";
+  }
+
+  function cleanExcerpt(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return (div.textContent || div.innerText || "").trim();
+  }
+
+  function getPhotoCredit(post) {
+    return cleanExcerpt(post.excerpt || "");
+  }
+
+  // Under 1 hour: minutes ago. Under 24 hours: hours ago. Under 5 days: days
+  // ago. 5 days or older: the full date.
+  function formatRelativeDate(dateStr) {
+    const posted = new Date(dateStr);
+    const diffMs = Date.now() - posted.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = diffHours / 24;
+
+    if (diffHours < 1) {
+      const mins = Math.max(1, Math.floor(diffMs / 60000));
+      return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+    }
+    if (diffHours < 24) {
+      const hrs = Math.floor(diffHours);
+      return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+    }
+    if (diffDays < 5) {
+      const days = Math.floor(diffDays);
+      return `${days} day${days === 1 ? "" : "s"} ago`;
+    }
+    return posted.toLocaleDateString();
+  }
+
+  function articleCard(post) {
+    return `
+      <div class="article-card" data-slug="${post.slug}">
+        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
+        <div class="article-text">
+          <h3>${post.title}</h3>
+          <span>${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${formatRelativeDate(post.date)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadHeadline() {
+    const res = await fetch(`${API_BASE}/posts/?number=1`);
+    const data = await res.json();
+    const post = data.posts && data.posts[0];
+    if (!post) return;
+
+    document.getElementById("headline").innerHTML = `
+      <div data-slug="${post.slug}" class="headline-clickable">
+        <div class="headline-media">
+          <span class="cat-tag">${getCategoryName(post)}</span>
+          <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
+        </div>
+        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
+        <h1>${post.title}</h1>
+        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
+      </div>
+    `;
+  }
+
+  async function loadRecentArticles() {
+    const res = await fetch(`${API_BASE}/posts/?number=6`);
+    const data = await res.json();
+    const posts = data.posts || [];
+    document.getElementById("recent-articles").innerHTML = posts.length
+      ? posts.map(articleCard).join("")
+      : `<p class="loading">No articles published yet.</p>`;
+  }
+
+  async function loadCategory(slug, elementId) {
+    const res = await fetch(`${API_BASE}/posts/?category=${slug}&number=4`);
+    const data = await res.json();
+    const posts = data.posts || [];
+    document.getElementById(elementId).innerHTML = posts.length
+      ? posts.map(articleCard).join("")
+      : `<p class="loading">No articles yet in this category.</p>`;
+  }
+
+  // ---------- ARTICLE VIEW LOGIC ----------
+
+  async function loadArticleBySlug(slug) {
+    homepageView.style.display = "none";
+    articleView.style.display = "block";
+    articleContent.innerHTML = `<p class="loading">Loading article...</p>`;
+    scrollToTop();
+
+    const res = await fetch(`${API_BASE}/posts/slug:${slug}`);
+    const post = await res.json();
+
+    if (!post || post.error) {
+      articleContent.innerHTML = `<p>Article not found.</p>`;
+      return;
+    }
+
+    articleContent.innerHTML = `
+      <div class="article-header">
+        <span class="cat-tag">${getCategoryName(post)}</span>
+        <h1>${post.title}</h1>
+        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
+      </div>
+      <div class="article-hero">
+        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
+        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
+      </div>
+      <div class="body-content">${post.content}</div>
+    `;
+
+    // Point the "View original post" link at the actual WordPress URL for
+    // this article, and remember both it and the slug for Copy Link below.
+    currentArticleUrl = post.URL || "";
+    currentArticleSlug = slug;
+    document.getElementById("wordpress-link").href = currentArticleUrl || "#";
+  }
+
+  // A real page now (not a sandboxed iframe), so pushState just works —
+  // this genuinely updates the address bar, and back/forward genuinely
+  // navigate between articles and the homepage.
+  function goToArticle(slug) {
+    history.pushState("", document.title, window.location.pathname + window.location.search + "#article=" + slug);
+    loadArticleBySlug(slug);
+  }
+
+  // Event delegation: catches clicks on any current or future element with data-slug
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest("[data-slug]");
+    if (target) {
+      e.preventDefault();
+      goToArticle(target.getAttribute("data-slug"));
+    }
   });
 
-  targets.forEach(function (el) {
-    el.classList.add('fly-in');
-    // Fully randomized per element (rather than a predictable alternating
-    // left/right pattern) for genuine chaos: random direction and
-    // distance, a random spin, and a random tumble on both the X and Y
-    // axes so pieces actually flip through 3D space rather than just
-    // sliding and rotating flat, plus a random size/speed/delay so
-    // nothing lands in lockstep with anything else.
-    var dir = Math.random() < 0.5 ? -1 : 1;
-    var dx = dir * (120 + Math.random() * 260);
-    var dy = (Math.random() * 220) - 60;
-    var rot = dir * (25 + Math.random() * 65);
-    var rx = (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 150);
-    var ry = (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 150);
-    var scale = 0.35 + Math.random() * 0.35;
-    var duration = 0.9 + Math.random() * 0.9;
+  function showHomepage() {
+    articleView.style.display = "none";
+    homepageView.style.display = "block";
+    scrollToTop();
+  }
 
-    el.style.setProperty('--fly-dx', dx.toFixed(1) + 'px');
-    el.style.setProperty('--fly-dy', dy.toFixed(1) + 'px');
-    el.style.setProperty('--fly-rot', rot.toFixed(1) + 'deg');
-    el.style.setProperty('--fly-rx', rx.toFixed(1) + 'deg');
-    el.style.setProperty('--fly-ry', ry.toFixed(1) + 'deg');
-    el.style.setProperty('--fly-scale', scale.toFixed(2));
-    el.style.setProperty('--fly-duration', duration.toFixed(2) + 's');
-    el.style.transitionDelay = (Math.random() * 0.35).toFixed(2) + 's';
-  });
+  // Handle back button clicks (top and bottom)
+  function goBack() {
+    history.pushState("", document.title, window.location.pathname + window.location.search);
+    showHomepage();
+  }
+  document.getElementById("back-link").addEventListener("click", goBack);
+  document.getElementById("back-btn-bottom").addEventListener("click", goBack);
 
-  var observer = new IntersectionObserver(function (entries, obs) {
-    entries.forEach(function (entry) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('fly-in-visible');
-        obs.unobserve(entry.target);
-      }
+  // Handle copy link button — shares THIS page's own #article= link, since
+  // it's a real, directly-reachable URL now.
+  document.getElementById("copy-link-btn").addEventListener("click", () => {
+    if (!currentArticleSlug) return;
+    const shareUrl = window.location.origin + window.location.pathname + "#article=" + encodeURIComponent(currentArticleSlug);
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      const msg = document.getElementById("copied-msg");
+      msg.style.display = "inline";
+      setTimeout(() => { msg.style.display = "none"; }, 2000);
+    }).catch(() => {
+      alert("Couldn't copy automatically — link: " + shareUrl);
     });
-  }, {
-    root: null,
-    // Scrolling is disabled again (see the scale-to-fit script below), so
-    // the whole page sits inside one screen at once — this just needs to
-    // be lenient enough to still catch anything right at the bottom edge
-    // of that scaled-down box.
-    rootMargin: '0px',
-    threshold: 0.01
   });
 
-  targets.forEach(function (el) { observer.observe(el); });
-})();
-</script>
-
-<script>
-(function () {
-  // "Brute force" scale-to-fit: the #ks-content box above is laid out
-  // normally at a fixed 900px reference width (so text wraps and
-  // everything centers exactly like a normal page), then this shrinks or
-  // grows that whole box as one unit so it always exactly fills whatever
-  // box this page ends up embedded in — a phone screen, a wide desktop
-  // iframe, anything — with no scrollbars and nothing cropped.
-  var content = document.getElementById('ks-content');
-  if (!content) return;
-
-  var REF_WIDTH = 900;
-
-  function fitToViewport() {
-    // Reset first so this measures the box's true natural size instead
-    // of compounding on top of whatever scale was last applied.
-    content.style.transform = 'none';
-
-    var naturalHeight = content.scrollHeight || content.offsetHeight || 1;
-    var boxWidth = document.documentElement.clientWidth || window.innerWidth || REF_WIDTH;
-    var boxHeight = document.documentElement.clientHeight || window.innerHeight || naturalHeight;
-
-    var scale = Math.min(boxWidth / REF_WIDTH, boxHeight / naturalHeight);
-    if (!isFinite(scale) || scale <= 0) scale = 1;
-
-    content.style.transform = 'scale(' + scale + ')';
+  // Check the URL hash on load — if it points to an article, show that
+  // article directly. This works for real now (a genuine top-level page,
+  // not a sandboxed iframe), so a link like
+  // truth.knobsock.net/#article=my-post-slug opens straight to that
+  // article for anyone, not just in-page navigation.
+  function checkHashAndRoute() {
+    const hash = window.location.hash; // e.g. "#article=my-post-slug"
+    if (hash.startsWith("#article=")) {
+      const slug = decodeURIComponent(hash.replace("#article=", ""));
+      loadArticleBySlug(slug);
+    } else {
+      showHomepage();
+    }
   }
 
-  fitToViewport();
-  window.addEventListener('load', fitToViewport);
-  window.addEventListener('resize', fitToViewport);
-  window.addEventListener('orientationchange', fitToViewport);
+  // Re-route whenever the hash changes (e.g. clicking an article card, or using back/forward)
+  window.addEventListener("hashchange", checkHashAndRoute);
 
-  // Keep re-fitting any time the content's own natural size changes for
-  // any reason (a late-loading image, a font swap, a marquee reflowing).
-  // Transform doesn't affect layout size, so this can't loop on itself.
-  if (window.ResizeObserver) {
-    var pending = false;
-    var recheck = function () {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(function () {
-        pending = false;
-        fitToViewport();
-      });
-    };
-    var ro = new ResizeObserver(recheck);
-    ro.observe(content);
-    ro.observe(document.documentElement);
-  }
-
-  // Belt-and-suspenders: some embed platforms (e.g. a Universe/Squarespace
-  // code-block iframe) finish sizing the actual box a moment after this
-  // page's own load event fires, so a couple of delayed re-checks catch
-  // that instead of leaving an early, wrong measurement in place.
-  setTimeout(fitToViewport, 300);
-  setTimeout(fitToViewport, 1000);
-})();
+  // Initial load
+  loadHeadline();
+  loadRecentArticles();
+  CATEGORIES.forEach(cat => loadCategory(cat.slug, cat.elementId));
+  checkHashAndRoute();
 </script>
-  </body>
+
+</body>
 </html>
