@@ -443,6 +443,11 @@
   const SITE = "knobsock4.wordpress.com";
   const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
 
+  // The single Universe page this widget lives on — used to build the
+  // "real" knobsock.net link Copy Link shares (see checkHashAndRoute below
+  // for why this has to be a page you can't actually create more of).
+  const SITE_PAGE_URL = "https://knobsock.net/truth";
+
   const CATEGORIES = [
     { slug: "music", elementId: "category-music" },
     { slug: "politics", elementId: "category-politics" },
@@ -455,9 +460,11 @@
   const articleView = document.getElementById("article-view");
   const articleContent = document.getElementById("article-content");
 
-  // Tracks the currently-open article's real WordPress URL (same value used
-  // for "View original post"), so Copy Link can just reuse it directly.
+  // Tracks the currently-open article's real WordPress URL (used for "View
+  // original post") and its slug (used to build the knobsock.net link Copy
+  // Link shares).
   let currentArticleUrl = "";
+  let currentArticleSlug = "";
 
   // Resets scroll to the top of the widget. .page-wrapper's own internal
   // scrollbar is the one real scrolling context in this fixed 2:3 box, so
@@ -604,9 +611,10 @@
       <div class="body-content">${post.content}</div>
     `;
 
-    // Point the "View original post" link at the actual WordPress URL for this
-    // article, and remember it so Copy Link can share the exact same URL.
+    // Point the "View original post" link at the actual WordPress URL for
+    // this article, and remember both it and the slug for Copy Link below.
     currentArticleUrl = post.URL || "";
+    currentArticleSlug = slug;
     document.getElementById("wordpress-link").href = currentArticleUrl || "#";
   }
 
@@ -650,12 +658,13 @@
   document.getElementById("back-link").addEventListener("click", goBack);
   document.getElementById("back-btn-bottom").addEventListener("click", goBack);
 
-  // Handle copy link button — shares the actual WordPress post URL (the same
-  // one "View original post" points to), not this widget's own address, which
-  // inside a sandboxed iframe is meaningless (just "about:srcdoc").
+  // Handle copy link button — shares a knobsock.net link that reopens this
+  // exact article (see checkHashAndRoute below for how that gets detected
+  // on load), not the raw WordPress.com URL — "View original post" already
+  // covers that separately.
   document.getElementById("copy-link-btn").addEventListener("click", () => {
-    const shareUrl = currentArticleUrl;
-    if (!shareUrl) return;
+    if (!currentArticleSlug) return;
+    const shareUrl = SITE_PAGE_URL + "?article=" + encodeURIComponent(currentArticleSlug);
     navigator.clipboard.writeText(shareUrl).then(() => {
       const msg = document.getElementById("copied-msg");
       msg.style.display = "inline";
@@ -665,16 +674,47 @@
     });
   });
 
-  // Check the URL hash on load — if it points to an article, show that article directly.
-  // This is what makes the link shareable: e.g. yoursite.com/page#article=my-article-slug
+  // ---------- DEEP-LINKING FROM OUTSIDE THE WIDGET ----------
+  // This widget runs inside a sandboxed iframe Universe builds around the
+  // code block, where window.location is just "about:srcdoc" — so a fresh
+  // visit to knobsock.net/truth?article=some-slug from an outside link
+  // can't be read the normal way. The #hash trick below only ever fires
+  // for navigation that happens WITHIN this widget after it's already
+  // loaded (clicking a card sets the hash via pushState) — a brand new
+  // page load has no hash to read yet.
+  //
+  // The one piece of the outer page's real address that DOES reach in here
+  // is document.referrer: browsers set a srcdoc iframe's referrer to its
+  // embedding page's own URL — query string included — as part of just
+  // creating the iframe, no cooperation from Universe required. (A #hash
+  // wouldn't survive this trip; fragments are never included in a
+  // referrer, which is exactly why shared links use a ?query string
+  // instead — see the Copy Link handler and SITE_PAGE_URL above.)
+  function getArticleSlugFromReferrer() {
+    if (!document.referrer) return null;
+    try {
+      return new URL(document.referrer).searchParams.get("article");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Check the URL hash first (in-widget navigation), then fall back to the
+  // referrer-based slug (a fresh external link) — this is what makes a
+  // Copy Link URL actually reopen the right article for someone else.
   function checkHashAndRoute() {
     const hash = window.location.hash; // e.g. "#article=my-post-slug"
     if (hash.startsWith("#article=")) {
       const slug = decodeURIComponent(hash.replace("#article=", ""));
       loadArticleBySlug(slug);
-    } else {
-      showHomepage();
+      return;
     }
+    const referredSlug = getArticleSlugFromReferrer();
+    if (referredSlug) {
+      loadArticleBySlug(referredSlug);
+      return;
+    }
+    showHomepage();
   }
 
   // Re-route whenever the hash changes (e.g. clicking an article card, or using back/forward)
