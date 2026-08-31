@@ -443,10 +443,14 @@
   const SITE = "knobsock4.wordpress.com";
   const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
 
-  // The single Universe page this widget lives on — used to build the
-  // "real" knobsock.net link Copy Link shares (see checkHashAndRoute below
-  // for why this has to be a page you can't actually create more of).
-  const SITE_PAGE_URL = "https://knobsock.net/truth";
+  // This widget lives inside a sandboxed iframe Universe builds around the
+  // code block, where it can't see the real browser URL at all — neither
+  // window.location (just "about:srcdoc") nor document.referrer (blocked
+  // here too) carry the outer knobsock.net/truth URL in. So a shareable
+  // per-article link can't point at knobsock.net/truth at all — it points
+  // at this plain, non-embedded reader page on GitHub Pages instead, which
+  // has no such restriction since it isn't inside anything.
+  const ARTICLE_PAGE_URL = "https://knobsock.github.io/article.html";
 
   const CATEGORIES = [
     { slug: "music", elementId: "category-music" },
@@ -658,13 +662,14 @@
   document.getElementById("back-link").addEventListener("click", goBack);
   document.getElementById("back-btn-bottom").addEventListener("click", goBack);
 
-  // Handle copy link button — shares a knobsock.net link that reopens this
-  // exact article (see checkHashAndRoute below for how that gets detected
-  // on load), not the raw WordPress.com URL — "View original post" already
-  // covers that separately.
+  // Handle copy link button — shares this article's standalone reader-page
+  // link (see ARTICLE_PAGE_URL above for why that has to be a separate,
+  // non-embedded page rather than a knobsock.net/truth URL), not the raw
+  // WordPress.com one — "View original post" already covers that
+  // separately.
   document.getElementById("copy-link-btn").addEventListener("click", () => {
     if (!currentArticleSlug) return;
-    const shareUrl = SITE_PAGE_URL + "?article=" + encodeURIComponent(currentArticleSlug);
+    const shareUrl = ARTICLE_PAGE_URL + "?slug=" + encodeURIComponent(currentArticleSlug);
     navigator.clipboard.writeText(shareUrl).then(() => {
       const msg = document.getElementById("copied-msg");
       msg.style.display = "inline";
@@ -674,47 +679,20 @@
     });
   });
 
-  // ---------- DEEP-LINKING FROM OUTSIDE THE WIDGET ----------
-  // This widget runs inside a sandboxed iframe Universe builds around the
-  // code block, where window.location is just "about:srcdoc" — so a fresh
-  // visit to knobsock.net/truth?article=some-slug from an outside link
-  // can't be read the normal way. The #hash trick below only ever fires
-  // for navigation that happens WITHIN this widget after it's already
-  // loaded (clicking a card sets the hash via pushState) — a brand new
-  // page load has no hash to read yet.
-  //
-  // The one piece of the outer page's real address that DOES reach in here
-  // is document.referrer: browsers set a srcdoc iframe's referrer to its
-  // embedding page's own URL — query string included — as part of just
-  // creating the iframe, no cooperation from Universe required. (A #hash
-  // wouldn't survive this trip; fragments are never included in a
-  // referrer, which is exactly why shared links use a ?query string
-  // instead — see the Copy Link handler and SITE_PAGE_URL above.)
-  function getArticleSlugFromReferrer() {
-    if (!document.referrer) return null;
-    try {
-      return new URL(document.referrer).searchParams.get("article");
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Check the URL hash first (in-widget navigation), then fall back to the
-  // referrer-based slug (a fresh external link) — this is what makes a
-  // Copy Link URL actually reopen the right article for someone else.
+  // Check the URL hash on load — if it points to an article, show that
+  // article directly. Only ever set by goToArticle() above (clicking a
+  // card within this already-loaded widget) — a fresh external visit has
+  // no way to reach this widget directly (see ARTICLE_PAGE_URL above for
+  // why Copy Link points at article.html instead), so this only covers
+  // in-widget navigation surviving something like a same-tab reload.
   function checkHashAndRoute() {
     const hash = window.location.hash; // e.g. "#article=my-post-slug"
     if (hash.startsWith("#article=")) {
       const slug = decodeURIComponent(hash.replace("#article=", ""));
       loadArticleBySlug(slug);
-      return;
+    } else {
+      showHomepage();
     }
-    const referredSlug = getArticleSlugFromReferrer();
-    if (referredSlug) {
-      loadArticleBySlug(referredSlug);
-      return;
-    }
-    showHomepage();
   }
 
   // Re-route whenever the hash changes (e.g. clicking an article card, or using back/forward)
