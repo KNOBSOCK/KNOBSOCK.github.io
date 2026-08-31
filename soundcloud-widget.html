@@ -171,7 +171,12 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* Scrolling (wheel/touch/drag) still works — this only hides the
+       visible track/thumb, same as the other widgets on this site. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
+  .track-list::-webkit-scrollbar { display: none; }
   .track-item {
     display: flex;
     align-items: center;

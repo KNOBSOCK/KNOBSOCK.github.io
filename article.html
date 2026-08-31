@@ -24,7 +24,14 @@
      unsupported) behind the same looping background video Universe uses
      on the knobsock.net/truth page itself, so this standalone page reads
      as part of the same site instead of a bare, unbranded page. */
-  html, body { background: #0a0e2a; }
+  html, body {
+    background: #0a0e2a;
+    /* Scrolling still works — this only hides the visible scrollbar
+       track/thumb, same technique used sitewide on this site. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
