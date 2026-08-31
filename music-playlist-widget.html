@@ -98,25 +98,24 @@
          video row still hugs its full 16:9 height whenever there's
          room (nothing changes in the common case) but can shrink first
          when the window doesn't have enough height for everything, so
-         the video scales down to fit instead of overflowing — chin
-         stays plain "auto" since its own natural size is tiny enough
-         that it's never the one that needs to give. */
-      grid-template-rows: minmax(0, auto) auto minmax(0, 1fr);
+         the video scales down to fit instead of overflowing. */
+      grid-template-rows: minmax(0, auto) minmax(0, 1fr);
       grid-template-areas:
         "video      playlist"
-        "chin       playlist"
         "soundcloud playlist";
       gap: 14px;
     }
     .layout.playlist-hidden {
       grid-template-columns: 1fr;
+      /* Video gets 2x SoundCloud's share of the freed-up column instead
+         of just going full-width at the same capped height as before —
+         otherwise hiding the playlist barely changed the video's size. */
+      grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
       grid-template-areas:
         "video"
-        "chin"
         "soundcloud";
     }
     .video-pane { grid-area: video; min-height: 0; }
-    .creator-chin { grid-area: chin; }
     .sc-section {
       grid-area: soundcloud;
       min-height: 0;
@@ -302,30 +301,6 @@
     pointer-events: auto;
   }
 
-  /* Only relevant while fullscreen — the real .creator-chin below the
-     video pane gets covered by it then (see .video-pane:fullscreen
-     below), so this copy (a child of .video-pane, kept in sync by
-     renderCreatorChin()) lets artist filtering keep working, using the
-     hover-reveal treatment above the control bar instead of leaving it
-     visible all the time. */
-  .creator-chin-overlay {
-    display: none;
-    position: absolute;
-    left: clamp(8px, 2cqw, 14px);
-    right: clamp(8px, 2cqw, 14px);
-    bottom: clamp(52px, 12cqh, 68px);
-    z-index: 5;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-  }
-  .video-pane.is-fullscreen .creator-chin-overlay { display: flex; }
-  .video-pane.is-fullscreen:hover .creator-chin-overlay,
-  .video-pane.is-fullscreen:focus-within .creator-chin-overlay {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
   /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
   .video-controls {
     position: absolute;
@@ -390,25 +365,27 @@
   }
 
   /* Native Fullscreen API on a plain div (not a video/img element)
-     doesn't get any UA default sizing — without this, it fullscreens at its
-     existing grid-cell size instead of covering the screen, leaving the
-     real .creator-chin and SoundCloud panel visible/overlapping beside
-     it. Explicit full-viewport sizing here matches .pseudo-fullscreen
-     above (the JS fallback for when native fullscreen isn't available). */
+     doesn't reliably get full-viewport UA sizing/positioning on its own
+     — explicit position:fixed + full-viewport sizing here matches
+     .pseudo-fullscreen above (the JS fallback for when native
+     fullscreen isn't available), so the video actually covers the
+     screen instead of fullscreening at its existing grid-cell size. */
   .video-pane:fullscreen,
   .video-pane:-webkit-full-screen {
-    width: 100vw;
-    height: 100vh;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; height: 100vh;
     aspect-ratio: auto;
+    margin: 0;
     border-radius: 0;
   }
 
   /* Belt-and-suspenders alongside the sizing fix above: whichever
-     fullscreen path is active, explicitly hide the real chin/SoundCloud/
-     playlist rather than relying on the video simply covering them, so
-     there's no overlap even if a browser sizes fullscreen differently
-     than expected. The chin's overlay copy above stays usable instead. */
-  .layout.fullscreen-active .creator-chin,
+     fullscreen path is active, explicitly hide SoundCloud/the artist
+     chips + "Music Videos" list (chips live inside .playlist-pane now,
+     see the HTML) rather than relying on the video simply covering
+     them, so there's no overlap even if a browser sizes fullscreen
+     differently than expected. */
   .layout.fullscreen-active .sc-section,
   .layout.fullscreen-active .playlist-pane {
     display: none;
@@ -532,23 +509,17 @@
   @media (max-width: 860px) {
     /* Thumbnail on top, title + creator underneath, left-aligned — a
        different format than desktop's side-by-side row, since a bigger
-       thumbnail reads much better on a phone. The thumbnail grows to
-       fill whatever height the card is given (align-items: stretch on
-       .playlist-items above) instead of sitting at a fixed 16:9 with
-       empty space below it — the text stays pinned to its own natural
-       height at the bottom either way, so it's never squeezed. */
+       thumbnail reads much better on a phone. width/align-items only
+       (the thumbnail/meta flex overrides live in a second media block
+       AFTER the base .playlist-thumb-wrap rule below — same specificity
+       or CSS rules, later source order wins, so this one has to come
+       after the base rule, not before it, or the base rule's fixed
+       aspect-ratio/flex:none silently wins back). */
     .playlist-item {
       flex-direction: column;
       align-items: stretch;
       width: clamp(150px, 46vw, 210px);
     }
-    .playlist-thumb-wrap {
-      width: 100%;
-      aspect-ratio: auto;
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-    .playlist-meta { flex: 0 0 auto; }
   }
 
   .playlist-thumb-wrap {
@@ -565,6 +536,21 @@
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  @media (max-width: 860px) {
+    /* The thumbnail grows to fill whatever height the card is given
+       (align-items: stretch on .playlist-items/.playlist-item above)
+       instead of sitting at a fixed 16:9 with empty space below it —
+       the text stays pinned to its own natural height at the bottom
+       either way, so it's never squeezed. */
+    .playlist-thumb-wrap {
+      width: 100%;
+      aspect-ratio: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .playlist-meta { flex: 0 0 auto; }
   }
   .playlist-item.active .playlist-thumb-wrap::after {
     content: "";
@@ -1097,12 +1083,6 @@
     <div class="video-cover-overlay" id="videoCoverOverlay" hidden>
       <img class="video-cover-art" id="videoCoverArt" src="" alt="" />
     </div>
-    <!-- Only relevant/shown while fullscreen (native or pseudo) — the
-         real .creator-chin below gets covered by the video like the
-         rest of the page then, so this hover-revealed copy (kept in
-         sync by renderCreatorChin() below) lets artist filtering still
-         work without leaving fullscreen. -->
-    <div class="creator-chin creator-chin-overlay" id="creatorChinOverlay"></div>
     <div class="video-controls" id="videoControls">
       <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
       <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
@@ -1110,10 +1090,6 @@
       <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
     </div>
   </div>
-
-  <!-- Auto-populated from each track's YouTube author — see
-       renderCreatorChin() below. "All" chip clears the filter. -->
-  <div class="creator-chin" id="creatorChin"></div>
 
   <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
        Real playback runs through SoundCloud's own Widget API via the
@@ -1165,6 +1141,12 @@
         <span class="playlist-title">Music Videos</span>
         <span class="playlist-count" id="playlistCount"></span>
       </div>
+      <!-- Auto-populated from each track's YouTube author — see
+           renderCreatorChin() below. "All" chip clears the filter.
+           Lives here (not beside the video) so it never shares space
+           with — or gets covered by — the video pane or SoundCloud,
+           including in fullscreen. -->
+      <div class="creator-chin" id="creatorChin"></div>
       <div class="playlist-items" id="playlistItems">
         <div class="empty-state">Loading playlist…</div>
       </div>
@@ -1325,6 +1307,19 @@ let deselectActiveVideo = function () {};
 let notifyVideoProgress = function () {};
 let notifyVideoPlayState = function () {};
 
+// And the reverse of THAT: when a standalone SoundCloud track (no
+// matching video) is playing, the video's own scrub bar/play button
+// control and reflect it instead of a stale, disconnected video.
+// notifyScProgress/notifyScPlayState are called by the SoundCloud IIFE
+// and implemented by the video IIFE (mirroring notifyVideoProgress/
+// notifyVideoPlayState above); resumeScTrack/seekScToFraction are
+// called by the video IIFE and implemented by the SoundCloud IIFE
+// (mirroring pauseCurrentVideo/resumeCurrentVideo/seekVideoToFraction).
+let notifyScProgress = function () {};
+let notifyScPlayState = function () {};
+let resumeScTrack = function () {};
+let seekScToFraction = function () {};
+
 function resolveAuthorDisplay(rawAuthor) {
   if (!rawAuthor) return rawAuthor;
   return creatorAliases[rawAuthor] || rawAuthor;
@@ -1395,7 +1390,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const playlistItemsEl = document.getElementById('playlistItems');
   const playlistCountEl = document.getElementById('playlistCount');
   const creatorChinEl = document.getElementById('creatorChin');
-  const creatorChinOverlayEl = document.getElementById('creatorChinOverlay');
   const layoutEl = document.getElementById('layout');
   const ytFrame = document.getElementById('ytFrame');
   const videoCoverOverlay = document.getElementById('videoCoverOverlay');
@@ -1409,6 +1403,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
   let pendingLoadId = null;
+  // True while a standalone SoundCloud track (no matching video) is the
+  // one actually playing — set by showVideoCoverArt/hideVideoCoverArt
+  // below, since those already fire at exactly the right moments.
+  let videoSyncedToSc = false;
+  let scMirrorIsPlaying = false;
 
   unmuteBtn.disabled = true;
 
@@ -1440,6 +1439,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   }
 
   function updateProgress() {
+    // A standalone SoundCloud track is playing instead (cover art
+    // showing) — notifyScProgress below drives the scrub bar/time
+    // label in that case, so don't fight it with the paused video's
+    // own (irrelevant) time here.
+    if (videoSyncedToSc) return;
     if (!ytPlayer || isDragging) return;
     const duration = ytPlayer.getDuration();
     const current = ytPlayer.getCurrentTime();
@@ -1506,7 +1510,9 @@ let PLAYLIST = buildPlaylist(currentVideoList);
         // A direct click on a video is a manual choice — it should
         // override any SoundCloud-driven sync currently in effect.
         notifyManualVideoSelect();
-        playIndex(idx);
+        // playVideoByIndex (not playIndex) so clicking a video also
+        // unmutes it right away instead of needing a second click.
+        playVideoByIndex(idx);
       });
     });
   }
@@ -1559,21 +1565,14 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     const loadingChip = stillLoading
       ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading</span>'
       : '';
-    const chinHtml = [allChip].concat(authorChips).join('') + loadingChip;
+    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('') + loadingChip;
 
-    // Populates both the normal chin (below the video) and its
-    // fullscreen overlay copy (inside the video pane, see the HTML
-    // above) identically, so artist filtering works the same way from
-    // either one.
-    [creatorChinEl, creatorChinOverlayEl].forEach(el => {
-      el.innerHTML = chinHtml;
-      el.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
-        btn.addEventListener('click', function () {
-          activeAuthorFilter = this.getAttribute('data-author') || null;
-          renderCreatorChin();
-          renderPlaylist();
-          refreshScTrackList();
-        });
+    creatorChinEl.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
+      btn.addEventListener('click', function () {
+        activeAuthorFilter = this.getAttribute('data-author') || null;
+        renderCreatorChin();
+        renderPlaylist();
+        refreshScTrackList();
       });
     });
   }
@@ -1669,6 +1668,12 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       events: {
         onReady: function () {
           apiReady = true;
+          // Set once here (rather than only on unmute) so the video is
+          // always at full volume the first time it's actually heard,
+          // regardless of which path unmutes it — YouTube's iframe can
+          // otherwise carry over a quieter volume from an earlier
+          // session/embed on the same page.
+          ytPlayer.setVolume(100);
           unmuteBtn.disabled = false;
           playPauseBtn.disabled = false;
           scrubRange.disabled = false;
@@ -1738,13 +1743,34 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   showVideoCoverArt = function (artworkUrl) {
     videoCoverArt.src = artworkUrl;
     videoCoverOverlay.hidden = false;
+    videoSyncedToSc = true;
+    updatePlayPauseIcon(scMirrorIsPlaying ? YT.PlayerState.PLAYING : YT.PlayerState.PAUSED);
   };
   hideVideoCoverArt = function () {
     videoCoverOverlay.hidden = true;
+    videoSyncedToSc = false;
   };
+  // Called by the SoundCloud IIFE from its own progress/play-state
+  // events (only while a standalone track — no matching video — is
+  // playing) so this scrub bar/play button reflect and control it
+  // instead of sitting stale and disconnected.
+  notifyScProgress = function (current, duration) {
+    if (!videoSyncedToSc || !duration || isDragging) return;
+    scrubRange.max = duration;
+    scrubRange.value = current;
+    updateRangeFill();
+    timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
+  };
+  notifyScPlayState = function (isPlaying) {
+    scMirrorIsPlaying = isPlaying;
+    if (videoSyncedToSc) updatePlayPauseIcon(isPlaying ? YT.PlayerState.PLAYING : YT.PlayerState.PAUSED);
+  };
+  // Used both for a direct click on a video (so it plays with sound
+  // right away instead of needing a separate Unmute click) and for a
+  // matched SoundCloud track (so its audio is actually audible).
   playVideoByIndex = function (idx) {
     playIndex(idx);
-    if (ytPlayer && typeof ytPlayer.isMuted === 'function' && ytPlayer.isMuted()) {
+    if (ytPlayer && typeof ytPlayer.unMute === 'function') {
       ytPlayer.unMute();
       ytPlayer.setVolume(100);
       unmuteBtn.textContent = 'Mute';
@@ -1764,6 +1790,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   };
 
   playPauseBtn.addEventListener('click', function () {
+    // A standalone SoundCloud track (no matching video) is playing —
+    // this button controls that instead of the paused, irrelevant video.
+    if (videoSyncedToSc) {
+      if (scMirrorIsPlaying) pauseScTrack();
+      else resumeScTrack();
+      return;
+    }
     if (!ytPlayer) return;
     const state = ytPlayer.getPlayerState();
     if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
@@ -1778,7 +1811,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   });
 
   scrubRange.addEventListener('change', function () {
-    if (ytPlayer) ytPlayer.seekTo(parseFloat(scrubRange.value), true);
+    if (videoSyncedToSc) {
+      const max = parseFloat(scrubRange.max) || 0;
+      const fraction = max > 0 ? parseFloat(scrubRange.value) / max : 0;
+      seekScToFraction(fraction);
+    } else if (ytPlayer) {
+      ytPlayer.seekTo(parseFloat(scrubRange.value), true);
+    }
     isDragging = false;
   });
 
@@ -1823,10 +1862,9 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   function updateFullscreenIcon() {
     const fs = isFullscreen();
     fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
-    // Lets the CSS show the fullscreen overlay chin (inside the video
-    // pane) and hide the real chin/SoundCloud/playlist, which would
-    // otherwise sit visible/overlapping beside a fullscreened video.
-    videoPane.classList.toggle('is-fullscreen', fs);
+    // Lets the CSS hide SoundCloud/"Music Videos" (with the artist
+    // chips now inside it), which would otherwise sit visible/
+    // overlapping beside a fullscreened video.
     layoutEl.classList.toggle('fullscreen-active', fs);
   }
   fullscreenBtn.addEventListener('click', function () {
@@ -2415,6 +2453,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     scSyncedToVideo = false;
     scIsPlaying = true;
     updateScPlayIcon();
+    notifyScPlayState(true);
     // Only one of the video/SoundCloud should have audio at a time —
     // starting a track here pauses (and re-mutes) the video.
     pauseAndMuteVideo();
@@ -2433,11 +2472,17 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (scSyncedToVideo) return; // this panel's state follows the video instead
     scIsPlaying = false;
     updateScPlayIcon();
+    notifyScPlayState(false);
   });
 
   scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
     if (scSyncedToVideo) return; // progress comes from notifyVideoProgress instead
     scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
+    // Lets the video pane's own scrub bar/time label track this
+    // standalone track's playhead too (see notifyScProgress in the
+    // video IIFE) — scDuration is milliseconds, formatTime() there
+    // expects seconds, hence the /1000s.
+    if (scDuration) notifyScProgress((data.relativePosition * scDuration) / 1000, scDuration / 1000);
   });
 
   scWidget.bind(SC.Widget.Events.FINISH, function () {
@@ -2502,6 +2547,18 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // section's playback, same bridging pattern as refreshScTrackList.
   pauseScTrack = function () {
     scWidget.pause();
+  };
+
+  // Lets the video's own play/pause button and scrub bar control a
+  // standalone (unmatched) SoundCloud track that's actually playing,
+  // same bridging pattern as pauseScTrack above.
+  resumeScTrack = function () {
+    scWidget.play();
+  };
+  seekScToFraction = function (fraction) {
+    if (!scDuration) return;
+    scWidget.seekTo(fraction * scDuration);
+    scProgressFillEl.style.width = (fraction * 100) + '%';
   };
 
   // Reverse direction of the one-player bridges above: the video IIFE
