@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Main - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/main">
+<meta property="og:title" content="Main - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Main - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<style>
+  /* Standalone reconstruction of knobsock.net/main, same approach as
+     truth.html: a real hosted page (no Universe iframe sandboxing), with
+     the same fixed full-bleed background video Universe used here.
+
+     This is a simplified rebuild, not a pixel-for-pixel copy of
+     Universe's absolute grid layout — that layout was built for
+     Universe's own editor canvas (exact px/grid-cell coordinates,
+     several purely-decorative solid-color blocks layered under other
+     content) and hand-copying every coordinate wasn't worth it. Every
+     functional piece is here (nav buttons, Recent Articles, video
+     player, Listen widget, floating photos, Instagram links, view
+     counter, satellite), just arranged in a cleaner, maintainable CSS
+     grid instead. Expect to send screenshots for layout adjustments,
+     same as the truth.html build. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #fff;
+    min-height: 100%;
+  }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #fff;
+  }
+  a { text-decoration: none; color: inherit; }
+
+  /* Same looping background video Universe plays behind this page. */
+  .bg-video {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    /* No z-index — see truth.html for why: DOM order alone is enough
+       when nothing else declares a z-index, and a NEGATIVE one here
+       would sink this behind body's own opaque background instead of
+       in front of it. */
+  }
+
+  /* Drifting satellite gif — same free-floating overlay Universe used,
+     wanders slowly around the screen and wraps at the edges. Its own
+     inline z-index (way above everything else here) is what keeps it
+     visible over the video regardless of DOM order. */
+  #satellite {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 60px;
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+  .page {
+    position: relative;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: clamp(16px, 4vw, 40px);
+  }
+
+  /* ---------- HEADER ---------- */
+  .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 8px 0 4px;
+  }
+  .logo-link { display: block; width: min(70%, 480px); }
+  .logo-link img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 50 / 19;
+    object-fit: contain;
+  }
+  /* Small "Live" badge, pinned top-right — a separate, older link from
+     the four nav buttons below, kept for parity with the live page. */
+  .live-badge {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: clamp(46px, 9vw, 72px);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .live-badge:hover { transform: translateY(-50%) scale(1.12) rotate(-4deg); }
+  .live-badge img { display: block; width: 100%; height: auto; }
+
+  /* ---------- NAV BUTTONS ---------- */
+  .nav-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(8px, 2vw, 18px);
+    margin: clamp(10px, 3vw, 24px) 0;
+  }
+  .nav-buttons iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border: 0;
+  }
+  @media (max-width: 560px) {
+    .nav-buttons { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---------- SECTION CARDS ---------- */
+  /* A soft, transparent panel behind each content section — not the
+     opaque blue "truth zone" card, just enough of a tint to separate
+     content from the busy video background underneath. */
+  .panel {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    border-radius: 22px;
+    padding: clamp(14px, 3vw, 26px);
+  }
+
+  .content-row {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: clamp(10px, 2.5vw, 20px);
+    margin-bottom: clamp(10px, 2.5vw, 20px);
+  }
+  @media (max-width: 720px) {
+    .content-row { grid-template-columns: 1fr; }
+  }
+
+  .articles-panel { min-height: 260px; }
+  .articles-panel iframe {
+    display: block;
+    width: 100%;
+    height: 340px;
+    border: 0;
+  }
+
+  /* Floating photos + Instagram links panel */
+  .extras-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+  }
+  .floating-photo-link,
+  .floating-photo {
+    display: block;
+    width: 100%;
+    max-width: 220px;
+  }
+  .floating-photo {
+    height: auto;
+    animation: floatY 6s ease-in-out infinite;
+  }
+  .floating-photo-link .floating-photo { animation-duration: 5s; }
+  @keyframes floatY {
+    0%, 100% { transform: translateY(0px) rotate(-1deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+  }
+  .insta-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    justify-content: center;
+  }
+  .insta-row a {
+    display: block;
+    width: 90px;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .insta-row a:hover { transform: scale(1.1) rotate(-3deg); }
+  .insta-row img { display: block; width: 100%; height: auto; }
+
+  .media-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: clamp(10px, 2.5vw, 20px);
+    margin-bottom: clamp(10px, 2.5vw, 20px);
+  }
+  @media (max-width: 720px) {
+    .media-row { grid-template-columns: 1fr; }
+  }
+  .video-panel iframe,
+  .listen-panel iframe {
+    display: block;
+    width: 100%;
+    height: 380px;
+    border: 0;
+  }
+
+  /* ---------- FOOTER ---------- */
+  .bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 10px 4px 0;
+  }
+  .bottom-row .gif-embed { height: 30px; }
+  .bottom-row .gif-embed img { display: block; height: 100%; width: auto; }
+  .bottom-row .counter-panel {
+    padding: 6px 16px;
+    min-width: 120px;
+    text-align: center;
+  }
+  .bottom-row iframe { display: block; width: 140px; height: 28px; border: 0; }
+</style>
+</head>
+<body>
+  <video class="bg-video" muted playsinline autoplay loop>
+    <source src="https://onuniverse-assets.imgix.net/4AFAE73B-4843-4415-93AE-F327D9297ACF.mp4" type="video/mp4">
+  </video>
+
+  <img id="satellite" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0732.gif" alt="">
+
+  <div class="page">
+    <div class="top-row">
+      <a class="logo-link" href="/">
+        <img src="https://knobsock.net/_assets/E87B50D3-FD94-42AD-A84A-E08497A2D80C?w=1500&q=70&auto=compress,format&fit=clip" alt="Knobsock">
+      </a>
+      <a class="live-badge" href="https://knobsock.net/livingroom" target="_top">
+        <img src="https://assets.foruniverseapp.com/a2a7f32d-f214-40d2-9040-aac7bceba0fc.png" alt="Live">
+      </a>
+    </div>
+
+    <div class="nav-buttons">
+      <iframe src="/home-button-videos.html" title="Videos" loading="lazy"></iframe>
+      <iframe src="/home-button-photos.html" title="Photos" loading="lazy"></iframe>
+      <iframe src="/home-button-music.html" title="Music" loading="lazy"></iframe>
+      <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
+    </div>
+
+    <div class="content-row">
+      <div class="panel articles-panel">
+        <iframe src="/recent-articles-widget.html" title="Recent Articles" loading="lazy"></iframe>
+      </div>
+      <div class="panel extras-panel">
+        <a class="floating-photo-link" href="/truth" target="_top">
+          <img class="floating-photo" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
+        </a>
+        <img class="floating-photo" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="">
+        <div class="insta-row">
+          <a href="https://www.instagram.com/hamburger__news?igsi=dnVwNzZ3NzVxYjF0" target="_blank" rel="noopener noreferrer">
+            <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="Instagram">
+          </a>
+          <a href="https://www.instagram.com/dynamitej03" target="_blank" rel="noopener noreferrer">
+            <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_C6FC871B-808F-4F41-AED1-E9F629BD814A.png" alt="Instagram">
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="media-row">
+      <div class="panel video-panel">
+        <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"></iframe>
+      </div>
+      <div class="panel listen-panel">
+        <iframe src="/soundcloud-widget.html" title="Listen" loading="lazy"></iframe>
+      </div>
+    </div>
+
+    <div class="bottom-row">
+      <div class="gif-embed">
+        <img src="https://raw.githubusercontent.com/KNOBSOCK/Bobby-Wyckoff-Website/refs/heads/main/IMG_9407.gif" alt="Bobby Wyckoff">
+      </div>
+      <div class="panel counter-panel">
+        <iframe src="/page-view-counter-widget.html" title="Page views" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const sat = document.getElementById('satellite');
+  let x = Math.random() * window.innerWidth;
+  let y = Math.random() * window.innerHeight;
+  let vx = (Math.random() - 0.5) * 0.6; // slow horizontal drift
+  let vy = (Math.random() - 0.5) * 0.6; // slow vertical drift
+
+  function drift() {
+    x += vx;
+    y += vy;
+
+    // gentle random wobble so it doesn't look like a straight line
+    vx += (Math.random() - 0.5) * 0.02;
+    vy += (Math.random() - 0.5) * 0.02;
+
+    // wrap around edges instead of bouncing
+    if (x < -100) x = window.innerWidth + 100;
+    if (x > window.innerWidth + 100) x = -100;
+    if (y < -100) y = window.innerHeight + 100;
+    if (y > window.innerHeight + 100) y = -100;
+
+    sat.style.left = x + 'px';
+    sat.style.top = y + 'px';
+
+    requestAnimationFrame(drift);
+  }
+
+  drift();
+</script>
+
+</body>
+</html>
