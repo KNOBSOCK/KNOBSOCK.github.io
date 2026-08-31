@@ -38,17 +38,15 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    /* Tiled sky GIF sits under the background video, so the page still
-       looks like the sky if the video is slow, blocked, or refuses to
-       autoplay (iOS low-power mode) rather than flashing flat navy. */
-    background: #0a2a4a url('/AnimatedBackGroundSky.gif') repeat center / 200px;
+    /* Plain color only — the autoplaying video below is the background.
+       This just fills the frame for the moment before it paints. */
+    background: #0a2a4a;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* Fixed cloud-sky background, the same clip Universe used on this
-     page — an absolute CDN URL, so unlike the /_assets paths it still
-     resolves from here. The dark fallback color above shows through if
-     it ever stops loading. */
+  /* Fixed cloud-sky background video — the same clip Universe used on
+     this page, at an absolute CDN URL, so unlike the /_assets paths it
+     still resolves from here. */
   #bg-video {
     position: fixed;
     inset: 0;
