@@ -122,11 +122,6 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      /* Pins the card to the bottom of whatever vertical room this 1fr
-         row has left — like a chin — instead of floating centered with
-         gaps above and below that read as misaligned with everything
-         else on the page. */
-      justify-content: flex-end;
     }
     .playlist-pane { grid-area: playlist; min-height: 0; }
   }
@@ -160,6 +155,22 @@
     width: 100%;
     height: 100%;
     border: 0;
+  }
+
+  .video-cover-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+  .video-cover-overlay[hidden] { display: none; }
+  .video-cover-art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .playlist-pane {
@@ -877,6 +888,20 @@
     color: var(--text);
   }
 
+  /* Desktop only: stretches the card to fill the "soundcloud" grid row's
+     full leftover height — flush against the video above and the bottom
+     of the widget below — instead of shrinking to its content's height
+     and leaving it squished with dead space above it. Placed AFTER the
+     base .sc-card rule above on purpose (same specificity, so source
+     order decides) — a media-scoped override earlier in the file than
+     the unscoped rule it's meant to override gets silently undone by it,
+     since scoping alone doesn't add specificity. On mobile .sc-section
+     isn't a flex container, so this flex value has no effect there
+     regardless. */
+  @media (min-width: 861px) {
+    .sc-card { flex: 1 1 auto; justify-content: center; }
+  }
+
   .sc-header {
     flex: 0 0 auto;
     display: flex;
@@ -1024,6 +1049,14 @@
         referrerpolicy="strict-origin"
         style="pointer-events: none;">
       </iframe>
+    </div>
+    <!-- Covers the paused video with the SoundCloud-only track's own
+         cover art while it's the active source — otherwise this whole
+         pane just sits on whatever video frame was last showing, which
+         reads as broken/stuck. Shown/hidden from playMergedKey() near
+         the bottom of this file. -->
+    <div class="video-cover-overlay" id="videoCoverOverlay" hidden>
+      <img class="video-cover-art" id="videoCoverArt" src="" alt="" />
     </div>
     <div class="video-controls" id="videoControls">
       <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
@@ -1338,6 +1371,8 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const creatorChinEl = document.getElementById('creatorChin');
   const layoutEl = document.getElementById('layout');
   const ytFrame = document.getElementById('ytFrame');
+  const videoCoverOverlay = document.getElementById('videoCoverOverlay');
+  const videoCoverArt = document.getElementById('videoCoverArt');
 
   let ytPlayer = null;
   let isDragging = false;
@@ -1502,6 +1537,31 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     });
   }
 
+  // Switches which card is marked "active" in place — toggling classes
+  // and text on the existing buttons — instead of rebuilding the whole
+  // list's innerHTML. Rebuilding on every click reset playlistItemsEl's
+  // own scroll position back to 0, which is what made picking a video
+  // near the end of the mobile swipe list jump straight back to the
+  // start right after the tap. Only actual content changes (a new/
+  // reordered list, a filter change) should go through the full
+  // renderPlaylist() rebuild above — a change in which entry is active
+  // should not.
+  function updateActiveHighlight() {
+    playlistItemsEl.querySelectorAll('.playlist-item').forEach(btn => {
+      const key = btn.getAttribute('data-key');
+      const isActive = key === activeKey;
+      btn.classList.toggle('active', isActive);
+      const subEl = btn.querySelector('.playlist-item-sub');
+      if (!subEl) return;
+      if (isActive) {
+        subEl.textContent = 'Now playing';
+      } else {
+        const entry = currentMergedList.find(e => e.key === key);
+        subEl.textContent = entry && entry.author ? resolveAuthorDisplay(entry.author) : 'Tap to play';
+      }
+    });
+  }
+
   // ---------- CREATOR CHIN RENDER ----------
   // Auto-populated from whichever authors have shown up in the merged
   // list so far (fetchTitles fills v.author in asynchronously for video
@@ -1655,6 +1715,17 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     unmuteBtn.title = 'Mute';
   }
 
+  // Covers the (paused, stale) video with the active SoundCloud track's
+  // own cover art, so the pane doesn't just sit on whatever video frame
+  // happened to be showing when SoundCloud took over.
+  function showVideoCoverArt(artworkUrl) {
+    videoCoverArt.src = artworkUrl;
+    videoCoverOverlay.hidden = false;
+  }
+  function hideVideoCoverArt() {
+    videoCoverOverlay.hidden = true;
+  }
+
   // Loads a video into the (single, persistent) YouTube player instance.
   // autoUnmute is true for a direct click on a video entry, so it plays
   // with sound right away instead of needing a separate Unmute click.
@@ -1679,11 +1750,13 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     if (entry.kind === 'sc') {
       pauseAndMuteVideoLocal();
       activeKey = key;
-      renderPlaylist(currentMergedList);
+      updateActiveHighlight();
+      showVideoCoverArt(entry.thumbnail);
       playScByIndex(entry.soundIndex);
     } else {
       activeKey = key;
-      renderPlaylist(currentMergedList);
+      updateActiveHighlight();
+      hideVideoCoverArt();
       pauseSc();
       loadVideo(entry.videoId, true);
       pushNowPlayingForActiveVideo();
@@ -1759,7 +1832,8 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         // reclaim the currently-loaded video as the active source.
         pauseSc();
         activeKey = loadedVideoId;
-        renderPlaylist(currentMergedList);
+        updateActiveHighlight();
+        hideVideoCoverArt();
         pushNowPlayingForActiveVideo();
         ytPlayer.playVideo();
       }
