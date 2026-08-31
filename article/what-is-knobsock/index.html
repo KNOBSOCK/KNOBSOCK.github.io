@@ -23,8 +23,16 @@
      WordPress instead. -->
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
+  /* The fallback color goes on html ONLY, never on body. An opaque body
+     background paints OVER the fixed video behind it: a z-index:-1
+     element paints beneath block-level backgrounds, so body's own
+     background hid the video everywhere except the strip below body's
+     box, where its collapsed bottom margin left a gap. html's background
+     is propagated to the canvas instead, which paints under everything. */
+  html {
     background: #0a0e2a;
+  }
+  html, body {
     color-scheme: dark;
     scrollbar-width: none;
     -ms-overflow-style: none;
