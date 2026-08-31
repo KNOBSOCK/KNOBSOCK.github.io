@@ -283,6 +283,16 @@
                   opacity 0.38s ease;
       will-change: transform;
     }
+    /* Explicit rather than leaning on flex-grow to fill. An iframe's
+       default intrinsic height is 150px, so with flex-basis:auto the
+       widget's own document can end up laid out in a box shorter than
+       the card — which makes anything it centers vertically look
+       top-heavy inside the square even though it's centered correctly
+       within the box it was actually given. */
+    .columns-row iframe {
+      height: 100%;
+      flex: 1 1 auto;
+    }
     /* Mid-swipe the cards track the finger directly — a transition here
        would lag a frame or two behind it and feel rubbery. */
     .columns-row.dragging .panel {
