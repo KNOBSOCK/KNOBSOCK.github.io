@@ -299,10 +299,27 @@
       height: 100%;
       flex: 1 1 auto;
     }
+    /* A slow bob on the front card so it reads as floating.
+       Animating `translate` rather than `transform` on purpose: the
+       carousel JS writes each card's position into its inline transform,
+       and a keyframe on that same property would override it outright
+       and throw the whole layout off. `translate` is a separate property
+       that composes with transform, so the bob rides on top of whatever
+       position the carousel has set. */
+    @keyframes cardFloat {
+      0%, 100% { translate: 0 0; }
+      50% { translate: 0 -9px; }
+    }
+    .columns-row .panel.is-active {
+      animation: cardFloat 5s ease-in-out infinite;
+    }
     /* Mid-swipe the cards track the finger directly — a transition here
-       would lag a frame or two behind it and feel rubbery. */
+       would lag a frame or two behind it and feel rubbery. The bob comes
+       off too: is-active flips as a card crosses the middle during a
+       drag, and restarting the animation mid-gesture reads as a jolt. */
     .columns-row.dragging .panel {
       transition: none;
+      animation: none;
     }
     /* THE thing that makes swiping actually work over a card.
        Touch events never cross an iframe boundary — a finger landing on
