@@ -467,7 +467,13 @@
     const SIDE_SCALE = 0.3;
     const SIDE_FADE = 0.45;
 
-    let index = 0;
+    // Opens on Newest Video rather than whichever card happens to be
+    // first in the DOM. Found by class instead of hardcoding 1, so
+    // reordering the cards later can't quietly change which one greets
+    // you; falls back to the first card if that class ever goes away.
+    let index = Math.max(0, cards.findIndex(function (card) {
+      return card.classList.contains('video-panel');
+    }));
     let dragging = false;
     let axis = null;
     let startX = 0;
