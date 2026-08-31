@@ -57,8 +57,17 @@
        only a sliver of video peeking through. */
   }
 
-  /* Logo header — transparent, sits above the video */
+  /* Logo header — transparent, sits above the video. position:relative
+     here isn't for layout (it does nothing visually) — it's what actually
+     keeps this above the fixed video. .page-wrapper below has its own
+     stacking context already (backdrop-filter creates one), which is what
+     puts IT in the same paint tier as position:fixed content and lets DOM
+     order decide; a plain element with no such property — like this
+     header without this line — stays in a lower tier that paints
+     underneath position:fixed content regardless of DOM order, which is
+     exactly what was making the logo disappear behind the video. */
   .site-header {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -79,8 +88,14 @@
   /* Solid-ish blue card background with an 80% frosted blur (our 1-100
      scale: 100% = 20px, so 80% = 16px) blurring the video behind it —
      grows with its own content now instead of being pinned to a fixed
-     iframe-box height. */
+     iframe-box height. position:relative is belt-and-suspenders for the
+     same reason .site-header above has it — backdrop-filter already
+     happens to create a stacking context on its own, which is the only
+     reason this was painting above the video correctly before, but that's
+     incidental to what backdrop-filter is for; this makes it explicit so
+     it doesn't silently break again if the blur effect ever changes. */
   .page-wrapper {
+    position: relative;
     width: auto;
     margin: 0 28px 40px;
     padding: 12px 36px 44px;
