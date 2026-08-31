@@ -87,12 +87,32 @@
     overflow: hidden;
     background: #000;
     border-radius: 10px;
-    flex: 1 1 66%;
+    width: 100%;
+    /* Aspect-ratio (not a flex-stretched height) caps this at a true
+       16:9 box — it previously stretched to match the "Up Next" column's
+       full height, leaving a tall pane with far more room than the video
+       itself needed. */
+    aspect-ratio: 16 / 9;
+    flex: 0 0 auto;
     container-type: size;
     container-name: videobox;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Stacks the video, creator chin, and SoundCloud player into one left
+     column on desktop, so the SoundCloud card can fill whatever vertical
+     room the (now thumbnail-sized) video no longer needs, flush with the
+     video's own left edge and width — instead of spanning full width
+     below both columns and floating centered with empty space around it. */
+  .video-col {
+    flex: 1 1 66%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .video-frame-wrap {
@@ -117,8 +137,16 @@
 
   @media (max-width: 860px) {
     .main-row { flex-direction: column; }
-    .video-pane { flex: 0 0 38vh; }
     .playlist-pane { flex: 1 1 auto; min-width: 0; }
+    /* .video-col only exists to stack things into a left column on
+       desktop — on mobile it's unwrapped back to flat siblings of
+       .main-row, then put back in the original stacking order (video,
+       playlist, creator chin, SoundCloud) with order. */
+    .video-col { display: contents; }
+    .video-pane { order: 1; }
+    .playlist-pane { order: 2; }
+    .creator-chin { order: 3; }
+    .sc-section { order: 4; flex: 0 0 auto; }
   }
 
   .layout.playlist-hidden .playlist-pane { display: none; }
@@ -734,19 +762,22 @@
   }
 
   .sc-section {
-    /* No fixed height — sized to whatever .sc-card actually needs, so
-       there's no leftover empty space stretching the panel taller than
-       its one row of controls plus one row of track tabs. */
-    flex: 0 0 auto;
+    /* Grows to fill whatever vertical room is left in .video-col below
+       the (now thumbnail-sized) video and the creator chin, instead of
+       being sized to just its own content and leaving empty space below
+       it and to its right. */
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .sc-card {
-    /* Capped and centered so this stays a compact, contained control
-       strip instead of stretching edge-to-edge on a wide desktop screen
-       — the empty space on either side reads as padding around it. */
+    /* Matches the video's own width above it (flush left) instead of a
+       centered, narrower box floating in the middle of the column. */
+    flex: none;
     width: 100%;
-    max-width: 640px;
-    margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 1.5vw, 10px);
@@ -856,6 +887,14 @@
     to { transform: translateX(-50%); }
   }
 
+  .sc-artist {
+    font-size: clamp(9px, 2.2vw, 11px);
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .sc-progress-track {
     margin-top: 4px;
     width: 100%;
@@ -928,7 +967,8 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
  <div class="main-row" id="mainRow">
-  <div class="video-pane" id="videoPane">
+  <div class="video-col" id="videoCol">
+   <div class="video-pane" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
     <div class="video-pane-actions">
       <button class="pill-btn toggle-playlist-btn" id="togglePlaylistBtn" title="Hide playlist">Hide Playlist</button>
@@ -950,34 +990,21 @@
       <span class="time-label" id="timeLabel">0:00 / 0:00</span>
       <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
     </div>
-  </div>
+   </div>
 
-  <div class="playlist-pane" id="playlistPane">
-    <div class="playlist-card">
-      <div class="playlist-header">
-        <span class="playlist-title">Up Next</span>
-        <span class="playlist-count" id="playlistCount"></span>
-      </div>
-      <div class="playlist-items" id="playlistItems">
-        <div class="empty-state">Loading playlist…</div>
-      </div>
-    </div>
-  </div>
- </div>
+   <!-- Auto-populated from each track's YouTube author — see
+        renderCreatorChin() below. "All" chip clears the filter. -->
+   <div class="creator-chin" id="creatorChin"></div>
 
-  <!-- Auto-populated from each track's YouTube author — see
-       renderCreatorChin() below. "All" chip clears the filter. -->
-  <div class="creator-chin" id="creatorChin"></div>
-
-  <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
-       Real playback runs through SoundCloud's own Widget API via the
-       invisible iframe below, same technique as the homepage's
-       standalone Listen widget, pointed at the same profile. Clicking a
-       creator chip above filters this track list to that same artist
-       too (matched against each track's SoundCloud uploader username) —
-       see refreshScTrackList() in the script block near the bottom of
-       this file. -->
-  <div class="sc-section">
+   <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
+        Real playback runs through SoundCloud's own Widget API via the
+        invisible iframe below, same technique as the homepage's
+        standalone Listen widget, pointed at the same profile. Clicking a
+        creator chip above filters this track list to that same artist
+        too (matched against each track's SoundCloud uploader username) —
+        see refreshScTrackList() in the script block near the bottom of
+        this file. -->
+   <div class="sc-section">
     <div class="sc-card">
       <iframe
         id="scWidgetFrame"
@@ -1001,6 +1028,7 @@
           <div class="sc-title-wrap" id="scTitleWrap">
             <div class="sc-title" id="scTitle"><span class="sc-title-copy">Loading…</span></div>
           </div>
+          <div class="sc-artist" id="scArtist"></div>
           <div class="sc-progress-track" id="scProgressTrack">
             <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
           </div>
@@ -1010,7 +1038,21 @@
         <div class="empty-state">Loading tracks…</div>
       </div>
     </div>
+   </div>
   </div>
+
+  <div class="playlist-pane" id="playlistPane">
+    <div class="playlist-card">
+      <div class="playlist-header">
+        <span class="playlist-title">Up Next</span>
+        <span class="playlist-count" id="playlistCount"></span>
+      </div>
+      <div class="playlist-items" id="playlistItems">
+        <div class="empty-state">Loading playlist…</div>
+      </div>
+    </div>
+  </div>
+ </div>
 </div>
 
 <!-- Hidden admin access point — nearly invisible, tucked in the corner.
@@ -1968,6 +2010,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const scPlayBtn = document.getElementById('scPlayBtn');
   const scTitleWrapEl = document.getElementById('scTitleWrap');
   const scTitleEl = document.getElementById('scTitle');
+  const scArtistEl = document.getElementById('scArtist');
   const scProgressTrackEl = document.getElementById('scProgressTrack');
   const scProgressFillEl = document.getElementById('scProgressFill');
   const scTrackListEl = document.getElementById('scTrackList');
@@ -2012,6 +2055,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // sound changes (first load and every track change after).
   function setScNowPlaying(sound) {
     setScTitle(sound.title);
+    scArtistEl.textContent = getScAuthor(sound);
     scArtworkImgEl.src = getScArtworkUrl(sound);
     scArtworkLinkEl.href = sound.permalink_url || '#';
   }
