@@ -41,23 +41,26 @@
     color: yellow;
     display: flex;
     flex-direction: column;
-    /* Sits the heading, thumbnail and title as one block in the middle
-       of whatever box this is given, rather than stacked against the top
-       with the leftover room pooling underneath — most visible on the
-       square mobile card, where only one article fits and the rest of
-       the square was reading as empty. */
-    justify-content: center;
+  }
+
+  /* Centered in a squarish box, listed from the top in a tall narrow one.
+     This widget has no way to know whether it's on a phone or a desktop
+     — it's an iframe, and it gets a box about 300px wide either way, so
+     a width media query can't tell them apart. The SHAPE can: the mobile
+     card is a square (ratio ~1.1) while the desktop column is tall and
+     narrow (~0.5), so 4/5 sits comfortably between the two. It also
+     keeps meaning the right thing if the layout changes later — center
+     when there's spare room all around, list from the top when there's a
+     column to fill. */
+  @media (min-aspect-ratio: 4/5) {
+    body { justify-content: center; }
+    .wrap { margin: auto 0; }
   }
 
   a { text-decoration: none; color: inherit; }
 
   .wrap {
     width: 100%;
-    /* auto margins on a flex item soak up the leftover space above and
-       below evenly, which centers this block. Doing it here as well as
-       with justify-content on the body means the centering holds even
-       where one of the two gets overridden or ignored. */
-    margin: auto 0;
     padding: 4px 4px 12px;
     text-align: left;
   }
