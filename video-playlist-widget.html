@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Video Player + Playlist</title>
+<style>
+  :root {
+    --ink: #0a2a4a;
+    --panel: rgba(10, 42, 74, 0.32);
+    --panel-2: rgba(10, 42, 74, 0.8);
+    --line: rgba(150, 200, 255, 0.6);
+    --accent: #2f80ed;
+    --accent-dim: #1c4e8a;
+    --accent-yellow: #ffdd00;
+    --text: #ffffff;
+    --text-dim: #c9dcf5;
+    --font-display: Arial, Helvetica, sans-serif;
+    --font-body: Arial, Helvetica, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body { position: relative; }
+
+  /* ---------- BACKDROP ----------
+     A padded, rounded panel with a 50% frosted backdrop blur — same blur
+     treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
+     so 50% = 10px). It's a sibling of .layout (not nested inside it), so
+     its width is capped/centered the same way .layout is — otherwise on a
+     big monitor the glow panel would keep stretching edge-to-edge even
+     after the content inside .layout got capped at 1200px. */
+  .bg-glow {
+    position: absolute;
+    top: clamp(16px, 3vw, 32px);
+    bottom: clamp(16px, 3vw, 32px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(100% - clamp(32px, 6vw, 64px)), calc(1200px - clamp(32px, 6vw, 64px)));
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: rgba(47, 128, 237, 0.45);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* ---------- PAGE LAYOUT ----------
+     Desktop: big player + playlist side by side, with the creator chin
+     (below) as a fixed-height strip under both. Mobile (<= 860px wide):
+     player on top, playlist scrolls below — same breakpoint and stacking
+     pattern as the livestream widget; the chin stays pinned to the
+     bottom either way since it's a sibling of .main-row inside .layout,
+     not part of the row that flips direction. */
+  .layout {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    /* Capped so the player doesn't stretch edge-to-edge on a big monitor —
+       centered within the full-bleed background glow behind it instead. */
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 10px;
+    padding: clamp(18px, 3.5vw, 36px);
+    background: transparent;
+  }
+
+  .main-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 14px;
+  }
+
+  .video-pane {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border-radius: 10px;
+    flex: 1 1 66%;
+    container-type: size;
+    container-name: videobox;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .video-frame-wrap {
+    width: min(100cqw, calc(100cqh * 16 / 9));
+    height: min(100cqh, calc(100cqw * 9 / 16));
+  }
+
+  .video-frame-wrap iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .playlist-pane {
+    flex: 1 1 34%;
+    min-width: 280px;
+    display: flex;
+    container-type: size;
+    container-name: playlistbox;
+  }
+
+  @media (max-width: 860px) {
+    .main-row { flex-direction: column; }
+    .video-pane { flex: 0 0 38vh; }
+    .playlist-pane { flex: 1 1 auto; min-width: 0; }
+  }
+
+  .layout.playlist-hidden .playlist-pane { display: none; }
+  .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
+
+  /* ---------- CREATOR CHIN ----------
+     A row of pill buttons across the bottom, one per creator seen in the
+     playlist (plus "All"). Auto-populated as each video's author comes
+     back from the oEmbed fetch below — clicking one filters the same
+     "Up Next" list to just that creator's videos, it doesn't touch
+     what's currently playing. */
+  .creator-chin {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 10px);
+    padding: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Scrolling (swipe/drag/shift+wheel) still works when there are more
+       chips than fit — this just hides the visible scrollbar itself, on
+       every device, not just phones. */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* old Edge/IE */
+  }
+  .creator-chin::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
+
+  .creator-chip {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    border-radius: 999px;
+    padding: clamp(6px, 1.6vw, 9px) clamp(14px, 3vw, 18px);
+    font-size: clamp(11px, 2.6vw, 13px);
+    white-space: nowrap;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .creator-chip:hover { background: var(--accent-dim); }
+  .creator-chip.active {
+    /* The selected chip (including "All") stands out in yellow while
+       everything else on the page stays blue — text flips to the dark
+       ink color here since white-on-yellow doesn't read well. */
+    background: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+    color: var(--ink);
+  }
+
+  .pill-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    line-height: 1;
+    border-radius: clamp(4px, 1.5cqw, 8px);
+    padding: clamp(6px, 1.8cqh, 10px) clamp(12px, 3.4cqw, 18px);
+    font-size: clamp(11px, 3cqw, 14px);
+    white-space: nowrap;
+    background: var(--accent);
+    border: 1px solid var(--accent-dim);
+    color: #ffffff;
+  }
+  .pill-btn:hover:not(:disabled) { background: var(--accent-dim); }
+  .pill-btn:active:not(:disabled) { background: var(--accent-dim); }
+  .pill-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .video-pane-actions {
+    position: absolute;
+    top: clamp(8px, 2cqh, 14px);
+    right: clamp(8px, 2cqw, 14px);
+    z-index: 5;
+    display: flex;
+    gap: clamp(6px, 1.5cqw, 10px);
+  }
+
+  .unmute-btn {
+    position: absolute;
+    top: clamp(8px, 2cqh, 14px);
+    left: clamp(8px, 2cqw, 14px);
+    z-index: 5;
+  }
+
+  .video-pane .unmute-btn,
+  .video-pane .video-pane-actions,
+  .video-pane .video-controls {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .video-pane:hover .unmute-btn,
+  .video-pane:hover .video-pane-actions,
+  .video-pane:hover .video-controls,
+  .video-pane:focus-within .unmute-btn,
+  .video-pane:focus-within .video-pane-actions,
+  .video-pane:focus-within .video-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
+  .video-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2cqw, 12px);
+    padding: clamp(10px, 2.6cqh, 14px) clamp(10px, 3cqw, 16px);
+    background: linear-gradient(to top, rgba(2, 62, 138, 0.85), rgba(2, 62, 138, 0));
+  }
+
+  .round-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 50%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--accent);
+    border: 1px solid var(--line);
+    color: #ffffff;
+  }
+  .round-btn:hover:not(:disabled) { background: var(--accent-dim); }
+  .round-btn:active:not(:disabled) { background: var(--accent-dim); }
+  .round-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .play-pause-btn {
+    width: clamp(26px, 7.5cqw, 34px);
+    font-size: clamp(11px, 3.2cqw, 15px);
+    flex: none;
+  }
+
+  .fullscreen-btn {
+    width: clamp(26px, 7.5cqw, 34px);
+    font-size: clamp(11px, 3.2cqw, 15px);
+    flex: none;
+  }
+
+  .video-pane.pseudo-fullscreen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; height: 100vh; height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    z-index: 9999;
+  }
+
+  .scrub-range {
+    flex: 1 1 auto;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent-dim);
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .scrub-range:disabled { opacity: 0.5; cursor: default; }
+  .scrub-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: transparent; }
+  .scrub-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 13px; height: 13px; margin-top: -4.5px;
+    border-radius: 50%; background: var(--accent);
+    border: 2px solid #ffffff; cursor: pointer;
+  }
+  .scrub-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--accent-dim); }
+  .scrub-range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+  .scrub-range::-moz-range-thumb {
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--accent); border: 2px solid #ffffff; cursor: pointer;
+  }
+
+  .time-label {
+    flex: none;
+    font-size: clamp(9px, 2.6cqw, 12px);
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    white-space: nowrap;
+  }
+
+  /* ---------- PLAYLIST WIDGET ---------- */
+  .playlist-card {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-body);
+    color: var(--text);
+  }
+
+  .playlist-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(8px, 2.6cqh, 12px) clamp(10px, 3cqw, 14px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .playlist-title {
+    font-size: clamp(12px, 3.2cqw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .playlist-count {
+    font-size: clamp(9px, 2.6cqw, 12px);
+    color: var(--text-dim);
+  }
+
+  .playlist-items {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: clamp(8px, 2.4cqh, 12px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 2cqh, 10px);
+  }
+  .playlist-items::-webkit-scrollbar { width: 8px; }
+  .playlist-items::-webkit-scrollbar-track { background: transparent; }
+  .playlist-items::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  @media (max-width: 860px) {
+    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  }
+
+  .playlist-item {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2.4cqw, 12px);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: clamp(6px, 2cqw, 10px);
+    padding: clamp(6px, 1.8cqh, 8px);
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font-family: var(--font-body);
+    flex: none;
+  }
+  .playlist-item:hover { background: var(--accent-dim); }
+  .playlist-item.active {
+    /* Highlighted in yellow (matching the creator chin's active chip)
+       instead of blue, so the selected video stands out from the rest
+       of the blue UI the same way the active creator filter does. Kept
+       as a translucent wash rather than a solid fill so the white title
+       text stays legible over it. */
+    background: rgba(255, 221, 0, 0.18);
+    border-color: var(--accent-yellow);
+    box-shadow: 0 0 8px rgba(255, 221, 0, 0.5);
+  }
+
+  @media (max-width: 860px) {
+    .playlist-item { width: clamp(160px, 42vw, 220px); flex-direction: column; align-items: stretch; }
+  }
+
+  .playlist-thumb-wrap {
+    position: relative;
+    flex: none;
+    width: clamp(72px, 24cqw, 108px);
+    aspect-ratio: 16 / 9;
+    border-radius: clamp(4px, 1cqw, 6px);
+    overflow: hidden;
+    background: #000;
+  }
+  @media (max-width: 860px) {
+    .playlist-thumb-wrap { width: 100%; }
+  }
+  .playlist-thumb-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .playlist-item.active .playlist-thumb-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--accent-yellow);
+    border-radius: inherit;
+  }
+  .now-playing-badge {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    background: rgba(10, 58, 10, 0.85);
+    color: var(--accent-yellow);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border-radius: 3px;
+    display: none;
+  }
+  .playlist-item.active .now-playing-badge { display: inline-block; }
+
+  .playlist-meta {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .playlist-item-title {
+    font-size: clamp(11px, 2.8cqw, 13px);
+    font-weight: 700;
+    line-height: 1.3;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .playlist-item-sub {
+    font-size: clamp(9px, 2.4cqw, 11px);
+    color: var(--text-dim);
+  }
+
+  .empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: clamp(10px, 2.8cqw, 13px);
+    padding: 20px;
+  }
+
+  /* ---------- HIDDEN ADMIN TRIGGER ----------
+     A near-invisible dot tucked in the corner. It's technically always
+     there and clickable, but at ~4% opacity against a dark page it
+     doesn't read as a UI element to a casual visitor. A keyboard
+     shortcut (Ctrl+Alt+A) opens the same login without needing to
+     find it at all. Note: with Firebase Auth + Firestore rules doing
+     the real access control, this trigger is just a convenience for
+     you, not a security boundary. */
+  .admin-trigger {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #888;
+    border: none;
+    padding: 0;
+    opacity: 0.04;
+    cursor: default;
+    z-index: 50;
+    transition: opacity 0.2s ease;
+  }
+  .admin-trigger:hover,
+  .admin-trigger:focus-visible {
+    opacity: 0.35;
+    cursor: pointer;
+  }
+
+  /* ---------- ADMIN OVERLAYS ---------- */
+  .admin-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 14, 26, 0.72);
+    padding: 16px;
+    font-family: var(--font-body);
+    color: var(--text);
+  }
+  .admin-overlay[hidden] { display: none; }
+
+  .admin-modal {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 20px 20px;
+    box-shadow: 0 0 30px rgba(47, 128, 237, 0.35);
+  }
+
+  .admin-panel {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    max-height: 86vh;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(47, 128, 237, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .admin-modal h2,
+  .admin-panel-header h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .admin-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+  }
+
+  .admin-close,
+  .admin-panel-close {
+    width: 28px;
+    height: 28px;
+    flex: none;
+  }
+
+  .admin-modal label,
+  .admin-row label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin: 12px 0 5px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .admin-modal input[type="text"],
+  .admin-modal input[type="email"],
+  .admin-modal input[type="password"],
+  .admin-row input[type="text"] {
+    width: 100%;
+    padding: 9px 10px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font-body);
+    outline: none;
+  }
+  .admin-modal input:focus,
+  .admin-row input:focus { border-color: var(--accent); }
+
+  .admin-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin: 12px 0 0;
+    cursor: pointer;
+  }
+  .admin-checkbox-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .admin-modal-actions {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-error {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #ff9b9b;
+    min-height: 14px;
+  }
+
+  .admin-video-list,
+  .admin-creator-list {
+    flex: 1 1 0;
+    min-height: 110px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 4px;
+  }
+  .admin-video-list::-webkit-scrollbar,
+  .admin-creator-list::-webkit-scrollbar { width: 8px; }
+  .admin-video-list::-webkit-scrollbar-track,
+  .admin-creator-list::-webkit-scrollbar-track { background: transparent; }
+  .admin-video-list::-webkit-scrollbar-thumb,
+  .admin-creator-list::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  .admin-section-heading {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .admin-row {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px 12px;
+  }
+
+  .admin-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .admin-row-title {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .admin-row-btns { display: flex; gap: 6px; flex: none; }
+
+  .admin-row-btns .round-btn {
+    width: 24px;
+    font-size: 12px;
+  }
+
+  .admin-panel-footer {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+
+  .admin-footer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .admin-link-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: 11px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+  .admin-link-btn:hover { color: var(--text); }
+
+  .admin-save-status {
+    font-size: 12px;
+    color: var(--accent);
+    min-height: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="layout" id="layout">
+ <div class="main-row" id="mainRow">
+  <div class="video-pane" id="videoPane">
+    <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
+    <div class="video-pane-actions">
+      <button class="pill-btn toggle-playlist-btn" id="togglePlaylistBtn" title="Hide playlist">Hide Playlist</button>
+    </div>
+    <div class="video-frame-wrap">
+      <iframe
+        id="ytFrame"
+        src=""
+        allowfullscreen
+        scrolling="no"
+        allow="accelerometer *; autoplay *; clipboard-write *; encrypted-media *; gyroscope *; picture-in-picture *; web-share *;"
+        referrerpolicy="strict-origin"
+        style="pointer-events: none;">
+      </iframe>
+    </div>
+    <div class="video-controls" id="videoControls">
+      <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
+      <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
+      <span class="time-label" id="timeLabel">0:00 / 0:00</span>
+      <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
+    </div>
+  </div>
+
+  <div class="playlist-pane" id="playlistPane">
+    <div class="playlist-card">
+      <div class="playlist-header">
+        <span class="playlist-title">Up Next</span>
+        <span class="playlist-count" id="playlistCount"></span>
+      </div>
+      <div class="playlist-items" id="playlistItems">
+        <div class="empty-state">Loading playlist…</div>
+      </div>
+    </div>
+  </div>
+ </div>
+
+  <!-- Auto-populated from each video's YouTube author — see
+       renderCreatorChin() below. "All" chip clears the filter. -->
+  <div class="creator-chin" id="creatorChin"></div>
+</div>
+
+<!-- Hidden admin access point — nearly invisible, tucked in the corner.
+     Ctrl+Alt+A opens the same login without needing to find it. -->
+<button class="admin-trigger" id="adminTrigger" aria-label="Admin"></button>
+
+<!-- Login -->
+<div class="admin-overlay" id="loginOverlay" hidden>
+  <div class="admin-modal">
+    <button class="round-btn admin-close" id="loginClose" title="Close">&times;</button>
+    <h2>Admin Sign In</h2>
+    <label for="loginUser">Email</label>
+    <input type="email" id="loginUser" autocomplete="off" />
+    <label for="loginPass">Password</label>
+    <input type="password" id="loginPass" autocomplete="off" />
+    <div class="admin-modal-actions">
+      <button class="pill-btn" id="loginSubmit">Sign In</button>
+    </div>
+    <div class="admin-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- Admin panel -->
+<div class="admin-overlay" id="adminOverlay" hidden>
+  <div class="admin-panel">
+    <div class="admin-panel-header">
+      <h2>Manage Videos</h2>
+      <button class="round-btn admin-panel-close" id="adminPanelClose" title="Close">&times;</button>
+    </div>
+    <div class="admin-video-list" id="adminVideoList"></div>
+    <div class="admin-section-heading">Creators</div>
+    <!-- One row per creator name detected across the videos above.
+         "Display As" lets you rename a creator, and giving two rows the
+         same Display As combines them into a single chip. The up/down
+         arrows set the order the chips appear in; unchecking a video
+         doesn't remove a creator here — hide them with the checkbox
+         instead. -->
+    <div class="admin-creator-list" id="adminCreatorList"></div>
+    <div class="admin-panel-footer">
+      <div class="admin-footer-actions">
+        <button class="pill-btn" id="addVideoBtn">+ Add Video</button>
+        <button class="pill-btn" id="saveVideosBtn">Save Changes</button>
+      </div>
+      <div class="admin-footer-actions">
+        <button class="admin-link-btn" id="resetDefaultBtn">Reset to default list</button>
+        <button class="admin-link-btn" id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+    <div class="admin-save-status" id="adminSaveStatus"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     FIREBASE — reuses the same project/pattern as the livestream chat
+     widget. Fill in firebaseConfig below with your project's values
+     (Firebase console → Project settings → General → Your apps).
+     ============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  // Firestore document that holds the shared playlist — everyone reads
+  // this live; only a signed-in admin (per your Firestore rules) can write it.
+  const PLAYLIST_DOC_REF = db.collection('playlist').doc('main');
+</script>
+
+<script>
+// ============================================================
+// DEFAULT PLAYLIST — used as a fallback only: before the Firestore
+// document has ever been saved, or if it's temporarily unreachable.
+// Once you sign in as admin and save changes, the Firestore document
+// becomes the live source of truth for every visitor.
+// ============================================================
+const DEFAULT_VIDEO_LIST = [
+  { url: "https://youtube.com/watch?v=euMJknnSSqk", title: "Video One" },
+  { url: "https://youtube.com/watch?v=VuivQyVyKDM", title: "Video Two" },
+  { url: "https://youtube.com/watch?v=Jc9Eay0tedo", title: "Video Three" }
+];
+// ============================================================
+
+let currentVideoList = DEFAULT_VIDEO_LIST;
+
+// Creator settings, editable from the admin panel's "Creators" section and
+// synced the same way the video list is: creatorAliases renames/combines a
+// raw detected author name into a display name (two raw names sharing the
+// same display name become one chip), creatorOrder is the explicit chip
+// order set there, and hiddenCreators removes a raw author from the chin
+// entirely (their videos still show under "All"). Declared at this outer
+// script level — not inside either IIFE below — so both the player logic
+// and the admin panel can read and update them directly.
+let creatorAliases = {};
+let creatorOrder = [];
+let hiddenCreators = [];
+
+function resolveAuthorDisplay(rawAuthor) {
+  if (!rawAuthor) return rawAuthor;
+  return creatorAliases[rawAuthor] || rawAuthor;
+}
+
+function extractVideoId(input) {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed; // already a bare ID
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  ];
+  for (const re of patterns) {
+    const m = trimmed.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// previousPlaylist carries over already-resolved title/author data for any
+// video that appears in both the old and new list, by id — instead of
+// wiping every entry back to null and re-fetching from scratch every time
+// this runs. This matters because Firestore's onSnapshot listener fires
+// more than once on a normal page load (once immediately from its local
+// cache, then again once the server confirms the same data), and without
+// this, that second firing was resetting every author back to null right
+// as the first round's fetches were finishing — which is what caused the
+// creator chin to get stuck showing "Loading" even though the data had
+// already been fetched successfully (a manual click just happened to
+// force a re-render against whichever round's data had settled by then).
+function buildPlaylist(list, previousPlaylist) {
+  const previousById = new Map();
+  (previousPlaylist || []).forEach(v => { if (v.id) previousById.set(v.id, v); });
+
+  return list
+    .map(v => {
+      const id = extractVideoId(v.url);
+      if (!id) return null;
+      const prev = previousById.get(id);
+      const manualTitle = (v.title && v.title.trim()) ? v.title.trim() : null;
+      return {
+        id,
+        title: manualTitle || (prev ? prev.title : null),
+        author: prev ? prev.author : null
+      };
+    })
+    .filter(Boolean);
+}
+
+let PLAYLIST = buildPlaylist(currentVideoList);
+
+(function () {
+  const layout = document.getElementById('layout');
+  const toggleBtn = document.getElementById('togglePlaylistBtn');
+  toggleBtn.addEventListener('click', function () {
+    const hidden = layout.classList.toggle('playlist-hidden');
+    toggleBtn.textContent = hidden ? 'Show Playlist' : 'Hide Playlist';
+    toggleBtn.title = hidden ? 'Show playlist' : 'Hide playlist';
+  });
+})();
+
+(function () {
+  const unmuteBtn = document.getElementById('unmuteBtn');
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const scrubRange = document.getElementById('scrubRange');
+  const timeLabel = document.getElementById('timeLabel');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const videoPane = document.getElementById('videoPane');
+  const playlistItemsEl = document.getElementById('playlistItems');
+  const playlistCountEl = document.getElementById('playlistCount');
+  const creatorChinEl = document.getElementById('creatorChin');
+  const ytFrame = document.getElementById('ytFrame');
+
+  let ytPlayer = null;
+  let isDragging = false;
+  let pollTimer = null;
+  let activeIndex = 0;
+  let activeAuthorFilter = null; // null = "All"; a creator's name filters the list below
+  let apiReady = false;       // true once the YT.Player instance has fired onReady
+  let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
+  let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
+  let pendingLoadId = null;
+
+  unmuteBtn.disabled = true;
+
+  function formatTime(sec) {
+    if (!isFinite(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function updateRangeFill() {
+    const min = parseFloat(scrubRange.min) || 0;
+    const max = parseFloat(scrubRange.max) || 100;
+    const val = parseFloat(scrubRange.value) || 0;
+    const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+    scrubRange.style.background =
+      'linear-gradient(to right, var(--accent) 0%, var(--accent) ' + pct +
+      '%, var(--accent-dim) ' + pct + '%, var(--accent-dim) 100%)';
+  }
+
+  function updatePlayPauseIcon(state) {
+    if (state === YT.PlayerState.PLAYING) {
+      playPauseBtn.innerHTML = '&#10074;&#10074;';
+      playPauseBtn.title = 'Pause';
+    } else {
+      playPauseBtn.innerHTML = '&#9658;';
+      playPauseBtn.title = 'Play';
+    }
+  }
+
+  function updateProgress() {
+    if (!ytPlayer || isDragging) return;
+    const duration = ytPlayer.getDuration();
+    const current = ytPlayer.getCurrentTime();
+    if (duration > 0) {
+      scrubRange.max = duration;
+      scrubRange.value = current;
+      updateRangeFill();
+      timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
+    }
+  }
+
+  // ---------- PLAYLIST RENDER ----------
+  // Filtering by creator happens here, over the same PLAYLIST array/data
+  // used everywhere else — data-index still points at the real index in
+  // PLAYLIST (not the filtered array's position), so clicking a filtered
+  // row still plays the right video and activeIndex stays meaningful.
+  function renderPlaylist() {
+    if (!PLAYLIST.length) {
+      playlistItemsEl.innerHTML = '<div class="empty-state">No videos added yet.</div>';
+      playlistCountEl.textContent = '';
+      return;
+    }
+
+    const visible = PLAYLIST
+      .map((v, i) => ({ v, i }))
+      .filter(({ v }) => !activeAuthorFilter || resolveAuthorDisplay(v.author) === activeAuthorFilter);
+
+    if (!visible.length) {
+      playlistItemsEl.innerHTML = '<div class="empty-state">No videos from this creator yet.</div>';
+      playlistCountEl.textContent = '0 videos';
+      return;
+    }
+
+    playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' video' : ' videos');
+    playlistItemsEl.innerHTML = visible.map(({ v, i }) => {
+      const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
+      // Shows who made it instead of a generic "Tap to play" once the
+      // author's known — falls back to "Tap to play" only while it's
+      // still being fetched.
+      const sub = i === activeIndex
+        ? 'Now playing'
+        : (v.author ? escapeHtml(resolveAuthorDisplay(v.author)) : 'Tap to play');
+      return `
+      <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
+        <div class="playlist-thumb-wrap">
+          <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="${escapeHtml(title)}" loading="lazy" />
+          <span class="now-playing-badge">Now Playing</span>
+        </div>
+        <div class="playlist-meta">
+          <div class="playlist-item-title">${escapeHtml(title)}</div>
+          <div class="playlist-item-sub">${sub}</div>
+        </div>
+      </button>
+    `;
+    }).join('');
+
+    playlistItemsEl.querySelectorAll('.playlist-item').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const idx = parseInt(this.getAttribute('data-index'), 10);
+        playIndex(idx);
+      });
+    });
+  }
+
+  // ---------- CREATOR CHIN RENDER ----------
+  // Auto-populated from whichever authors have shown up on PLAYLIST
+  // entries so far (fetchTitles fills v.author in asynchronously, so this
+  // gets called again each time one resolves). Clicking a chip only
+  // changes the filter used by renderPlaylist above — it never touches
+  // what's currently playing.
+  //
+  // The "All" chip always renders immediately, even before any author has
+  // loaded — a panel that only appears once the network fetch succeeds is
+  // a panel that can silently never appear at all (one failed request and
+  // there's nothing on screen to show something's wrong). "Unknown" is
+  // kept as a real, clickable chip too instead of being hidden, so a
+  // failed lookup still leaves a working filter rather than making the
+  // whole feature vanish.
+  function renderCreatorChin() {
+    const authors = [];
+    let stillLoading = false;
+    PLAYLIST.forEach(v => {
+      if (v.author === null) { stillLoading = true; return; }
+      if (hiddenCreators.includes(v.author)) return; // hidden from the chin (its videos still show under "All")
+      const display = resolveAuthorDisplay(v.author);
+      if (!authors.includes(display)) authors.push(display);
+    });
+
+    // Sorted by the admin-set creatorOrder first (from the "Creators"
+    // section of the editor); anything not explicitly ordered falls back
+    // to A→Z (case-insensitive) so the chin never looks scrambled just
+    // because a brand-new creator hasn't been given a position yet.
+    // "Unknown" always goes last since it's a fallback, not a real name.
+    authors.sort((a, b) => {
+      const ia = creatorOrder.indexOf(a);
+      const ib = creatorOrder.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      if (a === 'Unknown') return 1;
+      if (b === 'Unknown') return -1;
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+
+    const allChip = `<button class="creator-chip${!activeAuthorFilter ? ' active' : ''}" data-author="">All</button>`;
+    const authorChips = authors.map(a => {
+      const label = a === 'Unknown' ? 'Unknown Channel' : a;
+      return `<button class="creator-chip${activeAuthorFilter === a ? ' active' : ''}" data-author="${escapeHtml(a)}">${escapeHtml(label)}</button>`;
+    });
+    const loadingChip = stillLoading
+      ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading</span>'
+      : '';
+    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('') + loadingChip;
+
+    creatorChinEl.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
+      btn.addEventListener('click', function () {
+        activeAuthorFilter = this.getAttribute('data-author') || null;
+        renderCreatorChin();
+        renderPlaylist();
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  // Pull each video's real title AND creator name from YouTube's oEmbed
+  // data (via noembed.com, which mirrors YouTube's oEmbed response —
+  // including author_name — but reliably sends the CORS headers a
+  // browser needs; calling youtube.com/oembed directly often fails
+  // silently or gets blocked cross-origin). Title-fetching is skipped for
+  // entries where one was typed in manually, but the author is always
+  // pulled since that's what drives the creator chin.
+  //
+  // This has to live in here (not at the top level of the script) so its
+  // calls to renderPlaylist()/renderCreatorChin() below can actually see
+  // those functions — they're declared inside this same IIFE. Calling
+  // them from an outer-scope fetchTitles() silently threw a
+  // ReferenceError on every fetch completion (visible only in the
+  // browser console), which is what left the creator chin permanently
+  // stuck showing "Loading" even though the author data itself had
+  // already been fetched successfully.
+  function fetchTitles() {
+    PLAYLIST.forEach((v, i) => {
+      const needsTitle = !v.title;
+      if (!needsTitle && v.author) return; // nothing left to fetch for this one
+      const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
+
+      // Some desktop setups (ad blockers, browser extensions, corporate
+      // networks) silently hang a request to a third-party domain like
+      // noembed.com instead of erroring outright — no CORS error, no
+      // rejection, it just never comes back. Aborting after 8s guarantees
+      // this always settles one way or the other.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
+        .then(res => { if (!res.ok) throw new Error('oEmbed request failed'); return res.json(); })
+        .then(data => {
+          clearTimeout(timeoutId);
+          if (needsTitle) {
+            const t = data && typeof data.title === 'string' ? data.title.trim() : '';
+            v.title = t ? t : ('Video ' + (i + 1));
+          }
+          const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
+          v.author = a || 'Unknown';
+          renderPlaylist();
+          renderCreatorChin();
+        })
+        .catch(() => {
+          clearTimeout(timeoutId);
+          if (needsTitle) v.title = 'Video ' + (i + 1);
+          v.author = v.author || 'Unknown';
+          renderPlaylist();
+          renderCreatorChin();
+        });
+    });
+  }
+
+  function playIndex(idx) {
+    if (idx < 0 || idx >= PLAYLIST.length) return;
+    activeIndex = idx;
+    renderPlaylist();
+    const id = PLAYLIST[idx].id;
+    if (ytPlayer && apiReady) {
+      ytPlayer.loadVideoById(id);
+    } else {
+      pendingLoadId = id;
+    }
+  }
+
+  // ---------- YT IFRAME API ----------
+  function tryInitPlayer() {
+    if (ytPlayer || !ytScriptReady || !firestoreDataReady || !PLAYLIST.length) return;
+
+    ytFrame.src = 'https://www.youtube.com/embed/' + PLAYLIST[0].id +
+      '?rel=0&autoplay=1&mute=1&controls=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1';
+
+    ytPlayer = new YT.Player('ytFrame', {
+      events: {
+        onReady: function () {
+          apiReady = true;
+          unmuteBtn.disabled = false;
+          playPauseBtn.disabled = false;
+          scrubRange.disabled = false;
+          updatePlayPauseIcon(YT.PlayerState.PLAYING);
+          updateProgress();
+          if (pollTimer) clearInterval(pollTimer);
+          pollTimer = setInterval(updateProgress, 500);
+          if (pendingLoadId) {
+            ytPlayer.loadVideoById(pendingLoadId);
+            pendingLoadId = null;
+          }
+        },
+        onStateChange: function (event) {
+          updatePlayPauseIcon(event.data);
+          if (event.data === YT.PlayerState.ENDED) {
+            playIndex((activeIndex + 1) % PLAYLIST.length);
+          }
+        }
+      }
+    });
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    ytScriptReady = true;
+    tryInitPlayer();
+  };
+
+  unmuteBtn.addEventListener('click', function () {
+    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
+    if (ytPlayer.isMuted()) {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(100);
+      unmuteBtn.textContent = 'Mute';
+      unmuteBtn.title = 'Mute';
+    } else {
+      ytPlayer.mute();
+      unmuteBtn.textContent = 'Unmute';
+      unmuteBtn.title = 'Unmute';
+    }
+  });
+
+  playPauseBtn.addEventListener('click', function () {
+    if (!ytPlayer) return;
+    const state = ytPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
+  });
+
+  scrubRange.addEventListener('input', function () {
+    isDragging = true;
+    updateRangeFill();
+    const duration = ytPlayer ? ytPlayer.getDuration() : parseFloat(scrubRange.max);
+    timeLabel.textContent = formatTime(parseFloat(scrubRange.value)) + ' / ' + formatTime(duration);
+  });
+
+  scrubRange.addEventListener('change', function () {
+    if (ytPlayer) ytPlayer.seekTo(parseFloat(scrubRange.value), true);
+    isDragging = false;
+  });
+
+  // ---------- FULLSCREEN ----------
+  let usingPseudoFullscreen = false;
+
+  function hasNativeFullscreenSupport(el) {
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
+  }
+  function isFullscreen() {
+    return usingPseudoFullscreen || !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  }
+  function requestFs(el) {
+    try {
+      let result;
+      if (el.requestFullscreen) result = el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) result = el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) result = el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) result = el.msRequestFullscreen();
+      if (result && typeof result.catch === 'function') result.catch(() => enterPseudoFullscreen());
+    } catch (e) { enterPseudoFullscreen(); }
+  }
+  function exitFs() {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  }
+  function handleEscKey(e) { if (e.key === 'Escape' || e.key === 'Esc') exitPseudoFullscreen(); }
+  function enterPseudoFullscreen() {
+    videoPane.classList.add('pseudo-fullscreen');
+    usingPseudoFullscreen = true;
+    document.addEventListener('keydown', handleEscKey);
+    updateFullscreenIcon();
+  }
+  function exitPseudoFullscreen() {
+    videoPane.classList.remove('pseudo-fullscreen');
+    usingPseudoFullscreen = false;
+    document.removeEventListener('keydown', handleEscKey);
+    updateFullscreenIcon();
+  }
+  function updateFullscreenIcon() {
+    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+  fullscreenBtn.addEventListener('click', function () {
+    if (isFullscreen()) {
+      if (usingPseudoFullscreen) exitPseudoFullscreen();
+      else exitFs();
+      return;
+    }
+    if (hasNativeFullscreenSupport(videoPane)) requestFs(videoPane);
+    else enterPseudoFullscreen();
+  });
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+    document.addEventListener(evt, updateFullscreenIcon);
+  });
+
+  // ---------- LIVE SYNC FROM FIRESTORE ----------
+  // Every visitor (no sign-in required) subscribes to the shared playlist
+  // document. The first snapshot boots the player; later snapshots (an
+  // admin saving changes) update the on-screen list for everyone without
+  // a page reload, and try to keep whatever's currently playing playing.
+  function handlePlaylistSnapshot(list) {
+    currentVideoList = list;
+    const newPlaylist = buildPlaylist(currentVideoList, PLAYLIST);
+
+    if (!firestoreDataReady) {
+      firestoreDataReady = true;
+      PLAYLIST = newPlaylist;
+      activeIndex = 0;
+      renderCreatorChin();
+      renderPlaylist();
+      fetchTitles();
+      tryInitPlayer();
+      return;
+    }
+
+    const currentId = PLAYLIST[activeIndex] ? PLAYLIST[activeIndex].id : null;
+    PLAYLIST = newPlaylist;
+    const stillThereIndex = currentId ? PLAYLIST.findIndex(v => v.id === currentId) : -1;
+    activeIndex = stillThereIndex >= 0 ? stillThereIndex : 0;
+    // If the creator currently filtered on has no videos left in the
+    // updated list, drop back to "All" instead of showing an empty list.
+    if (activeAuthorFilter && !PLAYLIST.some(v => v.author === activeAuthorFilter)) {
+      activeAuthorFilter = null;
+    }
+    renderCreatorChin();
+    renderPlaylist();
+    fetchTitles();
+
+    if (stillThereIndex < 0 && PLAYLIST.length) {
+      // The video that was playing got removed from the list — jump to the first one.
+      if (ytPlayer && apiReady) ytPlayer.loadVideoById(PLAYLIST[0].id);
+      else pendingLoadId = PLAYLIST[0].id;
+    }
+  }
+
+  PLAYLIST_DOC_REF.onSnapshot(function (doc) {
+    const data = doc.exists ? doc.data() : null;
+    const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : DEFAULT_VIDEO_LIST;
+    creatorAliases = (data && data.creatorAliases && typeof data.creatorAliases === 'object') ? data.creatorAliases : {};
+    creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
+    hiddenCreators = (data && Array.isArray(data.hiddenCreators)) ? data.hiddenCreators : [];
+    handlePlaylistSnapshot(list);
+  }, function (err) {
+    console.error('Playlist sync error:', err);
+    handlePlaylistSnapshot(DEFAULT_VIDEO_LIST);
+  });
+
+  renderCreatorChin();
+  renderPlaylist();
+})();
+</script>
+
+<script>
+// ============================================================
+// ADMIN — hidden sign-in + video list editor.
+//
+// Sign-in is real Firebase Authentication (email/password) — create
+// your admin account once under Firebase console → Authentication →
+// Users → Add user. Writes to the shared playlist are only allowed
+// for signed-in users; enforce that with Firestore security rules
+// (see the note at the bottom of this file for suggested rules).
+// ============================================================
+(function () {
+  const adminTrigger = document.getElementById('adminTrigger');
+  const loginOverlay = document.getElementById('loginOverlay');
+  const loginClose = document.getElementById('loginClose');
+  const loginUser = document.getElementById('loginUser');
+  const loginPass = document.getElementById('loginPass');
+  const loginSubmit = document.getElementById('loginSubmit');
+  const loginError = document.getElementById('loginError');
+
+  const adminOverlay = document.getElementById('adminOverlay');
+  const adminPanelClose = document.getElementById('adminPanelClose');
+  const adminVideoList = document.getElementById('adminVideoList');
+  const adminCreatorList = document.getElementById('adminCreatorList');
+  const addVideoBtn = document.getElementById('addVideoBtn');
+  const saveVideosBtn = document.getElementById('saveVideosBtn');
+  const resetDefaultBtn = document.getElementById('resetDefaultBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const adminSaveStatus = document.getElementById('adminSaveStatus');
+
+  let draftList = [];
+  let draftCreators = [];
+
+  function openLogin() {
+    loginError.textContent = '';
+    loginUser.value = '';
+    loginPass.value = '';
+    loginOverlay.hidden = false;
+    loginUser.focus();
+  }
+  function closeLogin() { loginOverlay.hidden = true; }
+
+  // One row per raw creator name PLAYLIST (the live, already-fetched
+  // playlist — a top-level variable shared with the player logic) has
+  // seen an author come back as, plus any raw name already referenced by
+  // saved settings so editing something mid-fetch or briefly absent
+  // doesn't just disappear from the list.
+  function collectKnownRawAuthors() {
+    const seen = new Set();
+    const list = [];
+    PLAYLIST.forEach(v => {
+      if (v.author && !seen.has(v.author)) { seen.add(v.author); list.push(v.author); }
+    });
+    Object.keys(creatorAliases).forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
+    hiddenCreators.forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
+    return list;
+  }
+
+  function buildDraftCreators() {
+    const rows = collectKnownRawAuthors().map(raw => ({
+      raw,
+      displayAs: creatorAliases[raw] || raw,
+      hidden: hiddenCreators.includes(raw)
+    }));
+    // Pre-sort rows to match the saved creatorOrder (by each row's current
+    // Display As), so reopening the editor doesn't visually shuffle
+    // creators that already have an explicit order set.
+    rows.sort((a, b) => {
+      const ia = creatorOrder.indexOf(a.displayAs);
+      const ib = creatorOrder.indexOf(b.displayAs);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.raw.localeCompare(b.raw, undefined, { sensitivity: 'base' });
+    });
+    return rows;
+  }
+
+  function renderAdminCreatorList() {
+    if (!draftCreators.length) {
+      adminCreatorList.innerHTML = '<div class="empty-state">No creators detected yet.</div>';
+      return;
+    }
+    adminCreatorList.innerHTML = draftCreators.map((row, i) => `
+      <div class="admin-row" data-index="${i}">
+        <div class="admin-row-top">
+          <span class="admin-row-title">${escapeAttr(row.raw)}</span>
+          <div class="admin-row-btns">
+            <button class="round-btn admin-creator-up" title="Move up" ${i === 0 ? 'disabled' : ''}>&uarr;</button>
+            <button class="round-btn admin-creator-down" title="Move down" ${i === draftCreators.length - 1 ? 'disabled' : ''}>&darr;</button>
+          </div>
+        </div>
+        <label>Display As</label>
+        <input type="text" class="admin-creator-displayas-input" value="${escapeAttr(row.displayAs)}" />
+        <label class="admin-checkbox-label">
+          <input type="checkbox" class="admin-creator-hide-input" ${row.hidden ? 'checked' : ''} />
+          Hide from creator filter
+        </label>
+      </div>
+    `).join('');
+
+    adminCreatorList.querySelectorAll('.admin-row').forEach(row => {
+      const idx = parseInt(row.getAttribute('data-index'), 10);
+      row.querySelector('.admin-creator-displayas-input').addEventListener('input', e => {
+        draftCreators[idx].displayAs = e.target.value;
+      });
+      row.querySelector('.admin-creator-hide-input').addEventListener('change', e => {
+        draftCreators[idx].hidden = e.target.checked;
+      });
+      row.querySelector('.admin-creator-up').addEventListener('click', () => {
+        if (idx === 0) return;
+        [draftCreators[idx - 1], draftCreators[idx]] = [draftCreators[idx], draftCreators[idx - 1]];
+        renderAdminCreatorList();
+      });
+      row.querySelector('.admin-creator-down').addEventListener('click', () => {
+        if (idx === draftCreators.length - 1) return;
+        [draftCreators[idx + 1], draftCreators[idx]] = [draftCreators[idx], draftCreators[idx + 1]];
+        renderAdminCreatorList();
+      });
+    });
+  }
+
+  function openAdminPanel() {
+    draftList = currentVideoList.map(v => ({ url: v.url, title: v.title || '' }));
+    draftCreators = buildDraftCreators();
+    renderAdminList();
+    renderAdminCreatorList();
+    adminSaveStatus.textContent = '';
+    adminOverlay.hidden = false;
+  }
+  function closeAdminPanel() { adminOverlay.hidden = true; }
+
+  adminTrigger.addEventListener('click', function () {
+    if (auth.currentUser) openAdminPanel();
+    else openLogin();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && e.altKey && (e.key === 'a' || e.key === 'A')) {
+      if (auth.currentUser) openAdminPanel();
+      else openLogin();
+    }
+  });
+
+  loginClose.addEventListener('click', closeLogin);
+  loginOverlay.addEventListener('click', function (e) { if (e.target === loginOverlay) closeLogin(); });
+
+  async function handleLoginSubmit() {
+    const email = loginUser.value.trim();
+    const pass = loginPass.value;
+    if (!email || !pass) {
+      loginError.textContent = 'Enter an email and password.';
+      return;
+    }
+    loginSubmit.disabled = true;
+    loginSubmit.textContent = 'Checking\u2026';
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+      closeLogin();
+      openAdminPanel();
+    } catch (err) {
+      loginError.textContent = 'Sign-in failed: ' + (err && err.message ? err.message : 'unknown error');
+    } finally {
+      loginSubmit.disabled = false;
+      loginSubmit.textContent = 'Sign In';
+    }
+  }
+  loginSubmit.addEventListener('click', handleLoginSubmit);
+  loginPass.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleLoginSubmit(); });
+
+  adminPanelClose.addEventListener('click', closeAdminPanel);
+  adminOverlay.addEventListener('click', function (e) { if (e.target === adminOverlay) closeAdminPanel(); });
+  logoutBtn.addEventListener('click', function () {
+    auth.signOut();
+    closeAdminPanel();
+  });
+
+  function renderAdminList() {
+    if (!draftList.length) {
+      adminVideoList.innerHTML = '<div class="empty-state">No videos yet. Add one below.</div>';
+      return;
+    }
+    adminVideoList.innerHTML = draftList.map((v, i) => `
+      <div class="admin-row" data-index="${i}">
+        <div class="admin-row-top">
+          <span class="admin-row-title">Video ${i + 1}</span>
+          <div class="admin-row-btns">
+            <button class="round-btn admin-move-up" title="Move up" ${i === 0 ? 'disabled' : ''}>&uarr;</button>
+            <button class="round-btn admin-move-down" title="Move down" ${i === draftList.length - 1 ? 'disabled' : ''}>&darr;</button>
+            <button class="round-btn admin-remove" title="Remove">&times;</button>
+          </div>
+        </div>
+        <label>YouTube Link</label>
+        <input type="text" class="admin-url-input" placeholder="Paste a YouTube link" value="${escapeAttr(v.url)}" />
+        <label>Title</label>
+        <input type="text" class="admin-title-input" placeholder="Video title" value="${escapeAttr(v.title)}" />
+      </div>
+    `).join('');
+
+    adminVideoList.querySelectorAll('.admin-row').forEach(row => {
+      const idx = parseInt(row.getAttribute('data-index'), 10);
+      row.querySelector('.admin-url-input').addEventListener('input', e => { draftList[idx].url = e.target.value; });
+      row.querySelector('.admin-title-input').addEventListener('input', e => { draftList[idx].title = e.target.value; });
+      row.querySelector('.admin-remove').addEventListener('click', () => {
+        draftList.splice(idx, 1);
+        renderAdminList();
+      });
+      row.querySelector('.admin-move-up').addEventListener('click', () => {
+        if (idx === 0) return;
+        [draftList[idx - 1], draftList[idx]] = [draftList[idx], draftList[idx - 1]];
+        renderAdminList();
+      });
+      row.querySelector('.admin-move-down').addEventListener('click', () => {
+        if (idx === draftList.length - 1) return;
+        [draftList[idx + 1], draftList[idx]] = [draftList[idx], draftList[idx + 1]];
+        renderAdminList();
+      });
+    });
+  }
+
+  function escapeAttr(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  addVideoBtn.addEventListener('click', function () {
+    // New entries go to the front so a freshly added video plays first,
+    // not last.
+    draftList.unshift({ url: '', title: '' });
+    renderAdminList();
+  });
+
+  saveVideosBtn.addEventListener('click', async function () {
+    const cleaned = draftList
+      .map(v => ({ url: (v.url || '').trim(), title: (v.title || '').trim() }))
+      .filter(v => v.url);
+
+    const invalid = cleaned.filter(v => !extractVideoId(v.url));
+    if (invalid.length) {
+      adminSaveStatus.style.color = '#ff9b9b';
+      adminSaveStatus.textContent = 'One or more links don\u2019t look like valid YouTube links — fix those and save again.';
+      return;
+    }
+
+    if (!auth.currentUser) {
+      adminSaveStatus.style.color = '#ff9b9b';
+      adminSaveStatus.textContent = 'You\u2019ve been signed out — please sign in again.';
+      return;
+    }
+
+    // Turn the Creators rows into the three fields the player reads:
+    // aliases for any row renamed away from its raw detected name (giving
+    // two rows the same Display As combines them), hiddenCreators for any
+    // row checked "Hide," and creatorOrder as the surviving (non-hidden)
+    // Display As values in their current row order, deduped so a combined
+    // pair only claims one slot.
+    const creatorAliasesToSave = {};
+    const creatorOrderToSave = [];
+    const hiddenCreatorsToSave = [];
+    draftCreators.forEach(row => {
+      const display = (row.displayAs || '').trim() || row.raw;
+      if (display !== row.raw) creatorAliasesToSave[row.raw] = display;
+      if (row.hidden) {
+        hiddenCreatorsToSave.push(row.raw);
+      } else if (!creatorOrderToSave.includes(display)) {
+        creatorOrderToSave.push(display);
+      }
+    });
+
+    saveVideosBtn.disabled = true;
+    adminSaveStatus.style.color = 'var(--accent)';
+    adminSaveStatus.textContent = 'Saving\u2026';
+    try {
+      await PLAYLIST_DOC_REF.set({
+        videos: cleaned,
+        creatorAliases: creatorAliasesToSave,
+        creatorOrder: creatorOrderToSave,
+        hiddenCreators: hiddenCreatorsToSave,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: auth.currentUser.email || auth.currentUser.uid
+      });
+      // No need to update local state manually — the onSnapshot listener
+      // above will pick this up and refresh the player/playlist for
+      // everyone, including this browser.
+      adminSaveStatus.style.color = 'var(--accent)';
+      adminSaveStatus.textContent = 'Saved — everyone will see the update.';
+    } catch (err) {
+      adminSaveStatus.style.color = '#ff9b9b';
+      adminSaveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).';
+    } finally {
+      saveVideosBtn.disabled = false;
+    }
+  });
+
+  resetDefaultBtn.addEventListener('click', function () {
+    draftList = DEFAULT_VIDEO_LIST.map(v => ({ url: v.url, title: v.title || '' }));
+    renderAdminList();
+    adminSaveStatus.style.color = 'var(--accent)';
+    adminSaveStatus.textContent = 'Reset to default list \u2014 click Save Changes to apply.';
+  });
+})();
+</script>
+
+<!-- YouTube IFrame Player API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+</body>
+</html>

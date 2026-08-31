@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cursor Chaser</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* The whole overlay ignores clicks/hovers so it never blocks whatever
+     it's layered on top of — only the mouse position is read (that still
+     works fine with pointer-events off, since the browser tracks cursor
+     position over the page regardless of which element would catch a click). */
+  canvas, #shooter {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  #shooter {
+    width: 36px;
+    height: auto;
+    z-index: 2;
+    /* Positioned via transform in JS (translate to its center, then
+       rotate to face the cursor) so left/top can stay at 0,0. */
+    will-change: transform;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<img id="shooter" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_BCE9B886-2C7B-445C-8BEF-7430434FCA94.PNG" alt="">
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const shooter = document.getElementById('shooter');
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // Mouse position — defaults to screen center so the shooter doesn't
+  // jump in from a corner before the first mousemove arrives.
+  let mouseX = window.innerWidth / 2;
+  let mouseY = window.innerHeight / 2;
+  window.addEventListener('mousemove', function (e) {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  // The shooter's own position — eases toward the cursor each frame
+  // rather than snapping to it, which is what gives it a "chasing" feel
+  // instead of just sitting glued to the pointer.
+  let shooterX = mouseX;
+  let shooterY = mouseY;
+  const CHASE_EASE = 0.08;
+
+  // Active shots in flight: each one is a short line traveling from
+  // where the shooter was standing when it fired toward where the
+  // cursor was at that same moment, fading out as it lands.
+  const shots = [];
+  const SHOT_DURATION = 260; // ms
+
+  function fireShot() {
+    shots.push({
+      ox: shooterX,
+      oy: shooterY,
+      tx: mouseX,
+      ty: mouseY,
+      start: performance.now()
+    });
+  }
+  setInterval(fireShot, 380);
+
+  function drawShots(now) {
+    for (let i = shots.length - 1; i >= 0; i--) {
+      const s = shots[i];
+      const p = (now - s.start) / SHOT_DURATION;
+      if (p >= 1) {
+        shots.splice(i, 1);
+        continue;
+      }
+      // The line's leading tip overshoots the target slightly then the
+      // whole thing fades, so it reads as a quick shot rather than a
+      // line that just grows and stops.
+      const lead = Math.min(p * 1.35, 1);
+      const tailStart = Math.max(p - 0.25, 0);
+      const lx = s.ox + (s.tx - s.ox) * lead;
+      const ly = s.oy + (s.ty - s.oy) * lead;
+      const tx = s.ox + (s.tx - s.ox) * tailStart;
+      const ty = s.oy + (s.ty - s.oy) * tailStart;
+
+      ctx.save();
+      ctx.globalAlpha = 1 - p;
+      ctx.strokeStyle = '#ffcc00';
+      ctx.shadowColor = '#ffcc00';
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(lx, ly);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function tick(now) {
+    shooterX += (mouseX - shooterX) * CHASE_EASE;
+    shooterY += (mouseY - shooterY) * CHASE_EASE;
+
+    const angle = Math.atan2(mouseY - shooterY, mouseX - shooterX) * (180 / Math.PI);
+    shooter.style.transform =
+      'translate(' + shooterX + 'px, ' + shooterY + 'px) translate(-50%, -50%) rotate(' + angle + 'deg)';
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawShots(now);
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>

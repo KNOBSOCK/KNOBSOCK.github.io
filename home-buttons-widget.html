@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Buttons</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Fully transparent — sits directly on the front page's starfield
+     background, not a panel of its own. Deliberately NOT forced to
+     height:100% here — that (plus centering) was leaving dead space above
+     and below the row whenever Universe's code block gave this a taller
+     box than the content actually needed. Leaving height unset lets the
+     box shrink-wrap to exactly the row's own rendered size instead. */
+  html, body {
+    background: transparent;
+    width: 100%;
+  }
+
+  a { text-decoration: none; color: inherit; }
+
+  /* Everything below is sized in vw — relative to THIS code block's own
+     rendered width, not the whole browser window — so the row scales
+     smoothly (no jumps at breakpoints) whether the block is a huge desktop
+     banner or a slim phone column, in portrait or landscape. There's no
+     outer max-width cap on purpose: since this scales purely off the
+     block's own width, sizing the Universe code block itself to roughly
+     match how wide the button row looks on the current home page is what
+     keeps this the "same scale" as that reference — the CSS just fills
+     whatever box it's given. */
+  .buttons-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4vw;
+  }
+
+  .button-item {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    cursor: pointer;
+    /* Cartoonish "pop": same spring-y cubic-bezier used on the other
+       widgets' hover animations (recent articles, SoundCloud player) —
+       overshoots past 1.0 before settling, instead of a flat ease. */
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Where the icon/gif sits on top of each blob — as a % of this
+       button's own width/height, so it scales together with everything
+       else. Each button overrides these inline below if its blob shape
+       needs the icon nudged slightly differently. */
+    --icon-width: 55%;
+    --icon-top: 34%;
+  }
+  .button-item:hover {
+    transform: scale(1.08) rotate(-2deg);
+  }
+
+  /* The label + blob-shape image (your 2nd–5th reference images) — sized
+     to fill the column's width, with height following automatically so
+     its own aspect ratio is never distorted regardless of exact pixel
+     dimensions. */
+  .btn-base {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* The animated gif/icon layered on top of the blob (the camcorder,
+     camera, music notes, balloons from your current home page) —
+     centered over the blob via the --icon-width/--icon-top variables
+     above. pointer-events:none so it never blocks the link/hover
+     underneath it. */
+  .btn-icon {
+    position: absolute;
+    left: 50%;
+    top: var(--icon-top);
+    width: var(--icon-width);
+    height: auto;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+  <!--
+    ====== EDIT THESE FOUR BUTTONS ======
+    For each one:
+      1. href="#PASTE_..._LINK_HERE"  -> the page this button should link to
+      2. .btn-base src="#PASTE_..._BUTTON_IMAGE_URL_HERE" -> the label+blob
+         PNG (your 2nd–5th reference images), in order: Videos, Photos,
+         Music, Live
+      3. .btn-icon src="#PASTE_..._GIF_URL_HERE" -> the animated gif/icon
+         that sits on top of the blob (the camcorder/camera/notes/balloons)
+
+    If an icon looks off-center on its blob once real images are in, nudge
+    that one button's --icon-width / --icon-top in its inline style
+    attribute below (bigger --icon-top pushes the icon further down).
+  -->
+  <div class="buttons-row">
+
+    <a class="button-item" href="PASTE_VIDEOS_LINK_HERE" target="_top" style="--icon-width: 60%; --icon-top: 36%;">
+      <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_3B78D67E-1306-47B2-B47F-CD20BFD335A9.PNG" width="1006" height="1436" alt="Videos">
+      <img class="btn-icon" src="PASTE_VIDEOS_GIF_URL_HERE" alt="">
+    </a>
+
+    <a class="button-item" href="PASTE_PHOTOS_LINK_HERE" target="_top" style="--icon-width: 55%; --icon-top: 34%;">
+      <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_DD40FE14-A89B-461D-A545-D25D2C068EF0.PNG" width="982" height="1408" alt="Photos">
+      <img class="btn-icon" src="PASTE_PHOTOS_GIF_URL_HERE" alt="">
+    </a>
+
+    <a class="button-item" href="PASTE_MUSIC_LINK_HERE" target="_top" style="--icon-width: 50%; --icon-top: 34%;">
+      <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_0E600FC4-6378-49CD-B81A-0AEF5BDE4858.PNG" width="961" height="1426" alt="Music">
+      <img class="btn-icon" src="PASTE_MUSIC_GIF_URL_HERE" alt="">
+    </a>
+
+    <a class="button-item" href="PASTE_LIVE_LINK_HERE" target="_top" style="--icon-width: 55%; --icon-top: 32%;">
+      <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_EEB436D1-F728-456D-BEA8-1AE7ACE238BE.PNG" width="964" height="1377" alt="Live">
+      <img class="btn-icon" src="PASTE_LIVE_GIF_URL_HERE" alt="">
+    </a>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page View Counter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Lets the count's font-size below be defined in container query units
+       (cqw/cqh) — sized relative to THIS box's own width/height, not the
+       browser window — so it fills whatever size the Universe code block
+       is set to, tall or wide, without any JS measuring/resizing code. */
+    container-type: size;
+  }
+
+  .count {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    /* Scales with whichever dimension is tighter, so a wide-short block
+       and a narrow-tall block both end up with the number filling the
+       space instead of overflowing or looking tiny — same idea used for
+       the video player's own auto-sizing elsewhere on the site. */
+    font-size: min(28cqw, 60cqh);
+  }
+</style>
+</head>
+<body>
+
+<span class="count" id="viewCount">– views</span>
+
+<!-- ============================================================
+     FIREBASE — reuses the same project as the other widgets on the site
+     (video playlist, live chat), just a different Firestore document, so
+     this counter doesn't touch anything else. Fill in firebaseConfig
+     below with your project's values if this is ever moved to its own
+     project (Firebase console → Project settings → General → Your apps).
+     ============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  // Reuse the existing app instance if this page is embedded alongside
+  // another widget that already called initializeApp (calling it twice
+  // throws).
+  const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // A dedicated counter document, separate from the playlist/chat docs
+  // the other widgets use.
+  const COUNTER_DOC_REF = db.collection('counters').doc('pageviews');
+  const countEl = document.getElementById('viewCount');
+
+  // Bumps the shared count by 1 for this page load. merge:true plus
+  // FieldValue.increment means this works even the very first time the
+  // document is ever written — Firestore treats a missing "count" field
+  // as 0 before applying the increment, so there's no separate "create
+  // the doc" step needed.
+  COUNTER_DOC_REF.set(
+    { count: firebase.firestore.FieldValue.increment(1) },
+    { merge: true }
+  ).catch(err => console.error('View count increment failed:', err));
+
+  // Live display — onSnapshot means every visitor's number updates in
+  // real time as more views come in, not just on their own page load.
+  COUNTER_DOC_REF.onSnapshot(doc => {
+    const data = doc.data();
+    const count = (data && typeof data.count === 'number') ? data.count : 0;
+    countEl.textContent = count.toLocaleString('en-US') + ' views';
+  }, err => {
+    console.error('View count read failed:', err);
+    countEl.textContent = '0 views';
+  });
+</script>
+
+<!-- ============================================================
+     FIRESTORE SECURITY RULES — this counter needs to be PUBLICLY
+     writable (every visitor increments it, not just a signed-in admin
+     like the other widgets), but only in this exact, narrow way: by 1,
+     and only the "count" field. Split into create (the very first write,
+     when the document doesn't exist yet so there's no old count to check
+     against) and update (every write after that). Add rules like this
+     alongside whatever rules your other widgets already use:
+
+     match /counters/pageviews {
+       allow read: if true;
+       allow create: if request.resource.data.count == 1;
+       allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
+                    && request.resource.data.count == resource.data.count + 1;
+     }
+
+     Without this, every increment above will silently fail (permission
+     denied) and the count will stay stuck at whatever it already was.
+     ============================================================ -->
+
+</body>
+</html>

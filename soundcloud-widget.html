@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Listen</title>
+<script src="https://w.soundcloud.com/player/api.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Fully transparent — sits directly on whatever background the block
+     already has, and scales with whatever size the Universe code block
+     gives it. */
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    /* Without this, a track row's hover scale (below) can nudge its width
+       a hair past the container, and because .track-list only sets
+       overflow-y (not overflow-x), the spec computes that unset axis to
+       "auto" too — turning on a horizontal scrollbar/scroll for the whole
+       widget. Locking it here at the outermost level shuts that off. */
+    overflow-x: hidden;
+  }
+
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #CBE600;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  a { text-decoration: none; color: inherit; }
+
+  .player-wrap {
+    width: 100%;
+    max-width: 500px;
+    height: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* Real audio comes from SoundCloud's own widget, but it stays invisible —
+     everything visible below is a from-scratch UI that just drives it, so
+     the site keeps its own transparent, greenish-yellow look instead of
+     SoundCloud's white player chrome. */
+  #scWidget {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+  }
+
+  /* ---------- Now playing ---------- */
+  .now-playing {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .play-btn {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: #CBE600;
+    color: #111;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    /* Cartoonish "pop": a spring-y cubic-bezier that overshoots past 1.0
+       before settling gives the little bounce, rather than a flat ease. */
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .play-btn:hover:not(:disabled):not(.bounce-spin) {
+    /* A bigger pop on hover than before. */
+    transform: scale(1.22) rotate(-6deg);
+  }
+  .play-btn:disabled { opacity: 0.5; cursor: default; }
+  /* Happy little bounce-and-spin on click: scale up, dip down, then spin
+     a full 360 while popping back to size. JS (below) adds/removes this
+     class on each click so it can replay every time instead of only once. */
+  @keyframes playBtnBounceSpin {
+    0%   { transform: scale(1) rotate(0deg); }
+    30%  { transform: scale(1.35) rotate(0deg); }
+    55%  { transform: scale(0.88) rotate(180deg); }
+    80%  { transform: scale(1.15) rotate(360deg); }
+    100% { transform: scale(1) rotate(360deg); }
+  }
+  .play-btn.bounce-spin {
+    animation: playBtnBounceSpin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .now-playing-info { min-width: 0; flex: 1 1 auto; }
+
+  /* The clipping window for the title — a fixed-width strip that hides
+     whatever's scrolled outside it, like the little window on a car
+     radio's display. */
+  .track-title-wrap {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* The scrolling row itself. Sized to its content (not the wrap), so it
+     can be wider than the visible window and get pushed sideways by the
+     marquee animation below instead of wrapping. */
+  .track-title {
+    display: inline-flex;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  /* Each copy of the title text — padded on the right so that when a
+     second copy is appended back-to-back for a seamless loop, there's a
+     gap between "...end of title" and "Start of title..." instead of
+     them running together. */
+  .title-copy {
+    white-space: nowrap;
+    padding-right: 40px;
+  }
+  /* Only added by JS once the title's actually too long to fit — short
+     titles just sit still. Translating by exactly -50% works because at
+     that point .track-title holds two identical copies back-to-back, so
+     halfway through it looks exactly like the start again. */
+  .track-title.scrolling {
+    animation-name: marquee-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  /* Draggable/clickable scrub bar — a little taller hit target than the
+     visible bar itself so it's easy to tap on a phone. */
+  .progress-track {
+    margin-top: 8px;
+    width: 100%;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .progress-track-bg {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(203, 230, 0, 0.2);
+    overflow: hidden;
+  }
+  .progress-fill {
+    width: 0%;
+    height: 100%;
+    background: #CBE600;
+  }
+
+  /* ---------- Track list — fills whatever room is left in the block ---------- */
+  .track-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .track-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    opacity: 0.75;
+    /* Same spring-y pop as the play button, kept subtle (and anchored to
+       the left edge) so a row growing on hover doesn't push past the
+       track list's own right edge. */
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s, opacity 0.15s;
+    transform-origin: left center;
+  }
+  .track-item:hover { background: rgba(203, 230, 0, 0.12); opacity: 1; transform: scale(1.04); }
+  .track-item.active { background: rgba(203, 230, 0, 0.18); opacity: 1; font-weight: 600; }
+  .track-item .index { width: 14px; flex-shrink: 0; opacity: 0.6; font-variant-numeric: tabular-nums; }
+  .track-item .name { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
+
+  /* Small link at the end of each row that opens that track's real
+     SoundCloud page in a new tab, without triggering the row's own
+     click-to-play behavior. */
+  .track-item .sc-link {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    opacity: 0.6;
+  }
+  .track-item .sc-link svg { width: 12px; height: 12px; display: block; }
+  .track-item .sc-link:hover { opacity: 1; background: rgba(203, 230, 0, 0.2); }
+
+  /* Narrow widget (phone-width column): everything just scales down —
+     no longer stacked/centered, stays the same row layout as desktop. */
+  @media (max-width: 420px) {
+    .now-playing { gap: 10px; }
+    .play-btn { width: 40px; height: 40px; font-size: 14px; }
+    .track-title { font-size: 12px; }
+    .track-item { font-size: 11px; gap: 6px; }
+  }
+
+  /* Genuinely tight columns (like a narrow sidebar block on a phone) —
+     shrink the chrome further so the track title still has room to read,
+     instead of getting squeezed down to one letter. */
+  @media (max-width: 220px) {
+    .now-playing { gap: 8px; margin-bottom: 12px; }
+    .play-btn { width: 32px; height: 32px; font-size: 12px; }
+    .track-title { font-size: 11px; }
+    .track-item { font-size: 10px; gap: 4px; padding: 6px 4px; }
+    .track-item .index { width: 10px; }
+    .track-item .sc-link { width: 16px; height: 16px; }
+    .track-item .sc-link svg { width: 10px; height: 10px; }
+  }
+</style>
+</head>
+<body>
+  <div class="player-wrap">
+    <!--
+      Real playback runs through SoundCloud's official Widget API (loaded
+      above), pointed at your profile so it always has your latest uploads
+      — the iframe below is just the invisible audio engine; everything the
+      visitor sees is custom-built.
+    -->
+    <iframe
+      id="scWidget"
+      title="SoundCloud audio engine"
+      scrolling="no"
+      frameborder="no"
+      allow="autoplay"
+      src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fbobbywyckoffnyc&auto_play=false&show_artwork=false">
+    </iframe>
+
+    <div class="now-playing">
+      <button class="play-btn" id="playBtn" disabled>&#9654;</button>
+      <div class="now-playing-info">
+        <div class="track-title-wrap" id="trackTitleWrap">
+          <div class="track-title" id="trackTitle"><span class="title-copy">Loading…</span></div>
+        </div>
+        <div class="progress-track" id="progressTrack">
+          <div class="progress-track-bg"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="track-list" id="trackList"></div>
+  </div>
+
+<script>
+  const iframeEl = document.getElementById("scWidget");
+  const playBtn = document.getElementById("playBtn");
+  const trackTitleWrapEl = document.getElementById("trackTitleWrap");
+  const trackTitleEl = document.getElementById("trackTitle");
+  const progressTrackEl = document.getElementById("progressTrack");
+  const progressFillEl = document.getElementById("progressFill");
+  const trackListEl = document.getElementById("trackList");
+
+  const widget = SC.Widget(iframeEl);
+  let sounds = [];
+  let currentIndex = 0;
+  let isPlaying = false;
+  let currentDuration = 0;
+
+  // Sets the now-playing title, and — only if it's too long to fit in the
+  // available width — turns on a car-radio-style scrolling ticker instead
+  // of letting it wrap mid-word. A single copy is measured first; if it
+  // overflows, a second identical copy is appended right after it and the
+  // whole row is scrolled left by exactly one copy's width on a loop, so
+  // it reads as one continuous, seamless scroll rather than a jump-cut.
+  function setTrackTitle(text) {
+    trackTitleEl.classList.remove("scrolling");
+    trackTitleEl.style.animationDuration = "";
+    trackTitleEl.innerHTML = "";
+
+    const firstCopy = document.createElement("span");
+    firstCopy.className = "title-copy";
+    firstCopy.textContent = text;
+    trackTitleEl.appendChild(firstCopy);
+
+    requestAnimationFrame(() => {
+      if (trackTitleEl.scrollWidth <= trackTitleWrapEl.clientWidth) return;
+
+      const secondCopy = document.createElement("span");
+      secondCopy.className = "title-copy";
+      secondCopy.textContent = text;
+      trackTitleEl.appendChild(secondCopy);
+
+      // Speed stays constant (px/sec) so a short title doesn't fly by and
+      // a long one doesn't crawl — duration is just how long it takes to
+      // cover one copy's width at that speed.
+      const pxPerSecond = 45;
+      const duration = (trackTitleEl.scrollWidth / 2) / pxPerSecond;
+      trackTitleEl.style.animationDuration = duration + "s";
+      trackTitleEl.classList.add("scrolling");
+    });
+  }
+
+  function renderTrackList() {
+    trackListEl.innerHTML = sounds.map((sound, i) => `
+      <div class="track-item${i === currentIndex ? " active" : ""}" data-index="${i}">
+        <span class="index">${i + 1}</span>
+        <span class="name">${sound.title}</span>
+        <a class="sc-link" href="${sound.permalink_url}" target="_blank" rel="noopener noreferrer" title="Open on SoundCloud">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+        </a>
+      </div>
+    `).join("");
+  }
+
+  function setActiveTrack(index) {
+    currentIndex = index;
+    document.querySelectorAll(".track-item").forEach((el, i) => {
+      el.classList.toggle("active", i === index);
+    });
+  }
+
+  function updatePlayIcon() {
+    playBtn.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
+  }
+
+  widget.bind(SC.Widget.Events.READY, () => {
+    playBtn.disabled = false;
+
+    widget.getSounds((allSounds) => {
+      sounds = allSounds;
+      renderTrackList();
+    });
+
+    widget.getCurrentSound((sound) => {
+      if (sound) setTrackTitle(sound.title);
+    });
+  });
+
+  widget.bind(SC.Widget.Events.PLAY, () => {
+    isPlaying = true;
+    updatePlayIcon();
+    widget.getCurrentSound((sound) => {
+      if (!sound) return;
+      setTrackTitle(sound.title);
+      currentDuration = sound.duration || 0;
+      const idx = sounds.findIndex((s) => s.id === sound.id);
+      if (idx !== -1) setActiveTrack(idx);
+    });
+  });
+
+  widget.bind(SC.Widget.Events.PAUSE, () => {
+    isPlaying = false;
+    updatePlayIcon();
+  });
+
+  widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+    progressFillEl.style.width = `${data.relativePosition * 100}%`;
+  });
+
+  widget.bind(SC.Widget.Events.FINISH, () => {
+    progressFillEl.style.width = "0%";
+  });
+
+  playBtn.addEventListener("click", () => {
+    widget.toggle();
+    // Restart the bounce-spin animation even if clicked again mid-spin —
+    // removing the class, forcing a reflow, then re-adding it is what
+    // makes the browser replay it from the start instead of no-op'ing
+    // because the class was "already there".
+    playBtn.classList.remove("bounce-spin");
+    void playBtn.offsetWidth;
+    playBtn.classList.add("bounce-spin");
+  });
+
+  playBtn.addEventListener("animationend", (e) => {
+    if (e.animationName !== "playBtnBounceSpin") return;
+    // The spin ends at rotate(360deg), which looks identical to 0deg but
+    // isn't the same number — removing the class right away would let the
+    // hover transition animate "backward" from 360 to 0. Turning the
+    // transition off for one frame makes that reset instant instead.
+    playBtn.style.transition = "none";
+    playBtn.classList.remove("bounce-spin");
+    void playBtn.offsetWidth;
+    playBtn.style.transition = "";
+  });
+
+  // Click-to-seek: figure out where along the bar the click landed, then
+  // jump playback to that fraction of the current track's duration.
+  progressTrackEl.addEventListener("click", (e) => {
+    if (!currentDuration) return;
+    const rect = progressTrackEl.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    widget.seekTo(fraction * currentDuration);
+    progressFillEl.style.width = `${fraction * 100}%`;
+  });
+
+  trackListEl.addEventListener("click", (e) => {
+    if (e.target.closest(".sc-link")) return;
+    const item = e.target.closest(".track-item");
+    if (!item) return;
+    const index = parseInt(item.getAttribute("data-index"), 10);
+    setActiveTrack(index);
+    widget.skip(index);
+    widget.play();
+  });
+</script>
+
+</body>
+</html>
