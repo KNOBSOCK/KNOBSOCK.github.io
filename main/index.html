@@ -33,7 +33,12 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     min-height: 100%;
+    /* Scrolling still works — this only hides the visible scrollbar
+       track/thumb, same technique used sitewide on this site. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
@@ -177,10 +182,17 @@
     margin-bottom: clamp(10px, 2.5vw, 20px);
     height: clamp(420px, 60vh, 680px);
   }
+  /* overflow stays visible here on purpose — the panel-label above is
+     deliberately positioned partly outside this box (top: -14px) so it
+     reads as flying over the panel; overflow:hidden here would clip it
+     clean off, which is exactly what was happening before. Whatever
+     scrollbar shows up inside an iframe is the EMBEDDED page's own
+     doing (a separate document), not something this outer page's own
+     overflow property can reach at all — that has to be fixed in each
+     widget file itself. */
   .columns-row .panel {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
   .columns-row iframe {
     display: block;
@@ -190,7 +202,12 @@
     border: 0;
   }
   .articles-panel { background: #310098; }
-  .video-panel { background: #7890f6; }
+  .video-panel {
+    background: #7890f6;
+    /* Offsets the middle column up relative to the other two, so the
+       row reads as staggered instead of three flush-aligned boxes. */
+    margin-top: clamp(-40px, -4vw, -20px);
+  }
   .listen-panel { background: #980237; }
 
   /* Mobile: stack instead of squeezing 3 columns into a phone's width —

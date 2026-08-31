@@ -26,15 +26,13 @@
     flex-direction: column;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    /* Hidden on every screen size, not just phones — scrolling (touch/
+       wheel/drag) still works, this only hides the visible track/thumb,
+       which was showing up as a stray bar across embeds on desktop. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  /* Hide the scrollbar on phones only — keeps the desktop scrollbar as-is */
-  @media (max-width: 767px) {
-    body {
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    body::-webkit-scrollbar { display: none; }
-  }
+  body::-webkit-scrollbar { display: none; }
 
   a { text-decoration: none; color: inherit; }
 
