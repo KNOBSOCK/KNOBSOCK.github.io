@@ -13,6 +13,16 @@
 <meta name="twitter:title" content="Truth Zone - KNOBSOCK">
 <meta name="twitter:description" content="Official Website for Knobsock">
 <meta name="description" content="Official Website for Knobsock">
+<!-- Safari (iOS 15+) tints its status bar and bottom toolbar to match the
+     page. Left to its own devices it goes by the page's declared
+     background COLOR — it can't sample the background video's actual
+     pixels — so the white fallback below was making those bars white
+     against an otherwise dark page. theme-color states it outright
+     instead of leaving it to that guess; color-scheme tells the browser
+     to treat this as a dark page generally (scrollbars, form controls,
+     any other UA chrome it decides to theme). -->
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <style>
   /* This page is a standalone reconstruction of knobsock.net/truth, meant
      to be hosted directly (at truth.knobsock.net) instead of pasted into a
@@ -24,7 +34,13 @@
   */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    background: #fff;
+    /* Black, not white — this is only ever visible for the instant
+       before the background video paints, but it's also the color
+       Safari reads when deciding how to tint its own status bar and
+       toolbar (see the theme-color meta above), and white here was
+       what made those bars light against a dark page. */
+    background: #000;
+    color-scheme: dark;
     min-height: 100%;
     /* Scrolling still works — this only hides the visible scrollbar
        track/thumb, same technique used sitewide on this site. */

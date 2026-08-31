@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Knobsock</title>
+<!-- Keeps Safari's status bar and toolbar dark to match this page,
+     same as the Truth Zone page — see the note there for why the
+     declared color matters more than what's actually on screen. -->
+<meta name="theme-color" content="#0a0e2a">
+<meta name="color-scheme" content="dark">
 <style>
   /* This page exists for exactly one reason: the magazine widget embedded
      on knobsock.net/truth runs inside a sandboxed iframe Universe builds
@@ -26,6 +31,7 @@
      as part of the same site instead of a bare, unbranded page. */
   html, body {
     background: #0a0e2a;
+    color-scheme: dark;
     /* Scrolling still works — this only hides the visible scrollbar
        track/thumb, same technique used sitewide on this site. */
     scrollbar-width: none;
