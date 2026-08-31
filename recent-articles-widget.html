@@ -12,11 +12,28 @@
      whatever size the Universe code block gives it and scales with it,
      scrolling internally only if the block is shorter than the content
      (matching the fixed-ratio code-block behavior used on the main page). */
+  /* Not scrollable at all, in either direction — this widget is meant to
+     sit fixed to the size of whatever colored panel it's embedded in.
+     Two things had to both be true to actually kill it on iOS Safari,
+     not just one:
+     - overflow:hidden on BOTH html and body, not body alone — body's
+       overflow only reliably propagates to become the root/viewport
+       scroller when html itself has no overflow declared; leaving html
+       unset was leaving the actual root scroller still active even
+       with body pinned down.
+     - touch-action:none — overflow:hidden by itself still leaves iOS's
+       own native touch-drag/rubber-band handling active on WebKit; it
+       takes an explicit touch-action off to actually stop a drag
+       gesture from moving anything, which is what that little pill
+       (Safari's native momentum-scroll indicator, not a CSS scrollbar)
+       was really showing. */
   html, body {
     background: transparent;
     width: 100%;
     height: 100%;
     min-height: 100%;
+    overflow: hidden;
+    touch-action: none;
   }
 
   body {
@@ -24,14 +41,6 @@
     color: yellow;
     display: flex;
     flex-direction: column;
-    /* Not scrollable at all, in either direction — this widget is meant
-       to sit fixed to the size of whatever colored panel it's embedded
-       in. Hiding the CSS scrollbar wasn't enough on iOS: the little pill
-       that still showed up there is Safari's own native momentum-scroll
-       overlay indicator, which isn't a CSS scrollbar and ignores
-       scrollbar-width/::-webkit-scrollbar entirely — the only way to
-       actually get rid of it is to make the content not scroll at all. */
-    overflow: hidden;
   }
 
   a { text-decoration: none; color: inherit; }
