@@ -223,6 +223,11 @@
   .articles-panel { background: #310098; }
   .video-panel {
     background: #228B22;
+    /* Half the shared .panel padding above — that padding is what shows
+       as the green frame around this card's iframe, so halving it here
+       thins the frame and hands the room back to the video. This card
+       only; the other two keep the full padding. */
+    padding: clamp(7px, 1.5vw, 13px);
     /* Offsets the middle column up relative to the other two, so the
        row reads as staggered instead of three flush-aligned boxes.
        Desktop only — see the mobile block below, which cancels this. */
