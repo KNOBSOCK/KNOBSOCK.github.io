@@ -223,11 +223,14 @@
   .articles-panel { background: #310098; }
   .video-panel {
     background: #228B22;
-    /* Half the shared .panel padding above — that padding is what shows
-       as the green frame around this card's iframe, so halving it here
-       thins the frame and hands the room back to the video. This card
-       only; the other two keep the full padding. */
-    padding: clamp(7px, 1.5vw, 13px);
+    /* A quarter of the shared .panel padding above — that padding is
+       part of what shows as the green frame around this card's iframe,
+       so trimming it here thins the frame and hands the room back to
+       the video. This card only; the other two keep the full padding.
+       The widget's own body/grid padding is the rest of that band and
+       was cut to match, since this outer value alone stopped being the
+       larger of the two. */
+    padding: clamp(4px, 0.75vw, 7px);
     /* Offsets the middle column up relative to the other two, so the
        row reads as staggered instead of three flush-aligned boxes.
        Desktop only — see the mobile block below, which cancels this. */
