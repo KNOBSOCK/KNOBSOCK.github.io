@@ -105,15 +105,16 @@
         "soundcloud playlist";
       gap: 14px;
     }
-    .layout.playlist-hidden {
-      grid-template-columns: 1fr;
-      /* Video gets 2x SoundCloud's share of the freed-up column instead
-         of just going full-width at the same capped height as before —
-         otherwise hiding the playlist barely changed the video's size. */
-      grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
-      grid-template-areas:
-        "video"
-        "soundcloud";
+    /* Hide Playlist: let the video (and the Now Playing card below it)
+       span both columns instead of redefining the whole grid template
+       (rows/columns/areas together) — changing just this one property
+       is a much smaller move for the browser to reconcile than swapping
+       the entire template, which is what was making the video embed's
+       sizing/positioning glitch and drift outside the background panel
+       when the button was clicked. */
+    .layout.playlist-hidden .video-pane,
+    .layout.playlist-hidden .sc-section {
+      grid-column: 1 / -1;
     }
     .video-pane { grid-area: video; min-height: 0; }
     .sc-section {
@@ -161,28 +162,6 @@
     border: 0;
   }
 
-  /* Shown in place of the video when a SoundCloud track without a
-     matching video is playing — see showVideoCoverArt() near the
-     bottom of this file. Sits above the iframe but below the hover
-     controls (z-index 5/6) so Unmute/Fullscreen/playback controls stay
-     usable even while the cover art is showing. */
-  .video-cover-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 4;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-  }
-  .video-cover-overlay[hidden] { display: none; }
-  .video-cover-art {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
   .playlist-pane {
     flex: 1 1 auto;
     min-height: 0;
@@ -209,7 +188,11 @@
     display: flex;
     align-items: center;
     gap: clamp(6px, 1.5vw, 10px);
-    padding: 2px;
+    /* Equal breathing room above (from the header's divider line below)
+       and below (before the list starts) — was 2px all around, which
+       read as cramped right under that line. */
+    margin: clamp(8px, 2.6cqh, 12px) 0;
+    padding: 0 2px;
     overflow-x: auto;
     overflow-y: hidden;
     /* Scrolling (swipe/drag/shift+wheel) still works when there are more
@@ -498,6 +481,15 @@
     color: var(--text);
     font-family: var(--font-body);
     flex: none;
+    /* A gentler version of the round buttons' hover dance — just a
+       soft lift, no rotation — on hover and on touch-tap (:active), so
+       cards feel a little alive without competing with the more
+       dramatic button animations elsewhere on the page. */
+    transition: transform 0.2s ease, background 0.15s ease;
+  }
+  .playlist-item:hover,
+  .playlist-item:active {
+    transform: scale(1.03) translateY(-2px);
   }
   .playlist-item:hover { background: var(--lime-dim); }
   .playlist-item.active {
@@ -518,7 +510,11 @@
     .playlist-item {
       flex-direction: column;
       align-items: stretch;
-      width: clamp(150px, 46vw, 210px);
+      /* cqw (this pane's own width), not vw (the raw viewport) — vw
+         ignores the layout's own padding/max-width, so at in-between
+         window sizes the card width could drift out of step with how
+         much room the pane actually has. */
+      width: clamp(150px, 46cqw, 210px);
     }
   }
 
@@ -843,16 +839,18 @@
     min-height: 14px;
   }
 
-  /* ---------- SOUNDCLOUD MINI PLAYER ----------
-     A sibling of .creator-chin inside .layout — on mobile it's
-     content-sized and lands right after the chin, flush at the very
-     bottom of the widget (a chin of its own); on desktop the
-     min-width:861px block above puts it in the left grid column and
-     lets it fill the leftover vertical room there instead. Real
-     playback pulls from the same SoundCloud profile as the homepage's
-     standalone Listen widget; selecting a creator chip above filters
-     this track list to that same artist too — see the script block
-     near the bottom of this file. */
+  /* ---------- "NOW PLAYING" PANEL ----------
+     A second playhead for whatever's actually playing, video or
+     SoundCloud alike — cover art, title, artist, scrub bar, and play
+     button all mirror the single active entry in the merged "Music
+     Videos" list below (see the script block near the bottom of this
+     file). The invisible iframe inside is the real SoundCloud engine,
+     used only for SoundCloud-only songs (a song with a matching video
+     just plays that video instead — see buildMergedList()); on mobile
+     this panel is content-sized and lands right after the chin, flush
+     at the very bottom of the widget (a chin of its own); on desktop
+     the min-width:861px block above puts it in the left grid column
+     and lets it fill the leftover vertical room there instead. */
   .sc-widget-frame {
     position: absolute;
     width: 1px;
@@ -892,11 +890,6 @@
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--accent);
-  }
-
-  .sc-count {
-    font-size: clamp(9px, 2.2vw, 11px);
-    color: var(--text-dim);
   }
 
   .sc-now-playing {
@@ -1010,50 +1003,6 @@
     background: var(--accent);
   }
 
-  .sc-track-list {
-    /* Natural height (not flex:1 growing to fill leftover room) — it's a
-       single row that only ever scrolls horizontally, so there's never
-       a reason for it to claim more vertical space than one row needs. */
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: clamp(6px, 1.5vw, 8px);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .sc-track-list::-webkit-scrollbar { display: none; }
-
-  /* Deliberately NOT styled like .creator-chip (rounded pill, solid fill
-     when active) — these pick a track, not a creator, so they read as
-     underline-style tabs instead: flat, square-ish, no background fill,
-     just a bottom bar that lights up gold when that track is selected. */
-  .sc-track-item {
-    flex: none;
-    max-width: 55vw;
-    -webkit-appearance: none;
-    appearance: none;
-    cursor: pointer;
-    font-family: var(--font-body);
-    font-weight: 600;
-    font-size: clamp(10px, 2.4vw, 12px);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    border-radius: 4px 4px 0 0;
-    padding: clamp(6px, 1.4vw, 8px) clamp(10px, 2.2vw, 14px);
-    background: transparent;
-    border: none;
-    border-bottom: 3px solid var(--line);
-    color: var(--text-dim);
-  }
-  .sc-track-item:hover { color: var(--text); border-bottom-color: var(--accent-dim); }
-  .sc-track-item.active {
-    background: rgba(242, 183, 5, 0.12);
-    border-bottom-color: var(--accent);
-    color: var(--accent);
-  }
 </style>
 </head>
 <body>
@@ -1076,13 +1025,6 @@
         style="pointer-events: none;">
       </iframe>
     </div>
-    <!-- Shown instead of the video when a SoundCloud track with no
-         matching video is playing, so the video pane and the SoundCloud
-         player feel like one unit — see showVideoCoverArt() near the
-         bottom of this file. -->
-    <div class="video-cover-overlay" id="videoCoverOverlay" hidden>
-      <img class="video-cover-art" id="videoCoverArt" src="" alt="" />
-    </div>
     <div class="video-controls" id="videoControls">
       <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
       <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
@@ -1091,14 +1033,14 @@
     </div>
   </div>
 
-  <!-- ---------- SOUNDCLOUD MINI PLAYER ----------
-       Real playback runs through SoundCloud's own Widget API via the
-       invisible iframe below, same technique as the homepage's
-       standalone Listen widget, pointed at the same profile. Clicking a
-       creator chip above filters this track list to that same artist
-       too (matched against each track's SoundCloud uploader username) —
-       see refreshScTrackList() in the script block near the bottom of
-       this file. -->
+  <!-- ---------- "NOW PLAYING" PANEL ----------
+       A second playhead for whatever's actually playing, video or
+       SoundCloud alike. The invisible iframe below is the real
+       SoundCloud engine (same profile as the homepage's standalone
+       Listen widget), used only for SoundCloud-only songs — a song
+       that also has a video just plays that video instead. See
+       buildMergedList()/playMergedKey() in the script block near the
+       bottom of this file. -->
   <div class="sc-section">
     <div class="sc-card">
       <iframe
@@ -1111,11 +1053,10 @@
         src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fbobbywyckoffnyc&auto_play=false&show_artwork=false">
       </iframe>
       <div class="sc-header">
-        <span class="sc-title-label">SoundCloud</span>
-        <span class="sc-count" id="scCount"></span>
+        <span class="sc-title-label">Now Playing</span>
       </div>
       <div class="sc-now-playing">
-        <a class="sc-artwork-link" id="scArtworkLink" href="#" target="_blank" rel="noopener noreferrer" title="Open on SoundCloud">
+        <a class="sc-artwork-link" id="scArtworkLink" href="#" target="_blank" rel="noopener noreferrer" title="Open">
           <img class="sc-artwork" id="scArtwork" src="" alt="" />
         </a>
         <button class="round-btn sc-play-btn" id="scPlayBtn" title="Play" disabled>&#9658;</button>
@@ -1128,9 +1069,6 @@
             <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
           </div>
         </div>
-      </div>
-      <div class="sc-track-list" id="scTrackList">
-        <div class="empty-state">Loading tracks…</div>
       </div>
     </div>
   </div>
@@ -1264,65 +1202,70 @@ let creatorOrder = [];
 let hiddenCreators = [];
 
 // Which creator the chin is currently filtering to — null means "All".
-// Declared at this outer script level (not inside the player IIFE below)
-// so the SoundCloud mini player's own IIFE can read the same filter and
-// match it against each track's SoundCloud username.
 let activeAuthorFilter = null;
 
-// Set by the SoundCloud section's own IIFE once it's ready — starts as a
-// harmless no-op so the creator chin's click handler (in a different
-// IIFE, further down) always has something safe to call even before that
-// section finishes initializing.
-let refreshScTrackList = function () {};
+// ---------- ONE LIST, ONE PLAYHEAD ----------
+// activeKey is the single source of truth for "what's playing right
+// now": a YouTube video id, or 'sc-' + a SoundCloud sound id, or null
+// before anything has started. Both IIFEs below read it directly (same
+// top-level cross-script-tag pattern as activeAuthorFilter above) to
+// know which of the two real players is the active source.
+let activeKey = null;
+function isScKey(key) {
+  return typeof key === 'string' && key.indexOf('sc-') === 0;
+}
 
-// Mutual exclusivity between the YouTube video and the SoundCloud
-// player — unmuting the video pauses whatever SoundCloud track is
-// playing, and starting a SoundCloud track pauses + re-mutes the video,
-// so the two never play audio at the same time. Same no-op-until-ready
-// bridging pattern as refreshScTrackList above: each gets replaced with
-// the real implementation once that section's own IIFE runs.
-let pauseScTrack = function () {};
-let pauseAndMuteVideo = function () {};
+// Raw SoundCloud sounds, fetched once by the SoundCloud IIFE and read
+// here by the video IIFE to build the single merged "Music Videos"
+// list — every video, plus any SoundCloud-only song with no matching
+// video, using that song's own cover art as its thumbnail.
+let scSoundsList = [];
 
-// One-player-many-sources bridges — let the SoundCloud IIFE (further
-// down) drive the video pane when a SoundCloud track has a matching
-// video, and let it show cover art in the video pane for a track that
-// doesn't. All start as no-ops and get replaced once the video IIFE
-// runs, same pattern as the bridges above.
-let showVideoCoverArt = function () {};
-let hideVideoCoverArt = function () {};
-let playVideoByIndex = function () {};
+// ---------- CROSS-IIFE BRIDGES ----------
+// Same no-op-until-ready pattern used throughout this file: each starts
+// as a harmless placeholder and gets replaced with the real
+// implementation once its owning IIFE runs, so whichever IIFE calls one
+// first never throws.
+
+// SoundCloud IIFE -> video IIFE
+let refreshMergedPlaylist = function () {};      // call after scSoundsList is fetched
+let advanceToNextInMergedList = function () {};  // call when a SoundCloud track finishes
 let pauseCurrentVideo = function () {};
 let resumeCurrentVideo = function () {};
 let seekVideoToFraction = function () {};
-let notifyManualVideoSelect = function () {};
-// Called when a SoundCloud track with no matching video starts playing,
-// so the "Music Videos" list stops showing the last-played video as
-// active/highlighted while something unrelated is actually playing.
-let deselectActiveVideo = function () {};
-
-// The reverse direction — the video IIFE calls these (replaced by the
-// SoundCloud IIFE) so the SoundCloud panel's progress bar and play icon
-// stay in sync whenever a matched video is actually the one playing.
-let notifyVideoProgress = function () {};
-let notifyVideoPlayState = function () {};
-
-// And the reverse of THAT: when a standalone SoundCloud track (no
-// matching video) is playing, the video's own scrub bar/play button
-// control and reflect it instead of a stale, disconnected video.
-// notifyScProgress/notifyScPlayState are called by the SoundCloud IIFE
-// and implemented by the video IIFE (mirroring notifyVideoProgress/
-// notifyVideoPlayState above); resumeScTrack/seekScToFraction are
-// called by the video IIFE and implemented by the SoundCloud IIFE
-// (mirroring pauseCurrentVideo/resumeCurrentVideo/seekVideoToFraction).
+// Lets the video pane's own scrub bar/play button reflect and control a
+// SoundCloud track while it's the active source.
 let notifyScProgress = function () {};
 let notifyScPlayState = function () {};
-let resumeScTrack = function () {};
+
+// video IIFE -> SoundCloud IIFE (owns the real SoundCloud engine and
+// the "Now Playing" panel that mirrors whichever kind is active)
+let playScByIndex = function () {};
+let pauseSc = function () {};
+let resumeSc = function () {};
 let seekScToFraction = function () {};
+let setNowPlayingFromVideo = function () {};
+let notifyVideoProgress = function () {};
+let notifyVideoPlayState = function () {};
 
 function resolveAuthorDisplay(rawAuthor) {
   if (!rawAuthor) return rawAuthor;
   return creatorAliases[rawAuthor] || rawAuthor;
+}
+
+// Shared between both IIFEs: the video IIFE needs these to build the
+// merged "Music Videos" list's SoundCloud-only entries; the SoundCloud
+// IIFE needs them for its own "Now Playing" panel.
+function getScAuthor(sound) {
+  return (sound && sound.user && sound.user.username) ? sound.user.username : 'Unknown';
+}
+// SoundCloud's default artwork_url points at a small "-large" (100x100)
+// image — swapping in "-t500x500" gets a much sharper version at the
+// same URL. Falls back to the uploader's avatar for tracks with no
+// artwork of their own (SoundCloud does this too on the real site).
+function getScArtworkUrl(sound) {
+  const raw = (sound && (sound.artwork_url || (sound.user && sound.user.avatar_url))) || '';
+  return raw ? raw.replace('-large.jpg', '-t500x500.jpg') : '';
 }
 
 function extractVideoId(input) {
@@ -1368,7 +1311,10 @@ function buildPlaylist(list, previousPlaylist) {
     .filter(Boolean);
 }
 
-let PLAYLIST = buildPlaylist(currentVideoList);
+let VIDEO_PLAYLIST = buildPlaylist(currentVideoList);
+// Highlights the first video as "active" from the very first paint,
+// matching the fact that it starts autoplaying (muted) immediately.
+activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 
 (function () {
   const layout = document.getElementById('layout');
@@ -1392,22 +1338,18 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const creatorChinEl = document.getElementById('creatorChin');
   const layoutEl = document.getElementById('layout');
   const ytFrame = document.getElementById('ytFrame');
-  const videoCoverOverlay = document.getElementById('videoCoverOverlay');
-  const videoCoverArt = document.getElementById('videoCoverArt');
 
   let ytPlayer = null;
   let isDragging = false;
   let pollTimer = null;
-  let activeIndex = 0;
   let apiReady = false;       // true once the YT.Player instance has fired onReady
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
   let pendingLoadId = null;
-  // True while a standalone SoundCloud track (no matching video) is the
-  // one actually playing — set by showVideoCoverArt/hideVideoCoverArt
-  // below, since those already fire at exactly the right moments.
-  let videoSyncedToSc = false;
-  let scMirrorIsPlaying = false;
+  let pendingUnmute = false;
+  let loadedVideoId = null;    // whichever video id is actually loaded into ytFrame right now
+  let currentMergedList = [];  // the single "Music Videos" list actually on screen right now
+  let scIsActivePlaying = false; // last play state reported via notifyScPlayState below
 
   unmuteBtn.disabled = true;
 
@@ -1428,8 +1370,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       '%, var(--accent-dim) ' + pct + '%, var(--accent-dim) 100%)';
   }
 
-  function updatePlayPauseIcon(state) {
-    if (state === YT.PlayerState.PLAYING) {
+  function updatePlayPauseIcon(isPlaying) {
+    if (isPlaying) {
       playPauseBtn.innerHTML = '&#10074;&#10074;';
       playPauseBtn.title = 'Pause';
     } else {
@@ -1439,11 +1381,9 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   }
 
   function updateProgress() {
-    // A standalone SoundCloud track is playing instead (cover art
-    // showing) — notifyScProgress below drives the scrub bar/time
-    // label in that case, so don't fight it with the paused video's
-    // own (irrelevant) time here.
-    if (videoSyncedToSc) return;
+    // A SoundCloud track is the active source — notifyScProgress below
+    // drives this same scrub bar/time label from its progress instead.
+    if (isScKey(activeKey)) return;
     if (!ytPlayer || isDragging) return;
     const duration = ytPlayer.getDuration();
     const current = ytPlayer.getCurrentTime();
@@ -1453,27 +1393,77 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       updateRangeFill();
       timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
     }
-    // Lets the SoundCloud panel's own progress bar track this video's
-    // playhead when a SoundCloud track with a matching video is the one
-    // actually playing (see scPlayIndex() near the bottom of this file).
+    // Lets the "Now Playing" panel's own progress bar track this video's
+    // playhead whenever it's the active source.
     notifyVideoProgress(current, duration);
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  // ---------- ONE LIST, ONE PLAYHEAD ----------
+  // Builds the single "Music Videos" list: every video, plus any
+  // SoundCloud-only song (no matching video by title) using that song's
+  // own cover art as its thumbnail. Matching happens once here, not at
+  // playback time, so there's exactly one entry — and one key — per song
+  // regardless of which platform(s) it's actually on.
+  function normalizeTitleForMatch(t) {
+    return (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function buildMergedList() {
+    const merged = [];
+    const usedScIndexes = new Set();
+
+    VIDEO_PLAYLIST.forEach(v => {
+      merged.push({
+        key: v.id,
+        kind: 'video',
+        videoId: v.id,
+        title: v.title,
+        author: v.author,
+        thumbnail: 'https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg',
+        linkUrl: 'https://www.youtube.com/watch?v=' + v.id
+      });
+
+      const vNorm = normalizeTitleForMatch(v.title);
+      if (!vNorm) return;
+      scSoundsList.forEach((sound, i) => {
+        if (usedScIndexes.has(i)) return;
+        const scNorm = normalizeTitleForMatch(sound.title);
+        if (scNorm && (scNorm === vNorm || scNorm.includes(vNorm) || vNorm.includes(scNorm))) {
+          usedScIndexes.add(i);
+        }
+      });
+    });
+
+    scSoundsList.forEach((sound, i) => {
+      if (usedScIndexes.has(i)) return;
+      merged.push({
+        key: 'sc-' + sound.id,
+        kind: 'sc',
+        soundIndex: i,
+        title: sound.title,
+        author: getScAuthor(sound),
+        thumbnail: getScArtworkUrl(sound),
+        linkUrl: sound.permalink_url || '#'
+      });
+    });
+
+    return merged;
+  }
+
   // ---------- PLAYLIST RENDER ----------
-  // Filtering by creator happens here, over the same PLAYLIST array/data
-  // used everywhere else — data-index still points at the real index in
-  // PLAYLIST (not the filtered array's position), so clicking a filtered
-  // row still plays the right track and activeIndex stays meaningful.
-  function renderPlaylist() {
-    if (!PLAYLIST.length) {
+  function renderPlaylist(merged) {
+    if (!merged.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No tracks added yet.</div>';
       playlistCountEl.textContent = '';
       return;
     }
 
-    const visible = PLAYLIST
-      .map((v, i) => ({ v, i }))
-      .filter(({ v }) => !activeAuthorFilter || resolveAuthorDisplay(v.author) === activeAuthorFilter);
+    const visible = merged.filter(e => !activeAuthorFilter || resolveAuthorDisplay(e.author) === activeAuthorFilter);
 
     if (!visible.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No tracks from this creator yet.</div>';
@@ -1482,18 +1472,19 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     }
 
     playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' track' : ' tracks');
-    playlistItemsEl.innerHTML = visible.map(({ v, i }) => {
-      const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
+    playlistItemsEl.innerHTML = visible.map(e => {
+      const title = (typeof e.title === 'string' && e.title.trim()) ? e.title.trim() : 'Loading title…';
+      const isActive = e.key === activeKey;
       // Shows who made it instead of a generic "Tap to play" once the
       // author's known — falls back to "Tap to play" only while it's
       // still being fetched.
-      const sub = i === activeIndex
+      const sub = isActive
         ? 'Now playing'
-        : (v.author ? escapeHtml(resolveAuthorDisplay(v.author)) : 'Tap to play');
+        : (e.author ? escapeHtml(resolveAuthorDisplay(e.author)) : 'Tap to play');
       return `
-      <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
+      <button class="playlist-item${isActive ? ' active' : ''}" data-key="${escapeHtml(e.key)}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
-          <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="${escapeHtml(title)}" loading="lazy" />
+          <img src="${escapeHtml(e.thumbnail)}" alt="${escapeHtml(title)}" loading="lazy" />
           <span class="now-playing-badge">Now Playing</span>
         </div>
         <div class="playlist-meta">
@@ -1506,23 +1497,18 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 
     playlistItemsEl.querySelectorAll('.playlist-item').forEach(btn => {
       btn.addEventListener('click', function () {
-        const idx = parseInt(this.getAttribute('data-index'), 10);
-        // A direct click on a video is a manual choice — it should
-        // override any SoundCloud-driven sync currently in effect.
-        notifyManualVideoSelect();
-        // playVideoByIndex (not playIndex) so clicking a video also
-        // unmutes it right away instead of needing a second click.
-        playVideoByIndex(idx);
+        playMergedKey(this.getAttribute('data-key'));
       });
     });
   }
 
   // ---------- CREATOR CHIN RENDER ----------
-  // Auto-populated from whichever authors have shown up on PLAYLIST
-  // entries so far (fetchTitles fills v.author in asynchronously, so this
-  // gets called again each time one resolves). Clicking a chip only
-  // changes the filter used by renderPlaylist above — it never touches
-  // what's currently playing.
+  // Auto-populated from whichever authors have shown up in the merged
+  // list so far (fetchTitles fills v.author in asynchronously for video
+  // entries, so this gets called again each time one resolves — a
+  // SoundCloud entry's author is already known as soon as it's fetched).
+  // Clicking a chip only changes the filter used by renderPlaylist above
+  // — it never touches what's currently playing.
   //
   // The "All" chip always renders immediately, even before any author has
   // loaded — a panel that only appears once the network fetch succeeds is
@@ -1531,13 +1517,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // kept as a real, clickable chip too instead of being hidden, so a
   // failed lookup still leaves a working filter rather than making the
   // whole feature vanish.
-  function renderCreatorChin() {
+  function renderCreatorChin(merged) {
     const authors = [];
     let stillLoading = false;
-    PLAYLIST.forEach(v => {
-      if (v.author === null) { stillLoading = true; return; }
-      if (hiddenCreators.includes(v.author)) return; // hidden from the chin (its tracks still show under "All")
-      const display = resolveAuthorDisplay(v.author);
+    merged.forEach(e => {
+      if (e.author === null) { stillLoading = true; return; }
+      if (hiddenCreators.includes(e.author)) return; // hidden from the chin (its tracks still show under "All")
+      const display = resolveAuthorDisplay(e.author);
       if (!authors.includes(display)) authors.push(display);
     });
 
@@ -1570,17 +1556,37 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     creatorChinEl.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
       btn.addEventListener('click', function () {
         activeAuthorFilter = this.getAttribute('data-author') || null;
-        renderCreatorChin();
-        renderPlaylist();
-        refreshScTrackList();
+        renderCreatorChin(currentMergedList);
+        renderPlaylist(currentMergedList);
       });
     });
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+  // Rebuilds the merged list and re-renders everything driven by it — the
+  // single place a Firestore update (handlePlaylistSnapshot) and a fresh
+  // SoundCloud fetch (via the refreshMergedPlaylist bridge) both funnel
+  // through, so the list and chin never get out of sync with each other.
+  function recomputeAndRenderAll() {
+    currentMergedList = buildMergedList();
+    renderCreatorChin(currentMergedList);
+    renderPlaylist(currentMergedList);
+    pushNowPlayingForActiveVideo();
+  }
+  refreshMergedPlaylist = recomputeAndRenderAll;
+
+  // Keeps the "Now Playing" panel (owned by the SoundCloud IIFE) in sync
+  // with whichever video entry is active — a no-op while a SoundCloud
+  // entry is active instead, since that panel then drives itself.
+  function pushNowPlayingForActiveVideo() {
+    if (isScKey(activeKey)) return;
+    const entry = currentMergedList.find(e => e.key === activeKey);
+    if (!entry) return;
+    setNowPlayingFromVideo({
+      title: (typeof entry.title === 'string' && entry.title.trim()) ? entry.title.trim() : 'Loading title…',
+      author: entry.author ? resolveAuthorDisplay(entry.author) : '',
+      thumbnail: entry.thumbnail,
+      linkUrl: entry.linkUrl
+    });
   }
 
   // Pull each track's real title AND creator name from YouTube's oEmbed
@@ -1592,15 +1598,14 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // pulled since that's what drives the creator chin.
   //
   // This has to live in here (not at the top level of the script) so its
-  // calls to renderPlaylist()/renderCreatorChin() below can actually see
-  // those functions — they're declared inside this same IIFE. Calling
-  // them from an outer-scope fetchTitles() would silently throw a
-  // ReferenceError on every fetch completion (visible only in the
-  // browser console), leaving the creator chin permanently stuck showing
-  // "Loading" even though the author data itself had already been
-  // fetched successfully.
+  // calls to recomputeAndRenderAll() below can actually see it — declared
+  // inside this same IIFE. Calling it from an outer-scope fetchTitles()
+  // would silently throw a ReferenceError on every fetch completion
+  // (visible only in the browser console), leaving the creator chin
+  // permanently stuck showing "Loading" even though the author data
+  // itself had already been fetched successfully.
   function fetchTitles() {
-    PLAYLIST.forEach((v, i) => {
+    VIDEO_PLAYLIST.forEach((v, i) => {
       const needsTitle = !v.title;
       if (!needsTitle && v.author) return; // nothing left to fetch for this one
       const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
@@ -1623,46 +1628,83 @@ let PLAYLIST = buildPlaylist(currentVideoList);
           }
           const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
           v.author = a || 'Unknown';
-          renderPlaylist();
-          renderCreatorChin();
+          recomputeAndRenderAll();
         })
         .catch(() => {
           clearTimeout(timeoutId);
           if (needsTitle) v.title = 'Track ' + (i + 1);
           v.author = v.author || 'Unknown';
-          renderPlaylist();
-          renderCreatorChin();
+          recomputeAndRenderAll();
         });
     });
   }
 
-  // Called from the SoundCloud IIFE (via the top-level deselectActiveVideo
-  // bridge) whenever a track with no matching video starts playing, so the
-  // list stops showing whatever video was last active as still selected.
-  deselectActiveVideo = function () {
-    activeIndex = -1;
-    renderPlaylist();
-  };
+  function pauseAndMuteVideoLocal() {
+    if (!ytPlayer) return;
+    if (typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+    if (typeof ytPlayer.mute === 'function') ytPlayer.mute();
+    unmuteBtn.textContent = 'Unmute';
+    unmuteBtn.title = 'Unmute';
+  }
 
-  function playIndex(idx) {
-    if (idx < 0 || idx >= PLAYLIST.length) return;
-    activeIndex = idx;
-    renderPlaylist();
-    hideVideoCoverArt();
-    const id = PLAYLIST[idx].id;
+  function doUnmute() {
+    if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return;
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+    unmuteBtn.textContent = 'Mute';
+    unmuteBtn.title = 'Mute';
+  }
+
+  // Loads a video into the (single, persistent) YouTube player instance.
+  // autoUnmute is true for a direct click on a video entry, so it plays
+  // with sound right away instead of needing a separate Unmute click.
+  function loadVideo(id, autoUnmute) {
+    loadedVideoId = id;
     if (ytPlayer && apiReady) {
       ytPlayer.loadVideoById(id);
+      if (autoUnmute) doUnmute();
     } else {
       pendingLoadId = id;
+      pendingUnmute = autoUnmute;
     }
   }
 
+  // The one place a click (playlist item, or advancing to the next track)
+  // turns into "this is what's playing now" — sets activeKey once, then
+  // hands off to whichever real engine (YouTube or SoundCloud) owns that
+  // kind of entry.
+  function playMergedKey(key) {
+    const entry = currentMergedList.find(e => e.key === key);
+    if (!entry) return;
+    if (entry.kind === 'sc') {
+      pauseAndMuteVideoLocal();
+      activeKey = key;
+      renderPlaylist(currentMergedList);
+      playScByIndex(entry.soundIndex);
+    } else {
+      activeKey = key;
+      renderPlaylist(currentMergedList);
+      pauseSc();
+      loadVideo(entry.videoId, true);
+      pushNowPlayingForActiveVideo();
+    }
+  }
+
+  function advanceFromKey(key) {
+    if (!currentMergedList.length) return;
+    const idx = currentMergedList.findIndex(e => e.key === key);
+    const nextIdx = idx === -1 ? 0 : (idx + 1) % currentMergedList.length;
+    playMergedKey(currentMergedList[nextIdx].key);
+  }
+  advanceToNextInMergedList = function () { advanceFromKey(activeKey); };
+
   // ---------- YT IFRAME API ----------
   function tryInitPlayer() {
-    if (ytPlayer || !ytScriptReady || !firestoreDataReady || !PLAYLIST.length) return;
+    if (ytPlayer || !ytScriptReady || !firestoreDataReady || !VIDEO_PLAYLIST.length) return;
 
-    ytFrame.src = 'https://www.youtube.com/embed/' + PLAYLIST[0].id +
+    ytFrame.src = 'https://www.youtube.com/embed/' + VIDEO_PLAYLIST[0].id +
       '?rel=0&autoplay=1&mute=1&controls=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1';
+    loadedVideoId = VIDEO_PLAYLIST[0].id;
 
     ytPlayer = new YT.Player('ytFrame', {
       events: {
@@ -1677,24 +1719,27 @@ let PLAYLIST = buildPlaylist(currentVideoList);
           unmuteBtn.disabled = false;
           playPauseBtn.disabled = false;
           scrubRange.disabled = false;
-          updatePlayPauseIcon(YT.PlayerState.PLAYING);
+          updatePlayPauseIcon(true);
           updateProgress();
           if (pollTimer) clearInterval(pollTimer);
           pollTimer = setInterval(updateProgress, 500);
           if (pendingLoadId) {
             ytPlayer.loadVideoById(pendingLoadId);
+            loadedVideoId = pendingLoadId;
+            if (pendingUnmute) doUnmute();
             pendingLoadId = null;
+            pendingUnmute = false;
           }
         },
         onStateChange: function (event) {
-          updatePlayPauseIcon(event.data);
-          // Keeps the SoundCloud panel's play icon in sync when this
-          // video is the one actually playing for a matched SoundCloud
-          // track (e.g. the user paused/resumed from the video's own
-          // controls instead of SoundCloud's).
+          if (isScKey(activeKey)) return; // a SoundCloud track owns playback right now
+          updatePlayPauseIcon(event.data === YT.PlayerState.PLAYING);
+          // Keeps the "Now Playing" panel's play icon in sync when this
+          // video is the active source (e.g. paused/resumed from the
+          // video pane's own controls instead of that panel's).
           notifyVideoPlayState(event.data === YT.PlayerState.PLAYING);
           if (event.data === YT.PlayerState.ENDED) {
-            playIndex((activeIndex + 1) % PLAYLIST.length);
+            advanceFromKey(activeKey);
           }
         }
       }
@@ -1709,14 +1754,16 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   unmuteBtn.addEventListener('click', function () {
     if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
     if (ytPlayer.isMuted()) {
-      ytPlayer.unMute();
-      ytPlayer.setVolume(100);
-      unmuteBtn.textContent = 'Mute';
-      unmuteBtn.title = 'Mute';
-      // Only one of the video/SoundCloud should have audio at a time —
-      // unmuting the video pauses whatever's playing on SoundCloud.
-      pauseScTrack();
-      hideVideoCoverArt();
+      if (isScKey(activeKey)) {
+        // Only one of the video/SoundCloud should have audio at a time —
+        // reclaim the currently-loaded video as the active source.
+        pauseSc();
+        activeKey = loadedVideoId;
+        renderPlaylist(currentMergedList);
+        pushNowPlayingForActiveVideo();
+        ytPlayer.playVideo();
+      }
+      doUnmute();
     } else {
       ytPlayer.mute();
       unmuteBtn.textContent = 'Unmute';
@@ -1724,59 +1771,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     }
   });
 
-  // Called from the SoundCloud section's own IIFE (via the top-level
-  // pauseAndMuteVideo bridge above) whenever a track starts playing
-  // there, so the video's audio never overlaps with it.
-  pauseAndMuteVideo = function () {
-    if (!ytPlayer) return;
-    if (typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
-    if (typeof ytPlayer.mute === 'function') ytPlayer.mute();
-    unmuteBtn.textContent = 'Unmute';
-    unmuteBtn.title = 'Unmute';
-  };
-
-  // ---------- ONE PLAYER, MANY SOURCES ----------
-  // Lets the SoundCloud IIFE (further down) drive this video pane: show
-  // this track's cover art in place of the video for a SoundCloud track
-  // with no matching video, or play/scrub the actual video when a
-  // SoundCloud track DOES have a matching one — see scPlayIndex() there.
-  showVideoCoverArt = function (artworkUrl) {
-    videoCoverArt.src = artworkUrl;
-    videoCoverOverlay.hidden = false;
-    videoSyncedToSc = true;
-    updatePlayPauseIcon(scMirrorIsPlaying ? YT.PlayerState.PLAYING : YT.PlayerState.PAUSED);
-  };
-  hideVideoCoverArt = function () {
-    videoCoverOverlay.hidden = true;
-    videoSyncedToSc = false;
-  };
-  // Called by the SoundCloud IIFE from its own progress/play-state
-  // events (only while a standalone track — no matching video — is
-  // playing) so this scrub bar/play button reflect and control it
-  // instead of sitting stale and disconnected.
-  notifyScProgress = function (current, duration) {
-    if (!videoSyncedToSc || !duration || isDragging) return;
-    scrubRange.max = duration;
-    scrubRange.value = current;
-    updateRangeFill();
-    timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
-  };
-  notifyScPlayState = function (isPlaying) {
-    scMirrorIsPlaying = isPlaying;
-    if (videoSyncedToSc) updatePlayPauseIcon(isPlaying ? YT.PlayerState.PLAYING : YT.PlayerState.PAUSED);
-  };
-  // Used both for a direct click on a video (so it plays with sound
-  // right away instead of needing a separate Unmute click) and for a
-  // matched SoundCloud track (so its audio is actually audible).
-  playVideoByIndex = function (idx) {
-    playIndex(idx);
-    if (ytPlayer && typeof ytPlayer.unMute === 'function') {
-      ytPlayer.unMute();
-      ytPlayer.setVolume(100);
-      unmuteBtn.textContent = 'Mute';
-      unmuteBtn.title = 'Mute';
-    }
-  };
+  // ---------- ONE PLAYER, MANY SOURCES (SoundCloud IIFE -> here) ----------
   pauseCurrentVideo = function () {
     if (ytPlayer) ytPlayer.pauseVideo();
   };
@@ -1788,13 +1783,27 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     const duration = ytPlayer.getDuration();
     if (duration > 0) ytPlayer.seekTo(fraction * duration, true);
   };
+  // Lets the video pane's own scrub bar/play button reflect and control a
+  // SoundCloud track while it's the active source — called from the
+  // SoundCloud IIFE's own progress/play-state events.
+  notifyScProgress = function (current, duration) {
+    if (!isScKey(activeKey) || !duration || isDragging) return;
+    scrubRange.max = duration;
+    scrubRange.value = current;
+    updateRangeFill();
+    timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
+  };
+  notifyScPlayState = function (isPlaying) {
+    scIsActivePlaying = isPlaying;
+    if (isScKey(activeKey)) updatePlayPauseIcon(isPlaying);
+  };
 
   playPauseBtn.addEventListener('click', function () {
-    // A standalone SoundCloud track (no matching video) is playing —
-    // this button controls that instead of the paused, irrelevant video.
-    if (videoSyncedToSc) {
-      if (scMirrorIsPlaying) pauseScTrack();
-      else resumeScTrack();
+    // A SoundCloud track is the active source — this button controls
+    // that instead of the paused, irrelevant video.
+    if (isScKey(activeKey)) {
+      if (scIsActivePlaying) pauseSc();
+      else resumeSc();
       return;
     }
     if (!ytPlayer) return;
@@ -1811,7 +1820,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   });
 
   scrubRange.addEventListener('change', function () {
-    if (videoSyncedToSc) {
+    if (isScKey(activeKey)) {
       const max = parseFloat(scrubRange.max) || 0;
       const fraction = max > 0 ? parseFloat(scrubRange.value) / max : 0;
       seekScToFraction(fraction);
@@ -1887,39 +1896,40 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // a page reload, and try to keep whatever's currently playing playing.
   function handlePlaylistSnapshot(list) {
     currentVideoList = list;
-    const newPlaylist = buildPlaylist(currentVideoList, PLAYLIST);
+    const newVideoPlaylist = buildPlaylist(currentVideoList, VIDEO_PLAYLIST);
 
     if (!firestoreDataReady) {
       firestoreDataReady = true;
-      PLAYLIST = newPlaylist;
-      activeIndex = 0;
-      renderCreatorChin();
-      renderPlaylist();
+      VIDEO_PLAYLIST = newVideoPlaylist;
+      activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
+      recomputeAndRenderAll();
       fetchTitles();
       tryInitPlayer();
       return;
     }
 
-    const currentId = PLAYLIST[activeIndex] ? PLAYLIST[activeIndex].id : null;
-    PLAYLIST = newPlaylist;
-    const stillThereIndex = currentId ? PLAYLIST.findIndex(v => v.id === currentId) : -1;
-    // activeIndex of -1 means no video is currently active (a SoundCloud
-    // track with no matching video is playing instead) — keep it that
-    // way rather than snapping back to video 0 on every playlist update.
-    activeIndex = stillThereIndex >= 0 ? stillThereIndex : (activeIndex === -1 ? -1 : 0);
+    // A SoundCloud entry's key doesn't depend on VIDEO_PLAYLIST, so it
+    // stays active across an update; a video entry needs to be
+    // re-checked in case it got removed.
+    const wasActiveVideoId = !isScKey(activeKey) ? activeKey : null;
+    VIDEO_PLAYLIST = newVideoPlaylist;
+    if (wasActiveVideoId && !VIDEO_PLAYLIST.some(v => v.id === wasActiveVideoId)) {
+      activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
+    }
+
     // If the creator currently filtered on has no tracks left in the
     // updated list, drop back to "All" instead of showing an empty list.
-    if (activeAuthorFilter && !PLAYLIST.some(v => v.author === activeAuthorFilter)) {
+    const mergedForFilterCheck = buildMergedList();
+    if (activeAuthorFilter && !mergedForFilterCheck.some(e => resolveAuthorDisplay(e.author) === activeAuthorFilter)) {
       activeAuthorFilter = null;
     }
-    renderCreatorChin();
-    renderPlaylist();
+
+    recomputeAndRenderAll();
     fetchTitles();
 
-    if (stillThereIndex < 0 && PLAYLIST.length) {
+    if (wasActiveVideoId && activeKey !== wasActiveVideoId && VIDEO_PLAYLIST.length) {
       // The track that was playing got removed from the list — jump to the first one.
-      if (ytPlayer && apiReady) ytPlayer.loadVideoById(PLAYLIST[0].id);
-      else pendingLoadId = PLAYLIST[0].id;
+      loadVideo(activeKey, false);
     }
   }
 
@@ -1935,8 +1945,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     handlePlaylistSnapshot(DEFAULT_VIDEO_LIST);
   });
 
-  renderCreatorChin();
-  renderPlaylist();
+  recomputeAndRenderAll();
 })();
 </script>
 
@@ -1981,15 +1990,15 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   }
   function closeLogin() { loginOverlay.hidden = true; }
 
-  // One row per raw creator name PLAYLIST (the live, already-fetched
-  // playlist — a top-level variable shared with the player logic) has
+  // One row per raw creator name VIDEO_PLAYLIST (the live, already-fetched
+  // video list — a top-level variable shared with the player logic) has
   // seen an author come back as, plus any raw name already referenced by
   // saved settings so editing something mid-fetch or briefly absent
   // doesn't just disappear from the list.
   function collectKnownRawAuthors() {
     const seen = new Set();
     const list = [];
-    PLAYLIST.forEach(v => {
+    VIDEO_PLAYLIST.forEach(v => {
       if (v.author && !seen.has(v.author)) { seen.add(v.author); list.push(v.author); }
     });
     Object.keys(creatorAliases).forEach(raw => { if (!seen.has(raw)) { seen.add(raw); list.push(raw); } });
@@ -2248,13 +2257,12 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 <script src="https://w.soundcloud.com/player/api.js"></script>
 <script>
 // ============================================================
-// SOUNDCLOUD MINI PLAYER — fills the extra space below the creator chin
-// with a compact player pulling from the same SoundCloud profile as the
-// homepage's standalone Listen widget. Selecting a creator chip above
-// (activeAuthorFilter, declared at the top level near DEFAULT_VIDEO_LIST
-// so both this and the video player IIFE can read it) also filters this
-// track list down to that same artist, matched against each track's
-// SoundCloud uploader username.
+// SOUNDCLOUD "NOW PLAYING" ENGINE — an invisible SoundCloud widget (same
+// profile as the homepage's standalone Listen widget) that only actually
+// plays audio for a SoundCloud-only song (no matching video). The visible
+// "Now Playing" panel above it mirrors whichever entry is active in the
+// single merged "Music Videos" list — video or SoundCloud alike — via the
+// activeKey/isScKey bridges declared at the top level of this file.
 // ============================================================
 (function () {
   const scFrame = document.getElementById('scWidgetFrame');
@@ -2266,73 +2274,25 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const scArtistEl = document.getElementById('scArtist');
   const scProgressTrackEl = document.getElementById('scProgressTrack');
   const scProgressFillEl = document.getElementById('scProgressFill');
-  const scTrackListEl = document.getElementById('scTrackList');
-  const scCountEl = document.getElementById('scCount');
 
   const scWidget = SC.Widget(scFrame);
-  let scSounds = [];
-  let scCurrentIndex = 0;
+  let scDuration = 0; // seconds — always seconds here, converted to ms only at the scWidget.seekTo() call sites
+  // Last play state this widget itself reported, kept even while a video
+  // is active so scPlayBtn has something sane to fall back on.
   let scIsPlaying = false;
-  let scDuration = 0;
-  // True while the currently "playing" SoundCloud track is actually
-  // being played through the matching YouTube video instead (see
-  // scPlayIndex() below) — so this panel's play button and progress bar
-  // control/reflect the video rather than the (paused) SC widget.
-  let scSyncedToVideo = false;
-
-  function scEscapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
-  }
-
-  // The SoundCloud track's uploader username — matched case-insensitively
-  // against activeAuthorFilter, which holds the currently-selected
-  // creator chip's YouTube display name. This assumes the same person's
-  // SoundCloud username lines up with their YouTube channel name.
-  function getScAuthor(sound) {
-    return (sound && sound.user && sound.user.username) ? sound.user.username : 'Unknown';
-  }
-
-  function scMatchesFilter(sound) {
-    if (!activeAuthorFilter) return true;
-    return getScAuthor(sound).toLowerCase() === activeAuthorFilter.toLowerCase();
-  }
-
-  // Loose title match so a SoundCloud track can find its corresponding
-  // YouTube video (same song, uploaded to both places) — normalizes both
-  // titles down to lowercase alphanumerics before comparing, so
-  // punctuation/casing/parenthetical differences ("Melted Ice" vs
-  // "MELTED ICE (Official Video)") don't prevent a match.
-  function normalizeTitleForMatch(t) {
-    return (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  }
-  function findMatchingVideoIndex(sound) {
-    const scNorm = normalizeTitleForMatch(sound && sound.title);
-    if (!scNorm) return -1;
-    return PLAYLIST.findIndex(function (v) {
-      const vNorm = normalizeTitleForMatch(v.title);
-      return vNorm && (vNorm === scNorm || vNorm.includes(scNorm) || scNorm.includes(vNorm));
-    });
-  }
-
-  // SoundCloud's default artwork_url points at a small "-large" (100x100)
-  // image — swapping in "-t500x500" gets a much sharper version at the
-  // same URL. Falls back to the uploader's avatar for tracks with no
-  // artwork of their own (SoundCloud does this too on the real site).
-  function getScArtworkUrl(sound) {
-    const raw = (sound && (sound.artwork_url || (sound.user && sound.user.avatar_url))) || '';
-    return raw ? raw.replace('-large.jpg', '-t500x500.jpg') : '';
-  }
+  // Last play state reported for the active video (via notifyVideoPlayState),
+  // used by scPlayBtn/updateScPlayIcon while a video is the active source.
+  let lastKnownVideoPlaying = false;
 
   // Updates the title (with marquee), cover art, and the art's link to
-  // the track's real SoundCloud page — called every time the current
-  // sound changes (first load and every track change after).
-  function setScNowPlaying(sound) {
-    setScTitle(sound.title);
+  // the track's real SoundCloud page — called whenever a SoundCloud entry
+  // becomes the active one.
+  function setScNowPlayingFromSound(sound) {
+    setScTitle(sound.title || 'Untitled');
     scArtistEl.textContent = getScAuthor(sound);
     scArtworkImgEl.src = getScArtworkUrl(sound);
     scArtworkLinkEl.href = sound.permalink_url || '#';
+    scArtworkLinkEl.title = 'Open on SoundCloud';
   }
 
   // Same car-radio marquee technique as the homepage Listen widget: a
@@ -2361,132 +2321,87 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     });
   }
 
-  function updateScPlayIcon() {
-    scPlayBtn.innerHTML = scIsPlaying ? '&#10074;&#10074;' : '&#9658;';
+  function updateScPlayIcon(isPlaying) {
+    scPlayBtn.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9658;';
   }
 
-  // Filtered by the same activeAuthorFilter the creator chin sets above —
-  // re-rendered whenever a chip is clicked (via refreshScTrackList) —
-  // without touching whatever's currently playing, same behavior as the
-  // YouTube "Up Next" list.
-  function renderScTrackList() {
-    if (!scSounds.length) {
-      scTrackListEl.innerHTML = '<div class="empty-state">Loading tracks…</div>';
-      scCountEl.textContent = '';
-      return;
-    }
-
-    const visible = scSounds
-      .map(function (s, i) { return { s: s, i: i }; })
-      .filter(function (entry) { return scMatchesFilter(entry.s); });
-
-    if (!visible.length) {
-      scTrackListEl.innerHTML = '<div class="empty-state">No tracks from this creator yet.</div>';
-      scCountEl.textContent = '0 tracks';
-      return;
-    }
-
-    scCountEl.textContent = visible.length + (visible.length === 1 ? ' track' : ' tracks');
-    scTrackListEl.innerHTML = visible.map(function (entry) {
-      const title = entry.s.title || 'Untitled';
-      return '<button class="sc-track-item' + (entry.i === scCurrentIndex ? ' active' : '') +
-        '" data-index="' + entry.i + '" title="' + scEscapeHtml(title) + '">' +
-        scEscapeHtml(title) + '</button>';
-    }).join('');
-
-    scTrackListEl.querySelectorAll('.sc-track-item').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        scPlayIndex(parseInt(this.getAttribute('data-index'), 10));
-      });
-    });
-  }
-
-  // One player, many sources: a SoundCloud track that has a matching
-  // video (same song uploaded both places) just plays that video
-  // instead — real audio+picture from one source, no risk of two audios
-  // overlapping — with this panel staying in sync (progress bar, play
-  // icon) via the notifyVideoProgress/notifyVideoPlayState bridges
-  // below. A track with no matching video plays through SoundCloud as
-  // before, but shows its cover art in the video pane so the two
-  // players still read as one unit.
-  function scPlayIndex(idx) {
-    if (idx < 0 || idx >= scSounds.length) return;
-    scCurrentIndex = idx;
-    renderScTrackList();
-
-    const sound = scSounds[idx];
-    const matchedVideoIndex = findMatchingVideoIndex(sound);
-
-    if (matchedVideoIndex !== -1) {
-      scSyncedToVideo = true;
-      scWidget.pause();
-      setScNowPlaying(sound);
-      scDuration = (sound.duration || 0) / 1000;
-      scIsPlaying = true;
-      updateScPlayIcon();
-      playVideoByIndex(matchedVideoIndex);
-    } else {
-      scSyncedToVideo = false;
-      showVideoCoverArt(getScArtworkUrl(sound));
-      deselectActiveVideo();
-      scWidget.skip(idx);
-      scWidget.play();
-    }
-  }
+  // Called from the video IIFE (via the playScByIndex bridge) when the
+  // user picks a SoundCloud-only entry from the merged playlist.
+  playScByIndex = function (idx) {
+    if (idx < 0 || idx >= scSoundsList.length) return;
+    const sound = scSoundsList[idx];
+    scDuration = (sound.duration || 0) / 1000;
+    setScNowPlayingFromSound(sound);
+    scProgressFillEl.style.width = '0%';
+    updateScPlayIcon(true);
+    scWidget.skip(idx);
+    scWidget.play();
+  };
+  pauseSc = function () {
+    scWidget.pause();
+  };
+  resumeSc = function () {
+    scWidget.play();
+  };
+  seekScToFraction = function (fraction) {
+    if (!scDuration) return;
+    scWidget.seekTo(fraction * scDuration * 1000);
+    scProgressFillEl.style.width = (fraction * 100) + '%';
+  };
+  // Called from the video IIFE whenever a video entry becomes the active
+  // one, so this panel mirrors it (title/artist/thumbnail/link) instead
+  // of stale SoundCloud info.
+  setNowPlayingFromVideo = function (info) {
+    setScTitle(info.title);
+    scArtistEl.textContent = info.author || '';
+    scArtworkImgEl.src = info.thumbnail;
+    scArtworkLinkEl.href = info.linkUrl || '#';
+    scArtworkLinkEl.title = 'Open on YouTube';
+  };
+  // Continuous progress/play-state from the video IIFE, only meaningful
+  // (and only sent) while a video is the active source.
+  notifyVideoProgress = function (current, duration) {
+    if (isScKey(activeKey) || !duration) return;
+    scDuration = duration;
+    scProgressFillEl.style.width = ((current / duration) * 100) + '%';
+  };
+  notifyVideoPlayState = function (isPlaying) {
+    lastKnownVideoPlaying = isPlaying;
+    updateScPlayIcon(isPlaying);
+  };
 
   scWidget.bind(SC.Widget.Events.READY, function () {
     scPlayBtn.disabled = false;
     scWidget.getSounds(function (sounds) {
-      scSounds = sounds || [];
-      renderScTrackList();
-    });
-    scWidget.getCurrentSound(function (sound) {
-      if (sound) setScNowPlaying(sound);
+      scSoundsList = sounds || [];
+      refreshMergedPlaylist();
     });
   });
 
+  // These only ever fire as a direct result of our own playScByIndex/
+  // pauseSc/resumeSc calls above — the widget itself is invisible and has
+  // no controls of its own for a visitor to trigger PLAY/PAUSE with.
   scWidget.bind(SC.Widget.Events.PLAY, function () {
-    // Only fires for genuine SoundCloud playback (the matched-video path
-    // above never calls scWidget.play()), so this track has no matching
-    // video — showing its cover art here too covers the widget's own
-    // "resume" controls, not just clicks that went through scPlayIndex.
-    scSyncedToVideo = false;
     scIsPlaying = true;
-    updateScPlayIcon();
-    notifyScPlayState(true);
-    // Only one of the video/SoundCloud should have audio at a time —
-    // starting a track here pauses (and re-mutes) the video.
-    pauseAndMuteVideo();
-    deselectActiveVideo();
-    scWidget.getCurrentSound(function (sound) {
-      if (!sound) return;
-      setScNowPlaying(sound);
-      scDuration = sound.duration || 0;
-      showVideoCoverArt(getScArtworkUrl(sound));
-      const idx = scSounds.findIndex(function (s) { return s.id === sound.id; });
-      if (idx !== -1) { scCurrentIndex = idx; renderScTrackList(); }
-    });
+    if (isScKey(activeKey)) updateScPlayIcon(true);
   });
-
   scWidget.bind(SC.Widget.Events.PAUSE, function () {
-    if (scSyncedToVideo) return; // this panel's state follows the video instead
     scIsPlaying = false;
-    updateScPlayIcon();
-    notifyScPlayState(false);
+    if (isScKey(activeKey)) updateScPlayIcon(false);
   });
 
   scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
-    if (scSyncedToVideo) return; // progress comes from notifyVideoProgress instead
+    if (!isScKey(activeKey) || !scDuration) return;
     scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
     // Lets the video pane's own scrub bar/time label track this
-    // standalone track's playhead too (see notifyScProgress in the
-    // video IIFE) — scDuration is milliseconds, formatTime() there
-    // expects seconds, hence the /1000s.
-    if (scDuration) notifyScProgress((data.relativePosition * scDuration) / 1000, scDuration / 1000);
+    // SoundCloud track's playhead too (see notifyScProgress in the video
+    // IIFE) — both sides agree scDuration/current are always seconds.
+    notifyScProgress(data.relativePosition * scDuration, scDuration);
   });
 
   scWidget.bind(SC.Widget.Events.FINISH, function () {
     scProgressFillEl.style.width = '0%';
+    if (isScKey(activeKey)) advanceToNextInMergedList();
   });
 
   // Explicit play()/pause() based on our own tracked scIsPlaying, rather
@@ -2495,15 +2410,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // the widget yet, which is what made this need two clicks to actually
   // start playing.
   scPlayBtn.addEventListener('click', function () {
-    if (scSyncedToVideo) {
-      if (scIsPlaying) pauseCurrentVideo();
-      else resumeCurrentVideo();
-      // scIsPlaying itself is kept accurate by notifyVideoPlayState,
-      // which fires from the video's own onStateChange right after this.
-    } else if (scIsPlaying) {
-      scWidget.pause();
+    if (isScKey(activeKey)) {
+      if (scIsPlaying) scWidget.pause();
+      else scWidget.play();
+    } else if (lastKnownVideoPlaying) {
+      pauseCurrentVideo();
     } else {
-      scWidget.play();
+      resumeCurrentVideo();
     }
   });
 
@@ -2528,57 +2441,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (!scDuration) return;
     const rect = scProgressTrackEl.getBoundingClientRect();
     const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    if (scSyncedToVideo) {
-      seekVideoToFraction(fraction);
+    if (isScKey(activeKey)) {
+      scWidget.seekTo(fraction * scDuration * 1000);
     } else {
-      scWidget.seekTo(fraction * scDuration);
+      seekVideoToFraction(fraction);
     }
     scProgressFillEl.style.width = (fraction * 100) + '%';
   });
-
-  // Exposes this section's re-render to the creator chin's click handler,
-  // which lives in a different IIFE — calling a function declared inside
-  // another IIFE directly would throw a ReferenceError (the exact bug
-  // this file's own history already hit with fetchTitles()), so the
-  // handoff goes through the shared top-level variable instead.
-  refreshScTrackList = renderScTrackList;
-
-  // Lets the video player's unmute button (a different IIFE) pause this
-  // section's playback, same bridging pattern as refreshScTrackList.
-  pauseScTrack = function () {
-    scWidget.pause();
-  };
-
-  // Lets the video's own play/pause button and scrub bar control a
-  // standalone (unmatched) SoundCloud track that's actually playing,
-  // same bridging pattern as pauseScTrack above.
-  resumeScTrack = function () {
-    scWidget.play();
-  };
-  seekScToFraction = function (fraction) {
-    if (!scDuration) return;
-    scWidget.seekTo(fraction * scDuration);
-    scProgressFillEl.style.width = (fraction * 100) + '%';
-  };
-
-  // Reverse direction of the one-player bridges above: the video IIFE
-  // calls these so this panel's progress bar and play icon keep
-  // reflecting the video whenever a matched track is the one actually
-  // playing, and so a manual video pick (bypassing SoundCloud entirely)
-  // clears the synced state.
-  notifyVideoProgress = function (current, duration) {
-    if (!scSyncedToVideo || !duration) return;
-    scDuration = duration;
-    scProgressFillEl.style.width = ((current / duration) * 100) + '%';
-  };
-  notifyVideoPlayState = function (isPlaying) {
-    if (!scSyncedToVideo) return;
-    scIsPlaying = isPlaying;
-    updateScPlayIcon();
-  };
-  notifyManualVideoSelect = function () {
-    scSyncedToVideo = false;
-  };
 })();
 </script>
 
