@@ -6,8 +6,9 @@
 <title>Videos</title>
 <style>
   :root {
-    --accent: #8B90E8;
-    --accent-rgb: 139, 144, 232;
+    /* Forest green, matching the Newest Video card this sits on. */
+    --accent: #228B22;
+    --accent-rgb: 34, 139, 34;
     --text-dim: rgba(255, 255, 0, 0.65);
   }
 
@@ -64,7 +65,10 @@
     right: 8px;
     z-index: 30;
     background: rgba(var(--accent-rgb), 0.5);
-    color: #111;
+    /* White, not the dark ink these used before — that read fine on the
+       old light periwinkle accent, but forest green at half opacity over
+       the video underneath is far too dark to carry it. */
+    color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.25);
     border-radius: 6px;
     padding: 5px 10px;
@@ -135,7 +139,10 @@
     left: 8px;
     z-index: 5;
     background: rgba(var(--accent-rgb), 0.5);
-    color: #111;
+    /* White, not the dark ink these used before — that read fine on the
+       old light periwinkle accent, but forest green at half opacity over
+       the video underneath is far too dark to carry it. */
+    color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.25);
     border-radius: 6px;
     padding: 5px 10px;
