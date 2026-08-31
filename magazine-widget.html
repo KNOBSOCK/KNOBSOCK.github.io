@@ -449,8 +449,10 @@
   // here too) carry the outer knobsock.net/truth URL in. So a shareable
   // per-article link can't point at knobsock.net/truth at all — it points
   // at this plain, non-embedded reader page on GitHub Pages instead, which
-  // has no such restriction since it isn't inside anything.
-  const ARTICLE_PAGE_URL = "https://knobsock.github.io/article.html";
+  // has no such restriction since it isn't inside anything. Served at
+  // truth.knobsock.net via a DNS record pointed at GitHub Pages (Universe
+  // owns the root domain, but a subdomain can still point elsewhere).
+  const ARTICLE_PAGE_URL = "https://truth.knobsock.net/article.html";
 
   const CATEGORIES = [
     { slug: "music", elementId: "category-music" },
