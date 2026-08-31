@@ -342,22 +342,23 @@
   .card-touch { display: none; }
 
   /* ---------- FOOTER ---------- */
+  /* Both pieces read as one footer: stacked and centered, rather than
+     pushed out to opposite corners as they were before. */
   .bottom-row {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 10px 4px 0;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 4px 0;
   }
   .bottom-row .gif-embed { height: 30px; }
   .bottom-row .gif-embed img { display: block; height: 100%; width: auto; }
-  .bottom-row .counter-panel {
-    padding: 6px 16px;
-    min-width: 120px;
-    text-align: center;
-  }
-  .bottom-row iframe { display: block; width: 140px; height: 28px; border: 0; }
+  .bottom-row .counter-panel { padding: 0; }
+  /* The counter widget sizes its own text from this box (container query
+     units), so shrinking the box is what makes the number tiny — no need
+     to touch the widget itself, which is shared with other embeds. */
+  .bottom-row iframe { display: block; width: 130px; height: 16px; border: 0; }
 </style>
 </head>
 <body>
@@ -408,7 +409,10 @@
       <div class="gif-embed">
         <img src="https://raw.githubusercontent.com/KNOBSOCK/Bobby-Wyckoff-Website/refs/heads/main/IMG_9407.gif" alt="Bobby Wyckoff">
       </div>
-      <div class="panel counter-panel">
+      <!-- Bare, not a .panel — a translucent box around just the count
+           would sit oddly next to the bare gif above it now that the two
+           read as one centered footer. -->
+      <div class="counter-panel">
         <iframe src="/page-view-counter-widget.html" title="Page views" loading="lazy"></iframe>
       </div>
     </div>
