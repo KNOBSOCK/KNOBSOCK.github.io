@@ -142,25 +142,6 @@
     padding: clamp(14px, 3vw, 26px);
   }
 
-  .articles-panel {
-    /* Capped and centered instead of stretching to the full page width —
-       the actual Recent Articles content is nowhere near that wide, so
-       a full-width box was mostly empty purple padding on both sides. */
-    max-width: 560px;
-    margin: 0 auto clamp(10px, 2.5vw, 20px);
-    background: #310098;
-  }
-  .articles-panel iframe {
-    display: block;
-    width: 100%;
-    /* Was a fixed 340px regardless of how many articles actually loaded
-       — with just one or two, that left a big empty purple gap below
-       them. The widget itself scrolls internally if there's ever more
-       than this fits, so a shorter box doesn't cut anything off. */
-    height: 190px;
-    border: 0;
-  }
-
   /* Floating "Truth Zone" / "Newest Video" / "Music Spot" labels — same
      bobbing animation as the site's other floating photos, pinned to a
      corner of their panel so they read as a label flying over the
@@ -169,7 +150,7 @@
     position: absolute;
     top: -14px;
     left: 16px;
-    width: clamp(140px, 32%, 220px);
+    width: clamp(120px, 26%, 200px);
     z-index: 2;
     pointer-events: none;
     animation: floatY 6s ease-in-out infinite;
@@ -180,23 +161,50 @@
     50% { transform: translateY(-10px) rotate(2deg); }
   }
 
-  .media-row {
+  /* ---------- TRUTH ZONE / NEWEST VIDEO / MUSIC SPOT ---------- */
+  /* Three equal columns side by side, sharing one defined row height so
+     each iframe can fill its panel by height (flex + 100%) instead of
+     an arbitrary fixed pixel number that never quite matched the
+     widget's own content — that mismatch was exactly what made these
+     look cut off or scrollable instead of scaling to fit. Each widget
+     already scales its OWN content to whatever box it's given (that's
+     how they're built to work inside a Universe code block too) — this
+     just makes sure the outer iframe box itself is sized right. */
+  .columns-row {
     display: grid;
-    grid-template-columns: 1.4fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: clamp(10px, 2.5vw, 20px);
     margin-bottom: clamp(10px, 2.5vw, 20px);
+    height: clamp(420px, 60vh, 680px);
   }
-  @media (max-width: 720px) {
-    .media-row { grid-template-columns: 1fr; }
+  .columns-row .panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
-  .video-panel { background: #7890f6; }
-  .listen-panel { background: #980237; }
-  .video-panel iframe,
-  .listen-panel iframe {
+  .columns-row iframe {
     display: block;
     width: 100%;
-    height: 380px;
+    flex: 1 1 auto;
+    min-height: 0;
     border: 0;
+  }
+  .articles-panel { background: #310098; }
+  .video-panel { background: #7890f6; }
+  .listen-panel { background: #980237; }
+
+  /* Mobile: stack instead of squeezing 3 columns into a phone's width —
+     each panel gets its own generous height (not the row's shared one,
+     since a single stacked row can't divide a fixed total three ways
+     without shrinking each panel down to nothing). */
+  @media (max-width: 720px) {
+    .columns-row {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+    .columns-row .panel {
+      height: clamp(320px, 62vh, 480px);
+    }
   }
 
   /* ---------- FOOTER ---------- */
@@ -238,14 +246,13 @@
       <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
     </div>
 
-    <div class="panel articles-panel">
-      <a class="panel-label" href="/truth" target="_top">
-        <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
-      </a>
-      <iframe src="/recent-articles-widget.html" title="Recent Articles" loading="lazy"></iframe>
-    </div>
-
-    <div class="media-row">
+    <div class="columns-row">
+      <div class="panel articles-panel">
+        <a class="panel-label" href="/truth" target="_top">
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
+        </a>
+        <iframe src="/recent-articles-widget.html" title="Recent Articles" loading="lazy"></iframe>
+      </div>
       <div class="panel video-panel">
         <span class="panel-label">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
