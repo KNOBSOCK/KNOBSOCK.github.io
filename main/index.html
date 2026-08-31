@@ -33,6 +33,11 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     min-height: 100%;
+    /* The mobile carousel's side cards deliberately sit past the edges of
+       the layout, so they'd otherwise widen the page and let it drag
+       sideways. Vertical scrolling is untouched — leaving overflow-y
+       alone means it stays auto. */
+    overflow-x: hidden;
     /* Scrolling still works — this only hides the visible scrollbar
        track/thumb, same technique used sitewide on this site. */
     scrollbar-width: none;
@@ -50,20 +55,24 @@
   a { text-decoration: none; color: inherit; }
 
   /* Drifting satellite gif — same free-floating overlay Universe used,
-     wanders slowly around the screen and wraps at the edges. Its own
-     inline z-index (way above everything else here) is what keeps it
-     visible over the video regardless of DOM order. */
+     wanders slowly around the screen and wraps at the edges. It sits
+     BEHIND the interface (z-index 0, with .page above it at 1) rather
+     than on top of everything, so it drifts past in the background
+     instead of crossing over the cards and buttons. Still above the
+     body's tiled background, since a negative z-index would sink it
+     behind that instead and make it disappear entirely. */
   #satellite {
     position: fixed;
     top: 0;
     left: 0;
     width: 60px;
-    z-index: 9999;
+    z-index: 0;
     pointer-events: none;
   }
 
   .page {
     position: relative;
+    z-index: 1;
     max-width: 1100px;
     margin: 0 auto;
     /* Top padding cut way down from the other three sides — this was
@@ -180,7 +189,11 @@
     grid-template-columns: repeat(3, 1fr);
     gap: clamp(10px, 2.5vw, 20px);
     margin: clamp(28px, 4vw, 48px) 0 clamp(10px, 2.5vw, 20px);
-    height: clamp(420px, 60vh, 680px);
+    /* Scales with the window's WIDTH (vw), not its height — so as the
+       browser narrows toward the mobile breakpoint the whole three-across
+       stack shrinks proportionally with it, keeping its shape, instead of
+       staying tall while the columns get skinnier and skinnier. */
+    height: clamp(340px, 46vw, 680px);
   }
   /* overflow stays visible here on purpose — the panel-label above is
      deliberately positioned partly outside this box (top: -14px) so it
@@ -211,42 +224,79 @@
   }
   .listen-panel { background: #980237; }
 
-  /* Two lightweight duplicates (background color + label only, no live
-     iframe) bookending the real 3 panels, purely so the loop below has
-     something to show for one instant mid-swipe before snapping back to
-     the real card — see the JS. Invisible/inert on desktop; only
-     switched on inside the mobile block below. */
-  .panel-clone { display: none; }
+  /* ---------- MOBILE: 3D CARD CAROUSEL ----------
+     The active card sits front and center with the previous and next
+     ones shrunk back on either side, and a swipe rotates through them
+     endlessly.
 
-  /* Mobile: instead of stacking the 3 panels in a tall scrolling column
-     (which is what kept causing scroll/scrollbar problems inside each
-     widget), they become a horizontal swipe carousel — one full-width
-     card at a time, native scroll-snap for the swipe feel, with a tiny
-     bit of JS to make it loop (swipe past the last card and you're back
-     at the first, and vice versa). */
+     This is driven entirely by transforms on absolutely-positioned
+     cards, NOT by a native scroll-snap container like the first attempt.
+     That switch is what fixes most of the carousel's bugs at once:
+     - A scroll container clips everything that overflows it, in BOTH
+       axes — which is what was slicing the tops off the floating "Truth
+       Zone"/"Newest Video"/"Music Spot" labels, since they deliberately
+       poke above their card. Nothing clips here (overflow stays
+       visible), so they render whole.
+     - Cards sized to the padded container's width left a dead margin
+       down each side that the clipping edge made look like an invisible
+       layer cutting the page off. These are centered on the viewport
+       instead, spilling past the layout's padding on purpose.
+     - The index lives in a variable rather than in scroll position, so
+       nothing can quietly reset it. iOS firing a resize every time its
+       URL bar hides was what kept snapping the old one back to card 1
+       after a few seconds.
+     - Touch handlers run on the element directly, so a swipe works on
+       the first try instead of needing the scroll container nudged into
+       position first. */
   @media (max-width: 720px) {
     .columns-row {
-      display: flex;
+      /* Square cards, per side of the viewport with room for the
+         neighbors to peek in from both edges. */
+      --card-size: min(70vw, 330px);
+      display: block;
+      position: relative;
       grid-template-columns: none;
-      height: auto;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scroll-behavior: auto;
-      touch-action: pan-x;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      height: var(--card-size);
+      /* Pulled out past .page's side padding so the centered card lines
+         up with the middle of the screen, not the middle of the padded
+         column. */
+      margin-left: calc(-1 * clamp(16px, 4vw, 40px));
+      margin-right: calc(-1 * clamp(16px, 4vw, 40px));
+      margin-top: clamp(34px, 9vw, 54px);
+      margin-bottom: clamp(20px, 6vw, 36px);
+      overflow: visible;
+      /* Vertical drags still scroll the page normally; horizontal ones
+         are left alone for the swipe handler below to interpret, instead
+         of the browser turning them into a scroll. */
+      touch-action: pan-y;
     }
-    .columns-row::-webkit-scrollbar { display: none; }
     .columns-row .panel {
-      flex: 0 0 100%;
-      scroll-snap-align: center;
-      scroll-snap-stop: always;
-      margin-top: 0;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: var(--card-size);
+      height: var(--card-size);
+      margin: 0;
+      transform: translateX(-50%);
+      transform-origin: center center;
+      transition: transform 0.38s cubic-bezier(0.22, 0.61, 0.36, 1),
+                  opacity 0.38s ease;
+      will-change: transform;
     }
-    .panel-clone { display: flex; }
-    .articles-panel { height: 260px; }
-    .video-panel { height: 360px; }
-    .listen-panel { height: 300px; }
+    /* Mid-swipe the cards track the finger directly — a transition here
+       would lag a frame or two behind it and feel rubbery. */
+    .columns-row.dragging .panel {
+      transition: none;
+    }
+    /* Only the front card is interactive; without this a tap meant for
+       the side cards would land inside their widget iframe instead of
+       bringing that card forward. */
+    .columns-row .panel:not(.is-active) iframe {
+      pointer-events: none;
+    }
+    .columns-row .panel:not(.is-active) {
+      cursor: pointer;
+    }
   }
 
   /* ---------- FOOTER ---------- */
@@ -289,16 +339,6 @@
     </div>
 
     <div class="columns-row" id="columnsRow">
-      <!-- Leading clone (mobile only) — a static stand-in for Music Spot,
-           the card the loop lands on for an instant when you swipe
-           backward past Truth Zone. No live iframe: it only needs to
-           look right for a moment before the JS snaps to the real one. -->
-      <div class="panel listen-panel panel-clone" aria-hidden="true">
-        <span class="panel-label">
-          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="">
-        </span>
-      </div>
-
       <div class="panel articles-panel">
         <a class="panel-label" href="/truth" target="_top">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
@@ -316,14 +356,6 @@
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="Music Spot">
         </span>
         <iframe src="/soundcloud-widget.html" title="Listen" loading="lazy"></iframe>
-      </div>
-
-      <!-- Trailing clone (mobile only) — same idea, stands in for Truth
-           Zone when you swipe forward past Music Spot. -->
-      <div class="panel articles-panel panel-clone" aria-hidden="true">
-        <span class="panel-label">
-          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="">
-        </span>
       </div>
     </div>
 
@@ -368,62 +400,141 @@
 </script>
 
 <script>
-  // ---------- MOBILE CARD LOOP ----------
-  // On mobile, .columns-row is a horizontal swipe carousel with 5 cards:
-  // [Music Spot clone, Truth Zone, Newest Video, Music Spot, Truth Zone clone]
-  // (see the CSS above) — indexes 0-4, with 1-3 being the real cards.
-  // Landing on a clone (0 or 4) after a swipe silently jumps to the real
-  // card it stands in for, with no animation, so it reads as an
-  // infinite loop instead of stopping at the ends.
+  // ---------- MOBILE 3D CARD CAROUSEL ----------
+  // Three cards, one front and center with the other two shrunk back on
+  // either side, swiped through endlessly. Positions come from each
+  // card's offset from the active one, wrapped short-way around the
+  // three, so it loops without needing duplicate cards at the ends.
   (function () {
     const row = document.getElementById('columnsRow');
     if (!row) return;
+    const cards = Array.prototype.slice.call(row.querySelectorAll('.panel'));
+    const count = cards.length;
+    if (!count) return;
 
-    function isCarouselActive() {
+    // How far a side card slides out (% of its own width) and how far
+    // down it scales — the pair of numbers that set the depth effect.
+    const SIDE_SHIFT = 62;
+    const SIDE_SCALE = 0.3;
+    const SIDE_FADE = 0.45;
+
+    let index = 0;
+    let dragging = false;
+    let axis = null;
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+
+    function isCarousel() {
       return window.matchMedia('(max-width: 720px)').matches;
     }
 
-    function cardWidth() {
-      return row.clientWidth;
+    // Shortest signed distance from the active card to card i, wrapped —
+    // so with 3 cards every card is always at -1, 0, or +1 and the ends
+    // join up instead of running out.
+    function offsetFor(i) {
+      let d = i - index;
+      if (d > count / 2) d -= count;
+      if (d < -count / 2) d += count;
+      return d;
     }
 
-    function jumpTo(index) {
-      row.scrollTo({ left: cardWidth() * index, behavior: 'instant' });
+    function layout(dragPx) {
+      if (!isCarousel()) {
+        // Desktop lays these out as a plain grid — clear anything the
+        // carousel set so it can't leak across the breakpoint.
+        cards.forEach(function (card) {
+          card.style.transform = '';
+          card.style.opacity = '';
+          card.style.zIndex = '';
+          card.classList.remove('is-active');
+        });
+        return;
+      }
+      const width = cards[0].offsetWidth || 1;
+      const shift = (dragPx || 0) / width;
+      cards.forEach(function (card, i) {
+        const pos = offsetFor(i) + shift;
+        const depth = Math.min(Math.abs(pos), 1);
+        const scale = 1 - depth * SIDE_SCALE;
+        card.style.transform =
+          'translateX(calc(-50% + ' + (pos * SIDE_SHIFT) + '%)) scale(' + scale + ')';
+        card.style.opacity = String(1 - depth * SIDE_FADE);
+        card.style.zIndex = String(10 - Math.round(depth * 10));
+        card.classList.toggle('is-active', Math.round(pos) === 0);
+      });
     }
 
-    // Starts centered on the first real card (Truth Zone, index 1) —
-    // otherwise a fresh page load would open on the leading clone.
-    function resetToStart() {
-      if (!isCarouselActive()) return;
-      jumpTo(1);
+    function go(delta) {
+      index = (index + delta % count + count) % count;
+      layout(0);
     }
 
-    let scrollSettleTimer = null;
-    row.addEventListener('scroll', function () {
-      if (!isCarouselActive()) return;
-      clearTimeout(scrollSettleTimer);
-      // Debounced instead of reacting to every scroll tick — this only
-      // needs to run once the swipe gesture has actually settled on a
-      // card, not mid-motion.
-      scrollSettleTimer = setTimeout(function () {
-        const width = cardWidth();
-        if (!width) return;
-        const index = Math.round(row.scrollLeft / width);
-        if (index === 0) {
-          jumpTo(3); // leading clone (Music Spot) -> the real Music Spot
-        } else if (index === 4) {
-          jumpTo(1); // trailing clone (Truth Zone) -> the real Truth Zone
-        }
-      }, 80);
+    row.addEventListener('touchstart', function (e) {
+      if (!isCarousel() || e.touches.length !== 1) return;
+      dragging = true;
+      axis = null;
+      dx = 0;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
     }, { passive: true });
 
+    row.addEventListener('touchmove', function (e) {
+      if (!dragging || e.touches.length !== 1) return;
+      const moveX = e.touches[0].clientX - startX;
+      const moveY = e.touches[0].clientY - startY;
+      // First few pixels decide whether this is a swipe or the start of
+      // scrolling the page — once it's committed to one, it stays there,
+      // so a slightly diagonal swipe doesn't flip between the two.
+      if (axis === null) {
+        if (Math.abs(moveX) < 8 && Math.abs(moveY) < 8) return;
+        axis = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
+        if (axis === 'x') row.classList.add('dragging');
+      }
+      if (axis !== 'x') return;
+      dx = moveX;
+      layout(dx);
+    }, { passive: true });
+
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      row.classList.remove('dragging');
+      const width = cards[0].offsetWidth || 1;
+      // Past about a fifth of a card's width counts as a deliberate
+      // swipe; anything shorter settles back where it started.
+      if (axis === 'x' && Math.abs(dx) > width * 0.18) {
+        go(dx < 0 ? 1 : -1);
+      } else {
+        layout(0);
+      }
+      axis = null;
+      dx = 0;
+    }
+
+    row.addEventListener('touchend', endDrag, { passive: true });
+    row.addEventListener('touchcancel', endDrag, { passive: true });
+
+    // Tapping a side card brings it forward.
+    cards.forEach(function (card, i) {
+      card.addEventListener('click', function () {
+        if (!isCarousel()) return;
+        if (offsetFor(i) === 0) return;
+        go(offsetFor(i));
+      });
+    });
+
+    // Re-laying out on resize is fine; what matters is that it never
+    // touches `index`. iOS fires a resize every time its URL bar slides
+    // away, and resetting the position on those is what kept yanking the
+    // old carousel back to the first card a few seconds after landing.
     let resizeTimer = null;
     window.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(resetToStart, 150);
+      resizeTimer = setTimeout(function () { layout(0); }, 120);
     });
 
-    resetToStart();
+    layout(0);
   })();
 </script>
 

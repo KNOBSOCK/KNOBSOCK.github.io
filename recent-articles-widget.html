@@ -151,8 +151,11 @@
 
   // Where an article click sends the visitor — the truth zone page, opened
   // directly to that article via the same #article=slug hash routing the
-  // truth zone page already reads on load.
-  const TRUTH_ZONE_URL = "https://knobsock.net/truth";
+  // truth zone page already reads on load. Points at the GitHub-hosted
+  // truth.knobsock.net rather than the old Universe page, since that one
+  // is a real top-level page where the hash routing actually works for
+  // an incoming link.
+  const TRUTH_ZONE_URL = "https://truth.knobsock.net/";
 
   const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -203,6 +206,35 @@
     `;
   }
 
+  // Shows as many articles as actually fit the box this widget was given,
+  // and hides the rest — the widget can't scroll (by design), so anything
+  // that doesn't fit would otherwise just be sliced off mid-card. This is
+  // also what makes the count adapt on its own: a small square card on a
+  // phone has room for one, a tall column on a desktop fits several, with
+  // no need for the widget to know which one it's sitting in.
+  function trimToFit() {
+    const cards = Array.prototype.slice.call(
+      document.querySelectorAll(".article-card")
+    );
+    if (!cards.length) return;
+    cards.forEach(function (card) { card.style.display = ""; });
+
+    const limit = document.body.getBoundingClientRect().bottom;
+    let cutting = false;
+    cards.forEach(function (card) {
+      if (cutting) {
+        card.style.display = "none";
+        return;
+      }
+      // A couple of px of slack so a card sitting flush against the
+      // bottom edge doesn't get dropped for a rounding difference.
+      if (card.getBoundingClientRect().bottom > limit - 2) {
+        card.style.display = "none";
+        cutting = true;
+      }
+    });
+  }
+
   async function loadRecentArticles() {
     const res = await fetch(`${API_BASE}/posts/?number=6`);
     const data = await res.json();
@@ -210,7 +242,23 @@
     document.getElementById("recent-articles").innerHTML = posts.length
       ? posts.map(articleCard).join("")
       : `<p class="loading">No articles published yet.</p>`;
+
+    trimToFit();
+    // Thumbnails settle after the markup does, and each one landing
+    // changes how tall its card is — so re-measure as they arrive rather
+    // than trusting the first pass.
+    document.querySelectorAll(".article-card img").forEach(function (img) {
+      if (img.complete) return;
+      img.addEventListener("load", trimToFit);
+      img.addEventListener("error", trimToFit);
+    });
   }
+
+  let trimTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(trimTimer);
+    trimTimer = setTimeout(trimToFit, 120);
+  });
 
   loadRecentArticles();
 </script>
