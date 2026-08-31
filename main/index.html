@@ -393,7 +393,23 @@
         <span class="panel-label">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
         </span>
-        <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"></iframe>
+        <!-- sandbox WITHOUT allow-top-navigation is what actually stops
+             the "reopen Safari and you're on youtube.com" bug. Sandbox
+             flags apply to nested frames too, so the YouTube player
+             inside this widget inherits the restriction and simply
+             cannot navigate the whole tab away, whatever it tries — no
+             frame-busting, no top.location. Making it structurally
+             impossible beats chasing whichever code path was doing it.
+             The three flags it does get are the ones the widget needs to
+             work at all: scripts to run, same-origin for its Firestore
+             connection, presentation for video playback. Deliberately
+             NOT granted: popups, forms, and top navigation — this widget
+             plays videos inline and has no legitimate reason to send you
+             anywhere. (The other widgets aren't sandboxed: Recent
+             Articles links out with target="_top" and SoundCloud opens
+             tracks in a new tab, both of which this would break.) -->
+        <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
+                sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
         <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel listen-panel">
