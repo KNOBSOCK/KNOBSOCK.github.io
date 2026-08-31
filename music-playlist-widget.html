@@ -90,7 +90,18 @@
     .layout {
       display: grid;
       grid-template-columns: 1fr minmax(280px, 34%);
-      grid-template-rows: auto auto 1fr;
+      /* minmax(0, auto)/minmax(0, 1fr) — not plain auto/1fr — on the
+         video and SoundCloud rows: plain "auto" never shrinks below its
+         content's natural size, which is what let a wide-but-short
+         window's aspect-ratio-driven video height overflow the layout
+         and clip/hide "Music Videos" entirely. With a 0 floor, the
+         video row still hugs its full 16:9 height whenever there's
+         room (nothing changes in the common case) but can shrink first
+         when the window doesn't have enough height for everything, so
+         the video scales down to fit instead of overflowing — chin
+         stays plain "auto" since its own natural size is tiny enough
+         that it's never the one that needs to give. */
+      grid-template-rows: minmax(0, auto) auto minmax(0, 1fr);
       grid-template-areas:
         "video      playlist"
         "chin       playlist"
@@ -104,7 +115,7 @@
         "chin"
         "soundcloud";
     }
-    .video-pane { grid-area: video; }
+    .video-pane { grid-area: video; min-height: 0; }
     .creator-chin { grid-area: chin; }
     .sc-section {
       grid-area: soundcloud;
@@ -291,6 +302,30 @@
     pointer-events: auto;
   }
 
+  /* Only relevant while fullscreen — the real .creator-chin below the
+     video pane gets covered by it then (see .video-pane:fullscreen
+     below), so this copy (a child of .video-pane, kept in sync by
+     renderCreatorChin()) lets artist filtering keep working, using the
+     hover-reveal treatment above the control bar instead of leaving it
+     visible all the time. */
+  .creator-chin-overlay {
+    display: none;
+    position: absolute;
+    left: clamp(8px, 2cqw, 14px);
+    right: clamp(8px, 2cqw, 14px);
+    bottom: clamp(52px, 12cqh, 68px);
+    z-index: 5;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .video-pane.is-fullscreen .creator-chin-overlay { display: flex; }
+  .video-pane.is-fullscreen:hover .creator-chin-overlay,
+  .video-pane.is-fullscreen:focus-within .creator-chin-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
   .video-controls {
     position: absolute;
@@ -352,6 +387,31 @@
     margin: 0;
     border-radius: 0;
     z-index: 9999;
+  }
+
+  /* Native Fullscreen API on a plain div (not a video/img element)
+     doesn't get any UA default sizing — without this, it fullscreens at its
+     existing grid-cell size instead of covering the screen, leaving the
+     real .creator-chin and SoundCloud panel visible/overlapping beside
+     it. Explicit full-viewport sizing here matches .pseudo-fullscreen
+     above (the JS fallback for when native fullscreen isn't available). */
+  .video-pane:fullscreen,
+  .video-pane:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+
+  /* Belt-and-suspenders alongside the sizing fix above: whichever
+     fullscreen path is active, explicitly hide the real chin/SoundCloud/
+     playlist rather than relying on the video simply covering them, so
+     there's no overlap even if a browser sizes fullscreen differently
+     than expected. The chin's overlay copy above stays usable instead. */
+  .layout.fullscreen-active .creator-chin,
+  .layout.fullscreen-active .sc-section,
+  .layout.fullscreen-active .playlist-pane {
+    display: none;
   }
 
   .scrub-range {
@@ -439,13 +499,13 @@
   .playlist-items::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
   @media (max-width: 860px) {
-    /* align-items: flex-start stops each card from being stretched to
-       the row's full height (flex's default "stretch") — without it, a
-       card's own background/border extended far past its actual
-       thumbnail+text content, since the row itself was as tall as
-       whatever leftover vertical space existed, not just as tall as one
-       card needs to be. */
-    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: flex-start; }
+    /* align-items: stretch (paired with the thumbnail flex-growing to
+       fill the card below) means each card uses the row's full height
+       for a bigger thumbnail instead of leaving empty space beneath a
+       fixed-aspect one — the row's own height is already well-bounded
+       now (see the grid rows above), so this no longer balloons cards
+       taller than their content the way it used to before that fix. */
+    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
   }
 
   .playlist-item {
@@ -470,19 +530,25 @@
   }
 
   @media (max-width: 860px) {
-    /* Thumbnail on top (scaled up to fill the card's own width instead
-       of a small side icon), title + creator underneath, left-aligned —
-       a different format than desktop's side-by-side row, since a
-       bigger thumbnail reads much better on a phone. align-items on
-       .playlist-items above already stops this taller card from being
-       stretched by flex's default "stretch," so the card's height is
-       still only ever as tall as the thumbnail + text actually need. */
+    /* Thumbnail on top, title + creator underneath, left-aligned — a
+       different format than desktop's side-by-side row, since a bigger
+       thumbnail reads much better on a phone. The thumbnail grows to
+       fill whatever height the card is given (align-items: stretch on
+       .playlist-items above) instead of sitting at a fixed 16:9 with
+       empty space below it — the text stays pinned to its own natural
+       height at the bottom either way, so it's never squeezed. */
     .playlist-item {
       flex-direction: column;
-      align-items: flex-start;
+      align-items: stretch;
       width: clamp(150px, 46vw, 210px);
     }
-    .playlist-thumb-wrap { width: 100%; }
+    .playlist-thumb-wrap {
+      width: 100%;
+      aspect-ratio: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .playlist-meta { flex: 0 0 auto; }
   }
 
   .playlist-thumb-wrap {
@@ -897,6 +963,11 @@
     width: clamp(28px, 6vw, 36px);
     font-size: clamp(11px, 2.6vw, 14px);
     flex: none;
+    /* Same hover "pop" as the video's play/pause button. */
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .sc-play-btn:hover:not(:disabled) {
+    transform: scale(1.22) rotate(-6deg);
   }
 
   .sc-info { min-width: 0; flex: 1 1 auto; }
@@ -1026,6 +1097,12 @@
     <div class="video-cover-overlay" id="videoCoverOverlay" hidden>
       <img class="video-cover-art" id="videoCoverArt" src="" alt="" />
     </div>
+    <!-- Only relevant/shown while fullscreen (native or pseudo) — the
+         real .creator-chin below gets covered by the video like the
+         rest of the page then, so this hover-revealed copy (kept in
+         sync by renderCreatorChin() below) lets artist filtering still
+         work without leaving fullscreen. -->
+    <div class="creator-chin creator-chin-overlay" id="creatorChinOverlay"></div>
     <div class="video-controls" id="videoControls">
       <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
       <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
@@ -1085,7 +1162,7 @@
   <div class="playlist-pane" id="playlistPane">
     <div class="playlist-card">
       <div class="playlist-header">
-        <span class="playlist-title">Up Next</span>
+        <span class="playlist-title">Music Videos</span>
         <span class="playlist-count" id="playlistCount"></span>
       </div>
       <div class="playlist-items" id="playlistItems">
@@ -1237,6 +1314,10 @@ let pauseCurrentVideo = function () {};
 let resumeCurrentVideo = function () {};
 let seekVideoToFraction = function () {};
 let notifyManualVideoSelect = function () {};
+// Called when a SoundCloud track with no matching video starts playing,
+// so the "Music Videos" list stops showing the last-played video as
+// active/highlighted while something unrelated is actually playing.
+let deselectActiveVideo = function () {};
 
 // The reverse direction — the video IIFE calls these (replaced by the
 // SoundCloud IIFE) so the SoundCloud panel's progress bar and play icon
@@ -1314,6 +1395,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const playlistItemsEl = document.getElementById('playlistItems');
   const playlistCountEl = document.getElementById('playlistCount');
   const creatorChinEl = document.getElementById('creatorChin');
+  const creatorChinOverlayEl = document.getElementById('creatorChinOverlay');
+  const layoutEl = document.getElementById('layout');
   const ytFrame = document.getElementById('ytFrame');
   const videoCoverOverlay = document.getElementById('videoCoverOverlay');
   const videoCoverArt = document.getElementById('videoCoverArt');
@@ -1476,14 +1559,21 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     const loadingChip = stillLoading
       ? '<span class="creator-chip" style="opacity:0.5;cursor:default;">Loading</span>'
       : '';
-    creatorChinEl.innerHTML = [allChip].concat(authorChips).join('') + loadingChip;
+    const chinHtml = [allChip].concat(authorChips).join('') + loadingChip;
 
-    creatorChinEl.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        activeAuthorFilter = this.getAttribute('data-author') || null;
-        renderCreatorChin();
-        renderPlaylist();
-        refreshScTrackList();
+    // Populates both the normal chin (below the video) and its
+    // fullscreen overlay copy (inside the video pane, see the HTML
+    // above) identically, so artist filtering works the same way from
+    // either one.
+    [creatorChinEl, creatorChinOverlayEl].forEach(el => {
+      el.innerHTML = chinHtml;
+      el.querySelectorAll('.creator-chip[data-author]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          activeAuthorFilter = this.getAttribute('data-author') || null;
+          renderCreatorChin();
+          renderPlaylist();
+          refreshScTrackList();
+        });
       });
     });
   }
@@ -1546,6 +1636,14 @@ let PLAYLIST = buildPlaylist(currentVideoList);
         });
     });
   }
+
+  // Called from the SoundCloud IIFE (via the top-level deselectActiveVideo
+  // bridge) whenever a track with no matching video starts playing, so the
+  // list stops showing whatever video was last active as still selected.
+  deselectActiveVideo = function () {
+    activeIndex = -1;
+    renderPlaylist();
+  };
 
   function playIndex(idx) {
     if (idx < 0 || idx >= PLAYLIST.length) return;
@@ -1723,7 +1821,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     updateFullscreenIcon();
   }
   function updateFullscreenIcon() {
-    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+    const fs = isFullscreen();
+    fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
+    // Lets the CSS show the fullscreen overlay chin (inside the video
+    // pane) and hide the real chin/SoundCloud/playlist, which would
+    // otherwise sit visible/overlapping beside a fullscreened video.
+    videoPane.classList.toggle('is-fullscreen', fs);
+    layoutEl.classList.toggle('fullscreen-active', fs);
   }
   fullscreenBtn.addEventListener('click', function () {
     if (isFullscreen()) {
@@ -1761,7 +1865,10 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     const currentId = PLAYLIST[activeIndex] ? PLAYLIST[activeIndex].id : null;
     PLAYLIST = newPlaylist;
     const stillThereIndex = currentId ? PLAYLIST.findIndex(v => v.id === currentId) : -1;
-    activeIndex = stillThereIndex >= 0 ? stillThereIndex : 0;
+    // activeIndex of -1 means no video is currently active (a SoundCloud
+    // track with no matching video is playing instead) — keep it that
+    // way rather than snapping back to video 0 on every playlist update.
+    activeIndex = stillThereIndex >= 0 ? stillThereIndex : (activeIndex === -1 ? -1 : 0);
     // If the creator currently filtered on has no tracks left in the
     // updated list, drop back to "All" instead of showing an empty list.
     if (activeAuthorFilter && !PLAYLIST.some(v => v.author === activeAuthorFilter)) {
@@ -2283,6 +2390,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     } else {
       scSyncedToVideo = false;
       showVideoCoverArt(getScArtworkUrl(sound));
+      deselectActiveVideo();
       scWidget.skip(idx);
       scWidget.play();
     }
@@ -2310,6 +2418,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     // Only one of the video/SoundCloud should have audio at a time —
     // starting a track here pauses (and re-mutes) the video.
     pauseAndMuteVideo();
+    deselectActiveVideo();
     scWidget.getCurrentSound(function (sound) {
       if (!sound) return;
       setScNowPlaying(sound);
