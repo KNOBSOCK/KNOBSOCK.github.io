@@ -43,20 +43,6 @@
     flex-direction: column;
   }
 
-  /* Centered in a squarish box, listed from the top in a tall narrow one.
-     This widget has no way to know whether it's on a phone or a desktop
-     — it's an iframe, and it gets a box about 300px wide either way, so
-     a width media query can't tell them apart. The SHAPE can: the mobile
-     card is a square (ratio ~1.1) while the desktop column is tall and
-     narrow (~0.5), so 4/5 sits comfortably between the two. It also
-     keeps meaning the right thing if the layout changes later — center
-     when there's spare room all around, list from the top when there's a
-     column to fill. */
-  @media (min-aspect-ratio: 4/5) {
-    body { justify-content: center; }
-    .wrap { margin: auto 0; }
-  }
-
   a { text-decoration: none; color: inherit; }
 
   .wrap {
