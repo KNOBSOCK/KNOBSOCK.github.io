@@ -25,6 +25,12 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    /* Leaving this unset (the initial "visible") while overflow-y is set
+       computes it to "auto" too per spec — that's what let the widget
+       still be dragged/scrolled sideways even with no visible bar,
+       whenever a card's hover pop pushed a hair past the container's
+       own width. */
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     /* Hidden on every screen size, not just phones — scrolling (touch/
        wheel/drag) still works, this only hides the visible track/thumb,
