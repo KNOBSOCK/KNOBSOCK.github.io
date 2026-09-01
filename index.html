@@ -245,12 +245,14 @@
   .columns-row .panel {
     display: flex;
     flex-direction: column;
+    /* Each layer's opacity halved from its original strength — same
+       shape/blur, just 50% less pronounced. */
     box-shadow:
-      0 16px 34px rgba(0, 0, 0, 0.38), 0 5px 12px rgba(0, 0, 0, 0.25),
-      inset 0 7px 9px -2px rgba(0, 0, 0, 0.7),
-      inset 0 -4px 7px -3px rgba(0, 0, 0, 0.42),
-      inset 6px 0 9px -3px rgba(0, 0, 0, 0.5),
-      inset -6px 0 9px -3px rgba(0, 0, 0, 0.5);
+      0 16px 34px rgba(0, 0, 0, 0.19), 0 5px 12px rgba(0, 0, 0, 0.125),
+      inset 0 7px 9px -2px rgba(0, 0, 0, 0.35),
+      inset 0 -4px 7px -3px rgba(0, 0, 0, 0.21),
+      inset 6px 0 9px -3px rgba(0, 0, 0, 0.25),
+      inset -6px 0 9px -3px rgba(0, 0, 0, 0.25);
   }
   .columns-row iframe {
     display: block;
