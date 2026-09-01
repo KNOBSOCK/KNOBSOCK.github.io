@@ -72,7 +72,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 3;
+const TEMPLATE_VERSION = 4;
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -326,13 +326,13 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
     <source src="${esc(BG_VIDEO_URL)}" type="video/mp4">
   </video>
   <header class="site-header">
-    <a href="/">
+    <a href="${esc(HOME_URL)}">
       <img src="${esc(LOGO_URL)}" alt="Knobsock">
     </a>
   </header>
 
   <div class="page-wrapper">
-    <a class="back-link" href="${esc(HOME_URL)}">&larr; Back to Knobsock</a>
+    <a class="back-link" href="${esc(HOME_URL)}">&larr; Back to Truth Zone</a>
     <main>
       <div class="article-header">
         ${category ? `<span class="cat-tag">${esc(category)}</span>` : ""}
@@ -352,7 +352,7 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
       </div>
       <div class="bottom-actions">
         <a href="${esc(post.URL || "#")}" target="_blank" rel="noopener" class="wp-link">View original post &rarr;</a>
-        <a class="back-btn" href="${esc(HOME_URL)}">&larr; Back to Knobsock</a>
+        <a class="back-btn" href="${esc(HOME_URL)}">&larr; Back to Truth Zone</a>
       </div>
     </main>
   </div>
