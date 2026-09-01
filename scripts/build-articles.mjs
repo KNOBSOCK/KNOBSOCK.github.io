@@ -4,10 +4,10 @@
  *
  * Pulls every published post from the WordPress.com public REST API and
  * writes one real, self-contained HTML file per post at
- * article/<slug>/index.html — the same markup article.html renders
- * client-side, except baked in at build time so the URL is a genuine
- * page (real <title>, real OG tags, works with JS off, previews properly
- * when shared).
+ * truth/article/<slug>/index.html — the same markup truth/article.html
+ * renders client-side, except baked in at build time so the URL is a
+ * genuine page (real <title>, real OG tags, works with JS off, previews
+ * properly when shared).
  *
  * Run by .github/workflows/sync-articles.yml on a schedule. Reads only
  * public data, so there are no credentials involved.
@@ -39,23 +39,22 @@ import path from "node:path";
 const SITE = "knobsock4.wordpress.com";
 const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
 
-/* Where the generated pages go, relative to the repo root. This is the
-   one line to change when the Truth Zone moves to knobsock.net/truth —
-   set it to "truth/article" and re-run, and every page regenerates at
-   the new path. */
-const OUT_DIR = "article";
+/* Where the generated pages go, relative to the repo root. Updated to
+   truth/article now that the Truth Zone has moved to knobsock.net/truth
+   — every page regenerates at the new path on the next run. */
+const OUT_DIR = "truth/article";
 
-/* Used for canonical + OG URLs, which have to be absolute. Change this
-   at the same time as OUT_DIR when the domain moves. */
-const SITE_ORIGIN = "https://truth.knobsock.net";
+/* Used for canonical + OG URLs, which have to be absolute. Changed at
+   the same time as OUT_DIR for the same domain move. */
+const SITE_ORIGIN = "https://knobsock.net";
 
-const HOME_URL = "https://truth.knobsock.net/";
+const HOME_URL = "https://knobsock.net/truth/";
 const LOGO_URL =
   "https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png";
 const BG_VIDEO_URL =
   "https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4";
 
-/* Same placeholder article.html uses, but with its single quotes
+/* Same placeholder truth/article.html uses, but with its single quotes
    percent-encoded as %27. The raw version is written with '...' around
    every SVG attribute, and this string gets inlined into an onerror="..."
    handler below — the first bare quote closed the JS string early and
@@ -110,7 +109,7 @@ function truncate(s, n) {
 }
 
 /* Formatted here rather than with toLocaleDateString() in the browser
-   like article.html does, because a static page has no browser at build
+   like truth/article.html does, because a static page has no browser at build
    time. Pinned to en-US so the output is identical no matter which
    runner builds it — otherwise the runner's locale would show up as a
    spurious diff on every file. */
@@ -327,7 +326,7 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
     <source src="${esc(BG_VIDEO_URL)}" type="video/mp4">
   </video>
   <header class="site-header">
-    <a href="https://truth.knobsock.net/main/">
+    <a href="/">
       <img src="${esc(LOGO_URL)}" alt="Knobsock">
     </a>
   </header>

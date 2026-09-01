@@ -3,45 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Truth Zone - KNOBSOCK</title>
+<title>KNOBSOCK</title>
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://truth.knobsock.net/">
-<meta property="og:title" content="Truth Zone - KNOBSOCK">
+<meta property="og:url" content="https://knobsock.net/">
+<meta property="og:title" content="KNOBSOCK">
 <meta property="og:site_name" content="KNOBSOCK">
 <meta property="og:description" content="Official Website for Knobsock">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Truth Zone - KNOBSOCK">
+<meta name="twitter:title" content="KNOBSOCK">
 <meta name="twitter:description" content="Official Website for Knobsock">
 <meta name="description" content="Official Website for Knobsock">
-<!-- Safari (iOS 15+) tints its status bar and bottom toolbar to match the
-     page. Left to its own devices it goes by the page's declared
-     background COLOR — it can't sample the background video's actual
-     pixels — so the white fallback below was making those bars white
-     against an otherwise dark page. theme-color states it outright
-     instead of leaving it to that guess; color-scheme tells the browser
-     to treat this as a dark page generally (scrollbars, form controls,
-     any other UA chrome it decides to theme). -->
-<meta name="theme-color" content="#000000">
-<meta name="color-scheme" content="dark">
 <style>
-  /* This page is a standalone reconstruction of knobsock.net/truth, meant
-     to be hosted directly (at truth.knobsock.net) instead of pasted into a
-     Universe code block. That matters for a few things below: this is a
-     REAL top-level page now, not sandboxed inside an iframe, so it doesn't
-     need to fake a fixed embed box or route around window.location being
-     unusable — it can just be a normal page that scrolls normally and
-     whose URL bar genuinely reflects what's on screen.
-  */
+  /* The site's landing page — formerly knobsock.net/main, promoted to
+     root when the Truth Zone moved to /truth (see truth/index.html).
+     Standalone reconstruction of the old Universe home page, same
+     approach as truth/index.html: a real hosted page (no Universe
+     iframe sandboxing).
+     Background is a tiled repeating GIF (old-GeoCities style) instead
+     of the video Universe used here — a deliberate departure, not a
+     port of Universe's own background.
+
+     This is a simplified rebuild, not a pixel-for-pixel copy of
+     Universe's absolute grid layout — that layout was built for
+     Universe's own editor canvas (exact px/grid-cell coordinates,
+     several purely-decorative solid-color blocks layered under other
+     content) and hand-copying every coordinate wasn't worth it. Every
+     functional piece is here (nav buttons, Recent Articles, video
+     player, Listen widget, floating photos, Instagram links, view
+     counter, satellite), just arranged in a cleaner, maintainable CSS
+     grid instead. Expect to send screenshots for layout adjustments,
+     same as the truth.html build. */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    /* Black, not white — this is only ever visible for the instant
-       before the background video paints, but it's also the color
-       Safari reads when deciding how to tint its own status bar and
-       toolbar (see the theme-color meta above), and white here was
-       what made those bars light against a dark page. */
-    background: #000;
-    color-scheme: dark;
     min-height: 100%;
+    /* The mobile carousel's side cards deliberately sit past the edges of
+       the layout, so they'd otherwise widen the page and let it drag
+       sideways. Vertical scrolling is untouched — leaving overflow-y
+       alone means it stays auto. */
+    overflow-x: hidden;
     /* Scrolling still works — this only hides the visible scrollbar
        track/thumb, same technique used sitewide on this site. */
     scrollbar-width: none;
@@ -51,644 +50,661 @@
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
-    padding: 0;
+    /* Old-GeoCities-style tiled background — a repeating GIF instead of
+       Universe's looping video. Scrolls with the page (not fixed), same
+       as a classic tiled page background. */
+    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
   }
-  /* Headlines/titles stay yellow; everything else (meta lines, captions,
-     body copy, labels) uses body's white by default. */
-  h1, h2, h3 { color: yellow; }
-  .headline-clickable { cursor: pointer; }
   a { text-decoration: none; color: inherit; }
 
-  /* Same looping background video Universe plays behind the page itself —
-     fixed and full-bleed so it stays put under everything else while the
-     page scrolls, exactly like the current knobsock.net/truth page. */
-  .bg-video {
+  /* Drifting satellite gif — same free-floating overlay Universe used,
+     wanders slowly around the screen and wraps at the edges. It sits
+     BEHIND the interface (z-index 0, with .page above it at 1) rather
+     than on top of everything, so it drifts past in the background
+     instead of crossing over the cards and buttons. Still above the
+     body's tiled background, since a negative z-index would sink it
+     behind that instead and make it disappear entirely. */
+  #satellite {
     position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    /* No z-index here on purpose — this element is already first in the
-       DOM, so later siblings (header, page-wrapper) naturally paint over
-       it without it needing one. A NEGATIVE z-index on a position:fixed
-       element (what this had before) commonly sinks it behind the
-       <body>'s own opaque background fill instead of in front of it,
-       which is exactly what was showing as a wall of plain white with
-       only a sliver of video peeking through. */
+    top: 0;
+    left: 0;
+    width: 60px;
+    z-index: 0;
+    pointer-events: none;
   }
 
-  /* Logo header — transparent, sits above the video. position:relative
-     here isn't for layout (it does nothing visually) — it's what actually
-     keeps this above the fixed video. .page-wrapper below has its own
-     stacking context already (backdrop-filter creates one), which is what
-     puts IT in the same paint tier as position:fixed content and lets DOM
-     order decide; a plain element with no such property — like this
-     header without this line — stays in a lower tier that paints
-     underneath position:fixed content regardless of DOM order, which is
-     exactly what was making the logo disappear behind the video. */
-  .site-header {
+  .page {
     position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 0 12px;
-    background: transparent;
-  }
-  .site-header img {
-    display: block;
-    max-height: 90px;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-  }
-  @media (min-width: 768px) {
-    .site-header img { max-height: 162px; }
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    /* Top padding cut way down from the other three sides — this was
+       the same clamp(16px, 4vw, 40px) on every side, which read as a
+       big empty gap above the logo specifically since nothing else on
+       the page needs that much breathing room at the very top. */
+    padding: clamp(4px, 1vw, 10px) clamp(16px, 4vw, 40px) clamp(16px, 4vw, 40px);
   }
 
-  /* Solid-ish blue card background with an 80% frosted blur (our 1-100
-     scale: 100% = 20px, so 80% = 16px) blurring the video behind it —
-     grows with its own content now instead of being pinned to a fixed
-     iframe-box height. position:relative is belt-and-suspenders for the
-     same reason .site-header above has it — backdrop-filter already
-     happens to create a stacking context on its own, which is the only
-     reason this was painting above the video correctly before, but that's
-     incidental to what backdrop-filter is for; this makes it explicit so
-     it doesn't silently break again if the blur effect ever changes. */
-  .page-wrapper {
-    position: relative;
-    width: auto;
-    margin: 0 28px 40px;
-    padding: 12px 36px 44px;
-    background: rgba(0, 19, 156, 0.5);
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    border-radius: 38px;
-  }
-  @media (min-width: 768px) {
-    /* On very wide/full-screen desktop displays, a plain 50px side margin
-       keeps growing the box with the screen — capping the width here stops
-       that growth past a reasonable size instead of letting it sprawl
-       edge-to-edge on big monitors. */
-    .page-wrapper {
-      width: calc(100% - 100px);
-      max-width: 1400px;
-      margin: 0 auto 60px;
-    }
-  }
-
-  /* ---------- HOMEPAGE VIEW ---------- */
-  /* Caps the overall content width so the two-column layout below stays
-     proportionate on very large/wide screens instead of stretching edge to
-     edge — without this, the grid columns get huge and everything (especially
-     the capped, centered headline photo) ends up looking oddly spaced out */
-  #homepage-view { max-width: 1400px; margin: 0 auto; }
-
-  /* Headline (feature story) + Recent Articles side by side on wider screens,
-     stacked on mobile — same pattern as the Music/Politics row below */
+  /* ---------- HEADER ---------- */
   .top-row {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 0;
+    /* Break out of .page's max-width/centered column so .live-badge's
+       right:0 below lands against the true browser edge instead of just
+       the padded column edge (which left it stranded with a wide gap on
+       anything wider than 1100px). The logo stays visually centered on
+       the viewport either way since .page was already centered on it. */
+    width: 100vw;
+    left: 50%;
+    margin-left: -50vw;
   }
-  @media (min-width: 768px) {
-    .top-row {
-      grid-template-columns: 2fr 1fr;
-      gap: 0 40px;
-      align-items: start;
-    }
+  .logo-link { display: block; width: min(70%, 480px); }
+  .logo-link img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 50 / 19;
+    object-fit: contain;
   }
-  .headline {
-    padding: 24px 0;
-    margin: 14px 0;
-  }
-  /* On mobile the headline and Recent Articles stack vertically (the desktop
-     two-column layout below separates them visually on its own), so add a
-     divider line between them here to match the other section dividers. */
-  @media (max-width: 767px) {
-    .headline { border-bottom: 1px solid rgba(255,255,255,0.15); }
-  }
-  /* Wraps just the image so the category badge below can anchor to the
-     photo's own box, not the wider headline-clickable container around it */
-  .headline-media { position: relative; }
-  .headline img { width: 100%; height: auto; border-radius: 12px; cursor: pointer; display: block; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
-  /* Desktop only: without a height cap, this image's rendered height is
-     purely a function of its column's width (height:auto keeps its aspect
-     ratio) — so any future width change balloons its height too, and with
-     it the whole box's height. Capping it and cropping with object-fit
-     keeps the photo (and the box around it) a stable, readable size no
-     matter how wide the desktop column gets. */
-  @media (min-width: 768px) {
-    .headline img { max-height: 420px; object-fit: cover; }
-  }
-  /* Photo credit — pulled from the post's Excerpt field in WordPress, shown as
-     a small caption line right under the photo, the way most publications
-     caption a photo */
-  .photo-credit { color: #fff; font-size: 11px; opacity: 0.6; letter-spacing: 0.2px; margin-top: 6px; }
-  .headline h1 { font-size: clamp(28px, 5vw, 48px); margin: 20px 0 10px; cursor: pointer; }
-  .headline .meta { color: #fff; font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
-  /* Positioned relative to .headline-media (the image itself), so the badge sits
-     pinned to the photo's top-left corner regardless of screen size */
-  .headline .cat-tag {
+  /* "The Living Room" badge, pinned top-right — a separate, older link
+     from the four nav buttons below. right is a small clamp (not 0) so
+     it reads as tucked right up against the browser edge, about to run
+     off it, while still staying fully on screen. */
+  .live-badge {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    right: clamp(2px, 1vw, 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: clamp(46px, 9vw, 72px);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .live-badge:hover { transform: translateY(-50%) scale(1.12) rotate(-4deg); }
+  .live-badge img { display: block; width: 100%; height: auto; }
+
+  /* ---------- NAV BUTTONS ---------- */
+  /* Each button is a fixed, capped size (not a share of the row's width)
+     — a grid with "1fr" columns was making each iframe stretch to fill
+     whatever slice of the row it got, so fewer columns on a narrow phone
+     meant a BIGGER button instead of a smaller one.
+     All 4 always stay on one row (flex-wrap: nowrap) instead of the
+     4th one dropping to its own line — sized off this row's own actual
+     width via calc(), not raw vw (vw is the whole browser window, which
+     doesn't account for .page's own side padding narrowing the row's
+     real available space — that mismatch was exactly what made the 4th
+     button run out of room and wrap). Capped at 150px each so they don't
+     grow huge on a wide screen either; below that, all 4 shrink together
+     to whatever the row actually has room for. */
+  .nav-buttons {
+    --nav-gap: clamp(6px, 2vw, 18px);
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: var(--nav-gap);
+    margin: 0 0 clamp(10px, 3vw, 24px);
+  }
+  .nav-buttons iframe {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    width: min(150px, calc((100% - 3 * var(--nav-gap)) / 4));
+    aspect-ratio: 2 / 3;
+    border: 0;
+  }
+
+  /* ---------- SECTION CARDS ---------- */
+  /* A soft, transparent panel behind each content section — not the
+     opaque blue "truth zone" card, just enough of a tint to separate
+     content from the busy video background underneath. Truth Zone/
+     Newest Video/Music Spot below override this with their own solid
+     color instead. */
+  .panel {
+    position: relative;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    border-radius: 22px;
+    padding: clamp(14px, 3vw, 26px);
+  }
+
+  /* Floating "Truth Zone" / "Newest Video" / "Music Spot" labels — same
+     bobbing animation as the site's other floating photos, pinned to a
+     corner of their panel so they read as a label flying over the
+     section rather than blocking its content. */
+  .panel-label {
+    position: absolute;
+    top: -14px;
+    left: 16px;
+    width: clamp(120px, 26%, 200px);
     z-index: 2;
-    display: inline-block;
-    background: #333;
-    color: #fff;
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    pointer-events: none;
+    animation: floatY 6s ease-in-out infinite;
   }
-
-  .section { padding: 32px 0; border-bottom: 1px solid rgba(255,255,255,0.15); }
-  .section h2 { font-size: 22px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .article-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .article-card {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 16px;
+  /* All three labels (Truth Zone, Newest Video, Music Spot) are real
+     links, so they have to take clicks. */
+  a.panel-label {
+    pointer-events: auto;
     cursor: pointer;
   }
-  .article-card img {
-    width: 84px;
-    height: 84px;
-    min-width: 84px;
-    object-fit: cover;
-    border-radius: 10px;
-    flex-shrink: 0;
-    margin-bottom: 0;
-    background: #222;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  .panel-label img { display: block; width: 100%; height: auto; }
+  @keyframes floatY {
+    0%, 100% { transform: translateY(0px) rotate(-2deg); }
+    50% { transform: translateY(-10px) rotate(2deg); }
   }
-  .article-card .article-text {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .article-card h3 { font-size: 17px; line-height: 1.3; margin-bottom: 0; }
-  .article-card span { font-size: 13px; color: #fff; }
 
-  .category-section h2 { border-left: 4px solid limegreen; padding-left: 10px; }
-
-  /* Music & Politics side by side on wider screens, stacked on mobile */
-  .categories-row {
+  /* ---------- TRUTH ZONE / NEWEST VIDEO / MUSIC SPOT ---------- */
+  /* Three equal columns side by side, sharing one defined row height so
+     each iframe can fill its panel by height (flex + 100%) instead of
+     an arbitrary fixed pixel number that never quite matched the
+     widget's own content — that mismatch was exactly what made these
+     look cut off or scrollable instead of scaling to fit. Each widget
+     already scales its OWN content to whatever box it's given (that's
+     how they're built to work inside a Universe code block too) — this
+     just makes sure the outer iframe box itself is sized right. */
+  .columns-row {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(10px, 2.5vw, 20px);
+    margin: clamp(28px, 4vw, 48px) 0 clamp(10px, 2.5vw, 20px);
+    /* Scales with the window's WIDTH (vw), not its height — so as the
+       browser narrows toward the mobile breakpoint the whole three-across
+       stack shrinks proportionally with it, keeping its shape, instead of
+       staying tall while the columns get skinnier and skinnier. */
+    height: clamp(340px, 46vw, 680px);
   }
-  @media (min-width: 768px) {
-    .categories-row {
-      grid-template-columns: 1fr 1fr;
-      gap: 0 32px;
+  /* overflow stays visible here on purpose — the panel-label above is
+     deliberately positioned partly outside this box (top: -14px) so it
+     reads as flying over the panel; overflow:hidden here would clip it
+     clean off, which is exactly what was happening before. Whatever
+     scrollbar shows up inside an iframe is the EMBEDDED page's own
+     doing (a separate document), not something this outer page's own
+     overflow property can reach at all — that has to be fixed in each
+     widget file itself. */
+  .columns-row .panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .columns-row iframe {
+    display: block;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 0;
+  }
+  .articles-panel { background: #310098; }
+  .video-panel {
+    background: #228B22;
+    /* A quarter of the shared .panel padding above — that padding is
+       part of what shows as the green frame around this card's iframe,
+       so trimming it here thins the frame and hands the room back to
+       the video. This card only; the other two keep the full padding.
+       The widget's own body/grid padding is the rest of that band and
+       was cut to match, since this outer value alone stopped being the
+       larger of the two. */
+    padding: clamp(4px, 0.75vw, 7px);
+    /* Offsets the middle column up relative to the other two, so the
+       row reads as staggered instead of three flush-aligned boxes.
+       Desktop only — see the mobile block below, which cancels this. */
+    margin-top: clamp(-40px, -4vw, -20px);
+  }
+  .listen-panel { background: #980237; }
+
+  /* ---------- MOBILE: 3D CARD CAROUSEL ----------
+     The active card sits front and center with the previous and next
+     ones shrunk back on either side, and a swipe rotates through them
+     endlessly.
+
+     This is driven entirely by transforms on absolutely-positioned
+     cards, NOT by a native scroll-snap container like the first attempt.
+     That switch is what fixes most of the carousel's bugs at once:
+     - A scroll container clips everything that overflows it, in BOTH
+       axes — which is what was slicing the tops off the floating "Truth
+       Zone"/"Newest Video"/"Music Spot" labels, since they deliberately
+       poke above their card. Nothing clips here (overflow stays
+       visible), so they render whole.
+     - Cards sized to the padded container's width left a dead margin
+       down each side that the clipping edge made look like an invisible
+       layer cutting the page off. These are centered on the viewport
+       instead, spilling past the layout's padding on purpose.
+     - The index lives in a variable rather than in scroll position, so
+       nothing can quietly reset it. iOS firing a resize every time its
+       URL bar hides was what kept snapping the old one back to card 1
+       after a few seconds.
+     - Touch handlers run on the element directly, so a swipe works on
+       the first try instead of needing the scroll container nudged into
+       position first. */
+  @media (max-width: 720px) {
+    .columns-row {
+      /* Square cards, per side of the viewport with room for the
+         neighbors to peek in from both edges. */
+      --card-size: min(70vw, 330px);
+      display: block;
+      position: relative;
+      grid-template-columns: none;
+      height: var(--card-size);
+      /* Pulled out past .page's side padding so the centered card lines
+         up with the middle of the screen, not the middle of the padded
+         column. */
+      margin-left: calc(-1 * clamp(16px, 4vw, 40px));
+      margin-right: calc(-1 * clamp(16px, 4vw, 40px));
+      margin-top: clamp(34px, 9vw, 54px);
+      margin-bottom: clamp(20px, 6vw, 36px);
+      overflow: visible;
+      /* Vertical drags still scroll the page normally; horizontal ones
+         are left alone for the swipe handler below to interpret, instead
+         of the browser turning them into a scroll. */
+      touch-action: pan-y;
+    }
+    .columns-row .panel {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: var(--card-size);
+      height: var(--card-size);
+      margin: 0;
+      transform: translateX(-50%);
+      transform-origin: center center;
+      transition: transform 0.38s cubic-bezier(0.22, 0.61, 0.36, 1),
+                  opacity 0.38s ease;
+      will-change: transform;
+    }
+    /* Explicit rather than leaning on flex-grow to fill. An iframe's
+       default intrinsic height is 150px, so with flex-basis:auto the
+       widget's own document can end up laid out in a box shorter than
+       the card — which makes anything it centers vertically look
+       top-heavy inside the square even though it's centered correctly
+       within the box it was actually given. */
+    .columns-row iframe {
+      height: 100%;
+      flex: 1 1 auto;
+    }
+    /* A slow bob on the front card so it reads as floating.
+       Animating `translate` rather than `transform` on purpose: the
+       carousel JS writes each card's position into its inline transform,
+       and a keyframe on that same property would override it outright
+       and throw the whole layout off. `translate` is a separate property
+       that composes with transform, so the bob rides on top of whatever
+       position the carousel has set. */
+    @keyframes cardFloat {
+      0%, 100% { translate: 0 0; }
+      50% { translate: 0 -9px; }
+    }
+    .columns-row .panel.is-active {
+      animation: cardFloat 5s ease-in-out infinite;
+    }
+    /* Mid-swipe the cards track the finger directly — a transition here
+       would lag a frame or two behind it and feel rubbery. The bob comes
+       off too: is-active flips as a card crosses the middle during a
+       drag, and restarting the animation mid-gesture reads as a jolt. */
+    .columns-row.dragging .panel {
+      transition: none;
+      animation: none;
+    }
+    /* THE thing that makes swiping actually work over a card.
+       Touch events never cross an iframe boundary — a finger landing on
+       the widget inside a card sends its touches to that widget's own
+       document, where this page's swipe handler can't see them at all.
+       Since the iframe covers nearly the whole card, the only swipeable
+       strip left was the ~14px of colored padding around it, which is
+       why swiping worked once in a while and otherwise seemed dead.
+       This transparent layer sits over the iframe, in THIS document, so
+       the gesture lands somewhere the carousel can read it.
+       A tap (as opposed to a swipe) lifts the layer for that card, so
+       the widget underneath is still usable — play buttons, scrubbers,
+       article links. Moving to another card puts it back, so swiping
+       never stays broken. */
+    .columns-row .card-touch {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      border-radius: inherit;
+    }
+    .columns-row .panel.unlocked .card-touch {
+      display: none;
+    }
+    /* Above the capture layer so the label stays tappable. Swiping from
+       it still works — it's an ordinary element in this document, so its
+       touches bubble up to the carousel's handler either way. */
+    .columns-row a.panel-label {
+      z-index: 4;
+    }
+    .columns-row .panel:not(.is-active) {
+      cursor: pointer;
     }
   }
+  /* Desktop never needs the capture layer — there's no carousel to
+     swipe and it would just block the widgets. */
+  .card-touch { display: none; }
 
-  .loading { color: #fff; font-size: 14px; padding: 20px 0; }
-
-  /* ---------- ARTICLE VIEW ---------- */
-  .article-view { padding: 40px 0; display: none; }
-  /* Computer/desktop screens: keep the article text in a centered, readable
-     column instead of stretching edge-to-edge — blank space on the sides is fine */
-  @media (min-width: 768px) {
-    .article-view { max-width: 760px; margin: 0 auto; }
-  }
-  .back-link { display: inline-block; margin-bottom: 24px; color: #fff; font-size: 14px; cursor: pointer; }
-  .back-link:hover { color: #fff; }
-  .article-view .cat-tag { display: inline-block; background: #333; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .article-view h1 { font-size: clamp(28px, 5vw, 42px); margin-bottom: 12px; line-height: 1.15; }
-  .article-view .meta { color: #fff; font-size: 14px; opacity: 0.75; }
-
-  /* Header block: category + headline + date, closed off by a divider */
-  .article-header {
-    padding-bottom: 24px;
-    margin-bottom: 28px;
-    border-bottom: 2px solid rgba(255, 80, 80, 0.45);
-  }
-
-  /* Featured image sits in its own band with dividers above and below */
-  .article-hero {
-    padding-bottom: 28px;
-    margin-bottom: 28px;
-    border-bottom: 1px solid rgba(255, 80, 80, 0.3);
-  }
-  .article-hero img { width: 100%; height: auto; border-radius: 12px; display: block; }
-
-  /* Computer/desktop screens, article page only: cap the hero photo with a
-     max-width so it stays proportionate to the text instead of growing huge
-     on very large monitors. */
-  @media (min-width: 768px) {
-    .article-hero img { width: 100%; max-width: 700px; margin: 0 auto; }
-    .article-hero .photo-credit { text-align: center; }
-  }
-
-  /* Body copy, visually distinct from the header/image above it */
-  .article-view .body-content { font-size: 17px; line-height: 1.8; color: #fff; }
-  .article-view .body-content p { margin-bottom: 20px; }
-  .article-view .body-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; }
-  .article-view .body-content h2,
-  .article-view .body-content h3 { margin: 28px 0 12px; line-height: 1.3; }
-
-  /* ---------- SHARE BAR ---------- */
-  .share-bar {
-    margin-top: 40px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255,255,255,0.15);
+  /* ---------- FOOTER ---------- */
+  /* Both pieces read as one footer: stacked and centered, rather than
+     pushed out to opposite corners as they were before. */
+  .bottom-row {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 4px 0;
   }
-  .share-bar span.label { font-size: 14px; color: #fff; }
-  .share-bar button {
-    background: #fff;
-    color: #111;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 12px;
-    font-size: 14px;
-    cursor: pointer;
-    font-weight: 600;
-  }
-  .share-bar button:hover { background: #ddd; }
-  .share-bar .copied-msg {
-    font-size: 13px;
-    color: #4ade80;
-    display: none;
-  }
-
-  /* ---------- BOTTOM ACTIONS ---------- */
-  .bottom-actions {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255,255,255,0.15);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  .wp-link {
-    color: #fff;
-    font-size: 14px;
-  }
-  .wp-link:hover { color: #fff; }
-  .back-btn {
-    background: transparent;
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.3);
-    padding: 10px 18px;
-    border-radius: 12px;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  .back-btn:hover { background: rgba(255,255,255,0.1); }
-
-  /* Mobile only: pull everything up tight against the top and trim the
-     bottom padding, same spacing choices as the embedded widget. */
-  @media (max-width: 767px) {
-    .site-header { padding: 12px 0 2px; }
-    .page-wrapper {
-      margin: 0 12px 24px;
-      padding: 20px 18px 24px;
-    }
-    .headline { padding: 4px 0 0; margin: 0 0 10px; }
-    .article-view { padding: 4px 0; }
-  }
+  .bottom-row .gif-embed { height: 30px; }
+  .bottom-row .gif-embed img { display: block; height: 100%; width: auto; }
+  .bottom-row .counter-panel { padding: 0; }
+  /* The counter widget sizes its own text from this box (container query
+     units), so shrinking the box is what makes the number tiny — no need
+     to touch the widget itself, which is shared with other embeds. */
+  .bottom-row iframe { display: block; width: 130px; height: 16px; border: 0; }
 </style>
 </head>
 <body>
-  <video class="bg-video" muted playsinline autoplay loop>
-    <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
-  </video>
+  <img id="satellite" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0732.gif" alt="">
 
-  <header class="site-header">
-    <a href="https://truth.knobsock.net/main/">
-      <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
-    </a>
-  </header>
+  <div class="page">
+    <div class="top-row">
+      <a class="logo-link" href="/">
+        <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/knobsock-main.PNG" alt="Knobsock">
+      </a>
+      <a class="live-badge" href="/livingroom" target="_top">
+        <img src="https://assets.foruniverseapp.com/a2a7f32d-f214-40d2-9040-aac7bceba0fc.png" alt="Live">
+      </a>
+    </div>
 
-  <div class="page-wrapper">
+    <div class="nav-buttons">
+      <iframe src="/home-button-videos.html" title="Videos" loading="lazy"></iframe>
+      <iframe src="/home-button-photos.html" title="Photos" loading="lazy"></iframe>
+      <iframe src="/home-button-music.html" title="Music" loading="lazy"></iframe>
+      <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
+    </div>
 
-    <!-- HOMEPAGE VIEW -->
-    <div id="homepage-view">
-      <div class="top-row">
-        <section class="headline" id="headline">
-          <p class="loading">Loading headline...</p>
-        </section>
-
-        <section class="section recent-articles-section">
-          <h2>Recent Articles</h2>
-          <div class="article-grid" id="recent-articles">
-            <p class="loading">Loading articles...</p>
-          </div>
-        </section>
+    <div class="columns-row" id="columnsRow">
+      <div class="panel articles-panel">
+        <a class="panel-label" href="/truth/" target="_top">
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_B62A2910-9DAE-4D79-AFFC-A590002F3EEF.png" alt="Truth Zone">
+        </a>
+        <iframe src="/recent-articles-widget.html" title="Recent Articles" loading="lazy"></iframe>
+        <span class="card-touch" aria-hidden="true"></span>
       </div>
-
-      <div class="categories-row">
-        <section class="section category-section">
-          <h2>Music</h2>
-          <div class="article-grid" id="category-music">
-            <p class="loading">Loading...</p>
-          </div>
-        </section>
-
-        <section class="section category-section">
-          <h2>Politics</h2>
-          <div class="article-grid" id="category-politics">
-            <p class="loading">Loading...</p>
-          </div>
-        </section>
-
-        <section class="section category-section">
-          <h2>Media</h2>
-          <div class="article-grid" id="category-media">
-            <p class="loading">Loading...</p>
-          </div>
-        </section>
-
-        <section class="section category-section">
-          <h2>Knobsock</h2>
-          <div class="article-grid" id="category-knobsock">
-            <p class="loading">Loading...</p>
-          </div>
-        </section>
+      <div class="panel video-panel">
+        <a class="panel-label" href="/videos" target="_top">
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
+        </a>
+        <!-- sandbox WITHOUT allow-top-navigation is what actually stops
+             the "reopen Safari and you're on youtube.com" bug. Sandbox
+             flags apply to nested frames too, so the YouTube player
+             inside this widget inherits the restriction and simply
+             cannot navigate the whole tab away, whatever it tries — no
+             frame-busting, no top.location. Making it structurally
+             impossible beats chasing whichever code path was doing it.
+             The three flags it does get are the ones the widget needs to
+             work at all: scripts to run, same-origin for its Firestore
+             connection, presentation for video playback. Deliberately
+             NOT granted: popups, forms, and top navigation — this widget
+             plays videos inline and has no legitimate reason to send you
+             anywhere. (The other widgets aren't sandboxed: Recent
+             Articles links out with target="_top" and SoundCloud opens
+             tracks in a new tab, both of which this would break.) -->
+        <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
+                sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
+        <span class="card-touch" aria-hidden="true"></span>
+      </div>
+      <div class="panel listen-panel">
+        <a class="panel-label" href="/music" target="_top">
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="Music Spot">
+        </a>
+        <iframe src="/soundcloud-widget.html" title="Listen" loading="lazy"></iframe>
+        <span class="card-touch" aria-hidden="true"></span>
       </div>
     </div>
 
-    <!-- ARTICLE VIEW -->
-    <div class="article-view" id="article-view">
-      <span class="back-link" id="back-link">&larr; Back to homepage</span>
-      <div id="article-content">
-        <p class="loading">Loading article...</p>
+    <div class="bottom-row">
+      <div class="gif-embed">
+        <img src="https://raw.githubusercontent.com/KNOBSOCK/Bobby-Wyckoff-Website/refs/heads/main/IMG_9407.gif" alt="Bobby Wyckoff">
       </div>
-      <div class="share-bar">
-        <span class="label">Share this article:</span>
-        <button id="copy-link-btn">Copy Link</button>
-        <span class="copied-msg" id="copied-msg">Link copied!</span>
-      </div>
-      <div class="bottom-actions">
-        <a id="wordpress-link" href="#" target="_blank" class="wp-link">View original post &rarr;</a>
-        <button class="back-btn" id="back-btn-bottom">&larr; Back to homepage</button>
+      <!-- Bare, not a .panel — a translucent box around just the count
+           would sit oddly next to the bare gif above it now that the two
+           read as one centered footer. -->
+      <div class="counter-panel">
+        <iframe src="/page-view-counter-widget.html" title="Page views" loading="lazy"></iframe>
       </div>
     </div>
-
   </div>
 
 <script>
-  // ====== CONFIG: your WordPress.com site ======
-  const SITE = "knobsock4.wordpress.com";
-  const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
+  const sat = document.getElementById('satellite');
+  let x = Math.random() * window.innerWidth;
+  let y = Math.random() * window.innerHeight;
+  let vx = (Math.random() - 0.5) * 0.6; // slow horizontal drift
+  let vy = (Math.random() - 0.5) * 0.6; // slow vertical drift
 
-  // This page is hosted directly (not embedded in a Universe iframe), so
-  // its own address bar is a real, shareable URL — no separate reader page
-  // needed for that anymore. Copy Link below shares THIS page's own
-  // #article= link.
-  const CATEGORIES = [
-    { slug: "music", elementId: "category-music" },
-    { slug: "politics", elementId: "category-politics" },
-    { slug: "media", elementId: "category-media" },
-    { slug: "knobsock", elementId: "category-knobsock" }
-  ];
+  function drift() {
+    x += vx;
+    y += vy;
 
-  const homepageView = document.getElementById("homepage-view");
-  const articleView = document.getElementById("article-view");
-  const articleContent = document.getElementById("article-content");
+    // gentle random wobble so it doesn't look like a straight line
+    vx += (Math.random() - 0.5) * 0.02;
+    vy += (Math.random() - 0.5) * 0.02;
 
-  // Tracks the currently-open article's real WordPress URL (used for "View
-  // original post") and its slug (used to build the Copy Link URL).
-  let currentArticleUrl = "";
-  let currentArticleSlug = "";
+    // wrap around edges instead of bouncing
+    if (x < -100) x = window.innerWidth + 100;
+    if (x > window.innerWidth + 100) x = -100;
+    if (y < -100) y = window.innerHeight + 100;
+    if (y > window.innerHeight + 100) y = -100;
 
-  function scrollToTop() {
-    window.scrollTo(0, 0);
+    sat.style.left = x + 'px';
+    sat.style.top = y + 'px';
+
+    requestAnimationFrame(drift);
   }
 
-  const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+  drift();
+</script>
 
-  function getImage(post) {
-    return post.featured_image || NO_IMAGE_PLACEHOLDER;
-  }
+<script>
+  // ---------- MOBILE 3D CARD CAROUSEL ----------
+  // Three cards, one front and center with the other two shrunk back on
+  // either side, swiped through endlessly. Positions come from each
+  // card's offset from the active one, wrapped short-way around the
+  // three, so it loops without needing duplicate cards at the ends.
+  (function () {
+    const row = document.getElementById('columnsRow');
+    if (!row) return;
+    const cards = Array.prototype.slice.call(row.querySelectorAll('.panel'));
+    const count = cards.length;
+    if (!count) return;
 
-  function getCategoryName(post) {
-    const cats = post.categories;
-    if (!cats) return "";
-    const firstKey = Object.keys(cats)[0];
-    return firstKey ? cats[firstKey].name : "";
-  }
+    // How far a side card slides out (% of its own width) and how far
+    // down it scales — the pair of numbers that set the depth effect.
+    const SIDE_SHIFT = 62;
+    const SIDE_SCALE = 0.3;
+    const SIDE_FADE = 0.45;
 
-  function getAuthorName(post) {
-    return (post.author && post.author.name) || "";
-  }
+    // Opens on Newest Video rather than whichever card happens to be
+    // first in the DOM. Found by class instead of hardcoding 1, so
+    // reordering the cards later can't quietly change which one greets
+    // you; falls back to the first card if that class ever goes away.
+    let index = Math.max(0, cards.findIndex(function (card) {
+      return card.classList.contains('video-panel');
+    }));
+    let dragging = false;
+    let axis = null;
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let touchedCard = null;
+    // When the last swipe finished. Browsers fire a click after a touch
+    // gesture, so anything click-driven below checks this to tell a real
+    // tap apart from the tail end of a swipe — a timestamp rather than a
+    // flag that each handler has to remember to clear, since several
+    // handlers can fire for one gesture and the ordering between them is
+    // easy to get wrong.
+    let lastSwipeAt = 0;
 
-  function cleanExcerpt(html) {
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    return (div.textContent || div.innerText || "").trim();
-  }
-
-  function getPhotoCredit(post) {
-    return cleanExcerpt(post.excerpt || "");
-  }
-
-  // Under 1 hour: minutes ago. Under 24 hours: hours ago. Under 5 days: days
-  // ago. 5 days or older: the full date.
-  function formatRelativeDate(dateStr) {
-    const posted = new Date(dateStr);
-    const diffMs = Date.now() - posted.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    const diffDays = diffHours / 24;
-
-    if (diffHours < 1) {
-      const mins = Math.max(1, Math.floor(diffMs / 60000));
-      return `${mins} minute${mins === 1 ? "" : "s"} ago`;
-    }
-    if (diffHours < 24) {
-      const hrs = Math.floor(diffHours);
-      return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
-    }
-    if (diffDays < 5) {
-      const days = Math.floor(diffDays);
-      return `${days} day${days === 1 ? "" : "s"} ago`;
-    }
-    return posted.toLocaleDateString();
-  }
-
-  function articleCard(post) {
-    return `
-      <div class="article-card" data-slug="${post.slug}">
-        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
-        <div class="article-text">
-          <h3>${post.title}</h3>
-          <span>${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${formatRelativeDate(post.date)}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  async function loadHeadline() {
-    const res = await fetch(`${API_BASE}/posts/?number=1`);
-    const data = await res.json();
-    const post = data.posts && data.posts[0];
-    if (!post) return;
-
-    document.getElementById("headline").innerHTML = `
-      <div data-slug="${post.slug}" class="headline-clickable">
-        <div class="headline-media">
-          <span class="cat-tag">${getCategoryName(post)}</span>
-          <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
-        </div>
-        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
-        <h1>${post.title}</h1>
-        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
-      </div>
-    `;
-  }
-
-  async function loadRecentArticles() {
-    const res = await fetch(`${API_BASE}/posts/?number=6`);
-    const data = await res.json();
-    const posts = data.posts || [];
-    document.getElementById("recent-articles").innerHTML = posts.length
-      ? posts.map(articleCard).join("")
-      : `<p class="loading">No articles published yet.</p>`;
-  }
-
-  async function loadCategory(slug, elementId) {
-    const res = await fetch(`${API_BASE}/posts/?category=${slug}&number=4`);
-    const data = await res.json();
-    const posts = data.posts || [];
-    document.getElementById(elementId).innerHTML = posts.length
-      ? posts.map(articleCard).join("")
-      : `<p class="loading">No articles yet in this category.</p>`;
-  }
-
-  // ---------- ARTICLE VIEW LOGIC ----------
-
-  async function loadArticleBySlug(slug) {
-    homepageView.style.display = "none";
-    articleView.style.display = "block";
-    articleContent.innerHTML = `<p class="loading">Loading article...</p>`;
-    scrollToTop();
-
-    const res = await fetch(`${API_BASE}/posts/slug:${slug}`);
-    const post = await res.json();
-
-    if (!post || post.error) {
-      articleContent.innerHTML = `<p>Article not found.</p>`;
-      return;
+    function isCarousel() {
+      return window.matchMedia('(max-width: 720px)').matches;
     }
 
-    articleContent.innerHTML = `
-      <div class="article-header">
-        <span class="cat-tag">${getCategoryName(post)}</span>
-        <h1>${post.title}</h1>
-        <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
-      </div>
-      <div class="article-hero">
-        <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
-        ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
-      </div>
-      <div class="body-content">${post.content}</div>
-    `;
-
-    // Point the "View original post" link at the actual WordPress URL for
-    // this article, and remember both it and the slug for Copy Link below.
-    currentArticleUrl = post.URL || "";
-    currentArticleSlug = slug;
-    document.getElementById("wordpress-link").href = currentArticleUrl || "#";
-  }
-
-  // Articles are their own real pages now, generated from WordPress by
-  // scripts/build-articles.mjs. Clicking a card navigates to one instead
-  // of rendering it inside this page, so the address bar, sharing and
-  // link previews all show the article's own URL.
-  //
-  // Root-relative on purpose — it follows whatever domain this page is
-  // served from, so it keeps working when the Truth Zone moves to
-  // knobsock.net/truth. Only the prefix below changes then, matching
-  // OUT_DIR in scripts/build-articles.mjs.
-  const ARTICLE_PATH = "/article/";
-
-  function articleUrl(slug) {
-    return ARTICLE_PATH + encodeURIComponent(slug) + "/";
-  }
-
-  function goToArticle(slug) {
-    window.location.href = articleUrl(slug);
-  }
-
-  // Event delegation: catches clicks on any current or future element with data-slug
-  document.addEventListener("click", (e) => {
-    const target = e.target.closest("[data-slug]");
-    if (target) {
-      e.preventDefault();
-      goToArticle(target.getAttribute("data-slug"));
+    // Shortest signed distance from the active card to card i, wrapped —
+    // so with 3 cards every card is always at -1, 0, or +1 and the ends
+    // join up instead of running out.
+    function offsetFor(i) {
+      let d = i - index;
+      if (d > count / 2) d -= count;
+      if (d < -count / 2) d += count;
+      return d;
     }
-  });
 
-  function showHomepage() {
-    articleView.style.display = "none";
-    homepageView.style.display = "block";
-    scrollToTop();
-  }
+    function layout(dragPx) {
+      if (!isCarousel()) {
+        // Desktop lays these out as a plain grid — clear anything the
+        // carousel set so it can't leak across the breakpoint.
+        cards.forEach(function (card) {
+          card.style.transform = '';
+          card.style.opacity = '';
+          card.style.zIndex = '';
+          card.classList.remove('is-active');
+        });
+        return;
+      }
+      const width = cards[0].offsetWidth || 1;
+      const shift = (dragPx || 0) / width;
+      cards.forEach(function (card, i) {
+        const pos = offsetFor(i) + shift;
+        const depth = Math.min(Math.abs(pos), 1);
+        const scale = 1 - depth * SIDE_SCALE;
+        card.style.transform =
+          'translateX(calc(-50% + ' + (pos * SIDE_SHIFT) + '%)) scale(' + scale + ')';
+        card.style.opacity = String(1 - depth * SIDE_FADE);
+        card.style.zIndex = String(10 - Math.round(depth * 10));
+        card.classList.toggle('is-active', Math.round(pos) === 0);
+      });
+    }
 
-  // Handle back button clicks (top and bottom)
-  function goBack() {
-    history.pushState("", document.title, window.location.pathname + window.location.search);
-    showHomepage();
-  }
-  document.getElementById("back-link").addEventListener("click", goBack);
-  document.getElementById("back-btn-bottom").addEventListener("click", goBack);
+    // A click landing within this window of a swipe is that swipe's own
+    // trailing click, not a fresh tap.
+    function recentlySwiped() {
+      return Date.now() - lastSwipeAt < 400;
+    }
 
-  // Handle copy link button — shares THIS page's own #article= link, since
-  // it's a real, directly-reachable URL now.
-  document.getElementById("copy-link-btn").addEventListener("click", () => {
-    if (!currentArticleSlug) return;
-    const shareUrl = window.location.origin + articleUrl(currentArticleSlug);
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      const msg = document.getElementById("copied-msg");
-      msg.style.display = "inline";
-      setTimeout(() => { msg.style.display = "none"; }, 2000);
-    }).catch(() => {
-      alert("Couldn't copy automatically — link: " + shareUrl);
+    function go(delta) {
+      index = (index + delta % count + count) % count;
+      // Every card gets its capture layer back on a move, so the next
+      // swipe works no matter which card was unlocked before.
+      cards.forEach(function (card) { card.classList.remove('unlocked'); });
+      layout(0);
+    }
+
+    row.addEventListener('touchstart', function (e) {
+      if (!isCarousel() || e.touches.length !== 1) return;
+      dragging = true;
+      axis = null;
+      dx = 0;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      touchedCard = e.target.closest ? e.target.closest('.panel') : null;
+    }, { passive: true });
+
+    row.addEventListener('touchmove', function (e) {
+      if (!dragging || e.touches.length !== 1) return;
+      const moveX = e.touches[0].clientX - startX;
+      const moveY = e.touches[0].clientY - startY;
+      // First few pixels decide whether this is a swipe or the start of
+      // scrolling the page — once it's committed to one, it stays there,
+      // so a slightly diagonal swipe doesn't flip between the two.
+      if (axis === null) {
+        if (Math.abs(moveX) < 8 && Math.abs(moveY) < 8) return;
+        axis = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
+        if (axis === 'x') row.classList.add('dragging');
+      }
+      if (axis !== 'x') return;
+      dx = moveX;
+      layout(dx);
+    }, { passive: true });
+
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      row.classList.remove('dragging');
+      const width = cards[0].offsetWidth || 1;
+      // Past about a fifth of a card's width counts as a deliberate
+      // swipe; anything shorter settles back where it started.
+      if (axis === 'x' && Math.abs(dx) > width * 0.18) {
+        lastSwipeAt = Date.now();
+        go(dx < 0 ? 1 : -1);
+      } else if (axis === null && touchedCard) {
+        // Barely moved, so it was a tap rather than a swipe. On a side
+        // card that means "bring me forward"; on the front card it means
+        // "let me actually use this widget", so its capture layer lifts.
+        const i = cards.indexOf(touchedCard);
+        if (i !== -1) {
+          if (offsetFor(i) === 0) {
+            touchedCard.classList.add('unlocked');
+          } else {
+            lastSwipeAt = Date.now();
+            go(offsetFor(i));
+          }
+        }
+      } else {
+        layout(0);
+      }
+      axis = null;
+      dx = 0;
+      touchedCard = null;
+    }
+
+    row.addEventListener('touchend', endDrag, { passive: true });
+    row.addEventListener('touchcancel', endDrag, { passive: true });
+
+    // Mouse/pointer fallback (and desktop dev tools' touch emulation) —
+    // taps handled above already fire a click afterwards on real touch
+    // devices, so a just-handled gesture is skipped to keep the carousel
+    // from advancing twice for the same tap.
+    cards.forEach(function (card, i) {
+      card.addEventListener('click', function () {
+        if (!isCarousel()) return;
+        if (recentlySwiped()) return;
+        if (offsetFor(i) === 0) {
+          card.classList.add('unlocked');
+          return;
+        }
+        go(offsetFor(i));
+      });
     });
-  });
 
-  // Check the URL hash on load — if it points to an article, show that
-  // article directly. This works for real now (a genuine top-level page,
-  // not a sandboxed iframe), so a link like
-  // truth.knobsock.net/#article=my-post-slug opens straight to that
-  // article for anyone, not just in-page navigation.
-  // Old #article=slug links are still out there — shared in messages,
-  // sitting in someone's history. Forward them to the article's real
-  // page rather than breaking them. replace() rather than assignment so
-  // the back button skips this page and returns where the visitor
-  // actually came from, instead of bouncing them forward again.
-  function checkHashAndRoute() {
-    const hash = window.location.hash; // e.g. "#article=my-post-slug"
-    if (hash.startsWith("#article=")) {
-      const slug = decodeURIComponent(hash.replace("#article=", ""));
-      window.location.replace(articleUrl(slug));
-    } else {
-      showHomepage();
+    // The Truth Zone label is a link to /truth. On the
+    // carousel it only navigates from the front card — tapping it while
+    // its card is off to the side brings that card forward instead,
+    // which is what tapping a side card does everywhere else.
+    const labelLink = row.querySelector('a.panel-label');
+    if (labelLink) {
+      labelLink.addEventListener('click', function (e) {
+        if (recentlySwiped()) {
+          e.preventDefault();
+          return;
+        }
+        if (!isCarousel()) return;
+        const i = cards.indexOf(labelLink.closest('.panel'));
+        if (i !== -1 && offsetFor(i) !== 0) {
+          e.preventDefault();
+          go(offsetFor(i));
+        }
+      });
     }
-  }
 
-  // Re-route whenever the hash changes (e.g. clicking an article card, or using back/forward)
-  window.addEventListener("hashchange", checkHashAndRoute);
+    // Re-laying out on resize is fine; what matters is that it never
+    // touches `index`. iOS fires a resize every time its URL bar slides
+    // away, and resetting the position on those is what kept yanking the
+    // old carousel back to the first card a few seconds after landing.
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { layout(0); }, 120);
+    });
 
-  // Initial load
-  loadHeadline();
-  loadRecentArticles();
-  CATEGORIES.forEach(cat => loadCategory(cat.slug, cat.elementId));
-  checkHashAndRoute();
+    layout(0);
+  })();
 </script>
 
 </body>
