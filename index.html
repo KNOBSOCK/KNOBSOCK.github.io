@@ -242,45 +242,35 @@
   .articles-panel { background: #310098; }
   .video-panel {
     background: #228B22;
-    /* A quarter of the shared .panel padding above — that padding is
-       part of what shows as the green frame around this card's iframe,
-       so trimming it here thins the frame and hands the room back to
-       the video. This card only; the other two keep the full padding.
-       The widget's own body/grid padding is the rest of that band and
-       was cut to match, since this outer value alone stopped being the
-       larger of the two. */
-    padding: clamp(4px, 0.75vw, 7px);
+    /* Widened back up from a quarter of the shared .panel padding (was
+       clamp(4px, 0.75vw, 7px)) — a band that thin never had room to show
+       a real drop shadow inside it, whatever the shadow values. This is
+       still well under half of .panel's own padding, so the video keeps
+       most of the room it was given. */
+    padding: clamp(9px, 1.6vw, 15px);
     /* Offsets the middle column up relative to the other two, so the
        row reads as staggered instead of three flush-aligned boxes.
        Desktop only — see the mobile block below, which cancels this. */
     margin-top: clamp(-40px, -4vw, -20px);
-    /* Lifts the whole green frame off the page, same soft-shadow
-       language the other widgets on this site already use for raised
-       cards (recent-articles, magazine, soundcloud). */
-    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.3);
-  }
-  /* The inset shadow lives on the iframe ITSELF rather than a separate
-     overlay element sitting on top of it — a separate overlay (tried
-     first) can't be trusted to actually composite above an iframe's own
-     rendered content: iframes get their own compositing layer in every
-     mainstream browser, and that layer routinely paints above sibling
-     DOM content regardless of z-index. That's exactly what was
-     happening: the shadow only showed in the sliver of green the video
-     doesn't cover (near the rounded corner), reading as "shadow sitting
-     on the green frame" instead of "on the video" — because the video
-     WAS covering it everywhere else. box-shadow is part of an element's
-     own box decoration (like a border), so putting it directly on the
-     iframe has no such ambiguity: it's guaranteed to render as part of
-     that element, matching its real rendered edges exactly with no
-     separate position/size to keep in sync, and square (no
-     border-radius) to match the iframe's own actual (unrounded) shape
-     rather than the round-cornered green frame around it. */
-  .video-panel iframe {
+    /* Outer pair lifts the whole green frame off the page, same
+       soft-shadow language the other widgets on this site already use
+       for raised cards (recent-articles, magazine, soundcloud). The
+       inset trio is the frame's own depth: like a raised picture frame
+       casting a soft shadow onto its own inner lip, heaviest along the
+       top the way a real frame would read under an overhead light. This
+       is a shadow ON THE FRAME ITSELF (.video-panel's own box, painted
+       before its children) rather than one trying to sit on top of the
+       video — an iframe child always paints over anything from its
+       parent that would otherwise show through the same pixels (iframes
+       get their own compositing layer that ignores stacking order for
+       this), so earlier attempts at shadowing the video's own surface
+       never actually worked no matter the z-index. */
     box-shadow:
-      inset 0 10px 16px -6px rgba(0, 0, 0, 0.75),
-      inset 0 -6px 12px -8px rgba(0, 0, 0, 0.5),
-      inset 8px 0 12px -10px rgba(0, 0, 0, 0.4),
-      inset -8px 0 12px -10px rgba(0, 0, 0, 0.4);
+      0 16px 34px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.3),
+      inset 0 7px 9px -2px rgba(0, 0, 0, 0.85),
+      inset 0 -4px 7px -3px rgba(0, 0, 0, 0.5),
+      inset 6px 0 9px -3px rgba(0, 0, 0, 0.6),
+      inset -6px 0 9px -3px rgba(0, 0, 0, 0.6);
   }
   .listen-panel { background: #980237; }
 
