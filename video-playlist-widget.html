@@ -965,8 +965,17 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
   let pendingLoadId = null;
+  let pendingUnmute = false;
 
   unmuteBtn.disabled = true;
+
+  function doUnmute() {
+    if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return;
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+    unmuteBtn.textContent = 'Mute';
+    unmuteBtn.title = 'Mute';
+  }
 
   function formatTime(sec) {
     if (!isFinite(sec) || sec < 0) sec = 0;
@@ -1055,7 +1064,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     playlistItemsEl.querySelectorAll('.playlist-item').forEach(btn => {
       btn.addEventListener('click', function () {
         const idx = parseInt(this.getAttribute('data-index'), 10);
-        playIndex(idx);
+        playIndex(idx, true);
       });
     });
   }
@@ -1178,15 +1187,17 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     });
   }
 
-  function playIndex(idx) {
+  function playIndex(idx, autoUnmute) {
     if (idx < 0 || idx >= PLAYLIST.length) return;
     activeIndex = idx;
     renderPlaylist();
     const id = PLAYLIST[idx].id;
     if (ytPlayer && apiReady) {
       ytPlayer.loadVideoById(id);
+      if (autoUnmute) doUnmute();
     } else {
       pendingLoadId = id;
+      pendingUnmute = autoUnmute;
     }
   }
 
@@ -1210,13 +1221,15 @@ let PLAYLIST = buildPlaylist(currentVideoList);
           pollTimer = setInterval(updateProgress, 500);
           if (pendingLoadId) {
             ytPlayer.loadVideoById(pendingLoadId);
+            if (pendingUnmute) doUnmute();
             pendingLoadId = null;
+            pendingUnmute = false;
           }
         },
         onStateChange: function (event) {
           updatePlayPauseIcon(event.data);
           if (event.data === YT.PlayerState.ENDED) {
-            playIndex((activeIndex + 1) % PLAYLIST.length);
+            playIndex((activeIndex + 1) % PLAYLIST.length, true);
           }
         }
       }
@@ -1231,10 +1244,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   unmuteBtn.addEventListener('click', function () {
     if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
     if (ytPlayer.isMuted()) {
-      ytPlayer.unMute();
-      ytPlayer.setVolume(100);
-      unmuteBtn.textContent = 'Mute';
-      unmuteBtn.title = 'Mute';
+      doUnmute();
     } else {
       ytPlayer.mute();
       unmuteBtn.textContent = 'Unmute';
