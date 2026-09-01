@@ -169,8 +169,9 @@
     pointer-events: none;
     animation: floatY 6s ease-in-out infinite;
   }
-  /* The Truth Zone label is a real link, so it has to take clicks — the
-     other two are plain <span>s and stay click-through. */
+  /* The Truth Zone and Newest Video labels are real links, so they have
+     to take clicks — Music Spot is still a plain <span> and stays
+     click-through. */
   a.panel-label {
     pointer-events: auto;
     cursor: pointer;
@@ -415,9 +416,9 @@
         <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel video-panel">
-        <span class="panel-label">
+        <a class="panel-label" href="https://truth.knobsock.net/videos" target="_top">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
-        </span>
+        </a>
         <!-- sandbox WITHOUT allow-top-navigation is what actually stops
              the "reopen Safari and you're on youtube.com" bug. Sandbox
              flags apply to nested frames too, so the YouTube player

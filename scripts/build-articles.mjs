@@ -73,7 +73,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 2;
+const TEMPLATE_VERSION = 3;
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -327,7 +327,7 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
     <source src="${esc(BG_VIDEO_URL)}" type="video/mp4">
   </video>
   <header class="site-header">
-    <a href="https://knobsock.net/main">
+    <a href="https://truth.knobsock.net/main/">
       <img src="${esc(LOGO_URL)}" alt="Knobsock">
     </a>
   </header>
