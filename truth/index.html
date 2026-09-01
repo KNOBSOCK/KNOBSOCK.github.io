@@ -3,28 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Your Magazine</title>
+<title>Truth Zone - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/truth/">
+<meta property="og:title" content="Truth Zone - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Truth Zone - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<!-- Safari (iOS 15+) tints its status bar and bottom toolbar to match the
+     page. Left to its own devices it goes by the page's declared
+     background COLOR — it can't sample the background video's actual
+     pixels — so the white fallback below was making those bars white
+     against an otherwise dark page. theme-color states it outright
+     instead of leaving it to that guess; color-scheme tells the browser
+     to treat this as a dark page generally (scrollbars, form controls,
+     any other UA chrome it decides to theme). -->
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <style>
+  /* This page is a standalone reconstruction of knobsock.net/truth, meant
+     to be hosted directly (now at knobsock.net/truth, formerly its own
+     truth.knobsock.net subdomain before the site consolidated onto
+     knobsock.net) instead of pasted into a Universe code block. That
+     matters for a few things below: this is a
+     REAL top-level page now, not sandboxed inside an iframe, so it doesn't
+     need to fake a fixed embed box or route around window.location being
+     unusable — it can just be a normal page that scrolls normally and
+     whose URL bar genuinely reflects what's on screen.
+  */
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  /* Universe's "ratio" code-block sizing gives the iframe a FIXED box (2:3),
-     not an auto-growing height — so instead of letting the page scroll
-     natively, we go back to filling that box exactly (100% width/height) and
-     scrolling INSIDE it via .page-wrapper, so content never overflows or
-     leaves a gap within the box itself. */
   html, body {
-    background: transparent;
-    width: 100%;
-    height: 100%;
+    /* Black, not white — this is only ever visible for the instant
+       before the background video paints, but it's also the color
+       Safari reads when deciding how to tint its own status bar and
+       toolbar (see the theme-color meta above), and white here was
+       what made those bars light against a dark page. */
+    background: #000;
+    color-scheme: dark;
     min-height: 100%;
-    overflow: hidden;
+    /* Scrolling still works — this only hides the visible scrollbar
+       track/thumb, same technique used sitewide on this site. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
     padding: 0;
-    display: flex;
-    flex-direction: column;
   }
   /* Headlines/titles stay yellow; everything else (meta lines, captions,
      body copy, labels) uses body's white by default. */
@@ -32,18 +61,45 @@
   .headline-clickable { cursor: pointer; }
   a { text-decoration: none; color: inherit; }
 
-  /* Logo header — transparent, fixed height at the top of the box, never scrolls away */
+  /* Same looping background video Universe plays behind the page itself —
+     fixed and full-bleed so it stays put under everything else while the
+     page scrolls, exactly like the current knobsock.net/truth page. */
+  .bg-video {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    /* No z-index here on purpose — this element is already first in the
+       DOM, so later siblings (header, page-wrapper) naturally paint over
+       it without it needing one. A NEGATIVE z-index on a position:fixed
+       element (what this had before) commonly sinks it behind the
+       <body>'s own opaque background fill instead of in front of it,
+       which is exactly what was showing as a wall of plain white with
+       only a sliver of video peeking through. */
+  }
+
+  /* Logo header — transparent, sits above the video. position:relative
+     here isn't for layout (it does nothing visually) — it's what actually
+     keeps this above the fixed video. .page-wrapper below has its own
+     stacking context already (backdrop-filter creates one), which is what
+     puts IT in the same paint tier as position:fixed content and lets DOM
+     order decide; a plain element with no such property — like this
+     header without this line — stays in a lower tier that paints
+     underneath position:fixed content regardless of DOM order, which is
+     exactly what was making the logo disappear behind the video. */
   .site-header {
-    flex-shrink: 0;
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 6px 0 12px;
+    padding: 20px 0 12px;
     background: transparent;
   }
   .site-header img {
     display: block;
-    max-height: 70px;
+    max-height: 90px;
     max-width: 100%;
     width: auto;
     height: auto;
@@ -52,25 +108,20 @@
     .site-header img { max-height: 162px; }
   }
 
-  /* Solid-ish blue card background, starting right below the logo header (which
-     stays transparent above it) — rounded corners like the reference swatch,
-     with an 80% frosted blur (our 1-100 scale: 100% = 20px, so 80% = 16px)
-     blurring whatever's behind the widget beneath that blue tint. */
+  /* Solid-ish blue card background with an 80% frosted blur (our 1-100
+     scale: 100% = 20px, so 80% = 16px) blurring the video behind it —
+     grows with its own content now instead of being pinned to a fixed
+     iframe-box height. position:relative is belt-and-suspenders for the
+     same reason .site-header above has it — backdrop-filter already
+     happens to create a stacking context on its own, which is the only
+     reason this was painting above the video correctly before, but that's
+     incidental to what backdrop-filter is for; this makes it explicit so
+     it doesn't silently break again if the blur effect ever changes. */
   .page-wrapper {
+    position: relative;
     width: auto;
-    /* This margin only shows up on mobile in practice — the desktop media
-       query below fully replaces it with its own margin/width rule. */
-    margin: 0 28px;
+    margin: 0 28px 40px;
     padding: 12px 36px 44px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    /* Stops scroll input from chaining past this box's own top/bottom edge —
-       without it, once you scroll past the end of the article/homepage
-       content, the wheel/touch gesture "spills over" into the outer page
-       this widget is embedded on, scrolling that instead. */
-    overscroll-behavior: contain;
-    flex: 1 1 auto;
-    min-height: 0;
     background: rgba(0, 19, 156, 0.5);
     backdrop-filter: blur(16px) saturate(150%);
     -webkit-backdrop-filter: blur(16px) saturate(150%);
@@ -80,15 +131,11 @@
     /* On very wide/full-screen desktop displays, a plain 50px side margin
        keeps growing the box with the screen — capping the width here stops
        that growth past a reasonable size instead of letting it sprawl
-       edge-to-edge on big monitors, while behaving exactly like the old
-       "margin: 0 50px" on narrower desktop/laptop widths that don't hit the
-       cap. Kept modest (rather than wide) on purpose: the box's size should
-       stay stable — it's the headline photo's own max-height below, not the
-       box width, that keeps oversized content from blowing the box up. */
+       edge-to-edge on big monitors. */
     .page-wrapper {
       width: calc(100% - 100px);
       max-width: 1400px;
-      margin: 0 auto;
+      margin: 0 auto 60px;
     }
   }
 
@@ -237,11 +284,7 @@
 
   /* Computer/desktop screens, article page only: cap the hero photo with a
      max-width so it stays proportionate to the text instead of growing huge
-     on very large monitors. (The homepage headline photo used to get this
-     same treatment, but now that the whole homepage is already capped by
-     #homepage-view's max-width, centering it again here just added an extra
-     indent that the Music/Politics row didn't have — staggering the two
-     rows' left edges instead of lining them up.) */
+     on very large monitors. */
   @media (min-width: 768px) {
     .article-hero img { width: 100%; max-width: 700px; margin: 0 auto; }
     .article-hero .photo-credit { text-align: center; }
@@ -309,62 +352,26 @@
   }
   .back-btn:hover { background: rgba(255,255,255,0.1); }
 
-  /* Desktop only: this code block is set to Universe's "auto" sizing (not a
-     fixed "ratio" box like mobile appears to use), meaning Universe measures
-     our page's natural content height and resizes the iframe to match —
-     overflow:hidden above only hides the visual overflow, it doesn't change
-     that natural layout height, so a short homepage produces a small iframe
-     and a long article produces a huge one, and .page-wrapper's own internal
-     scrolling never gets a chance to kick in. Giving .page-wrapper a fixed
-     pixel height (not a %/vh-based one) here makes its own rendered size
-     content-independent, so the whole page's natural height — and therefore
-     the auto-resized iframe — stays the same whether it's showing the
-     homepage or an article, with any extra content scrolling inside instead
-     of growing the iframe. html/body switch to height:auto so nothing gets
-     clipped if this fixed box ends up taller than 100dvh happened to report. */
-  @media (min-width: 768px) {
-    html, body { height: auto; min-height: 0; overflow: visible; }
-    /* Scales the entire desktop layout down ~15% (logo, spacing, fonts,
-       images all together) without touching any of the mobile-only rules
-       above/below — confined to this desktop-only media query. */
-    body { zoom: 0.85; }
-    .page-wrapper {
-      flex: none;
-      height: 700px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .page-wrapper::-webkit-scrollbar { display: none; }
-  }
-
-  /* Mobile only: pull everything up tight against the top of the box (near-zero
-     top padding on the header/wrapper/headline/article) and trim the bottom
-     padding too, so the last line of content sits right at the box edge
-     instead of a full whitespace gutter — a visual cue that there's more to
-     scroll to. Placed last in the stylesheet (not just inside a media query
-     earlier in the file) so these overrides win the cascade against the base
-     .headline / .article-view rules above, which share the same specificity
-     and would otherwise take priority just by coming later in source order. */
+  /* Mobile only: pull everything up tight against the top and trim the
+     bottom padding, same spacing choices as the embedded widget. */
   @media (max-width: 767px) {
-    .site-header { padding: 0 0 2px; }
+    .site-header { padding: 12px 0 2px; }
     .page-wrapper {
-      /* Shrinks the outer gap between the card and the screen edge — the
-         base rule's 28px side margin was left untouched here before, so
-         mobile still got the full desktop-ish gutter on both sides. */
-      margin: 0 12px;
-      padding: 20px 18px 2px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      margin: 0 12px 24px;
+      padding: 20px 18px 24px;
     }
-    .page-wrapper::-webkit-scrollbar { display: none; }
     .headline { padding: 4px 0 0; margin: 0 0 10px; }
     .article-view { padding: 4px 0; }
   }
 </style>
 </head>
 <body>
+  <video class="bg-video" muted playsinline autoplay loop>
+    <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
+  </video>
+
   <header class="site-header">
-    <a href="https://knobsock.net/" target="_top">
+    <a href="/">
       <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
     </a>
   </header>
@@ -438,32 +445,13 @@
 
 <script>
   // ====== CONFIG: your WordPress.com site ======
-  // WordPress.com subdomain sites use a different API than self-hosted WordPress —
-  // this is the correct endpoint format, no settings to change on your end.
   const SITE = "knobsock4.wordpress.com";
   const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
 
-  // This widget lives inside a sandboxed iframe Universe builds around the
-  // code block, where it can't see the real browser URL at all — neither
-  // window.location (just "about:srcdoc") nor document.referrer (blocked
-  // here too) carry the outer knobsock.net/truth URL in. So a shareable
-  // per-article link can't point at knobsock.net/truth at all — it points
-  // at this plain, non-embedded reader page on GitHub Pages instead, which
-  // has no such restriction since it isn't inside anything. GitHub Pages
-  // now serves knobsock.net directly (formerly a separate
-  // truth.knobsock.net subdomain), with the Truth Zone/article reader
-  // living under /truth.
-  const ARTICLE_PAGE_URL = "https://knobsock.net/truth/article.html";
-
-  // Each article's own generated page (scripts/build-articles.mjs).
-  // Absolute, not root-relative: this widget is embedded on another
-  // domain, where a root-relative path would resolve against that host.
-  const ARTICLE_BASE = "https://knobsock.net/truth/article/";
-
-  function articleUrl(slug) {
-    return ARTICLE_BASE + encodeURIComponent(slug) + "/";
-  }
-
+  // This page is hosted directly (not embedded in a Universe iframe), so
+  // its own address bar is a real, shareable URL — no separate reader page
+  // needed for that anymore. Copy Link below shares THIS page's own
+  // #article= link.
   const CATEGORIES = [
     { slug: "music", elementId: "category-music" },
     { slug: "politics", elementId: "category-politics" },
@@ -471,29 +459,19 @@
     { slug: "knobsock", elementId: "category-knobsock" }
   ];
 
-  const pageWrapper = document.querySelector(".page-wrapper");
   const homepageView = document.getElementById("homepage-view");
   const articleView = document.getElementById("article-view");
   const articleContent = document.getElementById("article-content");
 
   // Tracks the currently-open article's real WordPress URL (used for "View
-  // original post") and its slug (used to build the knobsock.net link Copy
-  // Link shares).
+  // original post") and its slug (used to build the Copy Link URL).
   let currentArticleUrl = "";
   let currentArticleSlug = "";
 
-  // Resets scroll to the top of the widget. .page-wrapper's own internal
-  // scrollbar is the one real scrolling context in this fixed 2:3 box, so
-  // just reset it directly — no scrollIntoView here, since that walks up
-  // every scrollable ancestor (including body, which is only user-scroll-
-  // blocked via overflow:hidden, not programmatic-scroll-blocked) and was
-  // shoving the whole page down to align things, permanently hiding the logo.
   function scrollToTop() {
-    pageWrapper.scrollTop = 0;
+    window.scrollTo(0, 0);
   }
 
-  // No external image request here — this is generated inline as an SVG, so it
-  // can never be blocked by a sandboxed iframe's network/content restrictions.
   const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
   function getImage(post) {
@@ -517,9 +495,6 @@
     return (div.textContent || div.innerText || "").trim();
   }
 
-  // Pulls the photo credit from the post's Excerpt field in WordPress — the
-  // easiest field for typing something like "Photos by Wali Khan" without
-  // digging into the Media Library's Caption field for the image itself.
   function getPhotoCredit(post) {
     return cleanExcerpt(post.excerpt || "");
   }
@@ -547,8 +522,6 @@
     return posted.toLocaleDateString();
   }
 
-  // Build a clickable article card (uses a div with data-slug, not a real link,
-  // so clicking it never triggers browser navigation inside the sandboxed iframe)
   function articleCard(post) {
     return `
       <div class="article-card" data-slug="${post.slug}">
@@ -634,24 +607,23 @@
     document.getElementById("wordpress-link").href = currentArticleUrl || "#";
   }
 
-  // Articles are real generated pages now, so a click leaves this widget
-  // instead of swapping views inside it.
+  // Articles are their own real pages now, generated from WordPress by
+  // scripts/build-articles.mjs. Clicking a card navigates to one instead
+  // of rendering it inside this page, so the address bar, sharing and
+  // link previews all show the article's own URL.
   //
-  // Still driven from JS rather than a real <a>: the cards are divs
-  // precisely because a link click inside this sandboxed iframe used to
-  // produce a blank page, and that markup is left alone here. Navigating
-  // the top frame is what a sandbox is most likely to block — it throws
-  // in some browsers and silently does nothing in others — so a throw
-  // falls back to opening the article in a new tab, which only needs
-  // allow-popups.
+  // Root-relative on purpose — it follows whatever domain this page is
+  // served from. Updated to /truth/article/ now that the Truth Zone has
+  // moved to knobsock.net/truth, matching OUT_DIR in
+  // scripts/build-articles.mjs.
+  const ARTICLE_PATH = "/truth/article/";
+
+  function articleUrl(slug) {
+    return ARTICLE_PATH + encodeURIComponent(slug) + "/";
+  }
+
   function goToArticle(slug) {
-    const url = articleUrl(slug);
-    try {
-      const top = window.top || window;
-      top.location.href = url;
-    } catch (err) {
-      window.open(url, "_blank", "noopener");
-    }
+    window.location.href = articleUrl(slug);
   }
 
   // Event delegation: catches clicks on any current or future element with data-slug
@@ -671,24 +643,17 @@
 
   // Handle back button clicks (top and bottom)
   function goBack() {
-    try {
-      history.pushState("", document.title, window.location.pathname + window.location.search);
-    } catch (err) {
-      console.warn("Could not update URL (sandboxed iframe) — going back anyway.");
-    }
+    history.pushState("", document.title, window.location.pathname + window.location.search);
     showHomepage();
   }
   document.getElementById("back-link").addEventListener("click", goBack);
   document.getElementById("back-btn-bottom").addEventListener("click", goBack);
 
-  // Handle copy link button — shares this article's standalone reader-page
-  // link (see ARTICLE_PAGE_URL above for why that has to be a separate,
-  // non-embedded page rather than a knobsock.net/truth URL), not the raw
-  // WordPress.com one — "View original post" already covers that
-  // separately.
+  // Handle copy link button — shares THIS page's own #article= link, since
+  // it's a real, directly-reachable URL now.
   document.getElementById("copy-link-btn").addEventListener("click", () => {
     if (!currentArticleSlug) return;
-    const shareUrl = articleUrl(currentArticleSlug);
+    const shareUrl = window.location.origin + articleUrl(currentArticleSlug);
     navigator.clipboard.writeText(shareUrl).then(() => {
       const msg = document.getElementById("copied-msg");
       msg.style.display = "inline";
@@ -699,18 +664,20 @@
   });
 
   // Check the URL hash on load — if it points to an article, show that
-  // article directly. Only ever set by goToArticle() above (clicking a
-  // card within this already-loaded widget) — a fresh external visit has
-  // no way to reach this widget directly (see ARTICLE_PAGE_URL above for
-  // why Copy Link points at article.html instead), so this only covers
-  // in-widget navigation surviving something like a same-tab reload.
+  // article directly. This works for real now (a genuine top-level page,
+  // not a sandboxed iframe), so a link like
+  // knobsock.net/truth/#article=my-post-slug opens straight to that
+  // article for anyone, not just in-page navigation.
+  // Old #article=slug links are still out there — shared in messages,
+  // sitting in someone's history. Forward them to the article's real
+  // page rather than breaking them. replace() rather than assignment so
+  // the back button skips this page and returns where the visitor
+  // actually came from, instead of bouncing them forward again.
   function checkHashAndRoute() {
     const hash = window.location.hash; // e.g. "#article=my-post-slug"
     if (hash.startsWith("#article=")) {
-      // Left over from before articles had their own pages — send it on
-      // rather than rendering the old in-widget view.
       const slug = decodeURIComponent(hash.replace("#article=", ""));
-      goToArticle(slug);
+      window.location.replace(articleUrl(slug));
     } else {
       showHomepage();
     }
