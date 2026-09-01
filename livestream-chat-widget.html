@@ -83,7 +83,10 @@
   }
 
   /* Sits over the video pane until the livestream's first onStateChange
-     PLAYING, so the embed doesn't just sit on black while it loads. */
+     PLAYING, so the embed doesn't just sit on black while it loads. The
+     pane's own black background (.is-loading below) is dropped for the
+     same stretch, so this reads as transparent/matching whatever's
+     behind the widget instead of a solid black box. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -92,10 +95,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #000;
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
+  .video-pane.is-loading { background: transparent; }
+  .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .gif-loader {
     display: block;
@@ -585,7 +589,7 @@
 
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
-  <div class="video-pane" id="videoPane">
+  <div class="video-pane is-loading" id="videoPane">
     <div class="video-stage" id="videoStage">
       <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
       <div class="video-pane-actions">
@@ -655,6 +659,15 @@
   var isDragging = false;
   var pollTimer = null;
 
+  function showVideoLoading() {
+    videoLoading.hidden = false;
+    videoPane.classList.add('is-loading');
+  }
+  function hideVideoLoading() {
+    videoLoading.hidden = true;
+    videoPane.classList.remove('is-loading');
+  }
+
   unmuteBtn.disabled = true;
 
   function formatTime(sec) {
@@ -711,9 +724,9 @@
         onStateChange: function (event) {
           updatePlayPauseIcon(event.data);
           if (event.data === YT.PlayerState.PLAYING) {
-            videoLoading.hidden = true;
+            hideVideoLoading();
           } else if (event.data === YT.PlayerState.BUFFERING) {
-            videoLoading.hidden = false;
+            showVideoLoading();
           }
         }
       }

@@ -185,7 +185,10 @@
      yet — before the player's first onReady, and again on a rebuffer —
      so switching/starting a video doesn't just look frozen on black.
      Hidden whenever showVideoCoverArt() takes over the pane for a
-     SoundCloud-only track instead. */
+     SoundCloud-only track instead. The pane's own black background
+     (.is-loading below) is dropped for the same stretch, so this reads
+     as transparent/matching whatever's behind the widget instead of a
+     solid black box. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -193,10 +196,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #000;
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
+  .video-pane.is-loading { background: transparent; }
+  .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .gif-loader {
     display: block;
@@ -1126,7 +1130,7 @@
 
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
-  <div class="video-pane" id="videoPane">
+  <div class="video-pane is-loading" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
     <div class="video-pane-actions">
       <button class="pill-btn toggle-playlist-btn" id="togglePlaylistBtn" title="Hide playlist">Hide Playlist</button>
@@ -1484,6 +1488,15 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const videoCoverOverlay = document.getElementById('videoCoverOverlay');
   const videoCoverArt = document.getElementById('videoCoverArt');
 
+  function showVideoLoading() {
+    videoLoading.hidden = false;
+    videoPane.classList.add('is-loading');
+  }
+  function hideVideoLoading() {
+    videoLoading.hidden = true;
+    videoPane.classList.remove('is-loading');
+  }
+
   let ytPlayer = null;
   let isDragging = false;
   let pollTimer = null;
@@ -1831,7 +1844,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function showVideoCoverArt(artworkUrl) {
     videoCoverArt.src = artworkUrl;
     videoCoverOverlay.hidden = false;
-    videoLoading.hidden = true;
+    hideVideoLoading();
   }
   function hideVideoCoverArt() {
     videoCoverOverlay.hidden = true;
@@ -1843,7 +1856,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function loadVideo(id, autoUnmute) {
     loadedVideoId = id;
     if (ytPlayer && apiReady) {
-      videoLoading.hidden = false;
+      showVideoLoading();
       ytPlayer.loadVideoById(id);
       if (autoUnmute) doUnmute();
     } else {
@@ -1919,9 +1932,9 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         onStateChange: function (event) {
           if (isScKey(activeKey)) return; // a SoundCloud track owns playback right now
           if (event.data === YT.PlayerState.PLAYING) {
-            videoLoading.hidden = true;
+            hideVideoLoading();
           } else if (event.data === YT.PlayerState.BUFFERING) {
-            videoLoading.hidden = false;
+            showVideoLoading();
           }
           updatePlayPauseIcon(event.data === YT.PlayerState.PLAYING);
           // Keeps the "Now Playing" panel's play icon in sync when this
