@@ -259,17 +259,25 @@
        cards (recent-articles, magazine, soundcloud). */
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.3);
   }
-  /* Sits on top of the iframe, matching its box exactly (inset by the
-     panel's own padding, same as the iframe underneath) — an inset
-     shadow along all four edges reads as the green frame overhanging
-     the video and casting a shadow down onto it, like the video is
-     recessed a couple inches below the frame rather than flush with it.
-     pointer-events:none so it never blocks clicks/taps on the player. */
+  /* Matches the iframe's own box exactly (inset by the panel's padding,
+     same as the iframe underneath) and traces its actual rectangular
+     edges — deliberately square, no border-radius. The green frame
+     itself stays rounded, but the iframe inside it is a plain rectangle
+     (it isn't clipped to the frame's rounded corners), so a rounded
+     shadow sitting over a square video was the mismatch that looked
+     wrong at each corner; matching the shadow to the video's real
+     (square) shape fixes that. An inset shadow along all four edges
+     reads as the frame overhanging the video and casting a shadow down
+     onto it, like the video sits recessed below the frame rather than
+     flush with it — an outward shadow doesn't work here since the
+     frame's own visible margin (the padding below) is only a few
+     pixels, nowhere near enough room for an offset shadow to read
+     against before it's clipped off. pointer-events:none so it never
+     blocks clicks/taps on the player. */
   .video-frame-shadow {
     position: absolute;
     inset: clamp(4px, 0.75vw, 7px);
     z-index: 1;
-    border-radius: inherit;
     pointer-events: none;
     box-shadow:
       inset 0 10px 16px -6px rgba(0, 0, 0, 0.75),
