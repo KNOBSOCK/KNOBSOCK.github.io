@@ -146,12 +146,17 @@
 //
 // Desktop caps the result at the room actually left below the logo, so
 // a short window letterboxes the widget slightly rather than scrolling
-// the page. The phone layout gets the full requested height too, but
-// applied to the IFRAME itself rather than #playerWrap — the page is
-// locked to one screen there (see the mobile media query above), so
-// #playerWrap's own bounded box (with overflow-y:auto) scrolls the
-// taller iframe internally instead of the page growing past the screen,
-// which is what used to flatten the playlist thumbnails.
+// the page. The phone layout does the same thing now — #playerWrap gets
+// an explicit height measured the same way, and the iframe inside it
+// gets the full, uncapped natural height, so #playerWrap's own
+// overflow-y:auto scrolls the taller iframe internally instead of the
+// page growing past the screen (the page itself is locked to one screen —
+// see the mobile media query above). #playerWrap's height is set
+// explicitly here rather than left to flex-shrink + min-height:0 to
+// figure out on its own — Safari's flex intrinsic-sizing doesn't reliably
+// shrink a flex item to the space actually available the way Chromium
+// does, so this computes the real number in JS instead of trusting the
+// flex algorithm to land on it.
 //
 // If the message never arrives (JS off, or the widget served from
 // another origin), the CSS above stands on its own.
@@ -164,19 +169,6 @@
   function apply() {
     if (!natural) return;
 
-    if (window.innerWidth <= MOBILE) {
-      // Hand sizing to the CSS mobile rules for #playerWrap itself...
-      wrap.style.flex = '';
-      wrap.style.height = '';
-      wrap.style.minHeight = '';
-      // ...and give the iframe its own full natural height directly, so
-      // it can be taller than #playerWrap's locked-page-bounded box —
-      // that's what #playerWrap's own overflow-y:auto then scrolls.
-      frame.style.height = Math.round(natural) + 'px';
-      return;
-    }
-
-    frame.style.height = '';
     wrap.style.flex = '0 0 auto';
     // min-height from the stylesheet would otherwise win over a smaller
     // measured height and keep the gap.
@@ -185,6 +177,18 @@
     // alone would shrink the answer once the page is scrolled.
     var top = wrap.getBoundingClientRect().top + window.pageYOffset;
     var available = window.innerHeight - top - 12;
+
+    if (window.innerWidth <= MOBILE) {
+      // #playerWrap gets exactly the room available (not capped by
+      // natural — it can be smaller than the content) and the iframe
+      // gets its full natural height, which is what makes #playerWrap's
+      // own overflow-y actually have something to scroll.
+      wrap.style.height = Math.round(Math.max(200, available)) + 'px';
+      frame.style.height = Math.round(natural) + 'px';
+      return;
+    }
+
+    frame.style.height = '';
     var height = Math.min(natural, Math.max(260, available));
     wrap.style.height = Math.round(height) + 'px';
   }
