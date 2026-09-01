@@ -99,7 +99,10 @@
 
   /* Sits over the video pane while the YouTube embed has nothing to show
      yet — before the player's first onReady, and again on a rebuffer —
-     so switching/starting a video doesn't just look frozen on black. */
+     so switching/starting a video doesn't just look frozen on black.
+     The pane's own black background (.is-loading below) is dropped for
+     the same stretch, so this reads as transparent/matching whatever's
+     behind the widget instead of a solid black box. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -107,10 +110,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #000;
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
+  .video-pane.is-loading { background: transparent; }
+  .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .gif-loader {
     display: block;
@@ -769,7 +773,7 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
  <div class="main-row" id="mainRow">
-  <div class="video-pane" id="videoPane">
+  <div class="video-pane is-loading" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
     <div class="video-pane-actions">
       <button class="pill-btn toggle-playlist-btn" id="togglePlaylistBtn" title="Hide playlist">Hide Playlist</button>
@@ -991,6 +995,15 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const creatorChinEl = document.getElementById('creatorChin');
   const ytFrame = document.getElementById('ytFrame');
   const videoLoading = document.getElementById('videoLoading');
+
+  function showVideoLoading() {
+    videoLoading.hidden = false;
+    videoPane.classList.add('is-loading');
+  }
+  function hideVideoLoading() {
+    videoLoading.hidden = true;
+    videoPane.classList.remove('is-loading');
+  }
 
   let ytPlayer = null;
   let isDragging = false;
@@ -1229,7 +1242,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     renderPlaylist();
     const id = PLAYLIST[idx].id;
     if (ytPlayer && apiReady) {
-      videoLoading.hidden = false;
+      showVideoLoading();
       ytPlayer.loadVideoById(id);
       if (autoUnmute) doUnmute();
     } else {
@@ -1266,9 +1279,9 @@ let PLAYLIST = buildPlaylist(currentVideoList);
         onStateChange: function (event) {
           updatePlayPauseIcon(event.data);
           if (event.data === YT.PlayerState.PLAYING) {
-            videoLoading.hidden = true;
+            hideVideoLoading();
           } else if (event.data === YT.PlayerState.BUFFERING) {
-            videoLoading.hidden = false;
+            showVideoLoading();
           }
           if (event.data === YT.PlayerState.ENDED) {
             playIndex((activeIndex + 1) % PLAYLIST.length, true);
