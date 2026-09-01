@@ -750,10 +750,21 @@
     if (!mainImg) {
       photoEmptyState.remove();
       mainImg = document.createElement('img');
-      mainImg.addEventListener('load', function () { photoLoadingBar.hidden = true; });
-      mainImg.addEventListener('error', function () { photoLoadingBar.hidden = true; });
+      mainImg.addEventListener('load', function () {
+        photoLoadingBar.hidden = true;
+        mainImg.style.visibility = 'visible';
+      });
+      mainImg.addEventListener('error', function () {
+        photoLoadingBar.hidden = true;
+        mainImg.style.visibility = 'visible';
+      });
       photoStage.appendChild(mainImg);
     }
+    // Hidden (rather than left showing the outgoing photo) while the new
+    // one loads, so the stage's own transparent/frosted panel shows
+    // through behind the loading gif instead of a stale frame — makes
+    // switching feel like a clean swap, not a freeze.
+    mainImg.style.visibility = 'hidden';
     photoLoadingBar.hidden = false;
     mainImg.src = rawUrl(photo.path);
     mainImg.alt = photo.title;
