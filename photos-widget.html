@@ -253,8 +253,6 @@
     flex: 1 1 38%;
     min-width: 280px;
     display: flex;
-    container-type: size;
-    container-name: gridbox;
   }
 
   .grid-card {
@@ -273,12 +271,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: clamp(8px, 2.6cqh, 12px) clamp(10px, 3cqw, 14px);
+    padding: clamp(8px, 2vw, 12px) clamp(10px, 2.4vw, 14px);
     border-bottom: 1px solid var(--line);
   }
   .grid-title {
     font-family: var(--font-display);
-    font-size: clamp(12px, 3.2cqw, 15px);
+    font-size: clamp(12px, 2.6vw, 15px);
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -286,19 +284,37 @@
   }
   .grid-count {
     font-family: var(--font-body);
-    font-size: clamp(9px, 2.6cqw, 12px);
+    font-size: clamp(9px, 2.2vw, 12px);
     color: var(--text-dim);
   }
 
+  /* Plain viewport-relative units, same as every other widget on this
+     site (music/video playlist, recent articles, etc.) rather than CSS
+     container queries — no functional difference here, just less new-ish
+     surface area. */
   .grid-items {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: clamp(12px, 3cqh, 16px);
+    padding: clamp(12px, 2.4vw, 16px);
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(clamp(80px, 20cqw, 116px), 1fr));
-    gap: clamp(10px, 2.6cqw, 14px);
+    grid-template-columns: repeat(auto-fill, minmax(clamp(80px, 9vw, 116px), 1fr));
+    /* Rows are sized off this custom property (kept in sync with the
+       columns' own actual rendered width by JS below) rather than off
+       "auto" + each item's own aspect-ratio contribution. Confirmed by
+       direct measurement: when a column's final width comes from 1fr
+       stretch (auto-fill fits fewer, wider tracks than the raw minmax()
+       floor), Chromium's implicit row auto-sizing computes row height
+       from that narrower pre-stretch floor instead of the actual
+       rendered column width, undersizing every row so each square tile
+       overflows into the next row by the difference — this is what read
+       as photos "overlapping" once there were enough of them to need
+       more than one screenful of rows. The var() falls back to "auto"
+       (each item's own aspect-ratio square) before JS has measured
+       anything, e.g. on first paint. */
+    grid-auto-rows: var(--tile-size, auto);
+    gap: clamp(10px, 2vw, 14px);
     align-content: start;
   }
   .grid-items::-webkit-scrollbar { width: 8px; }
@@ -307,13 +323,11 @@
 
   /* Every tile is the same 1:1 ratio with the same "matte" padding
      around the image, so the grid reads as evenly spaced regardless of
-     each photo's own aspect ratio or the viewport size. min-width/height:0
-     plus the img being taken out of flow (absolute, sized off the frame
-     rather than off its own 100%/100%) makes the square frame's size
-     depend only on the grid track — never on the photo's own intrinsic
-     pixel dimensions, which is what let real, wildly-varying-aspect-ratio
-     photos occasionally distort/overlap their row where same-sized test
-     placeholders never did. */
+     each photo's own aspect ratio or the viewport size. min-width/
+     min-height:0 removes the item's automatic content-based size floor —
+     a standard Grid/Flexbox defensive default, cheap insurance even
+     though the actual row-overlap bug (see .grid-items) turned out to be
+     elsewhere. */
   .grid-item {
     -webkit-appearance: none;
     appearance: none;
@@ -321,7 +335,8 @@
     aspect-ratio: 1 / 1;
     min-width: 0;
     min-height: 0;
-    border-radius: clamp(4px, 1.4cqw, 8px);
+    padding: 3px;
+    border-radius: clamp(4px, 1vw, 8px);
     overflow: hidden;
     background: var(--panel-2);
     border: 1px solid var(--line);
@@ -336,13 +351,11 @@
   }
   .grid-item:active { transform: scale(0.96); }
   .grid-item img {
-    position: absolute;
-    inset: 3px;
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     display: block;
-    border-radius: clamp(2px, 1cqw, 6px);
+    border-radius: clamp(2px, 0.7vw, 6px);
   }
   .grid-item.active {
     border-color: var(--accent-yellow);
@@ -669,6 +682,25 @@
       btn.addEventListener('click', () => selectPhoto(photo));
       gridItemsEl.appendChild(btn);
     });
+
+    syncGridRowHeight();
+  }
+
+  // See the grid-auto-rows comment on .grid-items — Chromium's implicit
+  // row auto-sizing doesn't reliably track a column's actual 1fr-stretched
+  // width when it comes from auto-fill/minmax(), so rows are instead sized
+  // explicitly off a real measurement of the first tile's rendered width.
+  function syncGridRowHeight() {
+    const first = gridItemsEl.querySelector('.grid-item');
+    if (!first) return;
+    const w = first.getBoundingClientRect().width;
+    if (w > 0) gridItemsEl.style.setProperty('--tile-size', w + 'px');
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(syncGridRowHeight).observe(gridItemsEl);
+  } else {
+    window.addEventListener('resize', syncGridRowHeight);
   }
 
   function selectPhoto(photo) {
