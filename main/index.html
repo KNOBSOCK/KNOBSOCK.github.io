@@ -89,6 +89,14 @@
     justify-content: center;
     position: relative;
     padding: 0;
+    /* Break out of .page's max-width/centered column so .live-badge's
+       right:0 below lands against the true browser edge instead of just
+       the padded column edge (which left it stranded with a wide gap on
+       anything wider than 1100px). The logo stays visually centered on
+       the viewport either way since .page was already centered on it. */
+    width: 100vw;
+    left: 50%;
+    margin-left: -50vw;
   }
   .logo-link { display: block; width: min(70%, 480px); }
   .logo-link img {
@@ -98,11 +106,13 @@
     aspect-ratio: 50 / 19;
     object-fit: contain;
   }
-  /* Small "Live" badge, pinned top-right — a separate, older link from
-     the four nav buttons below, kept for parity with the live page. */
+  /* "The Living Room" badge, pinned top-right — a separate, older link
+     from the four nav buttons below. right is a small clamp (not 0) so
+     it reads as tucked right up against the browser edge, about to run
+     off it, while still staying fully on screen. */
   .live-badge {
     position: absolute;
-    right: 0;
+    right: clamp(2px, 1vw, 10px);
     top: 50%;
     transform: translateY(-50%);
     width: clamp(46px, 9vw, 72px);
@@ -394,7 +404,7 @@
       <a class="logo-link" href="/">
         <img src="https://knobsock.net/_assets/E87B50D3-FD94-42AD-A84A-E08497A2D80C?w=1500&q=70&auto=compress,format&fit=clip" alt="Knobsock">
       </a>
-      <a class="live-badge" href="https://knobsock.net/livingroom" target="_top">
+      <a class="live-badge" href="https://truth.knobsock.net/livingroom" target="_top">
         <img src="https://assets.foruniverseapp.com/a2a7f32d-f214-40d2-9040-aac7bceba0fc.png" alt="Live">
       </a>
     </div>
