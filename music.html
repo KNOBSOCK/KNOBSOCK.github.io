@@ -27,6 +27,10 @@
     margin: 0;
     padding: 0;
     height: 100%;
+    /* No page-level scrolling — the widget inside manages its own
+       overflow (a scrolling playlist), so the page itself is capped to
+       one viewport instead of growing past it. */
+    overflow: hidden;
     background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
     font-family: Arial, Helvetica, sans-serif;
   }
@@ -35,8 +39,14 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
+    /* A fixed viewport height (not min-height) is what actually bounds
+       the player below — without a definite height here, flexbox has no
+       free space to give it, and the widget (which fills 100% of
+       whatever height it's handed) has nothing definite to fill either,
+       so it was rendering itself far taller than the screen instead of
+       capping at one viewport. */
+    height: 100vh;
+    height: 100dvh;
     gap: clamp(4px, 1.5vw, 12px);
     padding: clamp(8px, 2vw, 20px) 0 0;
   }
@@ -59,13 +69,12 @@
     object-fit: contain;
   }
 
-  /* The player fills whatever's left. The widget draws its own frosted
-     panel and handles its own responsive layout, so this is just the
-     box it lives in. min-height keeps it usable on very short screens,
-     where the page then scrolls instead of squashing. */
+  /* The player fills whatever's left below the logo. The widget draws
+     its own frosted panel and handles its own responsive layout down to
+     small heights, so this is just the box it lives in. */
   .player-wrap {
     flex: 1 1 auto;
-    min-height: min(560px, 68vh);
+    min-height: 0;
     display: flex;
   }
   /* height:auto (not 100%) on purpose — a percentage height can't

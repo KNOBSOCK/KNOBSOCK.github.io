@@ -169,9 +169,8 @@
     pointer-events: none;
     animation: floatY 6s ease-in-out infinite;
   }
-  /* The Truth Zone and Newest Video labels are real links, so they have
-     to take clicks — Music Spot is still a plain <span> and stays
-     click-through. */
+  /* All three labels (Truth Zone, Newest Video, Music Spot) are real
+     links, so they have to take clicks. */
   a.panel-label {
     pointer-events: auto;
     cursor: pointer;
@@ -439,9 +438,9 @@
         <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel listen-panel">
-        <span class="panel-label">
+        <a class="panel-label" href="https://truth.knobsock.net/music" target="_top">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_D514A5CF-9303-4B29-9CFE-4F145F1E3190.png" alt="Music Spot">
-        </span>
+        </a>
         <iframe src="/soundcloud-widget.html" title="Listen" loading="lazy"></iframe>
         <span class="card-touch" aria-hidden="true"></span>
       </div>
