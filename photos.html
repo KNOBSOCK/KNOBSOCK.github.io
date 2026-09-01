@@ -17,8 +17,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone rebuild in the same style as music.html/videos.html/live.html,
-     with the old-GeoCities tiled-GIF background main/index.html uses. */
+  /* Standalone rebuild in the same style as music.html/videos.html/live.html. */
 
   * { box-sizing: border-box; }
 
@@ -26,7 +25,11 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
+    /* Matches the photo widget's own orange palette (its --ink) instead
+       of the tiled GeoCities GIF every other non-widget page here uses,
+       so the page the widget sits in reads as part of the same color
+       scheme instead of a mismatched backdrop behind it. */
+    background: radial-gradient(ellipse at top, #431c00 0%, #000000 70%);
     font-family: Arial, Helvetica, sans-serif;
   }
 

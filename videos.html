@@ -38,8 +38,11 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    /* Same old-GeoCities tiled-GIF background every other page here uses. */
-    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
+    /* Matches the video widget's own blue palette (its --ink) instead of
+       the tiled GeoCities GIF every other non-widget page here uses, so
+       the page the widget sits in reads as part of the same color
+       scheme instead of a mismatched backdrop behind it. */
+    background: radial-gradient(ellipse at top, #0a2a4a 0%, #000000 70%);
     font-family: Arial, Helvetica, sans-serif;
   }
 
