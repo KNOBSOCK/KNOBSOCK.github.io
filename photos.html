@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photos - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/photos">
+<meta property="og:title" content="Photos - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Photos - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* Standalone rebuild in the same style as music.html/videos.html/live.html,
+     with the old-GeoCities tiled-GIF background main/index.html uses.
+
+     No photo widget yet — .content-wrap below is an empty placeholder
+     panel reserving the layout for one (see music.html's .player-wrap
+     for the pattern this'll follow once the widget exists). */
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  html { overflow-x: hidden; }
+
+  .page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    gap: clamp(4px, 1.5vw, 12px);
+    padding: clamp(8px, 2vw, 20px) 0 0;
+  }
+
+  /* Header logo — capped by width AND by a share of the viewport height
+     so it can't eat the content area's room on a short/landscape screen. */
+  .logo-link {
+    flex: 0 0 auto;
+    display: block;
+    text-align: center;
+    padding: 0 clamp(10px, 3vw, 24px);
+  }
+  .logo-link img {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 760px;
+    max-height: 18vh;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* Placeholder for the photo widget to come — kept as a panel so the
+     page reads as finished, not empty, until that's built. */
+  .content-wrap {
+    flex: 1 1 auto;
+    min-height: min(400px, 50vh);
+    margin: 0 clamp(10px, 3vw, 24px) clamp(10px, 3vw, 24px);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+    padding: clamp(16px, 4vw, 32px);
+  }
+  .content-wrap p {
+    margin: 0;
+    font-size: clamp(14px, 2.4vw, 18px);
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <a class="logo-link" href="https://truth.knobsock.net/main" target="_top">
+    <img src="/knobsock-photos-logo.png" alt="KNOBSOCK PHOTOS">
+  </a>
+
+  <div class="content-wrap">
+    <p>Photos coming soon.</p>
+  </div>
+</div>
+
+</body>
+</html>
