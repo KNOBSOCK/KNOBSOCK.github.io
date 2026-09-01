@@ -109,6 +109,12 @@
     object-fit: contain;
     border-radius: 4px;
   }
+  /* Only the actual photo (a direct child of #photoStage) is
+     clickable-to-fullscreen — not the loading gif, which sits nested a
+     level deeper inside #photoLoadingBar/#photoEmptyState. */
+  #photoStage > img {
+    cursor: pointer;
+  }
 
   /* ---------- PHOTO LOADING BAR ----------
      The main pane loads each photo's untouched original (often several
@@ -931,6 +937,13 @@
   }
 
   magnifyBtn.addEventListener('click', openLightbox);
+  // Clicking the photo itself (not the loading gif, which sits nested a
+  // level deeper — see the direct-child selector in openLightbox above)
+  // opens the same fullscreen view as the magnify button, so you don't
+  // have to aim for that small corner button.
+  document.getElementById('photoStage').addEventListener('click', function (e) {
+    if (e.target.matches('#photoStage > img')) openLightbox();
+  });
   closeBtn.addEventListener('click', closeLightbox);
   zoomInBtn.addEventListener('click', function () { setScale(scale + 1); });
   zoomOutBtn.addEventListener('click', function () { setScale(scale - 1); });
