@@ -75,11 +75,18 @@
     gap: 14px;
   }
 
-  /* ---------- MAIN PHOTO PANE ---------- */
+  /* ---------- MAIN PHOTO PANE ----------
+     Transparent instead of a solid fill — photos come in every aspect
+     ratio, and object-fit:contain below always leaves some letterboxed
+     space around whichever shape doesn't match the pane. A solid
+     background there read as ugly "black bars"; transparent lets the
+     page's own warm blurred glow (.bg-glow) show through instead, so
+     the photo just floats on the page rather than sitting in a box. */
   .photo-pane {
     position: relative;
     overflow: hidden;
-    background: #000;
+    background: transparent;
+    border: 1px solid var(--line);
     border-radius: 10px;
     flex: 1 1 62%;
     display: flex;
@@ -99,6 +106,46 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    border-radius: 4px;
+  }
+
+  .fullscreen-btn {
+    position: absolute;
+    top: clamp(8px, 2vw, 14px);
+    right: clamp(8px, 2vw, 14px);
+    z-index: 5;
+    width: clamp(28px, 8vw, 36px);
+    aspect-ratio: 1 / 1;
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    background: rgba(67, 28, 0, 0.75);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: clamp(12px, 3vw, 16px);
+  }
+  .fullscreen-btn:hover { background: var(--accent-dim); }
+
+  /* Fallback for browsers (iOS Safari) with no real Fullscreen API on
+     non-video elements — simulate it with CSS, same trick
+     video-playlist-widget.html uses for its own fullscreen button. */
+  .photo-pane.pseudo-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    z-index: 9999;
+    background: #000;
   }
 
   .photo-caption {
@@ -265,6 +312,7 @@
 <div class="layout" id="layout">
   <div class="main-row" id="mainRow">
     <div class="photo-pane" id="photoPane">
+      <button type="button" class="fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
       <div class="photo-stage" id="photoStage">
         <div class="empty-state" id="photoEmptyState">Loading photos…</div>
       </div>
@@ -345,6 +393,10 @@
       const parts = entry.path.split('/'); // ["photos", "<category>", ...]
       const category = parts.length > 2 ? parts[1] : 'Uncategorized';
       const filename = parts[parts.length - 1];
+      // Skip hidden/sidecar files — macOS's AppleDouble metadata files
+      // (uploaded alongside real photos as e.g. "._IMG_1234.jpg") aren't
+      // real images and fail to decode, showing up as broken thumbnails.
+      if (filename.startsWith('.')) return;
       const photo = { path: entry.path, filename, title: titleFromFilename(filename) };
 
       if (!byCategory.has(category)) byCategory.set(category, []);
@@ -459,6 +511,103 @@
       console.error(err);
       showFatalMessage("Couldn't load photos right now (GitHub may be rate-limiting). Try reloading in a bit.");
     });
+})();
+</script>
+
+<!-- ---------- FULLSCREEN BUTTON ----------
+     Same real-Fullscreen-API-with-CSS-fallback approach
+     video-playlist-widget.html uses for its own fullscreen button —
+     the pseudo-fullscreen class covers iOS Safari, which has no real
+     Fullscreen API on non-video elements. -->
+<script>
+(function () {
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const photoPane = document.getElementById('photoPane');
+  let usingPseudoFullscreen = false;
+
+  function hasNativeFullscreenSupport(el) {
+    return !!(
+      el.requestFullscreen ||
+      el.webkitRequestFullscreen ||
+      el.mozRequestFullScreen ||
+      el.msRequestFullscreen
+    );
+  }
+
+  function isFullscreen() {
+    return (
+      usingPseudoFullscreen ||
+      !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      )
+    );
+  }
+
+  function requestFs(el) {
+    try {
+      let result;
+      if (el.requestFullscreen) result = el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) result = el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) result = el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) result = el.msRequestFullscreen();
+      if (result && typeof result.catch === 'function') {
+        result.catch(function () { enterPseudoFullscreen(); });
+      }
+    } catch (e) {
+      enterPseudoFullscreen();
+    }
+  }
+
+  function exitFs() {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  }
+
+  function handleEscKey(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') exitPseudoFullscreen();
+  }
+
+  function enterPseudoFullscreen() {
+    photoPane.classList.add('pseudo-fullscreen');
+    usingPseudoFullscreen = true;
+    document.addEventListener('keydown', handleEscKey);
+    updateFullscreenIcon();
+  }
+
+  function exitPseudoFullscreen() {
+    photoPane.classList.remove('pseudo-fullscreen');
+    usingPseudoFullscreen = false;
+    document.removeEventListener('keydown', handleEscKey);
+    updateFullscreenIcon();
+  }
+
+  function updateFullscreenIcon() {
+    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+
+  fullscreenBtn.addEventListener('click', function () {
+    if (isFullscreen()) {
+      if (usingPseudoFullscreen) exitPseudoFullscreen();
+      else exitFs();
+      return;
+    }
+    if (hasNativeFullscreenSupport(photoPane)) {
+      requestFs(photoPane);
+    } else {
+      enterPseudoFullscreen();
+    }
+  });
+
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(
+    function (evt) {
+      document.addEventListener(evt, updateFullscreenIcon);
+    }
+  );
 })();
 </script>
 
