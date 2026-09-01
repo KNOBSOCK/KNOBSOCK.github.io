@@ -123,6 +123,12 @@
     .layout.playlist-hidden .sc-section {
       grid-column: 1 / -1;
     }
+    /* Collapse Video: the freed video row goes entirely to the "Now
+       Playing" card below it — same idea as Hide Playlist just above,
+       spanning grid rows instead of columns. */
+    .layout.video-collapsed .sc-section {
+      grid-row: 1 / -1;
+    }
     /* max-height keeps the 16:9 box inside its grid row. aspect-ratio
        alone sizes the pane from its width and then simply overflows a
        row that turned out to be shorter — which is how the video used
@@ -157,6 +163,31 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* ---------- COLLAPSE VIDEO / AUDIO-ONLY MODE ----------
+     display:none can make a YouTube iframe actually stop playing, so
+     instead of removing the pane this takes it out of flow (grid and
+     flex alike) and shrinks it to a hidden 1x1px — the same "invisible
+     but still alive" trick already used for the SoundCloud engine's own
+     iframe below (.sc-widget-frame). The video keeps playing for its
+     audio; the space it leaves behind goes to the "Now Playing" card —
+     see .sc-section's grid-row override above, and on mobile this just
+     closes the gap in the flex column on its own once the pane leaves
+     it. */
+  .layout.video-collapsed .video-pane {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -1;
   }
 
   .video-frame-wrap {
@@ -1101,6 +1132,10 @@
       </iframe>
       <div class="sc-header">
         <span class="sc-title-label">Now Playing</span>
+        <!-- Lives here (not in .video-pane) so it stays on screen and
+             clickable even once the video pane itself is collapsed —
+             see .layout.video-collapsed below. -->
+        <button class="pill-btn toggle-video-btn" id="toggleVideoBtn" title="Hide video">Hide Video</button>
       </div>
       <div class="sc-now-playing">
         <a class="sc-artwork-link" id="scArtworkLink" href="#" target="_blank" rel="noopener noreferrer" title="Open">
@@ -1370,6 +1405,16 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     const hidden = layout.classList.toggle('playlist-hidden');
     toggleBtn.textContent = hidden ? 'Show Playlist' : 'Hide Playlist';
     toggleBtn.title = hidden ? 'Show playlist' : 'Hide playlist';
+  });
+})();
+
+(function () {
+  const layout = document.getElementById('layout');
+  const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+  toggleVideoBtn.addEventListener('click', function () {
+    const collapsed = layout.classList.toggle('video-collapsed');
+    toggleVideoBtn.textContent = collapsed ? 'Show Video' : 'Hide Video';
+    toggleVideoBtn.title = collapsed ? 'Show video' : 'Hide video';
   });
 })();
 
