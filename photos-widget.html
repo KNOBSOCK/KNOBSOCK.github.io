@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Photo Gallery</title>
+<style>
+  /* Same shell/theme system as video-playlist-widget.html and
+     livestream-chat-widget.html (CSS vars, .bg-glow, .main-row split,
+     a pill "chin" row across the bottom), just orange instead of blue,
+     and with the side pane as an actual thumbnail GRID instead of a
+     vertical "Up Next" list — per the two reference sketches: photo on
+     one side, a grid to pick from on the other (right on desktop, below
+     on mobile), full-grid at every size rather than the video widget's
+     mobile horizontal-scroll strip. */
+  :root {
+    --ink: #431c00;
+    --panel-2: rgba(67, 28, 0, 0.8);
+    --line: rgba(255, 190, 130, 0.6);
+    --accent: #ff7a1a;
+    --accent-dim: #a34e0e;
+    --accent-yellow: #ffdd00;
+    --text: #ffffff;
+    --text-dim: #ffd9b3;
+    --font-display: Arial, Helvetica, sans-serif;
+    --font-body: Arial, Helvetica, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body { position: relative; }
+
+  .bg-glow {
+    position: absolute;
+    top: clamp(16px, 3vw, 32px);
+    bottom: clamp(16px, 3vw, 32px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(100% - clamp(32px, 6vw, 64px)), calc(1200px - clamp(32px, 6vw, 64px)));
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: rgba(255, 122, 26, 0.45);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .layout {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 10px;
+    padding: clamp(18px, 3.5vw, 36px);
+    background: transparent;
+  }
+
+  .main-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 14px;
+  }
+
+  /* ---------- MAIN PHOTO PANE ---------- */
+  .photo-pane {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border-radius: 10px;
+    flex: 1 1 62%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .photo-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(8px, 2vw, 16px);
+  }
+  .photo-stage img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .photo-caption {
+    flex: 0 0 auto;
+    padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+    background: rgba(67, 28, 0, 0.75);
+    border-top: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+  }
+  .photo-caption .cap-title {
+    font-size: clamp(12px, 3vw, 15px);
+    font-weight: 700;
+  }
+  .photo-caption .cap-cat {
+    font-size: clamp(10px, 2.4vw, 12px);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: clamp(12px, 2.8vw, 15px);
+    padding: 20px;
+  }
+
+  /* ---------- GRID PANE ---------- */
+  .grid-pane {
+    flex: 1 1 38%;
+    min-width: 280px;
+    display: flex;
+    container-type: size;
+    container-name: gridbox;
+  }
+
+  .grid-card {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .grid-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(8px, 2.6cqh, 12px) clamp(10px, 3cqw, 14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .grid-title {
+    font-family: var(--font-display);
+    font-size: clamp(12px, 3.2cqw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .grid-count {
+    font-family: var(--font-body);
+    font-size: clamp(9px, 2.6cqw, 12px);
+    color: var(--text-dim);
+  }
+
+  .grid-items {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: clamp(8px, 2.4cqh, 12px);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(72px, 22cqw, 108px), 1fr));
+    gap: clamp(6px, 1.8cqw, 10px);
+    align-content: start;
+  }
+  .grid-items::-webkit-scrollbar { width: 8px; }
+  .grid-items::-webkit-scrollbar-track { background: transparent; }
+  .grid-items::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  .grid-item {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    border-radius: clamp(4px, 1.4cqw, 8px);
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .grid-item:hover { border-color: var(--accent); }
+  .grid-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .grid-item.active {
+    border-color: var(--accent-yellow);
+    box-shadow: 0 0 0 2px var(--accent-yellow);
+  }
+
+  /* ---------- CATEGORY CHIN ---------- */
+  .category-chin {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 10px);
+    padding: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .category-chin::-webkit-scrollbar { display: none; }
+
+  .category-chip {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    border-radius: 999px;
+    padding: clamp(6px, 1.6vw, 9px) clamp(14px, 3vw, 18px);
+    font-size: clamp(11px, 2.6vw, 13px);
+    white-space: nowrap;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .category-chip:hover { background: var(--accent-dim); }
+  .category-chip.active {
+    background: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+    color: var(--ink);
+  }
+
+  /* ---------- RESPONSIVE ----------
+     Mobile: photo on top, full grid below (a real grid, not a
+     horizontal strip — the sketch showed rows and columns at the
+     bottom, same as desktop just narrower). */
+  @media (max-width: 860px) {
+    .main-row { flex-direction: column; }
+    .photo-pane { flex: 0 0 40vh; }
+    .grid-pane { flex: 1 1 auto; min-width: 0; }
+  }
+  @media (min-width: 861px) {
+    .main-row { align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="layout" id="layout">
+  <div class="main-row" id="mainRow">
+    <div class="photo-pane" id="photoPane">
+      <div class="photo-stage" id="photoStage">
+        <div class="empty-state" id="photoEmptyState">Loading photos…</div>
+      </div>
+      <div class="photo-caption" id="photoCaption" hidden>
+        <div class="cap-title" id="capTitle"></div>
+        <div class="cap-cat" id="capCat"></div>
+      </div>
+    </div>
+
+    <div class="grid-pane" id="gridPane">
+      <div class="grid-card">
+        <div class="grid-header">
+          <span class="grid-title">Photos</span>
+          <span class="grid-count" id="gridCount"></span>
+        </div>
+        <div class="grid-items" id="gridItems">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="category-chin" id="categoryChin"></div>
+</div>
+
+<script>
+(function () {
+  // ====================================================================
+  // Photos are auto-pulled straight from this repo — no admin panel, no
+  // manual index to maintain. Drop image files under photos/<Category>/
+  // on GitHub (e.g. photos/NYFW25/img1.jpg) and they show up here on the
+  // next page load; the folder name becomes the category tab. Files
+  // dropped directly in photos/ with no subfolder land in "Uncategorized".
+  //
+  // Discovery uses GitHub's git-trees API (one request, recursive, lists
+  // every path in the repo) rather than the contents API (one request
+  // per folder) — much friendlier to the unauthenticated rate limit
+  // (60 req/hr per visitor's own IP, since this all runs client-side).
+  // The actual image bytes are then served the same way every other
+  // image on this site is, via raw.githubusercontent.com.
+  // ====================================================================
+  const OWNER = 'KNOBSOCK';
+  const REPO = 'KNOBSOCK.github.io';
+  const BRANCH = 'main';
+  const TREE_API = `https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`;
+  const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/refs/heads/${BRANCH}/`;
+  const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif)$/i;
+
+  const photoStage = document.getElementById('photoStage');
+  const photoEmptyState = document.getElementById('photoEmptyState');
+  const photoCaption = document.getElementById('photoCaption');
+  const capTitle = document.getElementById('capTitle');
+  const capCat = document.getElementById('capCat');
+  const gridItemsEl = document.getElementById('gridItems');
+  const gridCountEl = document.getElementById('gridCount');
+  const chinEl = document.getElementById('categoryChin');
+
+  let categories = [];       // [{ name, photos: [{ path, filename, title }] }]
+  let activeCategory = 'All';
+  let activePhoto = null;
+  let mainImg = null;
+
+  function naturalCompare(a, b) {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  }
+
+  function titleFromFilename(filename) {
+    return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+  }
+
+  function buildCategoriesFromTree(tree) {
+    const byCategory = new Map();
+    tree.forEach((entry) => {
+      if (entry.type !== 'blob') return;
+      if (!entry.path.startsWith('photos/')) return;
+      if (!IMAGE_EXT.test(entry.path)) return;
+
+      const parts = entry.path.split('/'); // ["photos", "<category>", ...]
+      const category = parts.length > 2 ? parts[1] : 'Uncategorized';
+      const filename = parts[parts.length - 1];
+      const photo = { path: entry.path, filename, title: titleFromFilename(filename) };
+
+      if (!byCategory.has(category)) byCategory.set(category, []);
+      byCategory.get(category).push(photo);
+    });
+
+    const cats = Array.from(byCategory.entries())
+      .map(([name, photos]) => ({
+        name,
+        photos: photos.sort((a, b) => naturalCompare(a.filename, b.filename))
+      }))
+      .sort((a, b) => naturalCompare(a.name, b.name));
+
+    const all = [];
+    cats.forEach((c) => all.push(...c.photos));
+
+    return [{ name: 'All', photos: all }, ...cats];
+  }
+
+  function currentList() {
+    const cat = categories.find((c) => c.name === activeCategory);
+    return cat ? cat.photos : [];
+  }
+
+  function renderChin() {
+    chinEl.innerHTML = '';
+    categories.forEach((cat) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'category-chip' + (cat.name === activeCategory ? ' active' : '');
+      btn.textContent = cat.name + ' (' + cat.photos.length + ')';
+      btn.addEventListener('click', () => {
+        activeCategory = cat.name;
+        renderChin();
+        renderGrid();
+      });
+      chinEl.appendChild(btn);
+    });
+  }
+
+  function renderGrid() {
+    const list = currentList();
+    gridCountEl.textContent = list.length ? list.length + (list.length === 1 ? ' photo' : ' photos') : '';
+    gridItemsEl.innerHTML = '';
+
+    if (!list.length) {
+      gridItemsEl.innerHTML = '<div class="empty-state">No photos in this category yet.</div>';
+      return;
+    }
+
+    list.forEach((photo) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'grid-item' + (activePhoto && activePhoto.path === photo.path ? ' active' : '');
+      btn.title = photo.title;
+
+      const img = document.createElement('img');
+      img.src = RAW_BASE + photo.path.split('/').map(encodeURIComponent).join('/');
+      img.alt = photo.title;
+      img.loading = 'lazy';
+      btn.appendChild(img);
+
+      btn.addEventListener('click', () => selectPhoto(photo));
+      gridItemsEl.appendChild(btn);
+    });
+  }
+
+  function selectPhoto(photo) {
+    activePhoto = photo;
+
+    if (!mainImg) {
+      photoEmptyState.remove();
+      mainImg = document.createElement('img');
+      photoStage.appendChild(mainImg);
+    }
+    mainImg.src = RAW_BASE + photo.path.split('/').map(encodeURIComponent).join('/');
+    mainImg.alt = photo.title;
+
+    capTitle.textContent = photo.title;
+    capCat.textContent = photo.path.split('/')[1] || '';
+    photoCaption.hidden = false;
+
+    // Re-render just to update the active/highlighted grid item.
+    renderGrid();
+  }
+
+  function showFatalMessage(msg) {
+    photoStage.innerHTML = '<div class="empty-state">' + msg + '</div>';
+    gridItemsEl.innerHTML = '<div class="empty-state">' + msg + '</div>';
+    gridCountEl.textContent = '';
+  }
+
+  fetch(TREE_API)
+    .then((res) => {
+      if (!res.ok) throw new Error('GitHub API returned ' + res.status);
+      return res.json();
+    })
+    .then((data) => {
+      categories = buildCategoriesFromTree(data.tree || []);
+      const totalPhotos = categories.length ? categories[0].photos.length : 0;
+
+      if (!totalPhotos) {
+        showFatalMessage('No photos yet — add some to the /photos folder on GitHub to see them here.');
+        return;
+      }
+
+      renderChin();
+      renderGrid();
+      selectPhoto(categories[0].photos[0]);
+    })
+    .catch((err) => {
+      console.error(err);
+      showFatalMessage("Couldn't load photos right now (GitHub may be rate-limiting). Try reloading in a bit.");
+    });
+})();
+</script>
+
+</body>
+</html>

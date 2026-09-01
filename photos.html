@@ -18,11 +18,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
   /* Standalone rebuild in the same style as music.html/videos.html/live.html,
-     with the old-GeoCities tiled-GIF background main/index.html uses.
-
-     No photo widget yet — .content-wrap below is an empty placeholder
-     panel reserving the layout for one (see music.html's .player-wrap
-     for the pattern this'll follow once the widget exists). */
+     with the old-GeoCities tiled-GIF background main/index.html uses. */
 
   * { box-sizing: border-box; }
 
@@ -64,27 +60,24 @@
     object-fit: contain;
   }
 
-  /* Placeholder for the photo widget to come — kept as a panel so the
-     page reads as finished, not empty, until that's built. */
+  /* The photo widget fills whatever room it's given (it's built at
+     100% width/height with its own frosted panels), same as
+     live.html's player-wrap — no postMessage height contract needed
+     since, unlike the video/music widgets, there's no single natural
+     aspect ratio to size it from. */
   .content-wrap {
     flex: 1 1 auto;
-    min-height: min(400px, 50vh);
-    margin: 0 clamp(10px, 3vw, 24px) clamp(10px, 3vw, 24px);
-    border-radius: 16px;
-    background: rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    min-height: min(560px, 68vh);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    color: #fff;
-    padding: clamp(16px, 4vw, 32px);
   }
-  .content-wrap p {
-    margin: 0;
-    font-size: clamp(14px, 2.4vw, 18px);
-    opacity: 0.8;
+  .content-wrap iframe {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    border: 0;
+    background: transparent;
   }
 </style>
 </head>
@@ -96,7 +89,10 @@
   </a>
 
   <div class="content-wrap">
-    <p>Photos coming soon.</p>
+    <iframe src="/photos-widget.html"
+            title="KNOBSOCK Photos"
+            allow="clipboard-write"
+            loading="lazy"></iframe>
   </div>
 </div>
 
