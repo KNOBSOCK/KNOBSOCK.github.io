@@ -453,6 +453,19 @@
     border-radius: 0;
     z-index: 9999;
   }
+  /* A resize on entering/leaving fullscreen can make the YouTube embed
+     report a brief rebuffer, which applies .is-loading above — fine for
+     the small in-page pane (it's meant to show the page through), but
+     while fullscreen that pane IS the whole screen, so a transparent
+     background there means whatever's behind it bleeds through instead.
+     Keep it solid black here regardless of loading state (on top of the
+     fullscreen-active rule below, which already hides the sibling
+     panes). */
+  .video-pane.pseudo-fullscreen.is-loading,
+  .video-pane:fullscreen.is-loading,
+  .video-pane:-webkit-full-screen.is-loading {
+    background: #000;
+  }
 
   /* Native Fullscreen API on a plain div (not a video/img element)
      doesn't reliably get full-viewport UA sizing/positioning on its own

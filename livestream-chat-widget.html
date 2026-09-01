@@ -157,6 +157,14 @@
     flex: 1 1 100%;
   }
 
+  /* Whichever fullscreen path is active, explicitly hide the chat pane
+     rather than relying on the video simply covering it, so there's no
+     overlap even if a browser sizes fullscreen differently than
+     expected. */
+  .layout.fullscreen-active .chat-pane {
+    display: none;
+  }
+
   /* When chat has been popped out into its own window, show a small
      centered placeholder in its place instead of the normal layout. */
   .chat-pane.popped-out {
@@ -305,6 +313,15 @@
     margin: 0;
     border-radius: 0;
     z-index: 9999;
+  }
+  /* A resize on entering/leaving fullscreen can make the YouTube embed
+     report a brief rebuffer, which applies .is-loading above — fine for
+     the small in-page pane (it's meant to show the page through), but
+     while fullscreen that pane IS the whole screen, so a transparent
+     background there means the chat behind it bleeds through instead.
+     Keep it solid black here regardless of loading state. */
+  .video-pane.pseudo-fullscreen.is-loading {
+    background: #000;
   }
 
   .scrub-range {
@@ -655,6 +672,7 @@
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var videoPane = document.getElementById('videoPane');
   var videoLoading = document.getElementById('videoLoading');
+  var layoutEl = document.getElementById('layout');
   var ytPlayer = null;
   var isDragging = false;
   var pollTimer = null;
@@ -833,7 +851,14 @@
   }
 
   function updateFullscreenIcon() {
-    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+    var fs = isFullscreen();
+    fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
+    // Belt-and-suspenders alongside the video pane's own fullscreen
+    // sizing: explicitly hide the chat pane rather than relying solely
+    // on the video covering it, so there's no overlap even if a
+    // rebuffer briefly makes the (fullscreened) video pane's background
+    // transparent again.
+    layoutEl.classList.toggle('fullscreen-active', fs);
   }
 
   fullscreenBtn.addEventListener('click', function () {
