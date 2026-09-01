@@ -6,14 +6,14 @@
 <title>Live Stream + Chat</title>
 <style>
   :root {
-    --ink: #0a3a0a;
-    --panel: rgba(10, 58, 10, 0.32);
-    --panel-2: rgba(10, 58, 10, 0.8);
-    --line: rgba(180, 255, 150, 0.6);
-    --accent: #32cd32;
-    --accent-dim: #1e6e1e;
+    --ink: #3a0a0a;
+    --panel: rgba(58, 10, 10, 0.32);
+    --panel-2: rgba(58, 10, 10, 0.8);
+    --line: rgba(255, 180, 150, 0.6);
+    --accent: #cd3232;
+    --accent-dim: #6e1e1e;
     --text: #ffffff;
-    --text-dim: #c9f5c9;
+    --text-dim: #f5c9c9;
     --error: #ffb3b3;
     --font-display: Tahoma, Arial, sans-serif;
     --font-body: Tahoma, Arial, sans-serif;
@@ -46,7 +46,7 @@
     position: absolute;
     inset: clamp(16px, 3vw, 32px);
     border-radius: clamp(10px, 2.5vw, 28px);
-    background: rgba(50, 205, 50, 0.45);
+    background: rgba(205, 50, 50, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
     z-index: -1;
@@ -146,7 +146,7 @@
     justify-content: center;
     gap: 8px;
     padding: 0 14px;
-    background: rgba(10, 58, 10, 0.55);
+    background: rgba(58, 10, 10, 0.55);
     border-top: 1px solid var(--line);
     color: var(--accent);
     font-family: var(--font-body);
@@ -241,7 +241,7 @@
     align-items: center;
     gap: clamp(8px, 2cqw, 12px);
     padding: clamp(10px, 2.6cqh, 14px) clamp(10px, 3cqw, 16px);
-    background: linear-gradient(to top, rgba(10, 58, 10, 0.85), rgba(10, 58, 10, 0));
+    background: linear-gradient(to top, rgba(58, 10, 10, 0.85), rgba(58, 10, 10, 0));
   }
 
   .play-pause-btn {
@@ -829,7 +829,7 @@
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<title>Chat</title><style>' + getPageStyles() +
-      // Black base layer on the window itself, with a lime-green glow
+      // Black base layer on the window itself, with a brick-red glow
       // layer sitting on top of it — same technique as the main page's
       // .layout / .layout::before pair: a padded, rounded box
       // (.popout-bg) whose ::before is an oversized, blurred color
@@ -837,7 +837,7 @@
       // edge-to-edge block.
       'html, body { margin:0; width:100%; height:100%; background: #000000; overflow: hidden; }' +
       '.popout-bg { position: fixed; inset: clamp(8px, 3vw, 24px); border-radius: clamp(10px, 2.5vw, 28px); z-index: 0; }' +
-      '.popout-bg::before { content: ""; position: absolute; inset: -60px; background: rgba(50, 205, 50, 0.5); filter: blur(50px); border-radius: inherit; z-index: -1; }' +
+      '.popout-bg::before { content: ""; position: absolute; inset: -60px; background: rgba(205, 50, 50, 0.5); filter: blur(50px); border-radius: inherit; z-index: -1; }' +
       '.chat-pane { position: relative; z-index: 1; width:100%; height:100%; min-width:0; }' +
       '</style></head><body><div class="popout-bg"></div></body></html>';
   }
@@ -975,20 +975,59 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const usernamesRef = db.collection('chat_usernames');
+  const usernameCountersRef = db.collection('chat_username_counters');
   const messagesRef = db.collection('chat_messages');
 
   let session = null; // { username }
   let unsubscribeMessages = null;
 
-  async function isUsernameTaken(key) {
-    const doc = await usernamesRef.doc(key).get();
-    return doc.exists;
+  // ---------- USERNAME CLAIMING ----------
+  // Never rejects a name outright: the first person to type "gunoguap"
+  // gets it bare, and everyone after that gets the next free
+  // "gunoguap#0001", "gunoguap#0002", etc., up to "#9999". A per-base-name
+  // counter doc (chat_username_counters/<key>) hands out the next number
+  // instead of scanning up to 9999 possible docs to find a free one, and
+  // the whole read-then-write runs inside a single Firestore transaction
+  // so two people claiming the same name at the same instant can't both
+  // land on the bare name or the same number — Firestore itself retries
+  // one of the transactions against the other's committed result.
+  const USERNAME_SUFFIX_LIMIT = 9999;
+
+  function padSuffix(n) {
+    return String(n).padStart(4, '0');
   }
 
-  async function claimUsername(username, key) {
-    await usernamesRef.doc(key).set({
-      username: username,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  async function claimUsernameSlot(rawUsername) {
+    const baseKey = rawUsername.toLowerCase();
+    const baseRef = usernamesRef.doc(baseKey);
+    const counterRef = usernameCountersRef.doc(baseKey);
+
+    return db.runTransaction(async (tx) => {
+      const baseDoc = await tx.get(baseRef);
+      if (!baseDoc.exists) {
+        tx.set(baseRef, {
+          username: rawUsername,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return rawUsername;
+      }
+
+      const counterDoc = await tx.get(counterRef);
+      const next = (counterDoc.exists ? counterDoc.data().next : 0) + 1;
+      if (next > USERNAME_SUFFIX_LIMIT) {
+        throw new Error('USERNAME_LIMIT_REACHED');
+      }
+
+      const suffixedUsername = rawUsername + '#' + padSuffix(next);
+      tx.set(counterRef, { next: next });
+      // Also registers the numbered form itself, so if someone later
+      // types "gunoguap#0001" literally, they get bumped to their own
+      // free number instead of colliding with this one.
+      tx.set(usernamesRef.doc(baseKey + '#' + padSuffix(next)), {
+        username: suffixedUsername,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      return suffixedUsername;
     });
   }
 
@@ -1085,18 +1124,16 @@
     btn.textContent = 'Joining…';
 
     try {
-      const key = username.toLowerCase();
-      const taken = await isUsernameTaken(key);
-      if (taken) {
-        renderAuth('That username is taken. Try another one.');
-        return;
-      }
-      await claimUsername(username, key);
-      session = { username };
+      const finalUsername = await claimUsernameSlot(username);
+      session = { username: finalUsername };
       startChat();
     } catch (e) {
       console.error(e);
-      renderAuth('Something went wrong. Please try again.');
+      if (e && e.message === 'USERNAME_LIMIT_REACHED') {
+        renderAuth('That username has hit its 9999-user limit. Try another one.');
+      } else {
+        renderAuth('Something went wrong. Please try again.');
+      }
     }
   }
 
