@@ -899,7 +899,12 @@
   }
 
   function openLightbox() {
-    const current = document.querySelector('#photoStage img');
+    // Direct-child combinator matters here: the loading bar's own <img>
+    // (the gif) is nested a level deeper inside #photoLoadingBar, while
+    // the actual photo is appended straight into #photoStage — a plain
+    // descendant selector would match the loading gif first (it's
+    // earlier in the DOM) and fullscreen that instead of the photo.
+    const current = document.querySelector('#photoStage > img');
     if (!current || !current.src) return;
     img.src = current.src;
     img.alt = current.alt || '';
