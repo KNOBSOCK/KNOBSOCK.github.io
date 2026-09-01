@@ -278,13 +278,20 @@
   /* Rounds the video itself to match the green frame's own corner
      radius (.panel, above) — the iframe was never clipped to the
      frame's shape at all, so its plain square corners sat inside the
-     rounded frame with a visible mismatch at each corner. border-radius
-     works directly on an iframe element (it clips the embedded page's
-     own rendering, same as it would an img), so this needs nothing on
-     .video-panel itself — no overflow:hidden, no separate clipping
-     wrapper. */
-  .video-panel iframe {
+     rounded frame with a visible mismatch at each corner. Takes over
+     the iframe's own flex/sizing role (the generic .columns-row iframe
+     rule still applies to the iframe inside, but flex:1 1 auto on it is
+     now inert since it's no longer a direct flex child — this wrapper
+     is instead) so the iframe itself only needs to fill it. */
+  .video-frame {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
     border-radius: 22px;
+  }
+  .video-frame iframe {
+    height: 100%;
   }
   .listen-panel { background: #980237; }
 
@@ -483,8 +490,17 @@
              anywhere. (The other widgets aren't sandboxed: Recent
              Articles links out with target="_top" and SoundCloud opens
              tracks in a new tab, both of which this would break.) -->
-        <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
-                sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
+        <!-- border-radius on the iframe alone doesn't reliably clip its
+             own rendered content to the rounded shape across browsers
+             (Safari in particular never does, regardless of the value) —
+             wrapping it in an overflow:hidden box is the one technique
+             that clips consistently everywhere, since overflow:hidden on
+             an ANCESTOR is a completely different, much better-supported
+             code path than a replaced element's own border-radius. -->
+        <div class="video-frame">
+          <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
+        </div>
         <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel listen-panel">
