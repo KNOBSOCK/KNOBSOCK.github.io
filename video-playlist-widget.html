@@ -17,6 +17,13 @@
     --text-dim: #c9dcf5;
     --font-display: Arial, Helvetica, sans-serif;
     --font-body: Arial, Helvetica, sans-serif;
+    /* Shared between .bg-glow and .layout below so the panel's edges and
+       the content's padding can never drift apart at any window size —
+       both reference the exact same values instead of two independently
+       written formulas that merely happened to match. */
+    --inset-top: clamp(4px, 1vw, 8px);
+    --inset-side: clamp(4px, 1vw, 8px);
+    --inset-bottom: clamp(16px, 3vw, 32px);
   }
 
   * { box-sizing: border-box; }
@@ -41,11 +48,11 @@
      after the content inside .layout got capped at 1200px. */
   .bg-glow {
     position: absolute;
-    top: clamp(4px, 1vw, 8px);
-    bottom: clamp(16px, 3vw, 32px);
+    top: var(--inset-top);
+    bottom: var(--inset-bottom);
     left: 50%;
     transform: translateX(-50%);
-    width: min(calc(100% - clamp(8px, 2vw, 16px)), calc(1200px - clamp(8px, 2vw, 16px)));
+    width: min(calc(100% - var(--inset-side) * 2), calc(1200px - var(--inset-side) * 2));
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(47, 128, 237, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
@@ -72,7 +79,7 @@
     max-width: 1200px;
     margin: 0 auto;
     gap: 10px;
-    padding: clamp(4px, 1vw, 8px) clamp(4px, 1vw, 8px) clamp(18px, 3.5vw, 36px);
+    padding: var(--inset-top) var(--inset-side) var(--inset-bottom);
     background: transparent;
   }
 
