@@ -254,6 +254,28 @@
        row reads as staggered instead of three flush-aligned boxes.
        Desktop only — see the mobile block below, which cancels this. */
     margin-top: clamp(-40px, -4vw, -20px);
+    /* Lifts the whole green frame off the page, same soft-shadow
+       language the other widgets on this site already use for raised
+       cards (recent-articles, magazine, soundcloud). */
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.3);
+  }
+  /* Sits on top of the iframe, matching its box exactly (inset by the
+     panel's own padding, same as the iframe underneath) — an inset
+     shadow along all four edges reads as the green frame overhanging
+     the video and casting a shadow down onto it, like the video is
+     recessed a couple inches below the frame rather than flush with it.
+     pointer-events:none so it never blocks clicks/taps on the player. */
+  .video-frame-shadow {
+    position: absolute;
+    inset: clamp(4px, 0.75vw, 7px);
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 10px 16px -6px rgba(0, 0, 0, 0.75),
+      inset 0 -6px 12px -8px rgba(0, 0, 0, 0.5),
+      inset 8px 0 12px -10px rgba(0, 0, 0, 0.4),
+      inset -8px 0 12px -10px rgba(0, 0, 0, 0.4);
   }
   .listen-panel { background: #980237; }
 
@@ -454,6 +476,7 @@
              tracks in a new tab, both of which this would break.) -->
         <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
                 sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
+        <span class="video-frame-shadow" aria-hidden="true"></span>
         <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel listen-panel">
