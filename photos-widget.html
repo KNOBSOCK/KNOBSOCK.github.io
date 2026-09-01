@@ -94,6 +94,7 @@
   }
 
   .photo-stage {
+    position: relative;
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
@@ -107,6 +108,41 @@
     max-height: 100%;
     object-fit: contain;
     border-radius: 4px;
+  }
+
+  /* ---------- PHOTO LOADING BAR ----------
+     The main pane loads each photo's untouched original (often several
+     MB straight off a camera), which can take a moment — this sits over
+     the stage, where the photo itself would render, so switching photos
+     doesn't just look frozen while the bytes come in. Indeterminate
+     (a sweeping fill, not a real percentage) since a plain <img> load
+     doesn't expose byte-level progress without swapping it for a
+     fetch/XHR + blob URL, which isn't worth it just for this. */
+  .photo-loading-bar {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(220px, 60%);
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 122, 26, 0.18);
+    overflow: hidden;
+    z-index: 2;
+  }
+  .photo-loading-bar[hidden] { display: none; }
+  .photo-loading-bar-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    border-radius: 999px;
+    background: var(--accent);
+    animation: photo-loading-sweep 1.1s ease-in-out infinite;
+  }
+  @keyframes photo-loading-sweep {
+    0% { left: -40%; }
+    100% { left: 100%; }
   }
 
   .magnify-btn {
@@ -433,6 +469,9 @@
       </button>
       <div class="photo-stage" id="photoStage">
         <div class="empty-state" id="photoEmptyState">Loading photos…</div>
+        <div class="photo-loading-bar" id="photoLoadingBar" hidden>
+          <div class="photo-loading-bar-fill"></div>
+        </div>
       </div>
       <div class="photo-caption" id="photoCaption" hidden>
         <div class="cap-title" id="capTitle"></div>
@@ -518,6 +557,7 @@
 
   const photoStage = document.getElementById('photoStage');
   const photoEmptyState = document.getElementById('photoEmptyState');
+  const photoLoadingBar = document.getElementById('photoLoadingBar');
   const photoCaption = document.getElementById('photoCaption');
   const capTitle = document.getElementById('capTitle');
   const capCat = document.getElementById('capCat');
@@ -716,8 +756,11 @@
     if (!mainImg) {
       photoEmptyState.remove();
       mainImg = document.createElement('img');
+      mainImg.addEventListener('load', function () { photoLoadingBar.hidden = true; });
+      mainImg.addEventListener('error', function () { photoLoadingBar.hidden = true; });
       photoStage.appendChild(mainImg);
     }
+    photoLoadingBar.hidden = false;
     mainImg.src = rawUrl(photo.path);
     mainImg.alt = photo.title;
 
