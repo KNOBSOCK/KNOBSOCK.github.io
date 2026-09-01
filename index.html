@@ -228,9 +228,29 @@
      doing (a separate document), not something this outer page's own
      overflow property can reach at all — that has to be fixed in each
      widget file itself. */
+  /* Shared by all three cards, not just the video one it was designed
+     for — outer pair lifts each card off the page, same soft-shadow
+     language the other widgets on this site already use for raised
+     cards (recent-articles, magazine, soundcloud). The inset trio is
+     each card's own depth: like a raised picture frame casting a soft
+     shadow onto its own inner lip, heaviest along the top the way a
+     real frame would read under an overhead light. This has to be a
+     shadow on each PANEL's own box (painted before its children) rather
+     than one trying to sit on top of an iframe's rendered content — an
+     iframe child always paints over anything from its parent showing
+     through the same pixels (iframes get their own compositing layer
+     that ignores stacking order for this), so a shadow declared on the
+     iframe itself, or on any element positioned over it, never actually
+     shows. */
   .columns-row .panel {
     display: flex;
     flex-direction: column;
+    box-shadow:
+      0 16px 34px rgba(0, 0, 0, 0.38), 0 5px 12px rgba(0, 0, 0, 0.25),
+      inset 0 7px 9px -2px rgba(0, 0, 0, 0.7),
+      inset 0 -4px 7px -3px rgba(0, 0, 0, 0.42),
+      inset 6px 0 9px -3px rgba(0, 0, 0, 0.5),
+      inset -6px 0 9px -3px rgba(0, 0, 0, 0.5);
   }
   .columns-row iframe {
     display: block;
@@ -252,25 +272,8 @@
        row reads as staggered instead of three flush-aligned boxes.
        Desktop only — see the mobile block below, which cancels this. */
     margin-top: clamp(-40px, -4vw, -20px);
-    /* Outer pair lifts the whole green frame off the page, same
-       soft-shadow language the other widgets on this site already use
-       for raised cards (recent-articles, magazine, soundcloud). The
-       inset trio is the frame's own depth: like a raised picture frame
-       casting a soft shadow onto its own inner lip, heaviest along the
-       top the way a real frame would read under an overhead light. This
-       is a shadow ON THE FRAME ITSELF (.video-panel's own box, painted
-       before its children) rather than one trying to sit on top of the
-       video — an iframe child always paints over anything from its
-       parent that would otherwise show through the same pixels (iframes
-       get their own compositing layer that ignores stacking order for
-       this), so earlier attempts at shadowing the video's own surface
-       never actually worked no matter the z-index. */
-    box-shadow:
-      0 16px 34px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.3),
-      inset 0 7px 9px -2px rgba(0, 0, 0, 0.85),
-      inset 0 -4px 7px -3px rgba(0, 0, 0, 0.5),
-      inset 6px 0 9px -3px rgba(0, 0, 0, 0.6),
-      inset -6px 0 9px -3px rgba(0, 0, 0, 0.6);
+    /* Shadow itself is shared with the other two cards — see
+       .columns-row .panel above. */
   }
   .listen-panel { background: #980237; }
 
