@@ -230,6 +230,13 @@
   .layout.playlist-hidden .playlist-pane { display: none; }
   @media (max-width: 860px) {
     .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; }
+    /* Collapse Video: same growth the desktop .sc-card rule already gets
+       (below, under the min-width query) — without it the freed video
+       space would just sit empty above the playlist row instead of the
+       Now Playing card filling it. .sc-section needs display:flex of
+       its own here since it isn't a flex container outside desktop. */
+    .layout.video-collapsed .sc-section { flex: 1 1 auto; display: flex; flex-direction: column; }
+    .layout.video-collapsed .sc-card { flex: 1 1 auto; justify-content: center; }
   }
 
 
@@ -2668,10 +2675,17 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 
     const cs = getComputedStyle(layout);
     const gap = px(cs.rowGap);
-    // From the pane's WIDTH, not its height: width is set purely by the
-    // horizontal layout, so nothing downstream of this measurement can
-    // feed back into it.
-    const video = (pane.getBoundingClientRect().width * 9) / 16;
+    // From a WIDTH, not a height: width is set purely by the horizontal
+    // layout, so nothing downstream of this measurement can feed back
+    // into it. Read off .sc-card rather than the video pane itself
+    // because .layout.video-collapsed shrinks the pane to a hidden 1px
+    // (see that rule's comment) — measuring the pane would then report
+    // a near-zero video height and shrink the whole reported frame to
+    // match, instead of leaving the space for the Now Playing card to
+    // expand into. .sc-card shares the video pane's column/width in
+    // both layouts and is never collapsed, so this keeps the reported
+    // height the same whether or not the video is hidden.
+    const video = (scCard.getBoundingClientRect().width * 9) / 16;
 
     let height = px(cs.paddingTop) + px(cs.paddingBottom) + video + gap + contentHeight(scCard);
     // Desktop puts the list in its own column beside the video, so it
