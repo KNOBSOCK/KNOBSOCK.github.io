@@ -99,10 +99,10 @@
 
   /* Sits over the video pane while the YouTube embed has nothing to show
      yet — before the player's first onReady, and again on a rebuffer —
-     so switching/starting a video doesn't just look frozen on black.
-     The pane's own black background (.is-loading below) is dropped for
-     the same stretch, so this reads as transparent/matching whatever's
-     behind the widget instead of a solid black box. */
+     so switching/starting a video doesn't just look frozen on the
+     previous frame. The pane keeps its normal solid black background
+     here (same as live.html); the iframe is hidden below just so a
+     rebuffer doesn't leave a stale frame showing under the gif. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -113,7 +113,6 @@
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
-  .video-pane.is-loading { background: transparent; }
   .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .gif-loader {

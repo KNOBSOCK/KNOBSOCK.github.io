@@ -120,10 +120,10 @@
 
   /* Sits over the player while the YouTube embed has nothing to show
      yet — before the player's first onReady, and again while switching
-     videos — so it doesn't just sit frozen on black. The box's own
-     black background (.is-loading below) is dropped for the same
-     stretch, so this reads as transparent/matching whatever's behind
-     the widget instead of a solid black box. */
+     videos — so it doesn't just sit frozen on the previous frame. The
+     box keeps its normal solid black background here (same as
+     live.html); the iframe is hidden below just so switching videos
+     doesn't leave a stale frame showing under the gif. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -134,7 +134,6 @@
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
-  .player-box.is-loading { background: transparent; }
   .player-box.is-loading iframe { visibility: hidden; }
 
   .gif-loader {
