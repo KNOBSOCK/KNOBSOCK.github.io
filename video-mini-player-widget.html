@@ -120,7 +120,10 @@
 
   /* Sits over the player while the YouTube embed has nothing to show
      yet — before the player's first onReady, and again while switching
-     videos — so it doesn't just sit frozen on black. */
+     videos — so it doesn't just sit frozen on black. The box's own
+     black background (.is-loading below) is dropped for the same
+     stretch, so this reads as transparent/matching whatever's behind
+     the widget instead of a solid black box. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -128,10 +131,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #000;
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
+  .player-box.is-loading { background: transparent; }
+  .player-box.is-loading iframe { visibility: hidden; }
 
   .gif-loader {
     display: block;
@@ -372,7 +376,7 @@
     <button class="grid-toggle-btn" id="gridToggleBtn">Videos</button>
 
     <div class="player-wrap">
-      <div class="player-box">
+      <div class="player-box is-loading">
         <div id="ytPlayer"></div>
         <div class="video-loading" id="videoLoading">
           <img class="gif-loader" src="/IMG_9407.gif" alt="Loading video…">
@@ -490,6 +494,15 @@
     let pendingVideo = null;
     const videoLoading = document.getElementById('videoLoading');
 
+    function showVideoLoading() {
+      videoLoading.hidden = false;
+      playerBoxEl.classList.add('is-loading');
+    }
+    function hideVideoLoading() {
+      videoLoading.hidden = true;
+      playerBoxEl.classList.remove('is-loading');
+    }
+
     function updateMuteBtnLabel() {
       if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
       unmuteBtn.textContent = ytPlayer.isMuted() ? 'Unmute' : 'Mute';
@@ -559,7 +572,7 @@
       sizePlayerToCover();
       showControls(true);
       if (pendingVideo) {
-        videoLoading.hidden = false;
+        showVideoLoading();
         ytPlayer.loadVideoById(pendingVideo.id);
         pendingVideo = null;
       }
@@ -570,9 +583,9 @@
     // never actually sits in the ENDED state, that overlay never appears.
     function onPlayerStateChange(e) {
       if (e.data === YT.PlayerState.PLAYING) {
-        videoLoading.hidden = true;
+        hideVideoLoading();
       } else if (e.data === YT.PlayerState.BUFFERING) {
-        videoLoading.hidden = false;
+        showVideoLoading();
       }
       if (e.data === YT.PlayerState.ENDED) {
         ytPlayer.seekTo(0);
@@ -615,7 +628,7 @@
       scrubberFillEl.style.width = '0%';
 
       if (ytPlayer && playerReady) {
-        videoLoading.hidden = false;
+        showVideoLoading();
         ytPlayer.loadVideoById(id);
       } else if (ytApiReady && !ytPlayer) {
         createPlayer(id);
