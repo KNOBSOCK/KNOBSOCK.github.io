@@ -469,6 +469,23 @@
   const TREE_API = `https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`;
   const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/refs/heads/${BRANCH}/`;
   const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif)$/i;
+  // Grid thumbnails go through wsrv.nl (a free public image-resizing proxy)
+  // instead of shipping each photo's full original — these are real camera
+  // files (often several MB, 4000px+ on a side), and loading 15-20 of them
+  // at once just to show ~100px squares was both slow and, under load,
+  // visibly janky. The main pane and lightbox still use the untouched
+  // original for full quality when a photo is actually opened.
+  const THUMB_PX = 240; // ~2x the largest rendered tile size, for retina
+
+  function rawUrl(path) {
+    return RAW_BASE + path.split('/').map(encodeURIComponent).join('/');
+  }
+
+  function thumbUrl(path) {
+    const src = rawUrl(path);
+    return 'https://wsrv.nl/?url=' + encodeURIComponent(src) +
+      '&w=' + THUMB_PX + '&h=' + THUMB_PX + '&fit=cover&output=webp&q=75';
+  }
 
   const photoStage = document.getElementById('photoStage');
   const photoEmptyState = document.getElementById('photoEmptyState');
@@ -529,17 +546,20 @@
     }
 
     capMeta.textContent = '';
-    const url = RAW_BASE + path.split('/').map(encodeURIComponent).join('/');
-    const naturalDims = () => ({ width: imgEl.naturalWidth || null, height: imgEl.naturalHeight || null });
+    const url = rawUrl(path);
 
     const exifPromise = (window.exifr && typeof window.exifr.parse === 'function')
       ? window.exifr.parse(url).catch(() => null)
       : Promise.resolve(null);
+    // decode() resolves once this exact image request has actually finished
+    // loading, so naturalWidth/Height are reliably populated by the time we
+    // read them below — reading them straight off exifPromise.then() would
+    // otherwise race the image's own load and could intermittently report 0.
+    const readyPromise = (imgEl.decode ? imgEl.decode() : Promise.resolve()).catch(() => {});
 
-    exifPromise.then((tags) => {
+    Promise.all([exifPromise, readyPromise]).then(([tags]) => {
       if (requestId !== metaRequestId) return; // a newer photo was selected meanwhile
-      const dims = naturalDims();
-      const text = formatMeta(tags, dims.width, dims.height);
+      const text = formatMeta(tags, imgEl.naturalWidth || null, imgEl.naturalHeight || null);
       metaCache.set(path, text);
       if (activePhoto && activePhoto.path === path) capMeta.textContent = text;
     });
@@ -624,9 +644,17 @@
       btn.title = photo.title;
 
       const img = document.createElement('img');
-      img.src = RAW_BASE + photo.path.split('/').map(encodeURIComponent).join('/');
+      img.src = thumbUrl(photo.path);
       img.alt = photo.title;
       img.loading = 'lazy';
+      img.decoding = 'async';
+      // If the thumbnail proxy ever fails, fall back to the full photo
+      // rather than showing a broken thumbnail — once only, to avoid an
+      // infinite loop if the fallback itself 404s.
+      img.addEventListener('error', function onThumbError() {
+        img.removeEventListener('error', onThumbError);
+        img.src = rawUrl(photo.path);
+      });
       btn.appendChild(img);
 
       btn.addEventListener('click', () => selectPhoto(photo));
@@ -642,7 +670,7 @@
       mainImg = document.createElement('img');
       photoStage.appendChild(mainImg);
     }
-    mainImg.src = RAW_BASE + photo.path.split('/').map(encodeURIComponent).join('/');
+    mainImg.src = rawUrl(photo.path);
     mainImg.alt = photo.title;
 
     capTitle.textContent = photo.title;
