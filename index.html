@@ -275,6 +275,17 @@
     /* Shadow itself is shared with the other two cards — see
        .columns-row .panel above. */
   }
+  /* Rounds the video itself to match the green frame's own corner
+     radius (.panel, above) — the iframe was never clipped to the
+     frame's shape at all, so its plain square corners sat inside the
+     rounded frame with a visible mismatch at each corner. border-radius
+     works directly on an iframe element (it clips the embedded page's
+     own rendering, same as it would an img), so this needs nothing on
+     .video-panel itself — no overflow:hidden, no separate clipping
+     wrapper. */
+  .video-panel iframe {
+    border-radius: 22px;
+  }
   .listen-panel { background: #980237; }
 
   /* ---------- MOBILE: 3D CARD CAROUSEL ----------
