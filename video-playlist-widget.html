@@ -185,6 +185,15 @@
   .layout.playlist-hidden .playlist-pane { display: none; }
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
 
+  /* Whichever fullscreen path is active, explicitly hide the playlist
+     and creator chin rather than relying on the video simply covering
+     them, so there's no overlap even if a browser sizes fullscreen
+     differently than expected. */
+  .layout.fullscreen-active .playlist-pane,
+  .layout.fullscreen-active .creator-chin {
+    display: none;
+  }
+
   /* ---------- CREATOR CHIN ----------
      A row of pill buttons across the bottom, one per creator seen in the
      playlist (plus "All"). Auto-populated as each video's author comes
@@ -341,6 +350,15 @@
     margin: 0;
     border-radius: 0;
     z-index: 9999;
+  }
+  /* A resize on entering/leaving fullscreen can make the YouTube embed
+     report a brief rebuffer, which applies .is-loading above — fine for
+     the small in-page pane (it's meant to show the page through), but
+     while fullscreen that pane IS the whole screen, so a transparent
+     background there means the playlist behind it bleeds through
+     instead. Keep it solid black here regardless of loading state. */
+  .video-pane.pseudo-fullscreen.is-loading {
+    background: #000;
   }
 
   .scrub-range {
@@ -995,6 +1013,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   const creatorChinEl = document.getElementById('creatorChin');
   const ytFrame = document.getElementById('ytFrame');
   const videoLoading = document.getElementById('videoLoading');
+  const layoutEl = document.getElementById('layout');
 
   function showVideoLoading() {
     videoLoading.hidden = false;
@@ -1365,7 +1384,14 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     updateFullscreenIcon();
   }
   function updateFullscreenIcon() {
-    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+    const fs = isFullscreen();
+    fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
+    // Belt-and-suspenders alongside the video pane's own fullscreen
+    // sizing: explicitly hide the playlist/creator chin rather than
+    // relying solely on the video covering them, so there's no overlap
+    // even if a rebuffer briefly makes the (fullscreened) video pane's
+    // background transparent again.
+    layoutEl.classList.toggle('fullscreen-active', fs);
   }
   fullscreenBtn.addEventListener('click', function () {
     if (isFullscreen()) {
