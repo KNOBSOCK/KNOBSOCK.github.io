@@ -97,6 +97,25 @@
     border: 0;
     background: transparent;
   }
+
+  /* On mobile, lock the page itself to exactly one screen instead of
+     letting it grow/scroll — the widget's own playlist list already has
+     its own internal overflow-y:auto (see video-playlist-widget.html),
+     so scrolling stays inside the widget instead of moving the logo
+     off-screen. min-height:0 (replacing the desktop floor above) lets
+     .player-wrap shrink to whatever's actually left below the logo on a
+     very short phone, letterboxing the widget slightly rather than
+     overflowing the locked page. */
+  @media (max-width: 860px) {
+    html, body { overflow: hidden; }
+    .page {
+      height: 100vh;
+      height: 100dvh;
+    }
+    .player-wrap {
+      min-height: 0;
+    }
+  }
 </style>
 </head>
 <body>

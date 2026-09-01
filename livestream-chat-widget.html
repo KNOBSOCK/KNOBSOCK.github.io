@@ -109,9 +109,17 @@
     .video-pane {
       flex: 0 0 38vh;
     }
+    /* min-height:0 (not just min-width) is required here: .layout is
+       column-direction on mobile, so .chat-pane's relevant flex-shrink
+       axis is now height, not width — without this override a flex item
+       won't shrink below its content's natural height, so .messages'
+       own overflow-y:auto never gets a bounded height to actually clip
+       against and the list just grows past the widget's own visible
+       bounds instead of scrolling internally. */
     .chat-pane {
       flex: 1 1 auto;
       min-width: 0;
+      min-height: 0;
     }
   }
 

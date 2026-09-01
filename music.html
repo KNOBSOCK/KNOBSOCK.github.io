@@ -33,19 +33,6 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* Vertical scrolling is allowed again. The widget is sized to its own
-     content now (see the script at the bottom), so on a desktop window
-     there is nothing to scroll; on a phone, where the video, Now Playing
-     card and playlist stacked together can want more than one screen,
-     scrolling past them beats squashing them — which is what the
-     "overflow: hidden" that used to live here forced.
-
-     Only the horizontal axis is locked, and only on <html>: the root's
-     overflow is what the viewport itself uses, so this leaves <body>
-     alone. Setting it on both (which also flips the other axis from
-     visible to auto) instead makes <body> a scroll container of its own
-     at height:100%, and then a phone-sized layout scrolls inside the
-     body box rather than scrolling the page. */
   html { overflow-x: hidden; }
 
   .page {
@@ -107,6 +94,27 @@
     border: 0;
     background: transparent;
   }
+
+  /* On mobile, the page itself is locked to exactly one screen instead
+     of growing/scrolling with the widget's content. The widget can still
+     want more than one screen's worth of height there (video + Now
+     Playing card + playlist stacked) — see the script at the bottom,
+     which on mobile gives the iframe its full natural height directly
+     and leaves #playerWrap (bounded by .page below) to scroll it via
+     overflow-y, so all scrolling stays inside the widget's own box
+     instead of moving the logo off-screen. */
+  @media (max-width: 860px) {
+    html, body { overflow: hidden; }
+    .page {
+      height: 100vh;
+      height: 100dvh;
+    }
+    .player-wrap {
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
 </style>
 </head>
 <body>
@@ -138,9 +146,12 @@
 //
 // Desktop caps the result at the room actually left below the logo, so
 // a short window letterboxes the widget slightly rather than scrolling
-// the page. The phone layout gets the full requested height and the
-// page scrolls if that runs past the screen — squeezing it is what
-// flattened the playlist thumbnails.
+// the page. The phone layout gets the full requested height too, but
+// applied to the IFRAME itself rather than #playerWrap — the page is
+// locked to one screen there (see the mobile media query above), so
+// #playerWrap's own bounded box (with overflow-y:auto) scrolls the
+// taller iframe internally instead of the page growing past the screen,
+// which is what used to flatten the playlist thumbnails.
 //
 // If the message never arrives (JS off, or the widget served from
 // another origin), the CSS above stands on its own.
@@ -152,18 +163,29 @@
 
   function apply() {
     if (!natural) return;
+
+    if (window.innerWidth <= MOBILE) {
+      // Hand sizing to the CSS mobile rules for #playerWrap itself...
+      wrap.style.flex = '';
+      wrap.style.height = '';
+      wrap.style.minHeight = '';
+      // ...and give the iframe its own full natural height directly, so
+      // it can be taller than #playerWrap's locked-page-bounded box —
+      // that's what #playerWrap's own overflow-y:auto then scrolls.
+      frame.style.height = Math.round(natural) + 'px';
+      return;
+    }
+
+    frame.style.height = '';
     wrap.style.flex = '0 0 auto';
     // min-height from the stylesheet would otherwise win over a smaller
     // measured height and keep the gap.
     wrap.style.minHeight = '0';
-    var height = natural;
-    if (window.innerWidth > MOBILE) {
-      // Page position, not viewport position: getBoundingClientRect()
-      // alone would shrink the answer once the page is scrolled.
-      var top = wrap.getBoundingClientRect().top + window.pageYOffset;
-      var available = window.innerHeight - top - 12;
-      height = Math.min(natural, Math.max(260, available));
-    }
+    // Page position, not viewport position: getBoundingClientRect()
+    // alone would shrink the answer once the page is scrolled.
+    var top = wrap.getBoundingClientRect().top + window.pageYOffset;
+    var available = window.innerHeight - top - 12;
+    var height = Math.min(natural, Math.max(260, available));
     wrap.style.height = Math.round(height) + 'px';
   }
 

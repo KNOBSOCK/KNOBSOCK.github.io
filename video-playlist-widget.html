@@ -120,7 +120,17 @@
   @media (max-width: 860px) {
     .main-row { flex-direction: column; }
     .video-pane { flex: 0 0 38vh; }
-    .playlist-pane { flex: 1 1 auto; min-width: 0; }
+    /* min-height:0 (not just min-width) is required here: .main-row is
+       column-direction on mobile, so .playlist-pane's relevant
+       flex-shrink axis is now height, not width — without this override
+       a flex item won't shrink below its content's natural height. The
+       playlist itself already scrolls horizontally on mobile (see
+       .playlist-items below) and stays a fixed height regardless of
+       item count, so this mostly guards against .playlist-pane forcing
+       the widget's own document to overflow (host pages now lock their
+       own outer scroll on mobile — see videos.html — and rely on the
+       widget staying inside whatever box it's given). */
+    .playlist-pane { flex: 1 1 auto; min-width: 0; min-height: 0; }
   }
 
   /* Desktop only — the phone layout above is deliberately left alone.
