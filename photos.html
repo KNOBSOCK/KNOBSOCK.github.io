@@ -96,5 +96,39 @@
   </div>
 </div>
 
+<script>
+// Same knobsock-widget-height contract videos.html uses on
+// video-playlist-widget.html — sizes .content-wrap to the widget's own
+// natural height instead of letting it stretch to fill the viewport,
+// which is what was elongating the black photo pane on tall/4K/8K
+// windows. Desktop only; the CSS above is left to size it on phones.
+(function () {
+  var wrap = document.querySelector('.content-wrap');
+  var frame = wrap.querySelector('iframe');
+  var MOBILE = 860;
+
+  function clear() {
+    wrap.style.flex = '';
+    wrap.style.height = '';
+    wrap.style.minHeight = '';
+  }
+
+  window.addEventListener('message', function (e) {
+    if (e.origin !== window.location.origin) return;
+    if (e.source !== frame.contentWindow) return;
+    if (!e.data || e.data.type !== 'knobsock-widget-height') return;
+    if (window.innerWidth <= MOBILE) { clear(); return; }
+    wrap.style.flex = '0 0 auto';
+    wrap.style.minHeight = '0';
+    var available = window.innerHeight - wrap.getBoundingClientRect().top - 12;
+    wrap.style.height = Math.min(e.data.height, Math.max(260, available)) + 'px';
+  });
+
+  window.addEventListener('resize', function () {
+    if (window.innerWidth <= MOBILE) clear();
+  });
+})();
+</script>
+
 </body>
 </html>
