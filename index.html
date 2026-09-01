@@ -259,26 +259,23 @@
        cards (recent-articles, magazine, soundcloud). */
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.3);
   }
-  /* Matches the iframe's own box exactly (inset by the panel's padding,
-     same as the iframe underneath) and traces its actual rectangular
-     edges — deliberately square, no border-radius. The green frame
-     itself stays rounded, but the iframe inside it is a plain rectangle
-     (it isn't clipped to the frame's rounded corners), so a rounded
-     shadow sitting over a square video was the mismatch that looked
-     wrong at each corner; matching the shadow to the video's real
-     (square) shape fixes that. An inset shadow along all four edges
-     reads as the frame overhanging the video and casting a shadow down
-     onto it, like the video sits recessed below the frame rather than
-     flush with it — an outward shadow doesn't work here since the
-     frame's own visible margin (the padding below) is only a few
-     pixels, nowhere near enough room for an offset shadow to read
-     against before it's clipped off. pointer-events:none so it never
-     blocks clicks/taps on the player. */
-  .video-frame-shadow {
-    position: absolute;
-    inset: clamp(4px, 0.75vw, 7px);
-    z-index: 1;
-    pointer-events: none;
+  /* The inset shadow lives on the iframe ITSELF rather than a separate
+     overlay element sitting on top of it — a separate overlay (tried
+     first) can't be trusted to actually composite above an iframe's own
+     rendered content: iframes get their own compositing layer in every
+     mainstream browser, and that layer routinely paints above sibling
+     DOM content regardless of z-index. That's exactly what was
+     happening: the shadow only showed in the sliver of green the video
+     doesn't cover (near the rounded corner), reading as "shadow sitting
+     on the green frame" instead of "on the video" — because the video
+     WAS covering it everywhere else. box-shadow is part of an element's
+     own box decoration (like a border), so putting it directly on the
+     iframe has no such ambiguity: it's guaranteed to render as part of
+     that element, matching its real rendered edges exactly with no
+     separate position/size to keep in sync, and square (no
+     border-radius) to match the iframe's own actual (unrounded) shape
+     rather than the round-cornered green frame around it. */
+  .video-panel iframe {
     box-shadow:
       inset 0 10px 16px -6px rgba(0, 0, 0, 0.75),
       inset 0 -6px 12px -8px rgba(0, 0, 0, 0.5),
@@ -484,7 +481,6 @@
              tracks in a new tab, both of which this would break.) -->
         <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
                 sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
-        <span class="video-frame-shadow" aria-hidden="true"></span>
         <span class="card-touch" aria-hidden="true"></span>
       </div>
       <div class="panel listen-panel">
