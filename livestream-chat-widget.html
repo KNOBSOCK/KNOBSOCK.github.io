@@ -82,11 +82,14 @@
     padding-bottom: var(--stats-h);
   }
 
-  /* Sits over the video pane until the livestream's first onStateChange
-     PLAYING, so the embed doesn't just sit on black while it loads. The
-     pane's own black background (.is-loading below) is dropped for the
-     same stretch, so this reads as transparent/matching whatever's
-     behind the widget instead of a solid black box. */
+  /* Sits over the video pane while the embed has nothing to show yet —
+     before the livestream's first onStateChange PLAYING, and again on a
+     rebuffer. The pane keeps its normal solid black background here
+     (unlike the other widgets' loading state) — this is live.html's own
+     stream, not something you're switching away from, so there's no
+     stale frame to worry about hiding; the iframe is still hidden below
+     just so a rebuffer doesn't leave an old frame showing under the
+     gif. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -98,7 +101,6 @@
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
-  .video-pane.is-loading { background: transparent; }
   .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .gif-loader {
