@@ -46,7 +46,7 @@
     bottom: clamp(16px, 3vw, 32px);
     left: 50%;
     transform: translateX(-50%);
-    width: min(calc(100% - clamp(32px, 6vw, 64px)), calc(1200px - clamp(32px, 6vw, 64px)));
+    width: min(calc(100% - clamp(8px, 2vw, 16px)), calc(1200px - clamp(8px, 2vw, 16px)));
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(242, 183, 5, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
@@ -82,8 +82,7 @@
     max-width: 1200px;
     margin: 0 auto;
     gap: 10px;
-    padding: clamp(18px, 3.5vw, 36px);
-    padding-top: clamp(4px, 1vw, 8px);
+    padding: clamp(4px, 1vw, 8px) clamp(4px, 1vw, 8px) clamp(18px, 3.5vw, 36px);
     background: transparent;
   }
 

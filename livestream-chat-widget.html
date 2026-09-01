@@ -46,6 +46,8 @@
     position: absolute;
     inset: clamp(16px, 3vw, 32px);
     top: clamp(4px, 1vw, 8px);
+    left: clamp(4px, 1vw, 8px);
+    right: clamp(4px, 1vw, 8px);
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(205, 50, 50, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
@@ -65,8 +67,7 @@
     height: 100%;
     margin: 0;
     gap: 14px;
-    padding: clamp(18px, 3.5vw, 36px);
-    padding-top: clamp(4px, 1vw, 8px);
+    padding: clamp(4px, 1vw, 8px) clamp(4px, 1vw, 8px) clamp(18px, 3.5vw, 36px);
     background: transparent;
   }
 
