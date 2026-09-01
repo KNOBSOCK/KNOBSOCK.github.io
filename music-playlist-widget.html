@@ -86,6 +86,22 @@
     background: transparent;
   }
 
+  /* On mobile, the widget's own stacked content (video + Now Playing
+     card + playlist) can be taller than whatever box the host page
+     hands the iframe — .layout itself is the scroll container for
+     that, rather than the host page growing/scrolling around an
+     oversized iframe (that used to feel like scrolling a separate
+     nested frame instead of the widget itself). Scoped to .layout
+     specifically, not html/body, so .bg-glow — a sibling of .layout,
+     not a descendant — stays put as a fixed backdrop instead of
+     scrolling away with the content. */
+  @media (max-width: 860px) {
+    .layout {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
   @media (min-width: 861px) {
     .layout {
       display: grid;
@@ -2616,9 +2632,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const layout = document.getElementById('layout');
   const pane = document.getElementById('videoPane');
   const scCard = document.querySelector('.sc-card');
-  const playlistPane = document.getElementById('playlistPane');
-  const playlistHeader = document.querySelector('.playlist-header');
-  const chin = document.getElementById('creatorChin');
   const items = document.getElementById('playlistItems');
   const MOBILE = 860;
   let lastSent = 0;
@@ -2647,31 +2660,15 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     return total;
   }
 
-  // Phone layout only: there the list is a horizontal row under the
-  // video, so it needs its own share of the height rather than "the rest
-  // of the screen". Card heights are content-driven now (see
-  // align-items: flex-start on .playlist-items), so the tallest card is
-  // a real measurement, not the row height handed back to us.
-  function playlistHeight() {
-    if (!playlistPane || getComputedStyle(playlistPane).display === 'none') return 0;
-    const ics = getComputedStyle(items);
-    let tallest = 0;
-    for (let i = 0; i < items.children.length; i++) {
-      tallest = Math.max(tallest, items.children[i].getBoundingClientRect().height);
-    }
-    const chinCs = getComputedStyle(chin);
-    return playlistHeader.getBoundingClientRect().height +
-           chin.getBoundingClientRect().height + px(chinCs.marginTop) + px(chinCs.marginBottom) +
-           tallest + px(ics.paddingTop) + px(ics.paddingBottom) +
-           // A little slack so a fractional pixel can't clip the bottom
-           // of the cards, which the row hides rather than scrolls.
-           4;
-  }
-
   function report() {
     // Fullscreen re-parents the video pane to the whole window; nothing
     // about that state should be mistaken for the widget's own height.
     if (layout.classList.contains('fullscreen-active')) return;
+    // The host page no longer sizes itself to this on mobile — .layout
+    // scrolls its own overflow internally there instead (see the
+    // .layout mobile media query above), so there's nothing for this
+    // message to do once a phone-width host page ignores it anyway.
+    if (window.innerWidth <= MOBILE) return;
 
     const cs = getComputedStyle(layout);
     const gap = px(cs.rowGap);
@@ -2687,11 +2684,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     // height the same whether or not the video is hidden.
     const video = (scCard.getBoundingClientRect().width * 9) / 16;
 
-    let height = px(cs.paddingTop) + px(cs.paddingBottom) + video + gap + contentHeight(scCard);
-    // Desktop puts the list in its own column beside the video, so it
-    // rides along on that height. The phone stacks it underneath.
-    if (window.innerWidth <= MOBILE) height += gap + playlistHeight();
-    height = Math.ceil(height);
+    let height = Math.ceil(px(cs.paddingTop) + px(cs.paddingBottom) + video + gap + contentHeight(scCard));
 
     // Only post on a real change — the parent resizing the iframe feeds
     // straight back into the observer below, so echoing an unchanged

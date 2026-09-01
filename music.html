@@ -95,14 +95,15 @@
     background: transparent;
   }
 
-  /* On mobile, the page itself is locked to exactly one screen instead
-     of growing/scrolling with the widget's content. The widget can still
-     want more than one screen's worth of height there (video + Now
-     Playing card + playlist stacked) — see the script at the bottom,
-     which on mobile gives the iframe its full natural height directly
-     and leaves #playerWrap (bounded by .page below) to scroll it via
-     overflow-y, so all scrolling stays inside the widget's own box
-     instead of moving the logo off-screen. */
+  /* On mobile, lock the page itself to exactly one screen instead of
+     letting it grow/scroll — the widget's own stacked mobile content
+     (video + Now Playing card + playlist) scrolls inside its own
+     .layout now instead (see music-playlist-widget.html), so scrolling
+     stays inside the widget instead of moving the logo off-screen.
+     min-height:0 (replacing the desktop floor above) lets .player-wrap
+     shrink to whatever's actually left below the logo on a very short
+     phone, letterboxing the widget slightly rather than overflowing the
+     locked page. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
     .page {
@@ -111,8 +112,6 @@
     }
     .player-wrap {
       min-height: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
     }
   }
 </style>
@@ -134,9 +133,8 @@
 
 <script>
 // The widget reports the height its content actually wants (a 16:9
-// player, the Now Playing card, and on a phone the playlist stacked
-// under them) and this sizes the iframe to that — the same
-// knobsock-widget-height contract videos.html uses.
+// player and the Now Playing card) and this sizes the iframe to that —
+// the same knobsock-widget-height contract videos.html uses.
 //
 // Sizing it to the leftover window instead, which is what this used to
 // do, is what made the gold panel run all the way to the bottom of a
@@ -144,65 +142,43 @@
 // handed, so every extra pixel of window turned into empty panel under
 // the player.
 //
-// Desktop caps the result at the room actually left below the logo, so
-// a short window letterboxes the widget slightly rather than scrolling
-// the page. The phone layout does the same thing now — #playerWrap gets
-// an explicit height measured the same way, and the iframe inside it
-// gets the full, uncapped natural height, so #playerWrap's own
-// overflow-y:auto scrolls the taller iframe internally instead of the
-// page growing past the screen (the page itself is locked to one screen —
-// see the mobile media query above). #playerWrap's height is set
-// explicitly here rather than left to flex-shrink + min-height:0 to
-// figure out on its own — Safari's flex intrinsic-sizing doesn't reliably
-// shrink a flex item to the space actually available the way Chromium
-// does, so this computes the real number in JS instead of trusting the
-// flex algorithm to land on it.
-//
+// Desktop only — the widget doesn't even send this message on mobile
+// anymore (see the report() guard in music-playlist-widget.html): the
+// page there is locked to one screen (see the mobile media query above)
+// and the widget's own stacked content (video + Now Playing card +
+// playlist) scrolls inside its own .layout instead of the host page
+// growing/scrolling around it — an earlier version tried to size
+// #playerWrap to the widget's full natural height and scroll THAT, which
+// read as scrolling a separate nested frame instead of the page itself.
 // If the message never arrives (JS off, or the widget served from
 // another origin), the CSS above stands on its own.
 (function () {
-  var wrap = document.getElementById('playerWrap');
+  var wrap = document.querySelector('.player-wrap');
   var frame = wrap.querySelector('iframe');
   var MOBILE = 860;
-  var natural = 0;
 
-  function apply() {
-    if (!natural) return;
-
-    wrap.style.flex = '0 0 auto';
-    // min-height from the stylesheet would otherwise win over a smaller
-    // measured height and keep the gap.
-    wrap.style.minHeight = '0';
-    // Page position, not viewport position: getBoundingClientRect()
-    // alone would shrink the answer once the page is scrolled.
-    var top = wrap.getBoundingClientRect().top + window.pageYOffset;
-    var available = window.innerHeight - top - 12;
-
-    if (window.innerWidth <= MOBILE) {
-      // #playerWrap gets exactly the room available (not capped by
-      // natural — it can be smaller than the content) and the iframe
-      // gets its full natural height, which is what makes #playerWrap's
-      // own overflow-y actually have something to scroll.
-      wrap.style.height = Math.round(Math.max(200, available)) + 'px';
-      frame.style.height = Math.round(natural) + 'px';
-      return;
-    }
-
-    frame.style.height = '';
-    var height = Math.min(natural, Math.max(260, available));
-    wrap.style.height = Math.round(height) + 'px';
+  function clear() {
+    wrap.style.flex = '';
+    wrap.style.height = '';
+    wrap.style.minHeight = '';
   }
 
   window.addEventListener('message', function (e) {
     if (e.origin !== window.location.origin) return;
     if (e.source !== frame.contentWindow) return;
     if (!e.data || e.data.type !== 'knobsock-widget-height') return;
-    natural = e.data.height;
-    apply();
+    if (window.innerWidth <= MOBILE) { clear(); return; }
+    wrap.style.flex = '0 0 auto';
+    // min-height from the stylesheet would otherwise win over a smaller
+    // measured height and keep the gap.
+    wrap.style.minHeight = '0';
+    var available = window.innerHeight - wrap.getBoundingClientRect().top - 12;
+    wrap.style.height = Math.min(e.data.height, Math.max(260, available)) + 'px';
   });
 
-  window.addEventListener('resize', apply);
-  window.addEventListener('orientationchange', apply);
+  window.addEventListener('resize', function () {
+    if (window.innerWidth <= MOBILE) clear();
+  });
 })();
 </script>
 
