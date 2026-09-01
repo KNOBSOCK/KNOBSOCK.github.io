@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/music">
+<meta property="og:title" content="Music - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Music - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* Standalone rebuild in the same style as videos.html, but with the
+     old-GeoCities tiled-GIF background main/index.html uses instead of
+     a solid color. */
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    gap: clamp(4px, 1.5vw, 12px);
+    padding: clamp(8px, 2vw, 20px) 0 0;
+  }
+
+  /* Header logo — capped by width AND by a share of the viewport height
+     so it can't eat the player's room on a short/landscape screen. */
+  .logo-link {
+    flex: 0 0 auto;
+    display: block;
+    text-align: center;
+    padding: 0 clamp(10px, 3vw, 24px);
+  }
+  .logo-link img {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 760px;
+    max-height: 18vh;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* The player fills whatever's left. The widget draws its own frosted
+     panel and handles its own responsive layout, so this is just the
+     box it lives in. min-height keeps it usable on very short screens,
+     where the page then scrolls instead of squashing. */
+  .player-wrap {
+    flex: 1 1 auto;
+    min-height: min(560px, 68vh);
+    display: flex;
+  }
+  /* height:auto (not 100%) on purpose — a percentage height can't
+     resolve against a flex container whose own height comes from
+     flex-grow, so the iframe was collapsing to its default 150px.
+     Letting the parent's default align-items:stretch size it instead
+     makes it fill the row properly. */
+  .player-wrap iframe {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <a class="logo-link" href="https://truth.knobsock.net" target="_top">
+    <img src="/knobsock-music-logo.png" alt="KNOBSOCK MUSIC">
+  </a>
+
+  <div class="player-wrap">
+    <iframe src="/music-playlist-widget.html"
+            title="KNOBSOCK Music"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowfullscreen></iframe>
+  </div>
+</div>
+
+</body>
+</html>
