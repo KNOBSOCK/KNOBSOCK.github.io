@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Living Room - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/livingroom">
+<meta property="og:title" content="Living Room - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Living Room - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* Fullscreen 3D-room page, same tiled-GIF background as main/index.html.
+     The Sketchfab embed and its instructions overlay live in
+     /livingroom-widget.html (a nested iframe); this shell just fills the
+     browser with it edge to edge and floats the site's header logo on
+     top, the same way it sits over the video on knobsock.net/main. */
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
+  }
+
+  .viewer-wrap {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+  }
+  .viewer-wrap iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: transparent;
+  }
+
+  /* Header logo — floats over the 3D scene instead of pushing it down,
+     same "Knobsock" image knobsock.net/main uses. pointer-events is off
+     on the row itself so it doesn't block dragging/pinching the model
+     underneath it; the link re-enables it just over the logo. */
+  .site-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    padding: clamp(10px, 2.5vw, 22px) clamp(10px, 3vw, 24px) 0;
+    pointer-events: none;
+  }
+  .logo-link {
+    display: block;
+    width: min(46%, 320px);
+    pointer-events: auto;
+  }
+  .logo-link img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 50 / 19;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+
+<div class="viewer-wrap">
+  <iframe src="/livingroom-widget.html"
+          title="The Knobsock Living Room"
+          allow="autoplay; fullscreen; xr-spatial-tracking; clipboard-write; web-share"
+          allowfullscreen></iframe>
+</div>
+
+<header class="site-header">
+  <a class="logo-link" href="https://truth.knobsock.net/main" target="_top">
+    <img src="https://knobsock.net/_assets/E87B50D3-FD94-42AD-A84A-E08497A2D80C?w=1500&q=70&auto=compress,format&fit=clip" alt="Knobsock">
+  </a>
+</header>
+
+</body>
+</html>

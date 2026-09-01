@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: sans-serif;
+    overscroll-behavior: none;
+    /* Transparent so the host page's tiled background can show through
+       wherever the Sketchfab canvas itself doesn't paint (e.g. while the
+       model is still loading, or if its own transparent=1 render leaves
+       gaps). */
+    background: transparent;
+  }
+  .sketchfab-embed-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+  }
+  .sketchfab-embed-wrapper iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+  .overlay {
+    position: fixed;
+    top: 2vh;
+    left: 2vw;
+    width: 25vw;
+    max-width: 350px;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    z-index: 10;
+    touch-action: none;
+  }
+  .overlay img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    margin-top: 100px;
+    box-shadow: 0 0px 0px rgba(0,0,0,0.4);
+    touch-action: none;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .overlay button {
+    align-self: center;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    background: #00FF00;
+    color: black;
+    touch-action: manipulation;
+  }
+  .overlay button:hover {
+    background: #00FF00;
+  }
+</style>
+</head>
+<body>
+  <div class="sketchfab-embed-wrapper">
+    <iframe
+      title="The Knobsock Living Room 2"
+      frameborder="0"
+      allowfullscreen
+      mozallowfullscreen="true"
+      webkitallowfullscreen="true"
+      allow="autoplay; fullscreen; xr-spatial-tracking"
+      xr-spatial-tracking
+      execution-while-out-of-viewport
+      execution-while-not-rendered
+      web-share
+      src="https://sketchfab.com/models/3cb88c300798467cadac43c0a366483b/embed?autostart=1&preload=1&transparent=1&dnt=1">
+    </iframe>
+  </div>
+  <div class="overlay">
+    <img id="myImage" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/instructions.PNG" alt="Instructions">
+    <button id="toggleBtn" onclick="toggleImage()">Hide Instructions</button>
+  </div>
+  <script>
+    function toggleImage() {
+      const img = document.getElementById('myImage');
+      const btn = document.getElementById('toggleBtn');
+      if (img.style.display === 'none') {
+        img.style.display = 'block';
+        btn.textContent = 'Hide Instructions';
+        btn.style.marginTop = '0px';
+      } else {
+        img.style.display = 'none';
+        btn.textContent = 'Show Instructions';
+        btn.style.marginTop = '60px';
+      }
+    }
+  </script>
+</body>
+</html>
