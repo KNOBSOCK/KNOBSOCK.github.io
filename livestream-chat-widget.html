@@ -82,6 +82,27 @@
     padding-bottom: var(--stats-h);
   }
 
+  /* Sits over the video pane until the livestream's first onStateChange
+     PLAYING, so the embed doesn't just sit on black while it loads. */
+  .video-loading {
+    position: absolute;
+    inset: 0;
+    bottom: var(--stats-h);
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .video-loading[hidden] { display: none; }
+
+  .gif-loader {
+    display: block;
+    width: min(120px, 40%);
+    height: auto;
+    opacity: 0.5;
+  }
+
   .video-frame-wrap {
     width: min(100cqw, calc(100cqh * 16 / 9));
     height: min(100cqh, calc(100cqw * 9 / 16));
@@ -581,6 +602,9 @@
           style="pointer-events: none;">
         </iframe>
       </div>
+      <div class="video-loading" id="videoLoading">
+        <img class="gif-loader" src="/IMG_0967.gif" alt="Loading video…">
+      </div>
       <div class="video-controls" id="videoControls">
         <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
         <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
@@ -598,7 +622,7 @@
 
   <div class="chat-pane" id="chatPane">
     <div class="chat-card" id="app">
-      <div class="loading">Loading chat…</div>
+      <div class="loading"><img class="gif-loader" src="/IMG_0967.gif" alt="Loading chat…"></div>
     </div>
   </div>
 </div>
@@ -625,6 +649,7 @@
   var timeLabel = document.getElementById('timeLabel');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var videoPane = document.getElementById('videoPane');
+  var videoLoading = document.getElementById('videoLoading');
   var ytPlayer = null;
   var isDragging = false;
   var pollTimer = null;
@@ -684,6 +709,11 @@
         },
         onStateChange: function (event) {
           updatePlayPauseIcon(event.data);
+          if (event.data === YT.PlayerState.PLAYING) {
+            videoLoading.hidden = true;
+          } else if (event.data === YT.PlayerState.BUFFERING) {
+            videoLoading.hidden = false;
+          }
         }
       }
     });
@@ -1150,7 +1180,7 @@
     app.innerHTML = `
       <div class="chat-screen">
         <div class="messages" id="messages">
-          <div class="empty-state">Loading messages…</div>
+          <div class="empty-state"><img class="gif-loader" src="/IMG_0967.gif" alt="Loading messages…"></div>
         </div>
         <div class="composer-bar">
           <div class="composer-status">

@@ -181,6 +181,29 @@
     justify-content: center;
   }
 
+  /* Sits over the video pane while the YouTube embed has nothing to show
+     yet — before the player's first onReady, and again on a rebuffer —
+     so switching/starting a video doesn't just look frozen on black.
+     Hidden whenever showVideoCoverArt() takes over the pane for a
+     SoundCloud-only track instead. */
+  .video-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .video-loading[hidden] { display: none; }
+
+  .gif-loader {
+    display: block;
+    width: min(120px, 40%);
+    height: auto;
+    opacity: 0.5;
+  }
+
   /* ---------- COLLAPSE VIDEO / AUDIO-ONLY MODE ----------
      display:none can make a YouTube iframe actually stop playing, so
      instead of removing the pane this takes it out of flow (grid and
@@ -1118,6 +1141,9 @@
         style="pointer-events: none;">
       </iframe>
     </div>
+    <div class="video-loading" id="videoLoading">
+      <img class="gif-loader" src="/IMG_0967.gif" alt="Loading video…">
+    </div>
     <!-- Covers the paused video with the SoundCloud-only track's own
          cover art while it's the active source — otherwise this whole
          pane just sits on whatever video frame was last showing, which
@@ -1191,7 +1217,7 @@
            including in fullscreen. -->
       <div class="creator-chin" id="creatorChin"></div>
       <div class="playlist-items" id="playlistItems">
-        <div class="empty-state">Loading playlist…</div>
+        <div class="empty-state"><img class="gif-loader" src="/IMG_0967.gif" alt="Loading playlist…"></div>
       </div>
     </div>
   </div>
@@ -1453,6 +1479,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const creatorChinEl = document.getElementById('creatorChin');
   const layoutEl = document.getElementById('layout');
   const ytFrame = document.getElementById('ytFrame');
+  const videoLoading = document.getElementById('videoLoading');
   const videoCoverOverlay = document.getElementById('videoCoverOverlay');
   const videoCoverArt = document.getElementById('videoCoverArt');
 
@@ -1803,6 +1830,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function showVideoCoverArt(artworkUrl) {
     videoCoverArt.src = artworkUrl;
     videoCoverOverlay.hidden = false;
+    videoLoading.hidden = true;
   }
   function hideVideoCoverArt() {
     videoCoverOverlay.hidden = true;
@@ -1814,6 +1842,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function loadVideo(id, autoUnmute) {
     loadedVideoId = id;
     if (ytPlayer && apiReady) {
+      videoLoading.hidden = false;
       ytPlayer.loadVideoById(id);
       if (autoUnmute) doUnmute();
     } else {
@@ -1888,6 +1917,11 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         },
         onStateChange: function (event) {
           if (isScKey(activeKey)) return; // a SoundCloud track owns playback right now
+          if (event.data === YT.PlayerState.PLAYING) {
+            videoLoading.hidden = true;
+          } else if (event.data === YT.PlayerState.BUFFERING) {
+            videoLoading.hidden = false;
+          }
           updatePlayPauseIcon(event.data === YT.PlayerState.PLAYING);
           // Keeps the "Now Playing" panel's play icon in sync when this
           // video is the active source (e.g. paused/resumed from the

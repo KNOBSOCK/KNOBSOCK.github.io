@@ -270,6 +270,14 @@
     padding: 20px;
   }
 
+  .gif-loader {
+    display: block;
+    width: min(120px, 40%);
+    height: auto;
+    opacity: 0.5;
+    margin: 0 auto;
+  }
+
   /* ---------- GRID PANE ---------- */
   .grid-pane {
     flex: 1 1 38%;
@@ -454,7 +462,7 @@
         </svg>
       </button>
       <div class="photo-stage" id="photoStage">
-        <div class="empty-state" id="photoEmptyState">Loading photos…</div>
+        <div class="empty-state" id="photoEmptyState"><img class="gif-loader" src="/IMG_0967.gif" alt="Loading photos…"></div>
         <div class="photo-loading-bar" id="photoLoadingBar" hidden>
           <img class="photo-loading-bar-fill" src="/IMG_0967.gif" alt="" aria-hidden="true">
         </div>
@@ -473,7 +481,7 @@
           <span class="grid-count" id="gridCount"></span>
         </div>
         <div class="grid-items" id="gridItems">
-          <div class="empty-state">Loading…</div>
+          <div class="empty-state"><img class="gif-loader" src="/IMG_0967.gif" alt="Loading…"></div>
         </div>
       </div>
     </div>
