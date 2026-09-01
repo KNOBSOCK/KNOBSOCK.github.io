@@ -109,7 +109,7 @@
     border-radius: 4px;
   }
 
-  .fullscreen-btn {
+  .magnify-btn {
     position: absolute;
     top: clamp(8px, 2vw, 14px);
     right: clamp(8px, 2vw, 14px);
@@ -126,26 +126,90 @@
     background: rgba(67, 28, 0, 0.75);
     border: 1px solid var(--line);
     color: var(--text);
-    font-size: clamp(12px, 3vw, 16px);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s;
   }
-  .fullscreen-btn:hover { background: var(--accent-dim); }
+  .magnify-btn:hover { background: var(--accent-dim); transform: scale(1.1) rotate(-4deg); }
+  .magnify-btn svg { width: 58%; height: 58%; display: block; }
 
-  /* Fallback for browsers (iOS Safari) with no real Fullscreen API on
-     non-video elements — simulate it with CSS, same trick
-     video-playlist-widget.html uses for its own fullscreen button. */
-  .photo-pane.pseudo-fullscreen {
+  /* ---------- LIGHTBOX (magnify / zoom+pan viewer) ----------
+     A real full-viewport overlay rather than the old pane-level
+     pseudo-fullscreen — it requests the browser Fullscreen API on
+     itself (the host page's iframe has allow="fullscreen") so the
+     photo genuinely fills the browser window, with pinch/wheel/
+     double-tap zoom and drag-to-pan layered on top in JS. Falls back
+     to just covering the widget's own viewport when the Fullscreen
+     API isn't available (e.g. iOS Safari). */
+  .lightbox {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    margin: 0;
-    border-radius: 0;
-    z-index: 9999;
-    background: #000;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+  }
+  .lightbox[hidden] { display: none; }
+  .lightbox-stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: grab;
+  }
+  .lightbox-stage.dragging { cursor: grabbing; }
+  .lightbox-stage img {
+    max-width: 92%;
+    max-height: 92%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+    will-change: transform;
+  }
+  .lightbox-toolbar {
+    position: absolute;
+    top: clamp(10px, 2.5vw, 20px);
+    right: clamp(10px, 2.5vw, 20px);
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+  }
+  .lightbox-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    width: clamp(32px, 8vw, 40px);
+    aspect-ratio: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    background: rgba(67, 28, 0, 0.75);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: clamp(16px, 4vw, 20px);
+    font-weight: 700;
+    line-height: 1;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s;
+  }
+  .lightbox-btn:hover { background: var(--accent-dim); transform: scale(1.1); }
+  .lightbox-hint {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(12px, 3vw, 22px);
+    transform: translateX(-50%);
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.6vw, 12px);
+    color: var(--text-dim);
+    background: rgba(67, 28, 0, 0.6);
+    padding: 5px 12px;
+    border-radius: 999px;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.4s ease;
   }
 
   .photo-caption {
@@ -166,6 +230,14 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
+  .photo-caption .cap-meta {
+    margin-top: 3px;
+    font-size: clamp(9px, 2.1vw, 11px);
+    color: var(--text-dim);
+    opacity: 0.8;
+    letter-spacing: 0.01em;
+  }
+  .photo-caption .cap-meta:empty { display: none; }
 
   .empty-state {
     margin: auto;
@@ -222,34 +294,46 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding: clamp(8px, 2.4cqh, 12px);
+    overflow-x: hidden;
+    padding: clamp(12px, 3cqh, 16px);
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(clamp(72px, 22cqw, 108px), 1fr));
-    gap: clamp(6px, 1.8cqw, 10px);
+    grid-template-columns: repeat(auto-fill, minmax(clamp(80px, 20cqw, 116px), 1fr));
+    gap: clamp(10px, 2.6cqw, 14px);
     align-content: start;
   }
   .grid-items::-webkit-scrollbar { width: 8px; }
   .grid-items::-webkit-scrollbar-track { background: transparent; }
   .grid-items::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
 
+  /* Every tile is the same 1:1 ratio with the same "matte" padding
+     around the image, so the grid reads as evenly spaced regardless of
+     each photo's own aspect ratio or the viewport size. */
   .grid-item {
     -webkit-appearance: none;
     appearance: none;
     position: relative;
     aspect-ratio: 1 / 1;
-    padding: 0;
+    padding: 3px;
     border-radius: clamp(4px, 1.4cqw, 8px);
     overflow: hidden;
-    background: #000;
+    background: var(--panel-2);
     border: 1px solid var(--line);
     cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s;
   }
-  .grid-item:hover { border-color: var(--accent); }
+  .grid-item:hover,
+  .grid-item:focus-visible {
+    border-color: var(--accent);
+    transform: scale(1.08) rotate(-2deg);
+    z-index: 2;
+  }
+  .grid-item:active { transform: scale(0.96); }
   .grid-item img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    border-radius: clamp(2px, 1cqw, 6px);
   }
   .grid-item.active {
     border-color: var(--accent-yellow);
@@ -312,13 +396,19 @@
 <div class="layout" id="layout">
   <div class="main-row" id="mainRow">
     <div class="photo-pane" id="photoPane">
-      <button type="button" class="fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
+      <button type="button" class="magnify-btn" id="magnifyBtn" title="View fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5"></circle>
+          <line x1="20" y1="20" x2="15.3" y2="15.3"></line>
+        </svg>
+      </button>
       <div class="photo-stage" id="photoStage">
         <div class="empty-state" id="photoEmptyState">Loading photos…</div>
       </div>
       <div class="photo-caption" id="photoCaption" hidden>
         <div class="cap-title" id="capTitle"></div>
         <div class="cap-cat" id="capCat"></div>
+        <div class="cap-meta" id="capMeta"></div>
       </div>
     </div>
 
@@ -337,6 +427,25 @@
 
   <div class="category-chin" id="categoryChin"></div>
 </div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <div class="lightbox-toolbar">
+    <button type="button" class="lightbox-btn" id="lightboxZoomOut" title="Zoom out">&minus;</button>
+    <button type="button" class="lightbox-btn" id="lightboxZoomIn" title="Zoom in">+</button>
+    <button type="button" class="lightbox-btn" id="lightboxClose" title="Close">&times;</button>
+  </div>
+  <div class="lightbox-stage" id="lightboxStage">
+    <img id="lightboxImg" alt="" draggable="false">
+  </div>
+  <div class="lightbox-hint" id="lightboxHint">Scroll or pinch to zoom &middot; drag to pan</div>
+</div>
+
+<!-- Reads camera metadata (dimensions, make/model, f-stop, ISO, shutter
+     speed) straight out of each photo's own EXIF data client-side — no
+     manual per-photo metadata to maintain, same "auto-pulled" spirit as
+     the photo discovery below. Lite build: TIFF+EXIF only, which covers
+     every field used here. -->
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
 
 <script>
 (function () {
@@ -366,6 +475,7 @@
   const photoCaption = document.getElementById('photoCaption');
   const capTitle = document.getElementById('capTitle');
   const capCat = document.getElementById('capCat');
+  const capMeta = document.getElementById('capMeta');
   const gridItemsEl = document.getElementById('gridItems');
   const gridCountEl = document.getElementById('gridCount');
   const chinEl = document.getElementById('categoryChin');
@@ -374,6 +484,66 @@
   let activeCategory = 'All';
   let activePhoto = null;
   let mainImg = null;
+  const metaCache = new Map(); // path -> formatted metadata string
+  let metaRequestId = 0;
+
+  function formatShutterSpeed(exposureTime) {
+    if (!exposureTime || !isFinite(exposureTime)) return null;
+    if (exposureTime >= 1) return Math.round(exposureTime * 10) / 10 + 's';
+    return '1/' + Math.round(1 / exposureTime) + 's';
+  }
+
+  function formatCameraName(tags) {
+    const make = (tags.Make || '').trim();
+    const model = (tags.Model || '').trim();
+    if (!make) return model || null;
+    if (!model) return make;
+    // Most models already repeat the make (e.g. "Canon EOS R6") — avoid "Canon Canon EOS R6".
+    return model.toLowerCase().startsWith(make.toLowerCase()) ? model : make + ' ' + model;
+  }
+
+  function formatMeta(tags, width, height) {
+    const parts = [];
+    const w = (tags && (tags.ExifImageWidth || tags.PixelXDimension)) || width;
+    const h = (tags && (tags.ExifImageHeight || tags.PixelYDimension)) || height;
+    if (w && h) parts.push(w + ' × ' + h);
+
+    if (tags) {
+      const camera = formatCameraName(tags);
+      if (camera) parts.push(camera);
+      if (tags.FNumber) parts.push('f/' + tags.FNumber);
+      if (tags.ISO) parts.push('ISO ' + tags.ISO);
+      const shutter = formatShutterSpeed(tags.ExposureTime);
+      if (shutter) parts.push(shutter);
+    }
+    return parts.join(' · ');
+  }
+
+  function loadMeta(photo, imgEl) {
+    const path = photo.path;
+    const requestId = ++metaRequestId;
+
+    if (metaCache.has(path)) {
+      capMeta.textContent = metaCache.get(path);
+      return;
+    }
+
+    capMeta.textContent = '';
+    const url = RAW_BASE + path.split('/').map(encodeURIComponent).join('/');
+    const naturalDims = () => ({ width: imgEl.naturalWidth || null, height: imgEl.naturalHeight || null });
+
+    const exifPromise = (window.exifr && typeof window.exifr.parse === 'function')
+      ? window.exifr.parse(url).catch(() => null)
+      : Promise.resolve(null);
+
+    exifPromise.then((tags) => {
+      if (requestId !== metaRequestId) return; // a newer photo was selected meanwhile
+      const dims = naturalDims();
+      const text = formatMeta(tags, dims.width, dims.height);
+      metaCache.set(path, text);
+      if (activePhoto && activePhoto.path === path) capMeta.textContent = text;
+    });
+  }
 
   function naturalCompare(a, b) {
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
@@ -478,6 +648,7 @@
     capTitle.textContent = photo.title;
     capCat.textContent = photo.path.split('/')[1] || '';
     photoCaption.hidden = false;
+    loadMeta(photo, mainImg);
 
     // Re-render just to update the active/highlighted grid item.
     renderGrid();
@@ -514,36 +685,71 @@
 })();
 </script>
 
-<!-- ---------- FULLSCREEN BUTTON ----------
-     Same real-Fullscreen-API-with-CSS-fallback approach
-     video-playlist-widget.html uses for its own fullscreen button —
-     the pseudo-fullscreen class covers iOS Safari, which has no real
-     Fullscreen API on non-video elements. -->
+<!-- ---------- MAGNIFY / LIGHTBOX ----------
+     Opens the current photo in a full-viewport overlay and requests the
+     real browser Fullscreen API on it (falling back to just covering the
+     widget's own viewport on iOS Safari, which has no Fullscreen API for
+     arbitrary elements) — "fullscreen in browser" per the brief, rather
+     than the old pane-level pseudo-fullscreen. Zoom/pan is hand-rolled:
+     wheel + pinch (two-finger) to zoom, drag to pan once zoomed, double
+     click/tap to toggle a 2.5x zoom centered on the pointer. -->
 <script>
 (function () {
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
-  const photoPane = document.getElementById('photoPane');
-  let usingPseudoFullscreen = false;
+  const magnifyBtn = document.getElementById('magnifyBtn');
+  const lightbox = document.getElementById('lightbox');
+  const stage = document.getElementById('lightboxStage');
+  const img = document.getElementById('lightboxImg');
+  const hint = document.getElementById('lightboxHint');
+  const closeBtn = document.getElementById('lightboxClose');
+  const zoomInBtn = document.getElementById('lightboxZoomIn');
+  const zoomOutBtn = document.getElementById('lightboxZoomOut');
 
-  function hasNativeFullscreenSupport(el) {
-    return !!(
-      el.requestFullscreen ||
-      el.webkitRequestFullscreen ||
-      el.mozRequestFullScreen ||
-      el.msRequestFullscreen
-    );
+  const MIN_SCALE = 1;
+  const MAX_SCALE = 5;
+  let scale = 1, tx = 0, ty = 0;
+  let usingPseudoFullscreen = false;
+  let hintTimer = null;
+
+  function applyTransform() {
+    img.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')';
+    stage.style.cursor = scale > 1 ? 'grab' : 'default';
   }
 
-  function isFullscreen() {
-    return (
-      usingPseudoFullscreen ||
-      !!(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-      )
-    );
+  function clampPan() {
+    // Keep the image from being dragged entirely off-stage: bound the
+    // translation by how much bigger than the stage the scaled image is.
+    const stageRect = stage.getBoundingClientRect();
+    const rect = img.getBoundingClientRect();
+    const overX = Math.max(0, (rect.width - stageRect.width) / 2);
+    const overY = Math.max(0, (rect.height - stageRect.height) / 2);
+    tx = Math.min(overX, Math.max(-overX, tx));
+    ty = Math.min(overY, Math.max(-overY, ty));
+  }
+
+  function setScale(next, originX, originY) {
+    next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
+    if (originX != null) {
+      // Zoom around the pointer/pinch-midpoint rather than the image center.
+      const rect = stage.getBoundingClientRect();
+      const px = originX - rect.left - rect.width / 2 - tx;
+      const py = originY - rect.top - rect.height / 2 - ty;
+      const ratio = next / scale;
+      tx -= px * (ratio - 1);
+      ty -= py * (ratio - 1);
+    }
+    scale = next;
+    if (scale === MIN_SCALE) { tx = 0; ty = 0; }
+    clampPan();
+    applyTransform();
+  }
+
+  function resetZoom() {
+    scale = 1; tx = 0; ty = 0;
+    applyTransform();
+  }
+
+  function hasNativeFullscreenSupport(el) {
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
   }
 
   function requestFs(el) {
@@ -553,12 +759,8 @@
       else if (el.webkitRequestFullscreen) result = el.webkitRequestFullscreen();
       else if (el.mozRequestFullScreen) result = el.mozRequestFullScreen();
       else if (el.msRequestFullscreen) result = el.msRequestFullscreen();
-      if (result && typeof result.catch === 'function') {
-        result.catch(function () { enterPseudoFullscreen(); });
-      }
-    } catch (e) {
-      enterPseudoFullscreen();
-    }
+      if (result && typeof result.catch === 'function') result.catch(function () {});
+    } catch (e) { /* ignore — overlay itself already covers the viewport */ }
   }
 
   function exitFs() {
@@ -568,46 +770,125 @@
     else if (document.msExitFullscreen) document.msExitFullscreen();
   }
 
-  function handleEscKey(e) {
-    if (e.key === 'Escape' || e.key === 'Esc') exitPseudoFullscreen();
+  function isBrowserFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   }
 
-  function enterPseudoFullscreen() {
-    photoPane.classList.add('pseudo-fullscreen');
-    usingPseudoFullscreen = true;
-    document.addEventListener('keydown', handleEscKey);
-    updateFullscreenIcon();
+  function openLightbox() {
+    const current = document.querySelector('#photoStage img');
+    if (!current || !current.src) return;
+    img.src = current.src;
+    img.alt = current.alt || '';
+    resetZoom();
+    lightbox.hidden = false;
+    if (hasNativeFullscreenSupport(lightbox)) requestFs(lightbox);
+    else usingPseudoFullscreen = true;
+    document.addEventListener('keydown', handleKeydown);
+    clearTimeout(hintTimer);
+    hint.style.opacity = '1';
+    hintTimer = setTimeout(function () { hint.style.opacity = '0'; }, 2600);
   }
 
-  function exitPseudoFullscreen() {
-    photoPane.classList.remove('pseudo-fullscreen');
+  function closeLightbox() {
+    if (isBrowserFullscreen()) exitFs();
     usingPseudoFullscreen = false;
-    document.removeEventListener('keydown', handleEscKey);
-    updateFullscreenIcon();
+    lightbox.hidden = true;
+    img.src = '';
+    document.removeEventListener('keydown', handleKeydown);
   }
 
-  function updateFullscreenIcon() {
-    fullscreenBtn.title = isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen';
+  function handleKeydown(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') closeLightbox();
   }
 
-  fullscreenBtn.addEventListener('click', function () {
-    if (isFullscreen()) {
-      if (usingPseudoFullscreen) exitPseudoFullscreen();
-      else exitFs();
-      return;
-    }
-    if (hasNativeFullscreenSupport(photoPane)) {
-      requestFs(photoPane);
-    } else {
-      enterPseudoFullscreen();
+  magnifyBtn.addEventListener('click', openLightbox);
+  closeBtn.addEventListener('click', closeLightbox);
+  zoomInBtn.addEventListener('click', function () { setScale(scale + 1); });
+  zoomOutBtn.addEventListener('click', function () { setScale(scale - 1); });
+
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(function (evt) {
+    document.addEventListener(evt, function () {
+      // Browser fullscreen was exited some other way (Esc, OS gesture) —
+      // close the overlay too instead of leaving a windowed lightbox open.
+      if (!isBrowserFullscreen() && !usingPseudoFullscreen && !lightbox.hidden) closeLightbox();
+    });
+  });
+
+  // ---- Wheel zoom (desktop) ----
+  stage.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    const delta = -e.deltaY * 0.0025;
+    setScale(scale * (1 + delta), e.clientX, e.clientY);
+  }, { passive: false });
+
+  // ---- Double-click / double-tap to toggle zoom ----
+  let lastTapTime = 0;
+  function toggleZoomAt(x, y) {
+    if (scale > 1) setScale(1);
+    else setScale(2.5, x, y);
+  }
+  stage.addEventListener('dblclick', function (e) { toggleZoomAt(e.clientX, e.clientY); });
+
+  // ---- Pointer-based drag-to-pan + pinch-to-zoom ----
+  const pointers = new Map();
+  let dragging = false;
+  let dragStart = null;
+  let pinchStartDist = null;
+  let pinchStartScale = 1;
+
+  function pinchMidpoint() {
+    const pts = Array.from(pointers.values());
+    return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+  }
+  function pinchDistance() {
+    const pts = Array.from(pointers.values());
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  }
+
+  stage.addEventListener('pointerdown', function (e) {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.setPointerCapture(e.pointerId);
+
+    if (pointers.size === 1) {
+      const now = Date.now();
+      if (now - lastTapTime < 300) { toggleZoomAt(e.clientX, e.clientY); }
+      lastTapTime = now;
+      if (scale > 1) {
+        dragging = true;
+        dragStart = { x: e.clientX - tx, y: e.clientY - ty };
+        stage.classList.add('dragging');
+      }
+    } else if (pointers.size === 2) {
+      dragging = false;
+      stage.classList.remove('dragging');
+      pinchStartDist = pinchDistance();
+      pinchStartScale = scale;
     }
   });
 
-  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(
-    function (evt) {
-      document.addEventListener(evt, updateFullscreenIcon);
+  stage.addEventListener('pointermove', function (e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 2 && pinchStartDist) {
+      const mid = pinchMidpoint();
+      const ratio = pinchDistance() / pinchStartDist;
+      setScale(pinchStartScale * ratio, mid.x, mid.y);
+    } else if (dragging && pointers.size === 1) {
+      tx = e.clientX - dragStart.x;
+      ty = e.clientY - dragStart.y;
+      clampPan();
+      applyTransform();
     }
-  );
+  });
+
+  function releasePointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchStartDist = null;
+    if (pointers.size === 0) { dragging = false; stage.classList.remove('dragging'); }
+  }
+  stage.addEventListener('pointerup', releasePointer);
+  stage.addEventListener('pointercancel', releasePointer);
 })();
 </script>
 
