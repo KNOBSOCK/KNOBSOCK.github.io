@@ -75,19 +75,20 @@
   .player-wrap {
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
+    position: relative;
   }
-  /* height:auto (not 100%) on purpose — a percentage height can't
-     resolve against a flex container whose own height comes from
-     flex-grow, so the iframe was collapsing to its default 150px.
-     Letting the parent's default align-items:stretch size it instead
-     makes it fill the row properly. */
+  /* Absolutely positioned to exactly match .player-wrap's box, rather
+     than relying on flexbox cross-axis stretch to size a replaced
+     element — that stretch depends on the flex item's own flex-basis
+     resolving first, which is circular for an iframe with no intrinsic
+     height, and on some browsers/zoom levels it was falling back to a
+     much taller size than the available space instead of actually being
+     capped by it. inset:0 has no such ambiguity. */
   .player-wrap iframe {
-    display: block;
-    flex: 1 1 auto;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: auto;
-    min-height: 0;
+    height: 100%;
     border: 0;
     background: transparent;
   }
