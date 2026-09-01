@@ -123,6 +123,29 @@
     .playlist-pane { flex: 1 1 auto; min-width: 0; }
   }
 
+  /* Desktop only — the phone layout above is deliberately left alone.
+
+     The black pane used to stretch to whatever height the row was given,
+     while its width stayed capped at its share of the row. On a tall
+     browser window that made it far taller than wide (portrait!), so the
+     16:9 video sat in the middle of a huge black letterbox. Giving the
+     pane the video's own ratio makes the box match what's inside it.
+
+     align-items:center is what stops the stretch — without it, the
+     flex default (stretch) overrides the aspect ratio and nothing
+     changes. The playlist opts back in to full height so it still fills
+     the card beside the player. max-height keeps the pane inside the row
+     on a short, wide window, where 16:9 at full width would overflow;
+     the video re-letterboxes there, which is the correct trade. */
+  @media (min-width: 861px) {
+    .main-row { align-items: center; }
+    .video-pane {
+      aspect-ratio: 16 / 9;
+      max-height: 100%;
+    }
+    .playlist-pane { align-self: stretch; }
+  }
+
   .layout.playlist-hidden .playlist-pane { display: none; }
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
 
@@ -1648,6 +1671,70 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     adminSaveStatus.style.color = 'var(--accent)';
     adminSaveStatus.textContent = 'Reset to default list \u2014 click Save Changes to apply.';
   });
+})();
+</script>
+
+<script>
+// Tells the embedding page how tall this widget actually needs to be, so
+// the page can size its iframe to fit instead of stretching it to the
+// viewport — that stretch is what left a tall empty blue gap above and
+// below the player on desktop.
+//
+// Only on the desktop layout. The phone layout is deliberately given the
+// page's full remaining height and fills it, so it stays as it was.
+//
+// Same-origin only by design: the message is posted with this page's own
+// origin as the target, so it simply isn't delivered when the widget is
+// embedded on another domain (Universe), which then keeps the plain
+// full-height behavior.
+(function () {
+  const layout = document.getElementById('layout');
+  const pane = document.getElementById('videoPane');
+  const chin = document.getElementById('creatorChin');
+  let lastSent = 0;
+
+  function report() {
+    if (window.innerWidth <= 860) return;
+    const cs = getComputedStyle(layout);
+    // Derived from the pane's WIDTH, not its rendered height. Reading the
+    // rendered height measures what the parent already granted rather
+    // than what the player needs: the pane's max-height:100% clamps it to
+    // the space available, so the sum always came back equal to the
+    // current iframe height and the size could never correct itself —
+    // it just sat at whatever it happened to start at. Width is only
+    // driven by the row's horizontal layout, so nothing downstream of
+    // this measurement feeds back into it.
+    const naturalPaneHeight = (pane.getBoundingClientRect().width * 9) / 16;
+    const height = Math.ceil(
+      naturalPaneHeight +
+      chin.getBoundingClientRect().height +
+      (parseFloat(cs.rowGap) || 0) +
+      parseFloat(cs.paddingTop) +
+      parseFloat(cs.paddingBottom)
+    );
+    // Only post on a real change. The parent resizing the iframe feeds
+    // straight back into the observer below, so echoing an unchanged
+    // height would have the two bouncing off each other indefinitely.
+    if (!height || Math.abs(height - lastSent) < 2) return;
+    lastSent = height;
+    try {
+      parent.postMessage(
+        { type: 'knobsock-widget-height', height: height },
+        window.location.origin
+      );
+    } catch (err) { /* embedded cross-origin — nothing to tell */ }
+  }
+
+  // Watches the two things that actually drive the height: the player
+  // box (16:9, so its height follows the window's width) and the creator
+  // chin (grows if the chips ever wrap to a second line).
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(report);
+    ro.observe(pane);
+    ro.observe(chin);
+  }
+  window.addEventListener('resize', report);
+  report();
 })();
 </script>
 
