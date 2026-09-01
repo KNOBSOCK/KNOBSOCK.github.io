@@ -27,13 +27,24 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    /* No page-level scrolling — the widget inside manages its own
-       overflow (a scrolling playlist), so the page itself is capped to
-       one viewport instead of growing past it. */
-    overflow: hidden;
     background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
     font-family: Arial, Helvetica, sans-serif;
   }
+
+  /* Vertical scrolling is allowed again. The widget is sized to its own
+     content now (see the script at the bottom), so on a desktop window
+     there is nothing to scroll; on a phone, where the video, Now Playing
+     card and playlist stacked together can want more than one screen,
+     scrolling past them beats squashing them — which is what the
+     "overflow: hidden" that used to live here forced.
+
+     Only the horizontal axis is locked, and only on <html>: the root's
+     overflow is what the viewport itself uses, so this leaves <body>
+     alone. Setting it on both (which also flips the other axis from
+     visible to auto) instead makes <body> a scroll container of its own
+     at height:100%, and then a phone-sized layout scrolls inside the
+     body box rather than scrolling the page. */
+  html { overflow-x: hidden; }
 
   .page {
     position: relative;
@@ -42,7 +53,10 @@
     min-height: 100vh;
     min-height: 100dvh;
     gap: clamp(4px, 1.5vw, 12px);
-    padding: clamp(8px, 2vw, 20px) 0 0;
+    /* Matching bottom padding to the gap the script leaves below the
+       player, so a scrolled phone layout doesn't end flush against the
+       bottom of the screen. */
+    padding: clamp(8px, 2vw, 20px) 0 12px;
   }
 
   /* Header logo — capped by width AND by a share of the viewport height
@@ -63,24 +77,31 @@
     object-fit: contain;
   }
 
-  /* The player fills whatever's left below the logo. The widget draws
-     its own frosted panel and handles its own responsive layout, so
-     this is just the box it lives in. Sized in JS (see the script at
-     the bottom of this file), the same way videos.html sizes its own
-     player iframe — CSS alone (vh units, flex cross-axis stretch on a
-     replaced element) turned out not to reliably bound this on every
-     browser, so the actual pixel height comes from measuring the real
-     available space instead. This starting height is just what shows
-     before that script runs. */
+  /* The box the player lives in. The widget draws its own frosted panel
+     and handles its own responsive layout; the real height comes from
+     the widget itself (see the script at the bottom of this file),
+     exactly as videos.html does it. These values are only the fallback
+     for before that message arrives — or if it never does, e.g. JS off
+     or the widget served from another origin.
+
+     min-height (not height) keeps it usable on very short screens,
+     where the page then scrolls instead of squashing. */
   .player-wrap {
     flex: 1 1 auto;
-    min-height: 0;
-    height: min(560px, 68vh);
+    min-height: min(560px, 68vh);
+    display: flex;
   }
+  /* height:auto (not 100%) on purpose — a percentage height can't
+     resolve against a flex container whose own height comes from
+     flex-grow, so the iframe would collapse to its default 150px.
+     Letting the parent's default align-items:stretch size it instead
+     makes it fill the row properly. */
   .player-wrap iframe {
     display: block;
+    flex: 1 1 auto;
     width: 100%;
-    height: 100%;
+    height: auto;
+    min-height: 0;
     border: 0;
     background: transparent;
   }
@@ -102,27 +123,58 @@
 </div>
 
 <script>
-// The widget fills 100% of whatever height it's handed rather than
-// having a natural content size of its own, so — unlike
-// video-playlist-widget.html's own postMessage — there's nothing for it
-// to report; instead this measures the actual space left below the logo
-// and sets the iframe to exactly that, in real pixels. vh units and
-// flexbox cross-axis stretch on the iframe (tried first) both turned out
-// to size it unreliably on some browsers, letting it render taller than
-// the viewport instead of actually being capped by it — a plain pixel
-// height computed from the real layout has no such ambiguity.
+// The widget reports the height its content actually wants (a 16:9
+// player, the Now Playing card, and on a phone the playlist stacked
+// under them) and this sizes the iframe to that — the same
+// knobsock-widget-height contract videos.html uses.
+//
+// Sizing it to the leftover window instead, which is what this used to
+// do, is what made the gold panel run all the way to the bottom of a
+// zoomed-out or 4K/8K screen: the widget fills whatever height it is
+// handed, so every extra pixel of window turned into empty panel under
+// the player.
+//
+// Desktop caps the result at the room actually left below the logo, so
+// a short window letterboxes the widget slightly rather than scrolling
+// the page. The phone layout gets the full requested height and the
+// page scrolls if that runs past the screen — squeezing it is what
+// flattened the playlist thumbnails.
+//
+// If the message never arrives (JS off, or the widget served from
+// another origin), the CSS above stands on its own.
 (function () {
   var wrap = document.getElementById('playerWrap');
+  var frame = wrap.querySelector('iframe');
+  var MOBILE = 860;
+  var natural = 0;
 
-  function resize() {
-    var top = wrap.getBoundingClientRect().top;
-    var available = window.innerHeight - top - 12;
-    wrap.style.height = Math.max(260, Math.round(available)) + 'px';
+  function apply() {
+    if (!natural) return;
+    wrap.style.flex = '0 0 auto';
+    // min-height from the stylesheet would otherwise win over a smaller
+    // measured height and keep the gap.
+    wrap.style.minHeight = '0';
+    var height = natural;
+    if (window.innerWidth > MOBILE) {
+      // Page position, not viewport position: getBoundingClientRect()
+      // alone would shrink the answer once the page is scrolled.
+      var top = wrap.getBoundingClientRect().top + window.pageYOffset;
+      var available = window.innerHeight - top - 12;
+      height = Math.min(natural, Math.max(260, available));
+    }
+    wrap.style.height = Math.round(height) + 'px';
   }
 
-  resize();
-  window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', resize);
+  window.addEventListener('message', function (e) {
+    if (e.origin !== window.location.origin) return;
+    if (e.source !== frame.contentWindow) return;
+    if (!e.data || e.data.type !== 'knobsock-widget-height') return;
+    natural = e.data.height;
+    apply();
+  });
+
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', apply);
 })();
 </script>
 
