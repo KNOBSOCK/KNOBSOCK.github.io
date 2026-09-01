@@ -98,8 +98,15 @@
          video row still hugs its full 16:9 height whenever there's
          room (nothing changes in the common case) but can shrink first
          when the window doesn't have enough height for everything, so
-         the video scales down to fit instead of overflowing. */
-      grid-template-rows: minmax(0, auto) minmax(0, 1fr);
+         the video scales down to fit instead of overflowing.
+
+         The SoundCloud row keeps a min-content floor for the same
+         reason in reverse: when there isn't room for everything, the
+         shrinking has to come out of the video — which letterboxes
+         inside its own pane and still looks right — rather than out of
+         the "Now Playing" card, which has nowhere to go and would just
+         have its artwork and controls cropped off the bottom. */
+      grid-template-rows: minmax(0, auto) minmax(min-content, 1fr);
       grid-template-areas:
         "video      playlist"
         "soundcloud playlist";
@@ -116,7 +123,14 @@
     .layout.playlist-hidden .sc-section {
       grid-column: 1 / -1;
     }
-    .video-pane { grid-area: video; min-height: 0; }
+    /* max-height keeps the 16:9 box inside its grid row. aspect-ratio
+       alone sizes the pane from its width and then simply overflows a
+       row that turned out to be shorter — which is how the video used
+       to end up sitting on top of the "Now Playing" card on a short
+       window. Clamped to the row instead, the video letterboxes within
+       the pane (that is what .video-frame-wrap's container units are
+       for) and everything below it stays where it belongs. */
+    .video-pane { grid-area: video; min-height: 0; max-height: 100%; }
     .sc-section {
       grid-area: soundcloud;
       min-height: 0;
@@ -470,13 +484,15 @@
   .playlist-items::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
   @media (max-width: 860px) {
-    /* align-items: stretch (paired with the thumbnail flex-growing to
-       fill the card below) means each card uses the row's full height
-       for a bigger thumbnail instead of leaving empty space beneath a
-       fixed-aspect one — the row's own height is already well-bounded
-       now (see the grid rows above), so this no longer balloons cards
-       taller than their content the way it used to before that fix. */
-    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
+    /* align-items: flex-start — NOT stretch. Stretching every card to
+       the row's full height is what squashed the thumbnails on a phone:
+       the card got whatever vertical room was left over, the thumbnail
+       grew/shrank to fill it, and object-fit:cover then cropped the
+       image down to a thin horizontal band. Content-height cards keep
+       every thumbnail at a true 16:9 instead, and the widget asks its
+       host page for exactly the height that needs (see the height
+       reporter at the bottom of this file). */
+    .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: flex-start; }
   }
 
   .playlist-item {
@@ -546,17 +562,15 @@
   }
 
   @media (max-width: 860px) {
-    /* The thumbnail grows to fill whatever height the card is given
-       (align-items: stretch on .playlist-items/.playlist-item above)
-       instead of sitting at a fixed 16:9 with empty space below it —
-       the text stays pinned to its own natural height at the bottom
-       either way, so it's never squeezed. */
-    .playlist-thumb-wrap {
-      width: 100%;
-      aspect-ratio: auto;
-      flex: 1 1 auto;
-      min-height: 0;
-    }
+    /* Full card width, but still a true 16:9 box — the base rule's
+       aspect-ratio and flex:none are deliberately left alone here. An
+       earlier version let the thumbnail flex-grow into whatever height
+       the (stretched) card had; on a phone that height is whatever the
+       screen has left over, so the box went wide-and-short and
+       object-fit:cover cropped the artwork to a sliver. Fixed ratio +
+       content-height cards (see .playlist-items above) keeps every
+       thumbnail in proportion at any screen size. */
+    .playlist-thumb-wrap { width: 100%; }
     .playlist-meta { flex: 0 0 auto; }
   }
   .playlist-item.active .playlist-thumb-wrap::after {
@@ -2522,6 +2536,132 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }
     scProgressFillEl.style.width = (fraction * 100) + '%';
   });
+})();
+</script>
+
+<script>
+// ---------- NATURAL-HEIGHT REPORTER ----------
+// Same contract videos.html/video-playlist-widget.html already use: the
+// widget measures the height its content actually wants and posts it to
+// the host page, which sizes the iframe to that instead of handing it
+// the whole window.
+//
+// Without this the widget just filled whatever it was given — which is
+// exactly the "page runs all the way to the bottom" bug on a zoomed-out
+// or 4K/8K display: .layout is height:100%, the SoundCloud row is a 1fr
+// grid track and .sc-card flex-grows inside it, so every extra pixel of
+// window became empty gold panel under the video.
+//
+// Everything here is derived from WIDTHS and from content-sized
+// children, never from the rendered height of a box the parent just
+// sized — measuring that would only ever report back the height we were
+// already given, so the size could never correct itself downward.
+//
+// Same-origin only by design: posted with this page's own origin as the
+// target, so it simply isn't delivered when the widget is embedded on
+// another domain, which then keeps the plain fill-the-frame behavior.
+(function () {
+  const layout = document.getElementById('layout');
+  const pane = document.getElementById('videoPane');
+  const scCard = document.querySelector('.sc-card');
+  const playlistPane = document.getElementById('playlistPane');
+  const playlistHeader = document.querySelector('.playlist-header');
+  const chin = document.getElementById('creatorChin');
+  const items = document.getElementById('playlistItems');
+  const MOBILE = 860;
+  let lastSent = 0;
+
+  function px(v) { return parseFloat(v) || 0; }
+
+  // Natural height of a flex column whose children are all content-sized
+  // (flex: 0 0 auto). Summing the children rather than reading the
+  // element's own height is the point: .sc-card is flex:1 1 auto on
+  // desktop, so its rendered height is whatever room the grid row had.
+  function contentHeight(el) {
+    const cs = getComputedStyle(el);
+    let total = px(cs.paddingTop) + px(cs.paddingBottom) +
+                px(cs.borderTopWidth) + px(cs.borderBottomWidth);
+    let shown = 0;
+    for (let i = 0; i < el.children.length; i++) {
+      const child = el.children[i];
+      const ccs = getComputedStyle(child);
+      // The hidden SoundCloud engine iframe is absolutely positioned and
+      // takes no room in the flow.
+      if (ccs.display === 'none' || ccs.position === 'absolute' || ccs.position === 'fixed') continue;
+      total += child.getBoundingClientRect().height + px(ccs.marginTop) + px(ccs.marginBottom);
+      shown++;
+    }
+    if (shown > 1) total += px(cs.rowGap) * (shown - 1);
+    return total;
+  }
+
+  // Phone layout only: there the list is a horizontal row under the
+  // video, so it needs its own share of the height rather than "the rest
+  // of the screen". Card heights are content-driven now (see
+  // align-items: flex-start on .playlist-items), so the tallest card is
+  // a real measurement, not the row height handed back to us.
+  function playlistHeight() {
+    if (!playlistPane || getComputedStyle(playlistPane).display === 'none') return 0;
+    const ics = getComputedStyle(items);
+    let tallest = 0;
+    for (let i = 0; i < items.children.length; i++) {
+      tallest = Math.max(tallest, items.children[i].getBoundingClientRect().height);
+    }
+    const chinCs = getComputedStyle(chin);
+    return playlistHeader.getBoundingClientRect().height +
+           chin.getBoundingClientRect().height + px(chinCs.marginTop) + px(chinCs.marginBottom) +
+           tallest + px(ics.paddingTop) + px(ics.paddingBottom) +
+           // A little slack so a fractional pixel can't clip the bottom
+           // of the cards, which the row hides rather than scrolls.
+           4;
+  }
+
+  function report() {
+    // Fullscreen re-parents the video pane to the whole window; nothing
+    // about that state should be mistaken for the widget's own height.
+    if (layout.classList.contains('fullscreen-active')) return;
+
+    const cs = getComputedStyle(layout);
+    const gap = px(cs.rowGap);
+    // From the pane's WIDTH, not its height: width is set purely by the
+    // horizontal layout, so nothing downstream of this measurement can
+    // feed back into it.
+    const video = (pane.getBoundingClientRect().width * 9) / 16;
+
+    let height = px(cs.paddingTop) + px(cs.paddingBottom) + video + gap + contentHeight(scCard);
+    // Desktop puts the list in its own column beside the video, so it
+    // rides along on that height. The phone stacks it underneath.
+    if (window.innerWidth <= MOBILE) height += gap + playlistHeight();
+    height = Math.ceil(height);
+
+    // Only post on a real change — the parent resizing the iframe feeds
+    // straight back into the observer below, so echoing an unchanged
+    // height would have the two bouncing off each other indefinitely.
+    if (!height || Math.abs(height - lastSent) < 2) return;
+    lastSent = height;
+    try {
+      parent.postMessage(
+        { type: 'knobsock-widget-height', height: height },
+        window.location.origin
+      );
+    } catch (err) { /* embedded cross-origin — nothing to tell */ }
+  }
+
+  // Watches the things that actually drive the height: the player box
+  // (16:9, so it follows the widget's width), the Now Playing card, and
+  // the list (cards re-render as tracks and creator filters load).
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(report);
+    ro.observe(pane);
+    if (scCard) ro.observe(scCard);
+    if (items) ro.observe(items);
+  }
+  if (items && window.MutationObserver) {
+    new MutationObserver(report).observe(items, { childList: true, subtree: true });
+  }
+  window.addEventListener('resize', report);
+  window.addEventListener('load', report);
+  report();
 })();
 </script>
 
