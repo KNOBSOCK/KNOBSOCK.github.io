@@ -405,7 +405,14 @@
   @media (max-width: 860px) {
     .main-row { flex-direction: column; }
     .photo-pane { flex: 0 0 40vh; }
-    .grid-pane { flex: 1 1 auto; min-width: 0; }
+    /* min-height:0 (not just min-width) is required here: .main-row is
+       column-direction on mobile, so .grid-pane's relevant flex-shrink
+       axis is now height, not width — without this override a flex item
+       won't shrink below its content's natural height, so .grid-items'
+       own overflow-y:auto never gets a bounded height to actually clip
+       against and the grid just grows to fit every row, pushing the
+       category tabs below it out past the widget's own visible bounds. */
+    .grid-pane { flex: 1 1 auto; min-width: 0; min-height: 0; }
   }
   @media (min-width: 861px) {
     .main-row { align-items: stretch; }
