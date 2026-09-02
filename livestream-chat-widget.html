@@ -558,12 +558,19 @@
   .msg.mine { align-self: flex-end; align-items: flex-end; }
 
   .msg-meta {
-    font-size: clamp(8px, 2.2cqw, 11px);
+    font-size: clamp(12px, 2.6cqw, 14px);
     color: var(--text-dim);
     font-family: var(--font-display);
     letter-spacing: 0.02em;
   }
   .msg.mine .msg-meta { color: var(--accent); }
+
+  /* Username within the meta line — bolder and a step larger than the
+     timestamp it sits next to, so it reads as the "who" at a glance. */
+  .msg-name {
+    font-weight: 800;
+    font-size: 1.15em;
+  }
 
   /* Message bubbles are the one readable "text box" in the message list */
   .msg-bubble {
@@ -571,7 +578,7 @@
     border: 1px solid var(--line);
     padding: clamp(6px, 1.8cqh, 8px) clamp(8px, 2.4cqw, 12px);
     border-radius: clamp(6px, 2cqw, 10px);
-    font-size: clamp(11px, 2.8cqw, 14px);
+    font-size: clamp(12px, 2.8cqw, 15px);
     line-height: 1.4;
     word-break: break-word;
   }
@@ -1468,7 +1475,7 @@
       // accent-colored bubble and right-aligned layout, so this doesn't
       // lose that distinction, it just stops overriding your own name
       // color specifically with a flat red regardless of what you chose.
-      const nameHtml = `<span style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
+      const nameHtml = `<span class="msg-name" style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
       return `
         <div class="msg ${mine ? 'mine' : ''}">
           <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
