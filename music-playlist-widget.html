@@ -276,6 +276,17 @@
 
   .layout.playlist-hidden .playlist-pane { display: none; }
   @media (max-width: 860px) {
+    /* On a short phone, video-pane (fixed 16:9) and the Now Playing card
+       above this pane take their natural height first, and this pane's
+       min-height:0 above meant it absorbed the ENTIRE deficit if there
+       wasn't enough left — squeezing all the way down to a sliver that
+       showed a row of thumbnails with no room left for the title/artist
+       text under them, instead of the whole widget scrolling the way
+       .layout's own overflow-y:auto is meant to let it. Flooring this
+       pane at roughly one row's height forces that deficit into
+       .layout's scroll instead of into clipping this pane's own
+       content. */
+    .playlist-pane { min-height: 220px; }
     .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; }
     /* Collapse Video: same growth the desktop .sc-card rule already gets
        (below, under the min-width query) — without it the freed video
@@ -656,7 +667,11 @@
        AFTER the base .playlist-thumb-wrap rule below — same specificity
        or CSS rules, later source order wins, so this one has to come
        after the base rule, not before it, or the base rule's fixed
-       aspect-ratio/flex:none silently wins back). */
+       aspect-ratio/flex:none silently wins back). Kept fairly compact —
+       on a short phone this row can end up with very little height to
+       work with (see .playlist-pane's mobile min-height below), and a
+       bigger thumbnail here just leaves less of that room for the
+       title underneath it. */
     .playlist-item {
       flex-direction: column;
       align-items: stretch;
@@ -664,7 +679,7 @@
          ignores the layout's own padding/max-width, so at in-between
          window sizes the card width could drift out of step with how
          much room the pane actually has. */
-      width: clamp(150px, 46cqw, 210px);
+      width: clamp(108px, 32cqw, 150px);
     }
   }
 
