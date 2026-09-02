@@ -596,6 +596,18 @@
     padding: 20px;
   }
 
+  /* "X has tapped in" join notice — smaller and dimmer than a real
+     message bubble, and centered rather than left/right-aligned like
+     one, so it reads as a system line rather than something someone
+     said. */
+  .system-msg {
+    text-align: center;
+    color: var(--text-dim);
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    font-size: clamp(10px, 2.4cqw, 12px);
+  }
+
   /* Shown in the chat-pane's spot on the main page while the chat is
      popped out into its own window. */
   .popout-placeholder {
@@ -1219,6 +1231,19 @@
     });
   }
 
+  // Posts a "X has tapped in" system line to the shared message feed when
+  // someone joins. Fire-and-forget like logIpBestEffort above — a failed
+  // write here shouldn't block the person from actually joining chat.
+  function sendJoinNotice(username) {
+    messagesRef.add({
+      type: 'join',
+      username: username,
+      text: 'has tapped in',
+      deviceId: CLIENT_ID,
+      ts: Date.now()
+    }).catch(() => {});
+  }
+
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -1418,6 +1443,7 @@
       const finalUsername = await claimUsernameSlot(username);
       session = { username: finalUsername };
       logIpBestEffort(finalUsername);
+      sendJoinNotice(finalUsername);
       startChat();
     } catch (e) {
       console.error(e);
@@ -1497,6 +1523,9 @@
     }
 
     container.innerHTML = msgs.map(m => {
+      if (m.type === 'join') {
+        return `<div class="system-msg">${escapeHtml(m.username)} has tapped in</div>`;
+      }
       const mine = m.username === session.username;
       // Own messages get their real picked/auto color too now, same as
       // everyone else's — "mine" still stands out on its own via the
