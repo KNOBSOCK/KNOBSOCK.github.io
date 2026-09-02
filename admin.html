@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNOBSOCK Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  :root {
+    --bg: #0f1216;
+    --panel: #161b21;
+    --panel-2: #1c222a;
+    --line: #2a323c;
+    --text: #eef2f6;
+    --text-dim: #9aa7b4;
+    --accent: #3ea6ff;
+    --accent-dim: #1f5a8a;
+    --danger: #ff6b6b;
+    --font: Arial, Helvetica, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100%;
+  }
+  button, input {
+    font-family: var(--font);
+  }
+  .hidden-hard { display: none !important; }
+
+  /* ---------- LOGIN ---------- */
+  .login-wrap {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 340px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px;
+  }
+  .login-card h1 {
+    margin: 0 0 4px;
+    font-size: 20px;
+  }
+  .login-card p.sub {
+    margin: 0 0 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .field-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 14px 0 6px;
+  }
+  .field-label:first-of-type { margin-top: 0; }
+  input[type="text"], input[type="email"], input[type="password"] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+  input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #04101c;
+  }
+  .btn-primary:hover { background: #5cb6ff; }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px 0;
+  }
+  .btn-link:hover { color: var(--text); }
+  .login-actions { margin-top: 18px; display: flex; justify-content: flex-end; }
+  .error-text { color: var(--danger); font-size: 12px; margin-top: 12px; min-height: 14px; }
+
+  /* ---------- APP SHELL ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 10px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar h1 {
+    font-size: 15px;
+    margin: 0;
+    flex: 0 0 auto;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1 1 auto;
+    overflow-x: auto;
+  }
+  .nav-tab {
+    -webkit-appearance: none;
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active {
+    color: var(--accent);
+    background: var(--panel-2);
+    border-color: var(--line);
+  }
+  .whoami {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .tab-panel { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .tab-panel[hidden] { display: none; }
+
+  .panel-heading { margin: 0 0 4px; font-size: 18px; }
+  .panel-sub { margin: 0 0 20px; color: var(--text-dim); font-size: 13px; max-width: 640px; }
+
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .editor-grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .card-head h2 { font-size: 14px; margin: 0; }
+  .card-head .btn { font-size: 12px; padding: 6px 12px; }
+
+  .list-scroll {
+    max-height: 520px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .list-scroll::-webkit-scrollbar { width: 8px; }
+  .list-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+  }
+  .row.dragging { opacity: 0.35; }
+  .grip {
+    flex: none;
+    cursor: grab;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+    user-select: none;
+  }
+  .row-fields {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .icon-btn {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+  .creator-row { flex-direction: column; align-items: stretch; }
+  .creator-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .creator-row-top .raw-name {
+    flex: 1 1 auto;
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .creator-row input[type="text"] { margin-top: 6px; }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    cursor: pointer;
+  }
+
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 20px 10px;
+    text-align: center;
+  }
+
+  .footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .save-status {
+    font-size: 12px;
+    min-height: 16px;
+    margin-top: 8px;
+  }
+
+  .note {
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+  }
+
+  /* ---------- PHOTOS TAB ---------- */
+  .photo-cat-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .photo-cat-tab {
+    -webkit-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .photo-cat-tab .grip { font-size: 13px; }
+  .photo-cat-tab.active { color: var(--accent); border-color: var(--accent); }
+  .photo-cat-tab.dragging { opacity: 0.35; }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .photo-tile {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    cursor: grab;
+    background: var(--panel-2);
+  }
+  .photo-tile.dragging { opacity: 0.35; }
+  .photo-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+  .photo-tile .grip {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 4px;
+    padding: 1px 4px;
+    color: #fff;
+  }
+
+  /* ---------- LIVE TAB (placeholder) ---------- */
+  .roadmap-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .roadmap-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text-dim);
+    font-size: 13px;
+    opacity: 0.6;
+  }
+  .roadmap-list li .soon-tag {
+    margin-left: auto;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 999px;
+    padding: 2px 8px;
+    flex: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- LOGIN ---------- -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <h1>KNOBSOCK Admin</h1>
+    <p class="sub">Sign in with the same admin account used across the site.</p>
+    <label class="field-label" for="loginEmail">Email</label>
+    <input type="email" id="loginEmail" autocomplete="username">
+    <label class="field-label" for="loginPass">Password</label>
+    <input type="password" id="loginPass" autocomplete="current-password">
+    <div class="login-actions">
+      <button type="button" class="btn btn-primary" id="loginSubmit">Sign In</button>
+    </div>
+    <div class="error-text" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ---------- APP ---------- -->
+<div id="app" hidden>
+  <div class="topbar">
+    <h1>Admin</h1>
+    <div class="tabs">
+      <button type="button" class="nav-tab active" data-tab="videos">Videos</button>
+      <button type="button" class="nav-tab" data-tab="music">Music</button>
+      <button type="button" class="nav-tab" data-tab="photos">Photos</button>
+      <button type="button" class="nav-tab" data-tab="live">Live</button>
+    </div>
+    <span class="whoami" id="whoami"></span>
+    <button type="button" class="btn" id="signOutBtn">Sign Out</button>
+  </div>
+
+  <!-- ===== VIDEOS ===== -->
+  <div class="tab-panel" id="tab-videos">
+    <h2 class="panel-heading">Videos</h2>
+    <p class="panel-sub">Reorder, add, or remove videos on the Videos page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
+    <div class="editor-grid">
+      <div class="card">
+        <div class="card-head">
+          <h2>Video List</h2>
+          <div class="footer-actions">
+            <button type="button" class="btn" id="videosSortDateBtn">Sort by Date Added</button>
+            <button type="button" class="btn" id="videosAddBtn">+ Add Video</button>
+          </div>
+        </div>
+        <div class="list-scroll" id="videosList"></div>
+        <div class="footer-actions">
+          <button type="button" class="btn btn-primary" id="videosSaveBtn">Save Changes</button>
+          <button type="button" class="btn-link" id="videosResetBtn">Reset to default list</button>
+        </div>
+        <div class="save-status" id="videosStatus"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Creators</h2></div>
+        <div class="list-scroll" id="videosCreators"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MUSIC ===== -->
+  <div class="tab-panel" id="tab-music" hidden>
+    <h2 class="panel-heading">Music</h2>
+    <p class="panel-sub">Reorder, add, or remove YouTube tracks on the Music page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
+    <div class="note">SoundCloud tracks aren't managed here — they're pulled in automatically from the linked SoundCloud profile and merged into the list live. This only covers the YouTube side of the playlist.</div>
+    <div class="editor-grid">
+      <div class="card">
+        <div class="card-head">
+          <h2>Track List</h2>
+          <div class="footer-actions">
+            <button type="button" class="btn" id="musicSortDateBtn">Sort by Date Added</button>
+            <button type="button" class="btn" id="musicAddBtn">+ Add Track</button>
+          </div>
+        </div>
+        <div class="list-scroll" id="musicList"></div>
+        <div class="footer-actions">
+          <button type="button" class="btn btn-primary" id="musicSaveBtn">Save Changes</button>
+          <button type="button" class="btn-link" id="musicResetBtn">Reset to default list</button>
+        </div>
+        <div class="save-status" id="musicStatus"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Creators</h2></div>
+        <div class="list-scroll" id="musicCreators"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PHOTOS ===== -->
+  <div class="tab-panel" id="tab-photos" hidden>
+    <h2 class="panel-heading">Photos</h2>
+    <p class="panel-sub">Drag a category pill to reorder the tabs on the Photos page. Pick a category below to drag its photos into a new order.</p>
+    <div class="card">
+      <div class="card-head">
+        <h2>Categories</h2>
+        <button type="button" class="btn btn-primary" id="photosSaveBtn">Save Changes</button>
+      </div>
+      <div class="photo-cat-tabs" id="photoCatTabs"></div>
+      <div class="photo-grid" id="photoGrid"></div>
+      <div class="save-status" id="photosStatus"></div>
+    </div>
+  </div>
+
+  <!-- ===== LIVE (placeholder) ===== -->
+  <div class="tab-panel" id="tab-live" hidden>
+    <h2 class="panel-heading">Live Chat Moderation</h2>
+    <p class="panel-sub">Coming soon — this section will let you moderate the live chat in real time as an administrator.</p>
+    <div class="card">
+      <div class="card-head"><h2>Planned tools</h2></div>
+      <ul class="roadmap-list">
+        <li>Ban a user from chat <span class="soon-tag">Soon</span></li>
+        <li>Remove an individual message <span class="soon-tag">Soon</span></li>
+        <li>Slow mode / pause chat <span class="soon-tag">Soon</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     FIREBASE — same project/pattern as video-playlist-widget.html and
+     music-playlist-widget.html. Sign-in is real Firebase Authentication
+     (email/password) — this reuses whichever admin account already
+     exists under Firebase console → Authentication → Users; nothing new
+     to create there. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  // Same three Firestore documents the widgets themselves read from —
+  // saving here is exactly what saving from a widget's own hidden admin
+  // panel already did, just from one consolidated page instead of three
+  // separate hidden triggers.
+  const VIDEO_DOC_REF = db.collection('playlist').doc('main');
+  const MUSIC_DOC_REF = db.collection('playlist').doc('music');
+  const PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
+</script>
+
+<script>
+(function () {
+  function escapeAttr(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function extractVideoId(input) {
+    if (!input) return null;
+    const trimmed = input.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    ];
+    for (const re of patterns) {
+      const m = trimmed.match(re);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  // ---------- LOGIN ----------
+  const loginWrap = document.getElementById('loginWrap');
+  const appEl = document.getElementById('app');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPass = document.getElementById('loginPass');
+  const loginSubmit = document.getElementById('loginSubmit');
+  const loginError = document.getElementById('loginError');
+  const whoamiEl = document.getElementById('whoami');
+
+  async function handleLogin() {
+    const email = loginEmail.value.trim();
+    const pass = loginPass.value;
+    if (!email || !pass) {
+      loginError.textContent = 'Enter an email and password.';
+      return;
+    }
+    loginSubmit.disabled = true;
+    loginSubmit.textContent = 'Checking…';
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } catch (err) {
+      loginError.textContent = 'Sign-in failed: ' + (err && err.message ? err.message : 'unknown error');
+    } finally {
+      loginSubmit.disabled = false;
+      loginSubmit.textContent = 'Sign In';
+    }
+  }
+  loginSubmit.addEventListener('click', handleLogin);
+  loginPass.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleLogin(); });
+
+  document.getElementById('signOutBtn').addEventListener('click', function () {
+    auth.signOut();
+  });
+
+  let editorsStarted = false;
+  auth.onAuthStateChanged(function (user) {
+    if (user) {
+      loginWrap.hidden = true;
+      appEl.hidden = false;
+      whoamiEl.textContent = user.email || '';
+      loginError.textContent = '';
+      loginPass.value = '';
+      if (!editorsStarted) {
+        editorsStarted = true;
+        startEditors();
+      }
+    } else {
+      loginWrap.hidden = false;
+      appEl.hidden = true;
+    }
+  });
+
+  // ---------- TABS ----------
+  const navTabs = document.querySelectorAll('.nav-tab');
+  navTabs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      navTabs.forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.hidden = true; });
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).hidden = false;
+      if (btn.dataset.tab === 'photos') loadPhotosTab();
+    });
+  });
+
+  // ---------- DRAG-AND-DROP (native HTML5 DnD, no library) ----------
+  // Rows carry `data-draggable` + a `data-index` matching their position
+  // at render time. Dragging over a sibling live-moves the DOM node so
+  // the drop position is always what's on screen; on drop, the caller
+  // gets the ORIGINAL indices in their new visual order and is
+  // responsible for reordering its own array and re-rendering (which
+  // rebuilds these same data-index values fresh from 0).
+  function makeSortable(container, onReorder) {
+    let dragEl = null;
+    container.addEventListener('dragstart', function (e) {
+      const row = e.target.closest('[data-draggable]');
+      if (!row || row.parentNode !== container) return;
+      dragEl = row;
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', ''); } catch (err) { /* Safari quirk, harmless */ }
+      setTimeout(function () { row.classList.add('dragging'); }, 0);
+    });
+    container.addEventListener('dragend', function () {
+      if (dragEl) dragEl.classList.remove('dragging');
+      dragEl = null;
+    });
+    container.addEventListener('dragover', function (e) {
+      if (!dragEl) return;
+      e.preventDefault();
+      const row = e.target.closest('[data-draggable]');
+      if (!row || row === dragEl || row.parentNode !== container) return;
+      const rect = row.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      container.insertBefore(dragEl, before ? row : row.nextSibling);
+    });
+    container.addEventListener('drop', function (e) {
+      if (!dragEl) return;
+      e.preventDefault();
+      const rows = Array.prototype.slice.call(container.querySelectorAll('[data-draggable]'));
+      onReorder(rows.map(function (r) { return parseInt(r.dataset.index, 10); }));
+    });
+  }
+
+  // ---------- SHARED VIDEO/MUSIC PLAYLIST EDITOR ----------
+  // Videos and Music are the exact same shape in Firestore (videos[] +
+  // creatorAliases/creatorOrder/hiddenCreators) and the exact same admin
+  // behavior, so one factory drives both tabs instead of duplicating
+  // this logic twice.
+  function createPlaylistEditor(opts) {
+    let draftList = [];
+    let draftCreators = [];
+    let creatorAliases = {};
+    let creatorOrder = [];
+    let hiddenCreators = [];
+
+    function setStatus(text, isError) {
+      opts.statusEl.textContent = text;
+      opts.statusEl.style.color = isError ? 'var(--danger)' : 'var(--accent)';
+    }
+
+    function collectRawAuthors() {
+      const seen = new Set();
+      const list = [];
+      draftList.forEach(function (v) {
+        if (v.author && !seen.has(v.author)) { seen.add(v.author); list.push(v.author); }
+      });
+      Object.keys(creatorAliases).forEach(function (raw) {
+        if (!seen.has(raw)) { seen.add(raw); list.push(raw); }
+      });
+      hiddenCreators.forEach(function (raw) {
+        if (!seen.has(raw)) { seen.add(raw); list.push(raw); }
+      });
+      return list;
+    }
+
+    function buildDraftCreators() {
+      const rows = collectRawAuthors().map(function (raw) {
+        return { raw: raw, displayAs: creatorAliases[raw] || raw, hidden: hiddenCreators.indexOf(raw) !== -1 };
+      });
+      rows.sort(function (a, b) {
+        const ia = creatorOrder.indexOf(a.displayAs);
+        const ib = creatorOrder.indexOf(b.displayAs);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.raw.localeCompare(b.raw, undefined, { sensitivity: 'base' });
+      });
+      return rows;
+    }
+
+    // Pulls a video's real title + author from YouTube's oEmbed data (via
+    // noembed.com — same reason the widgets themselves use it: reliable
+    // CORS headers, unlike calling youtube.com/oembed directly). Title is
+    // only overwritten when the admin hasn't hand-edited it for this row.
+    function fetchAuthorFor(item) {
+      const id = extractVideoId(item.url);
+      if (!id) return;
+      const watchUrl = 'https://www.youtube.com/watch?v=' + id;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function () { controller.abort(); }, 8000);
+      fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
+        .then(function (res) { if (!res.ok) throw new Error('oEmbed failed'); return res.json(); })
+        .then(function (data) {
+          clearTimeout(timeoutId);
+          if (!item._titleTouched) {
+            const t = data && typeof data.title === 'string' ? data.title.trim() : '';
+            if (t) item.title = t;
+          }
+          const a = data && typeof data.author_name === 'string' ? data.author_name.trim() : '';
+          item.author = a || item.author || 'Unknown';
+          renderList();
+          draftCreators = buildDraftCreators();
+          renderCreators();
+        })
+        .catch(function () {
+          clearTimeout(timeoutId);
+          if (!item.author) { item.author = 'Unknown'; renderList(); }
+        });
+    }
+
+    function fetchAllAuthors() {
+      draftList.forEach(function (v) { if (!v.author) fetchAuthorFor(v); });
+    }
+
+    function renderList() {
+      if (!draftList.length) {
+        opts.listRoot.innerHTML = '<div class="empty-state">No ' + opts.plural + ' yet. Add one below.</div>';
+        return;
+      }
+      opts.listRoot.innerHTML = draftList.map(function (v, i) {
+        return '<div class="row" draggable="true" data-draggable data-index="' + i + '">' +
+          '<span class="grip" title="Drag to reorder">&#10303;</span>' +
+          '<div class="row-fields">' +
+            '<input type="text" class="url-input" placeholder="' + opts.urlPlaceholder + '" value="' + escapeAttr(v.url) + '">' +
+            '<input type="text" class="title-input" placeholder="' + opts.singular + ' title" value="' + escapeAttr(v.title || '') + '">' +
+          '</div>' +
+          '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
+        '</div>';
+      }).join('');
+
+      opts.listRoot.querySelectorAll('.row').forEach(function (row) {
+        const idx = parseInt(row.dataset.index, 10);
+        const urlInput = row.querySelector('.url-input');
+        let debounceTimer = null;
+        urlInput.addEventListener('input', function () {
+          const item = draftList[idx];
+          item.url = urlInput.value;
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(function () {
+            const id = extractVideoId(urlInput.value);
+            if (id && id !== item._lastFetchedId) {
+              item._lastFetchedId = id;
+              item.author = null;
+              fetchAuthorFor(item);
+            }
+          }, 400);
+        });
+        const titleInput = row.querySelector('.title-input');
+        titleInput.addEventListener('input', function () {
+          draftList[idx].title = titleInput.value;
+          draftList[idx]._titleTouched = true;
+        });
+        row.querySelector('.remove-btn').addEventListener('click', function () {
+          draftList.splice(idx, 1);
+          renderList();
+        });
+      });
+    }
+
+    function renderCreators() {
+      if (!draftCreators.length) {
+        opts.creatorsRoot.innerHTML = '<div class="empty-state">No creators detected yet.</div>';
+        return;
+      }
+      opts.creatorsRoot.innerHTML = draftCreators.map(function (row, i) {
+        return '<div class="row creator-row" draggable="true" data-draggable data-index="' + i + '">' +
+          '<div class="creator-row-top">' +
+            '<span class="grip" title="Drag to reorder">&#10303;</span>' +
+            '<span class="raw-name">' + escapeAttr(row.raw) + '</span>' +
+          '</div>' +
+          '<input type="text" class="displayas-input" value="' + escapeAttr(row.displayAs) + '">' +
+          '<label class="checkbox-label"><input type="checkbox" class="hide-input"' + (row.hidden ? ' checked' : '') + '> Hide this creator</label>' +
+        '</div>';
+      }).join('');
+
+      opts.creatorsRoot.querySelectorAll('.creator-row').forEach(function (row) {
+        const idx = parseInt(row.dataset.index, 10);
+        row.querySelector('.displayas-input').addEventListener('input', function (e) {
+          draftCreators[idx].displayAs = e.target.value;
+        });
+        row.querySelector('.hide-input').addEventListener('change', function (e) {
+          draftCreators[idx].hidden = e.target.checked;
+        });
+      });
+    }
+
+    makeSortable(opts.listRoot, function (order) {
+      draftList = order.map(function (i) { return draftList[i]; });
+      renderList();
+    });
+    makeSortable(opts.creatorsRoot, function (order) {
+      draftCreators = order.map(function (i) { return draftCreators[i]; });
+      renderCreators();
+    });
+
+    opts.addBtn.addEventListener('click', function () {
+      draftList.unshift({ url: '', title: '', addedAt: Date.now(), author: null });
+      renderList();
+    });
+
+    opts.sortDateBtn.addEventListener('click', function () {
+      draftList.sort(function (a, b) { return (b.addedAt || 0) - (a.addedAt || 0); });
+      renderList();
+    });
+
+    opts.resetBtn.addEventListener('click', function () {
+      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, author: null }; });
+      renderList();
+      fetchAllAuthors();
+      setStatus('Reset to default list — click Save Changes to apply.');
+    });
+
+    opts.saveBtn.addEventListener('click', function () {
+      const cleaned = draftList
+        .map(function (v) { return { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now() }; })
+        .filter(function (v) { return v.url; });
+
+      const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url); });
+      if (invalid.length) {
+        setStatus('One or more links don’t look like valid YouTube links — fix those and save again.', true);
+        return;
+      }
+      if (!auth.currentUser) {
+        setStatus('You’ve been signed out — please sign in again.', true);
+        return;
+      }
+
+      const creatorAliasesToSave = {};
+      const creatorOrderToSave = [];
+      const hiddenCreatorsToSave = [];
+      draftCreators.forEach(function (row) {
+        const display = (row.displayAs || '').trim() || row.raw;
+        if (display !== row.raw) creatorAliasesToSave[row.raw] = display;
+        if (row.hidden) {
+          hiddenCreatorsToSave.push(row.raw);
+        } else if (creatorOrderToSave.indexOf(display) === -1) {
+          creatorOrderToSave.push(display);
+        }
+      });
+
+      opts.saveBtn.disabled = true;
+      setStatus('Saving…');
+      opts.docRef.set({
+        videos: cleaned,
+        creatorAliases: creatorAliasesToSave,
+        creatorOrder: creatorOrderToSave,
+        hiddenCreators: hiddenCreatorsToSave,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: auth.currentUser.email || auth.currentUser.uid
+      }).then(function () {
+        setStatus('Saved — everyone will see the update.');
+      }).catch(function (err) {
+        setStatus('Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).', true);
+      }).finally(function () {
+        opts.saveBtn.disabled = false;
+      });
+    });
+
+    function load() {
+      opts.docRef.onSnapshot(function (doc) {
+        const data = doc.data();
+        const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : opts.defaultList;
+        draftList = list.map(function (v) {
+          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, author: null };
+        });
+        creatorAliases = (data && data.creatorAliases) || {};
+        creatorOrder = (data && data.creatorOrder) || [];
+        hiddenCreators = (data && data.hiddenCreators) || [];
+        draftCreators = buildDraftCreators();
+        renderList();
+        renderCreators();
+        fetchAllAuthors();
+      }, function (err) {
+        setStatus('Could not load: ' + (err && err.message ? err.message : 'unknown error'), true);
+      });
+    }
+
+    return { load: load };
+  }
+
+  const DEFAULT_VIDEO_LIST = [
+    { url: 'https://youtube.com/watch?v=euMJknnSSqk', title: 'Video One' },
+    { url: 'https://youtube.com/watch?v=VuivQyVyKDM', title: 'Video Two' },
+    { url: 'https://youtube.com/watch?v=Jc9Eay0tedo', title: 'Video Three' }
+  ];
+  const DEFAULT_MUSIC_LIST = [
+    { url: 'https://youtube.com/watch?v=euMJknnSSqk', title: 'Track One' },
+    { url: 'https://youtube.com/watch?v=VuivQyVyKDM', title: 'Track Two' },
+    { url: 'https://youtube.com/watch?v=Jc9Eay0tedo', title: 'Track Three' }
+  ];
+
+  // ---------- PHOTOS TAB ----------
+  const OWNER = 'KNOBSOCK';
+  const REPO = 'KNOBSOCK.github.io';
+  const BRANCH = 'main';
+  const TREE_API = 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1';
+  const RAW_BASE = 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/refs/heads/' + BRANCH + '/';
+  const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif)$/i;
+  const THUMB_PX = 160;
+
+  function rawUrl(path) { return RAW_BASE + path.split('/').map(encodeURIComponent).join('/'); }
+  function thumbUrl(path) {
+    return 'https://wsrv.nl/?url=' + encodeURIComponent(rawUrl(path)) + '&w=' + THUMB_PX + '&h=' + THUMB_PX + '&fit=cover&output=webp&q=75';
+  }
+  function naturalCompare(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); }
+
+  // Same discovery approach as photos-widget.html, minus the synthetic
+  // "All" category — admin only ever reorders real folder categories.
+  function buildCategoriesFromTree(tree) {
+    const byCategory = new Map();
+    tree.forEach(function (entry) {
+      if (entry.type !== 'blob') return;
+      if (entry.path.indexOf('photos/') !== 0) return;
+      if (!IMAGE_EXT.test(entry.path)) return;
+      const parts = entry.path.split('/');
+      const category = parts.length > 2 ? parts[1] : 'Uncategorized';
+      const filename = parts[parts.length - 1];
+      if (filename.indexOf('.') === 0) return;
+      if (!byCategory.has(category)) byCategory.set(category, []);
+      byCategory.get(category).push({ path: entry.path, filename: filename });
+    });
+    return Array.from(byCategory.entries())
+      .map(function ([name, photos]) {
+        return { name: name, photos: photos.sort(function (a, b) { return naturalCompare(a.filename, b.filename); }) };
+      })
+      .sort(function (a, b) { return naturalCompare(a.name, b.name); });
+  }
+
+  let allPhotoCategories = [];
+  let categoryOrderDraft = [];
+  let photoOrderDraft = {};
+  let activePhotoCategory = null;
+  let photosLoadStarted = false;
+
+  const photoCatTabsEl = document.getElementById('photoCatTabs');
+  const photoGridEl = document.getElementById('photoGrid');
+  const photosStatusEl = document.getElementById('photosStatus');
+  const photosSaveBtn = document.getElementById('photosSaveBtn');
+
+  function setPhotosStatus(text, isError) {
+    photosStatusEl.textContent = text;
+    photosStatusEl.style.color = isError ? 'var(--danger)' : 'var(--accent)';
+  }
+
+  function renderPhotoCategoryTabs() {
+    photoCatTabsEl.innerHTML = categoryOrderDraft.map(function (name, i) {
+      const count = (photoOrderDraft[name] || []).length;
+      return '<button type="button" class="photo-cat-tab' + (name === activePhotoCategory ? ' active' : '') + '" draggable="true" data-draggable data-index="' + i + '">' +
+        '<span class="grip">&#10303;</span>' + escapeAttr(name) + ' (' + count + ')' +
+      '</button>';
+    }).join('');
+    photoCatTabsEl.querySelectorAll('.photo-cat-tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        activePhotoCategory = categoryOrderDraft[parseInt(btn.dataset.index, 10)];
+        renderPhotoCategoryTabs();
+        renderPhotoGrid();
+      });
+    });
+  }
+
+  function renderPhotoGrid() {
+    const filenames = photoOrderDraft[activePhotoCategory] || [];
+    const cat = allPhotoCategories.find(function (c) { return c.name === activePhotoCategory; });
+    const byFilename = new Map((cat ? cat.photos : []).map(function (p) { return [p.filename, p]; }));
+    photoGridEl.innerHTML = filenames.map(function (fn, i) {
+      const photo = byFilename.get(fn);
+      if (!photo) return '';
+      return '<div class="photo-tile" draggable="true" data-draggable data-index="' + i + '" title="' + escapeAttr(fn) + '">' +
+        '<img src="' + thumbUrl(photo.path) + '" alt="' + escapeAttr(fn) + '" loading="lazy">' +
+        '<span class="grip">&#10303;</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  makeSortable(photoCatTabsEl, function (order) {
+    categoryOrderDraft = order.map(function (i) { return categoryOrderDraft[i]; });
+    renderPhotoCategoryTabs();
+  });
+  makeSortable(photoGridEl, function (order) {
+    const current = photoOrderDraft[activePhotoCategory] || [];
+    photoOrderDraft[activePhotoCategory] = order.map(function (i) { return current[i]; });
+    renderPhotoGrid();
+  });
+
+  function loadPhotosTab() {
+    if (photosLoadStarted) return;
+    photosLoadStarted = true;
+    setPhotosStatus('Loading photos from GitHub…');
+    fetch(TREE_API)
+      .then(function (res) { if (!res.ok) throw new Error('GitHub API returned ' + res.status); return res.json(); })
+      .then(function (data) {
+        allPhotoCategories = buildCategoriesFromTree(data.tree || []);
+        setPhotosStatus('');
+        PHOTO_ORDER_DOC_REF.onSnapshot(function (doc) {
+          const saved = doc.exists ? doc.data() : {};
+          const savedCatOrder = Array.isArray(saved.categoryOrder) ? saved.categoryOrder : [];
+          const savedPhotoOrder = (saved.photoOrder && typeof saved.photoOrder === 'object') ? saved.photoOrder : {};
+
+          categoryOrderDraft = allPhotoCategories.map(function (c) { return c.name; }).sort(function (a, b) {
+            const ia = savedCatOrder.indexOf(a);
+            const ib = savedCatOrder.indexOf(b);
+            if (ia !== -1 && ib !== -1) return ia - ib;
+            if (ia !== -1) return -1;
+            if (ib !== -1) return 1;
+            return 0;
+          });
+
+          photoOrderDraft = {};
+          allPhotoCategories.forEach(function (cat) {
+            const filenames = cat.photos.map(function (p) { return p.filename; });
+            const saved2 = savedPhotoOrder[cat.name];
+            if (Array.isArray(saved2) && saved2.length) {
+              filenames.sort(function (a, b) {
+                const ia = saved2.indexOf(a);
+                const ib = saved2.indexOf(b);
+                if (ia !== -1 && ib !== -1) return ia - ib;
+                if (ia !== -1) return -1;
+                if (ib !== -1) return 1;
+                return 0;
+              });
+            }
+            photoOrderDraft[cat.name] = filenames;
+          });
+
+          if (!activePhotoCategory || categoryOrderDraft.indexOf(activePhotoCategory) === -1) {
+            activePhotoCategory = categoryOrderDraft[0] || null;
+          }
+          renderPhotoCategoryTabs();
+          renderPhotoGrid();
+        }, function (err) {
+          setPhotosStatus('Could not load saved order: ' + err.message, true);
+        });
+      })
+      .catch(function (err) {
+        setPhotosStatus("Couldn't load photos from GitHub: " + err.message, true);
+      });
+  }
+
+  photosSaveBtn.addEventListener('click', function () {
+    if (!auth.currentUser) {
+      setPhotosStatus('You’ve been signed out — please sign in again.', true);
+      return;
+    }
+    photosSaveBtn.disabled = true;
+    setPhotosStatus('Saving…');
+    PHOTO_ORDER_DOC_REF.set({
+      categoryOrder: categoryOrderDraft,
+      photoOrder: photoOrderDraft,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: auth.currentUser.email || auth.currentUser.uid
+    }).then(function () {
+      setPhotosStatus('Saved — everyone will see the update.');
+    }).catch(function (err) {
+      setPhotosStatus('Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).', true);
+    }).finally(function () {
+      photosSaveBtn.disabled = false;
+    });
+  });
+
+  // ---------- STARTUP ----------
+  function startEditors() {
+    createPlaylistEditor({
+      docRef: VIDEO_DOC_REF,
+      listRoot: document.getElementById('videosList'),
+      creatorsRoot: document.getElementById('videosCreators'),
+      addBtn: document.getElementById('videosAddBtn'),
+      sortDateBtn: document.getElementById('videosSortDateBtn'),
+      saveBtn: document.getElementById('videosSaveBtn'),
+      resetBtn: document.getElementById('videosResetBtn'),
+      statusEl: document.getElementById('videosStatus'),
+      defaultList: DEFAULT_VIDEO_LIST,
+      urlPlaceholder: 'Paste a YouTube link',
+      singular: 'Video',
+      plural: 'videos'
+    }).load();
+
+    createPlaylistEditor({
+      docRef: MUSIC_DOC_REF,
+      listRoot: document.getElementById('musicList'),
+      creatorsRoot: document.getElementById('musicCreators'),
+      addBtn: document.getElementById('musicAddBtn'),
+      sortDateBtn: document.getElementById('musicSortDateBtn'),
+      saveBtn: document.getElementById('musicSaveBtn'),
+      resetBtn: document.getElementById('musicResetBtn'),
+      statusEl: document.getElementById('musicStatus'),
+      defaultList: DEFAULT_MUSIC_LIST,
+      urlPlaceholder: 'Paste a YouTube link',
+      singular: 'Track',
+      plural: 'tracks'
+    }).load();
+  }
+})();
+</script>
+
+</body>
+</html>
