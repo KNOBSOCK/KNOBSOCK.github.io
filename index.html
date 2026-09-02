@@ -42,11 +42,15 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     min-height: 100%;
-    /* Custom cursor sitewide-on-this-page — hotspot (2,2) sits on the
-       icon's own tip. Only covers this document itself: an iframe (nav
-       buttons, video/music players, etc.) is a separate document with
-       its own cursor styling, so this can't reach inside those. */
-    cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-default.png") 2 2, auto;
+    /* Custom cursor, the same image everywhere on this page — set once
+       here and left to inherit (cursor is an inherited property, and
+       author styles win over the browser's own built-in pointer-on-
+       link behavior regardless of selector specificity), rather than
+       repeated per element. Only covers this document itself: an
+       iframe (nav buttons, video/music players, etc.) is a separate
+       document with its own cursor styling, so this can't reach
+       inside those. */
+    cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto;
     /* The mobile carousel's side cards deliberately sit past the edges of
        the layout, so they'd otherwise widen the page and let it drag
        sideways. Vertical scrolling is untouched — leaving overflow-y
@@ -246,12 +250,15 @@
      links, so they have to take clicks. */
   a.panel-label {
     pointer-events: auto;
-    cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
   }
-  /* Plain links/buttons that don't already declare their own cursor
-     above or below — a browser shows pointer on these regardless of
-     any author CSS, so this plain, low-specificity selector is enough
-     to override that default everywhere else on the page. */
+  /* Chromium (and presumably others) apparently gives <a>/<button> an
+     internal default pointer cursor that wins over a merely-inherited
+     author cursor from an ancestor like html,body above — confirmed by
+     testing, computed cursor on a link came back as the bare keyword
+     "pointer", not the inherited custom image. An explicit rule
+     directly on the elements themselves is what it actually takes to
+     override that, so every link/button gets the same cursor as the
+     rest of the page instead of the browser's own hand icon. */
   a, button {
     cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
   }
@@ -477,9 +484,6 @@
        touches bubble up to the carousel's handler either way. */
     .columns-row a.panel-label {
       z-index: 4;
-    }
-    .columns-row .panel:not(.is-active) {
-      cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
     }
   }
   /* Desktop never needs the capture layer — there's no carousel to
