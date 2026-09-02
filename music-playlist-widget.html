@@ -1419,6 +1419,11 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         soundIndex: i,
         title: sound.title,
         author: getScAuthor(sound),
+        // A SoundCloud-only track has no admin.html row of its own to set
+        // an album on, so it's put in a standing "Extras" album instead
+        // of showing up with no grouping at all — same bucket a video
+        // track lands in if the admin types "Extras" as its own album.
+        album: 'Extras',
         thumbnail: getScArtworkUrl(sound),
         linkUrl: sound.permalink_url || '#'
       });
