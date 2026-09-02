@@ -93,6 +93,41 @@
     pointer-events: none;
   }
 
+  /* Flying UFO easter egg (see the script near the end of the body).
+     position:absolute like #satellite above — scrolls with the page
+     rather than staying pinned to the viewport — but z-index puts it
+     above literally everything else on the page, including the chase
+     head/lasers, per "overlay on top of EVERYTHING". pointer-events:
+     none the whole time so it can never block a click on whatever it
+     happens to be flying over. 150px = 50% of the source gif's own
+     300x300 size. */
+  #ufoWrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 150px;
+    height: 150px;
+    z-index: 10000;
+    pointer-events: none;
+  }
+  #ufo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.4));
+    /* A gentle hover bob/tilt independent of the JS-driven flight path
+       below (that sets transform on #ufoWrap, one level up, so the two
+       transforms never fight over the same property) — keeps it
+       reading as "hovering with intent" even while paused between
+       destinations, without ever rotating the sprite itself (its beam
+       has to keep pointing straight down to still read as a UFO). */
+    animation: ufoBob 3s ease-in-out infinite;
+  }
+  @keyframes ufoBob {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-10px) rotate(2deg); }
+  }
+
   /* Cursor-chasing floating head easter egg (see the script near the
      end of the body — it no-ops entirely on touch devices and for
      prefers-reduced-motion, since there's no persistent pointer to
@@ -331,7 +366,7 @@
   }
   .articles-panel { background: #310098; }
   .video-panel {
-    background: #228B22;
+    background: #FF8C00;
     /* Widened back up from a quarter of the shared .panel padding (was
        clamp(4px, 0.75vw, 7px)) — a band that thin never had room to show
        a real drop shadow inside it, whatever the shadow values. This is
@@ -345,7 +380,7 @@
     /* Shadow itself is shared with the other two cards — see
        .columns-row .panel above. */
   }
-  /* Rounds the video itself to match the green frame's own corner
+  /* Rounds the video itself to match the orange frame's own corner
      radius (.panel, above) — the iframe was never clipped to the
      frame's shape at all, so its plain square corners sat inside the
      rounded frame with a visible mismatch at each corner. Takes over
@@ -513,6 +548,10 @@
 <body>
   <img id="satellite" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0732.gif" alt="">
 
+  <div id="ufoWrap" aria-hidden="true">
+    <img id="ufo" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0729.gif" alt="">
+  </div>
+
   <img id="chaseHead" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_BCE9B886-2C7B-445C-8BEF-7430434FCA94.PNG" alt="" aria-hidden="true">
   <svg id="laserLayer" aria-hidden="true">
     <line id="laserEyeL" x1="0" y1="0" x2="0" y2="0"></line>
@@ -660,6 +699,62 @@
 </script>
 
 <script>
+  // ---------- FLYING UFO ----------
+  // Cruises to a random point on the page at a steady speed (no
+  // jittery random-walk wobble, unlike the satellite above — the goal
+  // here is "purposeful", not "drifting"), pauses there to hover for a
+  // couple of seconds once it arrives, then picks a new destination
+  // and moves on. docHeight() is the satellite script's own function
+  // above — a plain function declaration is a real global, so it's
+  // already available here too — reused rather than redefined so both
+  // wander the same real page bounds, including the same fix for the
+  // self-inflating-height bug.
+  (function () {
+    const wrap = document.getElementById('ufoWrap');
+    const img = document.getElementById('ufo');
+    if (!wrap || !img) return;
+
+    const W = 150; // must match #ufoWrap's CSS width/height
+    const SPEED = 0.5; // px/frame cruise speed
+
+    function maxX() { return Math.max(0, window.innerWidth - W); }
+    function maxY() { return Math.max(0, docHeight() - W); }
+
+    let x = Math.random() * maxX();
+    let y = Math.random() * maxY();
+    let targetX = x;
+    let targetY = y;
+    let pauseUntil = 0;
+
+    function pickTarget() {
+      targetX = Math.random() * maxX();
+      targetY = Math.random() * maxY();
+    }
+    pickTarget();
+
+    function fly(now) {
+      if (now >= pauseUntil) {
+        const dx = targetX - x;
+        const dy = targetY - y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 4) {
+          // Arrived — hover in place a couple of seconds, like it's
+          // surveying the spot, before cruising off to somewhere new.
+          pauseUntil = now + 1500 + Math.random() * 2500;
+          pickTarget();
+        } else {
+          x += (dx / dist) * SPEED;
+          y += (dy / dist) * SPEED;
+        }
+      }
+      wrap.style.transform = 'translate3d(' + x + 'px, ' + y + 'px, 0)';
+      requestAnimationFrame(fly);
+    }
+    requestAnimationFrame(fly);
+  })();
+</script>
+
+<script>
   // ---------- CURSOR-CHASING HEAD ----------
   // Small easter egg: the head eases toward the mouse position every
   // frame (never snapping straight to it, so it visibly "chases"
@@ -732,6 +827,34 @@
       frame.addEventListener('mouseleave', function () {
         insideIframe = false;
       });
+    });
+
+    // Same-origin widgets now relay their own mousemove up to here (see
+    // the small script near the end of each of their bodies), landing
+    // as a message rather than a real DOM event — translated into this
+    // page's coordinate space via that specific iframe's own bounding
+    // rect, this is genuine live tracking, not just the mouseenter
+    // approximation above, so it clears insideIframe the same way a
+    // real mousemove does. Anything that ISN'T relaying (a nested
+    // cross-origin embed, like the actual YouTube/SoundCloud players
+    // inside two of these widgets, which can't be reached this way)
+    // still falls back to that approximation.
+    window.addEventListener('message', function (e) {
+      if (!e.data || e.data.type !== 'knobsock-chase-mousemove') return;
+      const frames = document.querySelectorAll('iframe');
+      for (let i = 0; i < frames.length; i++) {
+        if (frames[i].contentWindow === e.source) {
+          const r = frames[i].getBoundingClientRect();
+          mouseX = r.left + e.data.x;
+          mouseY = r.top + e.data.y;
+          insideIframe = false;
+          if (!hasMouse) {
+            hasMouse = true;
+            head.classList.add('visible');
+          }
+          break;
+        }
+      }
     });
 
     function animate() {

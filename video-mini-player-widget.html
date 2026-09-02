@@ -5,10 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Videos</title>
 <style>
+  /* Custom cursor matching index.html's — the only page this embeds
+     on. An iframe is a separate document, so index.html's own cursor
+     CSS can't reach in here on its own; this is what actually makes
+     the cursor stay consistent while hovering this widget. */
+  html, body { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto; }
+  a, button { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer; }
   :root {
-    /* Forest green, matching the Newest Video card this sits on. */
-    --accent: #228B22;
-    --accent-rgb: 34, 139, 34;
+    /* Dark orange, matching the Newest Video card this sits on. */
+    --accent: #FF8C00;
+    --accent-rgb: 255, 140, 0;
     --text-dim: rgba(255, 255, 0, 0.65);
   }
 
@@ -70,7 +76,7 @@
     z-index: 30;
     background: rgba(var(--accent-rgb), 0.5);
     /* White, not the dark ink these used before — that read fine on the
-       old light periwinkle accent, but forest green at half opacity over
+       old light periwinkle accent, but dark orange at half opacity over
        the video underneath is far too dark to carry it. */
     color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.25);
@@ -79,7 +85,6 @@
     font-size: 11px;
     font-weight: 700;
     font-family: inherit;
-    cursor: pointer;
   }
 
   /* Every overlay control (both buttons and the scrubber below) stays
@@ -169,7 +174,7 @@
     z-index: 5;
     background: rgba(var(--accent-rgb), 0.5);
     /* White, not the dark ink these used before — that read fine on the
-       old light periwinkle accent, but forest green at half opacity over
+       old light periwinkle accent, but dark orange at half opacity over
        the video underneath is far too dark to carry it. */
     color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.25);
@@ -178,7 +183,6 @@
     font-size: 11px;
     font-weight: 700;
     font-family: inherit;
-    cursor: pointer;
   }
 
   /* Matches the buttons' accent color. A generous invisible hit area
@@ -193,7 +197,6 @@
     height: 16px;
     display: flex;
     align-items: center;
-    cursor: pointer;
   }
   .scrubber-track {
     width: 100%;
@@ -229,7 +232,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    cursor: pointer;
     min-width: 0;
     /* Stripping the browser's own button chrome — these are <button>s so
        they can't navigate anywhere (see renderList), not for the look. */
@@ -741,6 +743,19 @@
   <!-- YouTube IFrame Player API — required for controls:0 plus a custom
        mute/unmute toggle to work together. -->
   <script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+  // Relays this document's own mousemove to the parent page so
+  // index.html's cursor-chasing head easter egg can track the cursor
+  // seamlessly across this iframe's boundary too — an iframe is a
+  // separate browsing context, so the parent's own mousemove listener
+  // never sees events that happen in here on its own.
+  if (window.parent !== window) {
+    document.addEventListener('mousemove', function (e) {
+      window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');
+    }, { passive: true });
+  }
+</script>
 
 </body>
 </html>

@@ -6,6 +6,12 @@
 <title>Listen</title>
 <script src="https://w.soundcloud.com/player/api.js"></script>
 <style>
+  /* Custom cursor matching index.html's — the only page this embeds
+     on. An iframe is a separate document, so index.html's own cursor
+     CSS can't reach in here on its own; this is what actually makes
+     the cursor stay consistent while hovering this widget. */
+  html, body { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto; }
+  a, button { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   /* Fully transparent — sits directly on whatever background the block
@@ -77,7 +83,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
     /* Cartoonish "pop": a spring-y cubic-bezier that overshoots past 1.0
        before settling gives the little bounce, rather than a flat ease. */
@@ -147,7 +152,6 @@
     height: 14px;
     display: flex;
     align-items: center;
-    cursor: pointer;
   }
   .progress-track-bg {
     width: 100%;
@@ -183,7 +187,6 @@
     gap: 10px;
     padding: 8px 6px;
     border-radius: 8px;
-    cursor: pointer;
     font-size: 13px;
     opacity: 0.75;
     /* Same spring-y pop as the play button, kept subtle (and anchored to
@@ -420,6 +423,19 @@
     widget.skip(index);
     widget.play();
   });
+</script>
+
+<script>
+  // Relays this document's own mousemove to the parent page so
+  // index.html's cursor-chasing head easter egg can track the cursor
+  // seamlessly across this iframe's boundary too — an iframe is a
+  // separate browsing context, so the parent's own mousemove listener
+  // never sees events that happen in here on its own.
+  if (window.parent !== window) {
+    document.addEventListener('mousemove', function (e) {
+      window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');
+    }, { passive: true });
+  }
 </script>
 
 </body>

@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recent Articles</title>
 <style>
+  /* Custom cursor matching index.html's — the only page this embeds
+     on. An iframe is a separate document, so index.html's own cursor
+     CSS can't reach in here on its own; this is what actually makes
+     the cursor stay consistent while hovering this widget. */
+  html, body { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto; }
+  a, button { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   /* Fully transparent — this block is meant to sit directly on whatever
@@ -78,7 +84,6 @@
     align-items: center;
     justify-content: flex-start;
     gap: clamp(7px, 2.6vw, 12px);
-    cursor: pointer;
     /* Cartoonish "pop": a spring-y cubic-bezier that overshoots past 1.0
        before settling gives the little bounce, rather than a flat ease. */
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -260,6 +265,19 @@
   });
 
   loadRecentArticles();
+</script>
+
+<script>
+  // Relays this document's own mousemove to the parent page so
+  // index.html's cursor-chasing head easter egg can track the cursor
+  // seamlessly across this iframe's boundary too — an iframe is a
+  // separate browsing context, so the parent's own mousemove listener
+  // never sees events that happen in here on its own.
+  if (window.parent !== window) {
+    document.addEventListener('mousemove', function (e) {
+      window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');
+    }, { passive: true });
+  }
 </script>
 
 </body>
