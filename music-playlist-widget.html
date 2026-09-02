@@ -592,7 +592,10 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--accent);
+    /* Not --accent: this sits directly on .bg-glow's own gold wash with
+       no opaque backing behind it, so accent-gold text here read as
+       yellow-on-yellow. White keeps it legible against that glow. */
+    color: var(--text);
   }
 
   .playlist-count {
@@ -630,8 +633,9 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--accent);
-    opacity: 0.85;
+    /* Same yellow-on-yellow issue as .playlist-title above — this also
+       sits right on the glow with nothing opaque behind it. */
+    color: var(--text-dim);
     padding: 0 2px;
     margin-top: clamp(2px, 1cqh, 6px);
   }
@@ -872,7 +876,10 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--accent);
+    /* .sc-card's own background is only --panel (32% opacity), so
+       enough of the gold glow still bleeds through to make accent-gold
+       text here read as yellow-on-yellow too. */
+    color: var(--text);
   }
 
   .sc-now-playing {
