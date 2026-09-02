@@ -1037,9 +1037,19 @@
         if (axis === 'x') row.classList.add('dragging');
       }
       if (axis !== 'x') return;
+      // Once committed to a horizontal swipe, stop the browser's own
+      // native vertical scroll from also kicking in for the same
+      // gesture — without this, a swipe the axis-lock above correctly
+      // read as horizontal could still turn into a vertical page
+      // scroll, since the browser's own scroll detection runs
+      // independently of this handler. Requires this listener to be
+      // non-passive (see below); preventDefault() inside a passive
+      // listener is silently ignored, which is exactly why that could
+      // still happen before this fix.
+      e.preventDefault();
       dx = moveX;
       layout(dx);
-    }, { passive: true });
+    }, { passive: false });
 
     function endDrag() {
       if (!dragging) return;
