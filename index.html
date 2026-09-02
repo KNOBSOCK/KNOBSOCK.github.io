@@ -64,20 +64,69 @@
   a { text-decoration: none; color: inherit; }
 
   /* Drifting satellite gif — same free-floating overlay Universe used,
-     wanders slowly around the screen and wraps at the edges. It sits
+     wanders slowly around the page and wraps at the edges. It sits
      BEHIND the interface (z-index 0, with .page above it at 1) rather
      than on top of everything, so it drifts past in the background
      instead of crossing over the cards and buttons. Still above the
      body's tiled background, since a negative z-index would sink it
-     behind that instead and make it disappear entirely. */
+     behind that instead and make it disappear entirely.
+     position:absolute (not fixed) and no positioned ancestor between
+     this and <body> — it's placed in the document's own initial
+     containing block, same as the tiled background, so it scrolls away
+     with the rest of the page instead of staying pinned to the
+     viewport as you scroll. */
   #satellite {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 60px;
     z-index: 0;
     pointer-events: none;
   }
+
+  /* Cursor-chasing floating head easter egg (see the script near the
+     end of the body — it no-ops entirely on touch devices and for
+     prefers-reduced-motion, since there's no persistent pointer to
+     chase on one and the other asked for less motion, not more).
+     Fixed (not absolute like #satellite above) — this one SHOULD track
+     the viewport-relative mouse position regardless of scroll. Sits
+     above every other z-index on the page but pointer-events:none on
+     both it and the laser layer below, so neither can ever intercept a
+     click meant for the real page underneath. Starts transparent; the
+     script fades it in once it has a real cursor position to chase,
+     so it doesn't flash into some arbitrary spot on load. */
+  #chaseHead {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 70px;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+  }
+  #chaseHead.visible { opacity: 1; }
+
+  /* Full-viewport SVG overlay the eye-laser beams draw into. Lives at
+     raw pixel coordinates (no viewBox), matching clientX/clientY from
+     mousemove directly with no unit conversion. */
+  #laserLayer {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+  }
+  #laserLayer line {
+    pointer-events: none;
+    stroke: #ff2b2b;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    opacity: 0;
+    filter: drop-shadow(0 0 6px #ff2b2b) drop-shadow(0 0 3px #fff);
+    transition: opacity 0.15s ease-out;
+  }
+  #laserLayer line.firing { opacity: 1; transition: opacity 0.03s ease-in; }
 
   .page {
     position: relative;
@@ -448,6 +497,12 @@
 <body>
   <img id="satellite" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0732.gif" alt="">
 
+  <img id="chaseHead" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_BCE9B886-2C7B-445C-8BEF-7430434FCA94.PNG" alt="" aria-hidden="true">
+  <svg id="laserLayer" aria-hidden="true">
+    <line id="laserEyeL" x1="0" y1="0" x2="0" y2="0"></line>
+    <line id="laserEyeR" x1="0" y1="0" x2="0" y2="0"></line>
+  </svg>
+
   <div class="page">
     <div class="top-row">
       <a class="logo-link" href="/">
@@ -529,8 +584,16 @@
 
 <script>
   const sat = document.getElementById('satellite');
+  // Now that #satellite is position:absolute (scrolls with the page —
+  // see its CSS comment), its wrap bounds need to cover the whole
+  // document's height, not just one viewport's worth, or it would only
+  // ever wander the top screenful and never be seen further down a
+  // page taller than that.
+  function docHeight() {
+    return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  }
   let x = Math.random() * window.innerWidth;
-  let y = Math.random() * window.innerHeight;
+  let y = Math.random() * docHeight();
   let vx = (Math.random() - 0.5) * 0.6; // slow horizontal drift
   let vy = (Math.random() - 0.5) * 0.6; // slow vertical drift
 
@@ -542,11 +605,13 @@
     vx += (Math.random() - 0.5) * 0.02;
     vy += (Math.random() - 0.5) * 0.02;
 
-    // wrap around edges instead of bouncing
+    // wrap around edges instead of bouncing (read fresh each frame so
+    // it keeps working as content loads and the page height changes)
+    const h = docHeight();
     if (x < -100) x = window.innerWidth + 100;
     if (x > window.innerWidth + 100) x = -100;
-    if (y < -100) y = window.innerHeight + 100;
-    if (y > window.innerHeight + 100) y = -100;
+    if (y < -100) y = h + 100;
+    if (y > h + 100) y = -100;
 
     sat.style.left = x + 'px';
     sat.style.top = y + 'px';
@@ -555,6 +620,89 @@
   }
 
   drift();
+</script>
+
+<script>
+  // ---------- CURSOR-CHASING HEAD ----------
+  // Small easter egg: the head eases toward the mouse position every
+  // frame (never snapping straight to it, so it visibly "chases"
+  // rather than teleports) and now and then zaps the actual cursor
+  // with a quick pair of laser beams from its eyes. Skipped entirely
+  // on touch devices (no persistent pointer to chase there) and for
+  // prefers-reduced-motion, rather than leaving it inert on-screen.
+  (function () {
+    const head = document.getElementById('chaseHead');
+    const laserL = document.getElementById('laserEyeL');
+    const laserR = document.getElementById('laserEyeR');
+    if (!head || !laserL || !laserR) return;
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const HEAD_W = 70; // must match #chaseHead's CSS width
+    const HEAD_H = HEAD_W * (1718 / 1279); // source photo's own aspect ratio
+    // Eye centers as a fraction of the head image's own box, read off
+    // the source photo — this is what actually aims the lasers.
+    const EYE_L = { fx: 0.24, fy: 0.29 };
+    const EYE_R = { fx: 0.63, fy: 0.28 };
+
+    // Trails just up-left of the pointer instead of centering on it,
+    // so it never sits exactly on top of whatever you're pointing at.
+    const OFFSET_X = 22;
+    const OFFSET_Y = -50;
+    const EASE = 0.07; // lower = laggier chase
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let headX = mouseX;
+    let headY = mouseY;
+    let hasMouse = false;
+
+    window.addEventListener('mousemove', function (e) {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (!hasMouse) {
+        hasMouse = true;
+        head.classList.add('visible');
+      }
+    }, { passive: true });
+
+    function animate() {
+      if (hasMouse) {
+        headX += (mouseX + OFFSET_X - headX) * EASE;
+        headY += (mouseY + OFFSET_Y - headY) * EASE;
+        head.style.transform = 'translate3d(' + (headX - HEAD_W / 2) + 'px, ' + (headY - HEAD_H / 2) + 'px, 0)';
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    function eyePoint(eye) {
+      return {
+        x: headX - HEAD_W / 2 + eye.fx * HEAD_W,
+        y: headY - HEAD_H / 2 + eye.fy * HEAD_H
+      };
+    }
+
+    function fireLaser() {
+      if (hasMouse) {
+        const l = eyePoint(EYE_L);
+        const r = eyePoint(EYE_R);
+        laserL.setAttribute('x1', l.x); laserL.setAttribute('y1', l.y);
+        laserL.setAttribute('x2', mouseX); laserL.setAttribute('y2', mouseY);
+        laserR.setAttribute('x1', r.x); laserR.setAttribute('y1', r.y);
+        laserR.setAttribute('x2', mouseX); laserR.setAttribute('y2', mouseY);
+        laserL.classList.add('firing');
+        laserR.classList.add('firing');
+        setTimeout(function () {
+          laserL.classList.remove('firing');
+          laserR.classList.remove('firing');
+        }, 130);
+      }
+      // Occasional, not constant — next shot 4-9s out.
+      setTimeout(fireLaser, 4000 + Math.random() * 5000);
+    }
+    setTimeout(fireLaser, 3500 + Math.random() * 3000);
+  })();
 </script>
 
 <script>
