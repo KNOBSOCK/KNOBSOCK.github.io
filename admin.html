@@ -684,7 +684,7 @@
         </div>
         <div class="card">
           <div class="card-head"><h2>Albums</h2></div>
-          <p class="panel-sub" style="margin-bottom: 10px;">Drag to prioritize which album shows first when a creator with more than one is selected on the Music page. Assign a track to an album from the Track List above — "Extras" is where SoundCloud-only tracks land automatically.</p>
+          <p class="panel-sub" style="margin-bottom: 10px;">Drag to prioritize which album shows first when a creator with more than one is selected on the Music page. Assign a track to an album from the Track List above — "SoundCloud" is where SoundCloud-only tracks land automatically.</p>
           <div class="list-scroll" id="musicAlbums"></div>
         </div>
       </div>
@@ -1028,8 +1028,8 @@
       return list;
     }
 
-    // "Extras" is always offered even if nothing on this track list is
-    // tagged with it yet — the front-end widget auto-assigns every
+    // "SoundCloud" is always offered even if nothing on this track list
+    // is tagged with it yet — the front-end widget auto-assigns every
     // SoundCloud-only track to it, so the admin can still position it
     // relative to the real albums without needing a track to type it
     // onto first. Previously-saved albumOrder entries are kept in the
@@ -1041,7 +1041,7 @@
       const list = [];
       collectAlbums().forEach(function (a) { if (!seen.has(a)) { seen.add(a); list.push(a); } });
       albumOrder.forEach(function (a) { if (!seen.has(a)) { seen.add(a); list.push(a); } });
-      if (!seen.has('Extras')) { list.push('Extras'); }
+      if (!seen.has('SoundCloud')) { list.push('SoundCloud'); }
       return list;
     }
 
@@ -1053,8 +1053,8 @@
         if (ia !== -1 && ib !== -1) return ia - ib;
         if (ia !== -1) return -1;
         if (ib !== -1) return 1;
-        if (a === 'Extras') return 1;
-        if (b === 'Extras') return -1;
+        if (a === 'SoundCloud') return 1;
+        if (b === 'SoundCloud') return -1;
         return a.localeCompare(b, undefined, { sensitivity: 'base' });
       });
       return names;
