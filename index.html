@@ -99,8 +99,10 @@
      above literally everything else on the page, including the chase
      head/lasers, per "overlay on top of EVERYTHING". pointer-events:
      none the whole time so it can never block a click on whatever it
-     happens to be flying over. 150px = 50% of the source gif's own
-     300x300 size. */
+     happens to be flying over. 75px on mobile; 25% bigger (93.75px) on
+     desktop — the script reads its size straight off this element
+     every frame, so it stays in sync with whichever rule applies
+     without needing its own copy of the breakpoint. */
   #ufoWrap {
     position: absolute;
     top: 0;
@@ -109,6 +111,9 @@
     height: 75px;
     z-index: 10000;
     pointer-events: none;
+  }
+  @media (min-width: 721px) {
+    #ufoWrap { width: 93.75px; height: 93.75px; }
   }
   #ufo {
     display: block;
@@ -719,11 +724,15 @@
     const img = document.getElementById('ufo');
     if (!wrap || !img) return;
 
-    const W = 75; // must match #ufoWrap's CSS width/height
+    // Read straight off the element rather than a hardcoded constant —
+    // #ufoWrap's own CSS is 75px on mobile, 25% bigger on desktop (see
+    // its @media rule), so this needs to track whichever currently
+    // applies rather than assuming one fixed size.
+    function W() { return wrap.offsetWidth || 75; }
     const SPEED = 0.5; // px/frame cruise speed
 
-    function maxX() { return Math.max(0, window.innerWidth - W); }
-    function maxY() { return Math.max(0, docHeight() - W); }
+    function maxX() { return Math.max(0, window.innerWidth - W()); }
+    function maxY() { return Math.max(0, docHeight() - W()); }
 
     let x = Math.random() * maxX();
     let y = Math.random() * maxY();
