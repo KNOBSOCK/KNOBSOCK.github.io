@@ -46,13 +46,18 @@
 
   body { position: relative; }
 
+  /* Full-bleed edge-to-edge (same as livestream-chat-widget.html's own
+     .bg-glow) rather than capped at a fixed pixel width — a width cap
+     here while .layout's height was free to grow unbounded is what made
+     the widget elongate (get taller without getting wider) on a
+     big/zoomed-out screen instead of scaling proportionally like
+     live.html. */
   .bg-glow {
     position: absolute;
+    inset: var(--inset-bottom);
     top: var(--inset-top);
-    bottom: var(--inset-bottom);
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(calc(100% - var(--inset-side) * 2), calc(1200px - var(--inset-side) * 2));
+    left: var(--inset-side);
+    right: var(--inset-side);
     border-radius: clamp(10px, 2.5vw, 28px);
     background: rgba(255, 122, 26, 0.45);
     backdrop-filter: blur(10px) saturate(150%);
@@ -67,8 +72,6 @@
     flex-direction: column;
     width: 100%;
     height: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
     gap: 10px;
     padding: var(--inset-top) var(--inset-side) var(--inset-bottom);
     background: transparent;
