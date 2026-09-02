@@ -115,7 +115,9 @@
 
   /* Same 16:9 box, same centering, as .video-frame-wrap below — sized so
      it sits exactly where the video itself would instead of just filling
-     whatever shape .video-pane happens to be. */
+     whatever shape .video-pane happens to be. On mobile this gets
+     overridden below to fill the whole pane instead (cropping the image
+     rather than letterboxing it) — see the mobile media query. */
   .offline-frame {
     position: absolute;
     display: block;
@@ -158,6 +160,16 @@
     }
     .video-pane {
       flex: 0 0 38vh;
+    }
+    /* The mobile pane's own aspect ratio isn't 16:9, so fitting the
+       offline card to that box like desktop does leaves black bars down
+       the sides. Fill the whole pane instead and let object-fit: cover
+       crop the image — there's no video controls/letterboxing convention
+       to match here like there is on desktop, so cropping reads better
+       than bars. */
+    .offline-frame {
+      width: 100cqw;
+      height: 100cqh;
     }
     /* min-height:0 (not just min-width) is required here: .layout is
        column-direction on mobile, so .chat-pane's relevant flex-shrink
