@@ -685,17 +685,24 @@
     vx += (Math.random() - 0.5) * 0.02;
     vy += (Math.random() - 0.5) * 0.02;
 
-    // wrap around edges instead of bouncing (read fresh each frame so
+    // Wrap around edges instead of bouncing (read fresh each frame so
     // it keeps working as content loads and the page height changes).
-    // Horizontal overshoot is harmless — html,body already clip it via
-    // overflow-x:hidden — but the vertical wrap is kept flush with
-    // .page's own bottom edge (no "+100" margin past it, unlike the
-    // other three edges) so the satellite's own height can never push
-    // the page's real scrollable area taller than its actual content.
+    // Every edge is kept flush with the real viewport/page bounds —
+    // no "+100" margin past any of them — so the satellite's own size
+    // can never push the page's real scrollable area past its actual
+    // content in either direction. overflow-x:hidden on html,body was
+    // assumed to make horizontal overshoot harmless here, but iOS
+    // Safari's rubber-band touch panning can still drag the page over
+    // to reveal absolutely-positioned content sitting past the
+    // viewport's own edge even with overflow:hidden set (the same
+    // quirk documented on recent-articles-widget.html's own overflow
+    // rules) — so this can't just rely on that the way the comment
+    // here used to assume.
     const h = docHeight();
+    const satW = sat.offsetWidth || 60;
     const satH = sat.offsetHeight || 60;
-    if (x < -100) x = window.innerWidth + 100;
-    if (x > window.innerWidth + 100) x = -100;
+    if (x < 0) x = window.innerWidth - satW;
+    if (x > window.innerWidth - satW) x = 0;
     if (y < -100) y = h - satH;
     if (y > h - satH) y = -100;
 
