@@ -114,7 +114,12 @@
     display: block;
     width: 100%;
     height: 100%;
-    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.4));
+    /* Scaled down to match the 75px sprite (was tuned for the original
+       150px one — the same offset/blur at half the size was reading as
+       a diffuse smudge instead of a crisp cast shadow) and darkened a
+       touch so it actually pops against whatever busy content it's
+       currently flying over. */
+    filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.55));
     /* A gentle hover bob/tilt independent of the JS-driven flight path
        below (that sets transform on #ufoWrap, one level up, so the two
        transforms never fight over the same property) — keeps it
