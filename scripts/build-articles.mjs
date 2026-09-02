@@ -49,8 +49,6 @@ const OUT_DIR = "truth/article";
 const SITE_ORIGIN = "https://knobsock.net";
 
 const HOME_URL = "https://knobsock.net/truth/";
-const LOGO_URL =
-  "https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png";
 const BG_VIDEO_URL =
   "https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4";
 
@@ -72,7 +70,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 4;
+const TEMPLATE_VERSION = 5;
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -225,9 +223,6 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
   h1, h2, h3 { color: yellow; }
   a { text-decoration: none; color: inherit; }
 
-  .site-header { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
-  .site-header img { display: block; max-height: 90px; max-width: 100%; width: auto; height: auto; }
-
   .page-wrapper {
     width: calc(100% - 24px);
     max-width: 820px;
@@ -325,11 +320,6 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
   <video class="bg-video" autoplay muted loop playsinline aria-hidden="true">
     <source src="${esc(BG_VIDEO_URL)}" type="video/mp4">
   </video>
-  <header class="site-header">
-    <a href="${esc(HOME_URL)}">
-      <img src="${esc(LOGO_URL)}" alt="Knobsock">
-    </a>
-  </header>
 
   <div class="page-wrapper">
     <a class="back-link" href="${esc(HOME_URL)}">&larr; Back to Truth Zone</a>
