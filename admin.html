@@ -717,7 +717,7 @@
       <div class="card">
         <div class="card-head"><h2>Users</h2></div>
         <div class="live-card-body">
-          <input type="text" class="search-input" id="userSearchInput" placeholder="Search every user who's ever chatted…">
+          <input type="text" class="search-input" id="userSearchInput" placeholder="Search every username ever created…">
           <div class="list-scroll" id="userList" style="max-height:none;overflow-y:auto;"></div>
         </div>
       </div>
@@ -1627,8 +1627,22 @@
     }, Promise.resolve());
   }
 
+  // chat_messages.ts is always a plain millisecond number (Date.now()),
+  // but chat_usernames.createdAt is written with serverTimestamp() and
+  // comes back as a Firestore Timestamp object instead — this normalizes
+  // either shape to plain milliseconds so timeLabel/sorting both work
+  // regardless of which field they're given.
+  function toMillis(value) {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value.seconds === 'number') return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+    return 0;
+  }
+
   function timeLabel(ts) {
-    return ts ? new Date(ts).toLocaleString() : '';
+    const ms = toMillis(ts);
+    return ms ? new Date(ms).toLocaleString() : '';
   }
 
   // ---------- RENDER: USERS ----------
@@ -1638,7 +1652,7 @@
     const q = userSearchQuery.toLowerCase();
     const filtered = liveUsers.filter(function (u) { return u.username.toLowerCase().indexOf(q) !== -1; });
     if (!filtered.length) {
-      root.innerHTML = '<div class="empty-state">' + (liveUsers.length ? 'No users match that search.' : 'No one has joined chat yet.') + '</div>';
+      root.innerHTML = '<div class="empty-state">' + (liveUsers.length ? 'No users match that search.' : 'No one has created a username yet.') + '</div>';
       return;
     }
     root.innerHTML = filtered.map(function (u) {
@@ -1810,14 +1824,36 @@
       'Joined: ' + escapeAttr(timeLabel(userDoc && userDoc.createdAt));
 
     const actionsEl = document.getElementById('userHistoryActions');
+    let actionsHtml = '';
     if (banned) {
-      actionsEl.innerHTML = '<button type="button" class="btn" id="userHistoryUnbanBtn">Unban</button>';
+      actionsHtml += '<button type="button" class="btn" id="userHistoryUnbanBtn">Unban</button>';
+    } else {
+      actionsHtml += '<button type="button" class="btn btn-primary" id="userHistoryBanBtn">Ban This User</button>';
+    }
+    // Deletes just the chat_usernames registration, not any messages —
+    // the name (bare, or that exact suffixed form) goes back into the
+    // pool so someone can claim it fresh, same as if it had never been
+    // taken. Only offered when there's actually a registration to free;
+    // a username resolved purely from message history (no doc on
+    // record) has nothing here to clear.
+    if (userDoc) {
+      actionsHtml += '<button type="button" class="btn-link" id="userHistoryFreeBtn">Free Up This Username</button>';
+    }
+    actionsEl.innerHTML = actionsHtml;
+    if (banned) {
       document.getElementById('userHistoryUnbanBtn').addEventListener('click', function () {
         CHAT_BANS_REF.doc(identity.deviceId).delete().catch(function (err) { alert('Unban failed: ' + err.message); });
       });
     } else {
-      actionsEl.innerHTML = '<button type="button" class="btn btn-primary" id="userHistoryBanBtn">Ban This User</button>';
       document.getElementById('userHistoryBanBtn').addEventListener('click', function () { openBanModal(username); });
+    }
+    if (userDoc) {
+      document.getElementById('userHistoryFreeBtn').addEventListener('click', function () {
+        if (!confirm('Free up "' + username + '" so it can be claimed again? Their message history is kept either way.')) return;
+        CHAT_USERNAMES_REF.doc(userDoc.id).delete()
+          .then(closeUserHistory)
+          .catch(function (err) { alert('Failed: ' + err.message); });
+      });
     }
 
     const msgs = messagesMatchingIdentity(identity);
@@ -1898,6 +1934,7 @@
 
     CHAT_USERNAMES_REF.onSnapshot(function (snapshot) {
       liveUsers = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      liveUsers.sort(function (a, b) { return toMillis(b.createdAt) - toMillis(a.createdAt); });
       renderUserList();
       if (userHistoryUsername) renderUserHistory();
     }, function (err) {
