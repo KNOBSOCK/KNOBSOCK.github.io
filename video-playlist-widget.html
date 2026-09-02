@@ -454,6 +454,13 @@
     .creator-heading {
       writing-mode: vertical-rl;
       text-orientation: mixed;
+      /* vertical-rl + mixed alone leans the glyphs so the label reads by
+         tilting your head left. transform is a paint-time-only op — it
+         doesn't touch the top-to-bottom character order the writing-mode
+         already laid out — so rotating the whole (tightly-fit) box
+         180deg flips just the lean, to read by tilting right instead,
+         without reversing or garbling the text itself. */
+      transform: rotate(180deg);
       margin-top: 0;
       padding: 4px 0;
     }
