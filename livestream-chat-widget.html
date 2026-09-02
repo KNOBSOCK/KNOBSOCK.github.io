@@ -1338,8 +1338,15 @@
       <div class="chat-screen">
         <div class="auth">
           <div class="auth-inner">
-            <label for="username">what are you gonna call yourself?</label>
-            <input type="text" id="username" autocomplete="off" placeholder="e.g. gunoguap" />
+            <label for="chatHandle">what are you gonna call yourself?</label>
+            <!-- Safari ignores autocomplete="off" on a field it pattern-matches
+                 as a login/contact field by id/name alone (a known, long-
+                 standing WebKit quirk) — the id was literally "username",
+                 which is exactly the pattern it's watching for. Renaming it
+                 away from that (id, name, and autocomplete's own value) is
+                 what actually stops the AutoFill prompt in Safari; plain
+                 autocomplete="off" alone wasn't enough. -->
+            <input type="text" id="chatHandle" name="chatHandle" autocomplete="off" placeholder="e.g. gunoguap" />
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="authSubmit" title="Join Chat">Join Chat</button>
             </div>
@@ -1350,14 +1357,14 @@
     `;
 
     $('authSubmit').addEventListener('click', handleAuthSubmit);
-    $('username').addEventListener('keydown', (e) => {
+    $('chatHandle').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleAuthSubmit();
     });
-    $('username').focus();
+    $('chatHandle').focus();
   }
 
   async function handleAuthSubmit() {
-    const username = $('username').value.trim();
+    const username = $('chatHandle').value.trim();
     const btn = $('authSubmit');
 
     if (!username) {
