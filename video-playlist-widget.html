@@ -166,26 +166,29 @@
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
 
   /* Whichever fullscreen path is active, explicitly hide the playlist
-     and creator chin rather than relying on the video simply covering
-     them, so there's no overlap even if a browser sizes fullscreen
-     differently than expected. */
-  .layout.fullscreen-active .playlist-pane,
-  .layout.fullscreen-active .creator-chin {
+     (the creator chin lives inside it now, so this already covers that
+     too) rather than relying on the video simply covering it, so
+     there's no overlap even if a browser sizes fullscreen differently
+     than expected. */
+  .layout.fullscreen-active .playlist-pane {
     display: none;
   }
 
   /* ---------- CREATOR CHIN ----------
-     A row of pill buttons across the bottom, one per creator seen in the
-     playlist (plus "All"). Auto-populated as each video's author comes
-     back from the oEmbed fetch below — clicking one filters the same
-     "Up Next" list to just that creator's videos, it doesn't touch
-     what's currently playing. */
+     A row of pill buttons, one per creator seen in the playlist (plus
+     "All"). Auto-populated as each video's author comes back from the
+     oEmbed fetch below — clicking one filters the same "Up Next" list to
+     just that creator's videos, it doesn't touch what's currently
+     playing. */
   .creator-chin {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: clamp(6px, 1.5vw, 10px);
-    padding: 2px;
+    /* Equal breathing room above (from the header's divider line below)
+       and below (before the list starts). */
+    margin: clamp(8px, 2.6cqh, 12px) 0;
+    padding: 0 2px;
     overflow-x: auto;
     overflow-y: hidden;
     /* Scrolling (swipe/drag/shift+wheel) still works when there are more
@@ -566,16 +569,18 @@
         <span class="playlist-title">Up Next</span>
         <span class="playlist-count" id="playlistCount"></span>
       </div>
+      <!-- Auto-populated from each video's YouTube author — see
+           renderCreatorChin() below. "All" chip clears the filter.
+           Lives here (not beside the video) so it never shares space
+           with — or gets covered by — the video pane, including in
+           fullscreen. -->
+      <div class="creator-chin" id="creatorChin"></div>
       <div class="playlist-items" id="playlistItems">
         <div class="empty-state"><img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading playlist…"></div>
       </div>
     </div>
   </div>
  </div>
-
-  <!-- Auto-populated from each video's YouTube author — see
-       renderCreatorChin() below. "All" chip clears the filter. -->
-  <div class="creator-chin" id="creatorChin"></div>
 </div>
 
 <!-- ============================================================

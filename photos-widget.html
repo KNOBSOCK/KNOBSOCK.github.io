@@ -419,7 +419,10 @@
     display: flex;
     align-items: center;
     gap: clamp(6px, 1.5vw, 10px);
-    padding: 2px;
+    /* Equal breathing room above (from the header's divider line above)
+       and below (before the grid starts). */
+    margin: clamp(8px, 2vw, 12px) 0;
+    padding: 0 2px;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
@@ -501,14 +504,17 @@
           <span class="grid-title">Photos</span>
           <span class="grid-count" id="gridCount"></span>
         </div>
+        <!-- Auto-populated from each photo's folder — see renderChin()
+             below. "All" chip clears the category filter. Lives here
+             (not below the whole widget) so it never shares space with
+             — or gets covered by — the main photo pane. -->
+        <div class="category-chin" id="categoryChin"></div>
         <div class="grid-items" id="gridItems">
           <div class="empty-state"><img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading…"></div>
         </div>
       </div>
     </div>
   </div>
-
-  <div class="category-chin" id="categoryChin"></div>
 </div>
 
 <div class="lightbox" id="lightbox" hidden>

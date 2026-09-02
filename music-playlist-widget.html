@@ -581,6 +581,22 @@
   }
   .playlist-items::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
+  /* Groups a run of same-album tracks under one label — only rendered
+     (see renderPlaylist() below) once a specific creator is filtered in,
+     since the same album name could span multiple artists under "All". */
+  .album-heading {
+    flex: none;
+    font-size: clamp(10px, 2.6cqw, 12px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.85;
+    padding: 0 2px;
+    margin-top: clamp(2px, 1cqh, 6px);
+  }
+  .album-heading:first-child { margin-top: 0; }
+
   @media (max-width: 860px) {
     /* align-items: flex-start — NOT stretch. Stretching every card to
        the row's full height is what squashed the thumbnails on a phone:
@@ -591,6 +607,15 @@
        host page for exactly the height that needs (see the height
        reporter at the bottom of this file). */
     .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: flex-start; }
+    /* The list becomes a horizontal strip above — a full-width label
+       doesn't fit between cards there, so it collapses to a slim,
+       vertically-set tab that scrolls along with its group instead. */
+    .album-heading {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      margin-top: 0;
+      padding: 4px 0;
+    }
   }
 
   .playlist-item {
@@ -881,12 +906,22 @@
     white-space: nowrap;
   }
 
-  .sc-source {
-    font-size: clamp(8px, 2vw, 10px);
+  .sc-album {
+    font-size: clamp(9px, 2.2vw, 11px);
     color: var(--text-dim);
-    opacity: 0.7;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* No album set (a SoundCloud-only track, or a video the admin hasn't
+     assigned one) — collapses away instead of leaving an empty line. */
+  .sc-album:empty { display: none; }
+
+  .sc-source {
+    font-size: clamp(7px, 1.3vw, 9px);
+    color: var(--text-dim);
+    opacity: 0.55;
     margin-top: 1px;
   }
 
@@ -988,6 +1023,7 @@
             <div class="sc-title" id="scTitle"><span class="sc-title-copy">Loading…</span></div>
           </div>
           <div class="sc-artist" id="scArtist"></div>
+          <div class="sc-album" id="scAlbum"></div>
           <div class="sc-source" id="scSourceLabel"></div>
           <div class="sc-progress-track" id="scProgressTrack">
             <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
@@ -1176,7 +1212,8 @@ function buildPlaylist(list, previousPlaylist) {
       return {
         id,
         title: manualTitle || (prev ? prev.title : null),
-        author: prev ? prev.author : null
+        author: prev ? prev.author : null,
+        album: (v.album && v.album.trim()) ? v.album.trim() : null
       };
     })
     .filter(Boolean);
@@ -1317,6 +1354,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         videoId: v.id,
         title: v.title,
         author: v.author,
+        album: v.album,
         thumbnail: 'https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg',
         linkUrl: 'https://www.youtube.com/watch?v=' + v.id
       });
@@ -1365,6 +1403,12 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }
 
     playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' track' : ' tracks');
+    // Album headings only make sense once a single creator is picked —
+    // under "All" the same album name could belong to several different
+    // artists, so grouping there would be misleading. Only a run of
+    // consecutive tracks sharing an album gets one shared heading, so a
+    // song that shows up between two different albums doesn't merge them.
+    let lastAlbum = undefined;
     playlistItemsEl.innerHTML = visible.map(e => {
       const title = (typeof e.title === 'string' && e.title.trim()) ? e.title.trim() : 'Loading title…';
       const isActive = e.key === activeKey;
@@ -1374,7 +1418,12 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       const sub = isActive
         ? 'Now playing'
         : (e.author ? escapeHtml(resolveAuthorDisplay(e.author)) : 'Tap to play');
-      return `
+      let heading = '';
+      if (activeAuthorFilter && e.album && e.album !== lastAlbum) {
+        heading = `<div class="album-heading">${escapeHtml(e.album)}</div>`;
+      }
+      lastAlbum = e.album || undefined;
+      return heading + `
       <button class="playlist-item${isActive ? ' active' : ''}" data-key="${escapeHtml(e.key)}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
           <img src="${escapeHtml(e.thumbnail)}" alt="${escapeHtml(title)}" loading="lazy" />
@@ -1502,6 +1551,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     setNowPlayingFromVideo({
       title: (typeof entry.title === 'string' && entry.title.trim()) ? entry.title.trim() : 'Loading title…',
       author: entry.author ? resolveAuthorDisplay(entry.author) : '',
+      album: entry.album || '',
       thumbnail: entry.thumbnail,
       linkUrl: entry.linkUrl
     });
@@ -1911,6 +1961,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const scTitleWrapEl = document.getElementById('scTitleWrap');
   const scTitleEl = document.getElementById('scTitle');
   const scArtistEl = document.getElementById('scArtist');
+  const scAlbumEl = document.getElementById('scAlbum');
   const scSourceLabelEl = document.getElementById('scSourceLabel');
   const scProgressTrackEl = document.getElementById('scProgressTrack');
   const scProgressFillEl = document.getElementById('scProgressFill');
@@ -1930,6 +1981,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function setScNowPlayingFromSound(sound) {
     setScTitle(sound.title || 'Untitled');
     scArtistEl.textContent = getScAuthor(sound);
+    scAlbumEl.textContent = ''; // SoundCloud tracks don't carry an admin-set album
     scSourceLabelEl.textContent = 'via SoundCloud';
     scArtworkImgEl.src = getScArtworkUrl(sound);
     scArtworkLinkEl.href = sound.permalink_url || '#';
@@ -1995,6 +2047,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   setNowPlayingFromVideo = function (info) {
     setScTitle(info.title);
     scArtistEl.textContent = info.author || '';
+    scAlbumEl.textContent = info.album || '';
     scSourceLabelEl.textContent = 'via YouTube';
     scArtworkImgEl.src = info.thumbnail;
     scArtworkLinkEl.href = info.linkUrl || '#';
