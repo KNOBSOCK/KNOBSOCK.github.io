@@ -788,6 +788,17 @@
     color: var(--text-dim);
   }
 
+  @media (max-width: 860px) {
+    /* Reserves room for a full two lines regardless of how many the
+       actual title needs. Without this, a one-line title's card ends up
+       visibly shorter than a two-line title's card next to it in this
+       row layout — unlike the vertical list on desktop, where cards
+       naturally vary in height, a horizontal row of differently-sized
+       cards reads as broken even though every thumbnail itself is
+       already the same size. */
+    .playlist-item-title { min-height: calc(2 * 1.3em); }
+  }
+
   .empty-state {
     margin: auto;
     text-align: center;
