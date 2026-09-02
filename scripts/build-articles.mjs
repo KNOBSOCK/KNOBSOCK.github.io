@@ -70,7 +70,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 5;
+const TEMPLATE_VERSION = 6;
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -226,7 +226,11 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
   .page-wrapper {
     width: calc(100% - 24px);
     max-width: 820px;
-    margin: 0 auto 40px;
+    /* 12px top margin matches the 12px each side that "width: calc(100%
+       - 24px)" plus auto side margins already produce — even framing on
+       all three edges now that there's no header above to separate the
+       page from the top of the viewport. */
+    margin: 12px auto 40px;
     padding: 28px clamp(18px, 5vw, 44px) 40px;
     background: rgba(0, 19, 156, 0.5);
     backdrop-filter: blur(16px) saturate(150%);
