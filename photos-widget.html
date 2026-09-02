@@ -900,6 +900,7 @@
     img.alt = current.alt || '';
     resetZoom();
     lightbox.hidden = false;
+    notifyParent('knobsock-lightbox-open');
     document.addEventListener('keydown', handleKeydown);
     clearTimeout(hintTimer);
     hint.style.opacity = '1';
@@ -909,7 +910,21 @@
   function closeLightbox() {
     lightbox.hidden = true;
     img.src = '';
+    notifyParent('knobsock-lightbox-close');
     document.removeEventListener('keydown', handleKeydown);
+  }
+
+  // The lightbox is `position: fixed`, but fixed positioning inside an
+  // iframe is relative to the IFRAME's own box, not the browser window —
+  // and photos.html sizes that box to the pane's natural content height,
+  // not the full viewport. Without this, the lightbox just gets clipped
+  // to that short box instead of covering the screen. So on open/close we
+  // ask the host page to size the iframe itself to the full viewport (see
+  // the matching listener in photos.html), then hand sizing back.
+  function notifyParent(type) {
+    try {
+      parent.postMessage({ type: type }, window.location.origin);
+    } catch (err) { /* embedded cross-origin — nothing to tell */ }
   }
 
   function handleKeydown(e) {

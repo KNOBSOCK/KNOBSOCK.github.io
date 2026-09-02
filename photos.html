@@ -129,6 +129,7 @@
   var wrap = document.querySelector('.content-wrap');
   var frame = wrap.querySelector('iframe');
   var MOBILE = 860;
+  var lightboxOpen = false;
 
   function clear() {
     wrap.style.flex = '';
@@ -136,10 +137,45 @@
     wrap.style.minHeight = '';
   }
 
+  // Lightbox open/close: the widget's zoom overlay is `position: fixed`,
+  // which inside an iframe is relative to the IFRAME'S OWN box — not the
+  // browser window. Since .content-wrap normally sizes that box to the
+  // pane's natural content height (not the viewport), the overlay would
+  // just get clipped to that short box instead of covering the screen.
+  // So while it's open we blow the iframe itself up to fill the viewport
+  // (escaping .content-wrap's sizing via fixed positioning), then hand
+  // sizing back to the normal knobsock-widget-height flow on close.
+  function expandFrameFullscreen() {
+    lightboxOpen = true;
+    frame.style.position = 'fixed';
+    frame.style.inset = '0';
+    frame.style.width = '100vw';
+    frame.style.height = '100dvh';
+    frame.style.zIndex = '99999';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function restoreFrameSizing() {
+    lightboxOpen = false;
+    frame.style.position = '';
+    frame.style.inset = '';
+    frame.style.width = '';
+    frame.style.height = '';
+    frame.style.zIndex = '';
+    document.body.style.overflow = '';
+  }
+
   window.addEventListener('message', function (e) {
     if (e.origin !== window.location.origin) return;
     if (e.source !== frame.contentWindow) return;
-    if (!e.data || e.data.type !== 'knobsock-widget-height') return;
+    if (!e.data) return;
+    if (e.data.type === 'knobsock-lightbox-open') { expandFrameFullscreen(); return; }
+    if (e.data.type === 'knobsock-lightbox-close') { restoreFrameSizing(); return; }
+    if (e.data.type !== 'knobsock-widget-height') return;
+    // The widget's pane grows to fill the fullscreen-expanded iframe while
+    // the lightbox is open, which would otherwise queue up a stale (huge)
+    // .content-wrap height to snap to right as the lightbox closes.
+    if (lightboxOpen) return;
     if (window.innerWidth <= MOBILE) { clear(); return; }
     wrap.style.flex = '0 0 auto';
     wrap.style.minHeight = '0';
