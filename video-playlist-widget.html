@@ -165,29 +165,6 @@
     .playlist-pane { flex: 1 1 auto; min-width: 0; min-height: 0; }
   }
 
-  /* Desktop only — the phone layout above is deliberately left alone.
-
-     The black pane used to stretch to whatever height the row was given,
-     while its width stayed capped at its share of the row. On a tall
-     browser window that made it far taller than wide (portrait!), so the
-     16:9 video sat in the middle of a huge black letterbox. Giving the
-     pane the video's own ratio makes the box match what's inside it.
-
-     align-items:center is what stops the stretch — without it, the
-     flex default (stretch) overrides the aspect ratio and nothing
-     changes. The playlist opts back in to full height so it still fills
-     the card beside the player. max-height keeps the pane inside the row
-     on a short, wide window, where 16:9 at full width would overflow;
-     the video re-letterboxes there, which is the correct trade. */
-  @media (min-width: 861px) {
-    .main-row { align-items: center; }
-    .video-pane {
-      aspect-ratio: 16 / 9;
-      max-height: 100%;
-    }
-    .playlist-pane { align-self: stretch; }
-  }
-
   .layout.playlist-hidden .playlist-pane { display: none; }
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
 
