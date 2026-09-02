@@ -453,6 +453,32 @@
     flex: none;
   }
 
+  .status-actions {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2cqw, 10px);
+    flex: none;
+  }
+
+  /* Native color input — cheapest reliable cross-browser color picker,
+     just restyled down to a small round swatch matching the round
+     buttons next to it. */
+  .color-picker {
+    -webkit-appearance: none;
+    appearance: none;
+    width: clamp(20px, 6.4cqw, 26px);
+    height: clamp(20px, 6.4cqw, 26px);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+    flex: none;
+  }
+  .color-picker::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+  .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
+  .color-picker::-moz-color-swatch { border: none; border-radius: 50%; }
+
   /* Auth screen now fills the whole chat card and centers its content,
      since the top tab/header bar has been removed on this screen. */
   .auth {
@@ -1066,9 +1092,40 @@
   const usernamesRef = db.collection('chat_usernames');
   const usernameCountersRef = db.collection('chat_username_counters');
   const messagesRef = db.collection('chat_messages');
+  const bansRef = db.collection('chat_bans');
+  const configRef = db.collection('chat_config');
 
   let session = null; // { username }
   let unsubscribeMessages = null;
+
+  // ---------- DEVICE ID ----------
+  // A static site with no server has no way to see (let alone block) a
+  // visitor's real network IP — that needs a server component this site
+  // doesn't have, and a client-only IP check is trivially skipped anyway.
+  // What a browser CAN carry reliably is a random ID stashed in its own
+  // localStorage: it survives a username change (unlike the username
+  // itself, which anyone can just retype as something else), and — sent
+  // with every message/join below — it's what admin.html's ban feature
+  // actually targets. Firestore's own security rules (not just this
+  // page's JS) are what make a ban on this ID stick; see admin.html's
+  // Live tab for the rest of the moderation flow.
+  function getClientId() {
+    try {
+      let id = localStorage.getItem('chat_client_id');
+      if (!id) {
+        id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2));
+        localStorage.setItem('chat_client_id', id);
+      }
+      return id;
+    } catch (e) {
+      // Private/incognito mode can block localStorage entirely — falls
+      // back to a session-only id rather than failing to load chat at
+      // all; this one visit just won't be persistently recognizable
+      // across a future session on the same browser.
+      return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+    }
+  }
+  const CLIENT_ID = getClientId();
 
   // ---------- USERNAME CLAIMING ----------
   // Never rejects a name outright: the first person to type "gunoguap"
@@ -1096,7 +1153,12 @@
       if (!baseDoc.exists) {
         tx.set(baseRef, {
           username: rawUsername,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          // Whoever claims a given username slot keeps it forever (see
+          // the comment above) — this is what lets admin.html resolve
+          // "ban this person" from a username straight to the one
+          // device that has ever actually owned it.
+          lastDeviceId: CLIENT_ID
         });
         return rawUsername;
       }
@@ -1114,16 +1176,38 @@
       // free number instead of colliding with this one.
       tx.set(usernamesRef.doc(baseKey + '#' + padSuffix(next)), {
         username: suffixedUsername,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastDeviceId: CLIENT_ID
       });
       return suffixedUsername;
     });
+  }
+
+  // Fetches this browser's public IP from a keyless lookup service and
+  // logs it on the just-claimed username doc — purely a reference clue
+  // for admin.html (e.g. "these two names share an IP, might be the same
+  // person"), never an enforcement point; see the CLIENT_ID comment
+  // above for why a real IP block isn't possible from a static site.
+  // Best-effort and fire-and-forget: a blocked/failed lookup just means
+  // this one detail stays blank, nothing about chat itself depends on it.
+  function logIpBestEffort(finalUsername) {
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data || !data.ip) return;
+        return usernamesRef.doc(finalUsername.toLowerCase()).set({
+          lastIp: data.ip,
+          lastSeenAt: Date.now()
+        }, { merge: true });
+      })
+      .catch(() => {});
   }
 
   async function sendMessageToFirestore(entry) {
     await messagesRef.add({
       username: entry.username,
       text: entry.text,
+      deviceId: CLIENT_ID,
       ts: Date.now()
     });
   }
@@ -1137,7 +1221,11 @@
   // ---------- SLUR / PROFANITY FILTER ----------
   // Words are censored wherever they appear (own word boundaries), case-insensitive,
   // and tolerant of a few common letter substitutions (0 for o, 1 for i, etc).
-  const CENSORED_WORDS = [
+  // This default list is what the filter uses until chat_config/censoredWords
+  // loads (and what it falls back to if that doc is ever missing/emptied) —
+  // admin.html's "Censored Words" section is where the live list is actually
+  // edited from here on; see the onSnapshot listener below.
+  const DEFAULT_CENSORED_WORDS = [
     'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
     'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
     'towelhead', 'raghead', 'cunt'
@@ -1156,7 +1244,13 @@
     return new RegExp('\\b' + pattern + '\\b', 'gi');
   }
 
-  const CENSOR_REGEXES = CENSORED_WORDS.map(buildCensorRegex);
+  let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+
+  configRef.doc('censoredWords').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
+    CENSOR_REGEXES = words.map(buildCensorRegex);
+  }, () => {}); // offline/blocked read just keeps whatever list is already loaded
 
   function censorText(text) {
     let result = text;
@@ -1169,6 +1263,60 @@
   function timeLabel(ts) {
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ---------- USERNAME COLORS ----------
+  // Every username gets a stable color derived from its own text (so the
+  // same name always lands on the same color for everyone, with no
+  // shared state needed) unless its claimant has picked a custom one from
+  // the composer bar below — that choice lives on the same chat_usernames
+  // doc the username claim itself already created, since that's the one
+  // place this app has anything resembling "this slot belongs to me."
+  function hashHue(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return hash % 360;
+  }
+
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+    return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+  }
+
+  // Bright, readable-on-dark hues at fixed saturation/lightness — only
+  // the hue varies per username.
+  function defaultColorFor(username) {
+    return hslToHex(hashHue(username.toLowerCase()), 70, 72);
+  }
+
+  // key -> resolved hex color, or the string 'pending' while a lookup for
+  // that username's custom color choice is in flight. Populated lazily —
+  // only usernames actually seen in the rendered message list ever get
+  // looked up, rather than subscribing to the whole chat_usernames
+  // collection just for this.
+  const usernameColorCache = {};
+
+  function colorForUsername(username, onResolved) {
+    const key = username.toLowerCase();
+    if (usernameColorCache[key] && usernameColorCache[key] !== 'pending') {
+      return usernameColorCache[key];
+    }
+    if (!usernameColorCache[key]) {
+      usernameColorCache[key] = 'pending';
+      usernamesRef.doc(key).get().then((doc) => {
+        const data = doc.exists ? doc.data() : null;
+        usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
+        if (onResolved) onResolved();
+      }).catch(() => {
+        usernameColorCache[key] = defaultColorFor(username);
+        if (onResolved) onResolved();
+      });
+    }
+    return defaultColorFor(username); // shown immediately; onResolved repaints if a custom pick exists
   }
 
   // ---------- RENDER: AUTH ----------
@@ -1215,6 +1363,7 @@
     try {
       const finalUsername = await claimUsernameSlot(username);
       session = { username: finalUsername };
+      logIpBestEffort(finalUsername);
       startChat();
     } catch (e) {
       console.error(e);
@@ -1228,6 +1377,16 @@
 
   // ---------- RENDER: CHAT ----------
   function renderChatShell() {
+    // Own color resolves the same lazy way everyone else's does (see
+    // colorForUsername) — usernameColorCache already has it "pending" or
+    // resolved by the time this runs in the common case (colorForUsername
+    // is called for every visible message, including your own), so this
+    // just reads whatever that returns rather than doing a second lookup.
+    const myColor = colorForUsername(session.username, () => {
+      const picker = $('colorPicker');
+      if (picker) picker.value = usernameColorCache[session.username.toLowerCase()];
+    });
+
     app.innerHTML = `
       <div class="chat-screen">
         <div class="messages" id="messages">
@@ -1236,7 +1395,10 @@
         <div class="composer-bar">
           <div class="composer-status">
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
-            <button class="round-btn signout" id="signoutBtn" title="Sign out">&times;</button>
+            <div class="status-actions">
+              <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
+              <button class="round-btn signout" id="signoutBtn" title="Sign out">&times;</button>
+            </div>
           </div>
           <div class="composer">
             <input type="text" id="msgInput" placeholder="Type a message…" maxlength="500" />
@@ -1252,15 +1414,29 @@
       renderAuth();
     });
 
+    $('colorPicker').addEventListener('input', (e) => {
+      const color = e.target.value;
+      const key = session.username.toLowerCase();
+      usernameColorCache[key] = color; // repaints this tab immediately, no round trip needed
+      usernamesRef.doc(key).set({ color: color }, { merge: true }).catch((err) => console.error(err));
+      if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
+    });
+
     $('sendBtn').addEventListener('click', sendMessage);
     $('msgInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
   }
 
+  // Kept around so a username color that resolves (or gets picked) after
+  // the fact can trigger a repaint of the list already on screen, without
+  // renderMessages' every caller needing to also remember the last batch.
+  let lastRenderedMsgs = null;
+
   function renderMessages(msgs) {
     const container = $('messages');
     if (!container) return;
+    lastRenderedMsgs = msgs;
     if (!msgs.length) {
       container.innerHTML = `<div class="empty-state">No messages yet. Say hello 👋</div>`;
       return;
@@ -1268,9 +1444,16 @@
 
     container.innerHTML = msgs.map(m => {
       const mine = m.username === session.username;
+      // "Mine" already stands out via its own accent-colored bubble/
+      // alignment, so it keeps that fixed accent instead of taking on
+      // its own name color here — the per-user color is there to tell
+      // OTHER people's messages apart from each other, not from yours.
+      const nameHtml = mine
+        ? escapeHtml(m.username)
+        : `<span style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
       return `
         <div class="msg ${mine ? 'mine' : ''}">
-          <div class="msg-meta">${escapeHtml(m.username)} · ${timeLabel(m.ts)}</div>
+          <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
           <div class="msg-bubble">${escapeHtml(censorText(m.text))}</div>
         </div>
       `;
@@ -1325,8 +1508,57 @@
     $('msgInput').focus();
   }
 
+  // ---------- BAN GATE ----------
+  // A permanent ban has no expiresAt at all; a timeout has one in the
+  // future. Checked against a *live* listener (not a one-time read) so a
+  // ban placed while this exact tab is sitting open takes effect right
+  // away instead of only on the next reload.
+  function isBanActive(ban) {
+    if (!ban) return false;
+    if (!ban.expiresAt) return true;
+    return ban.expiresAt > Date.now();
+  }
+
+  function renderBanned(ban) {
+    const until = ban.expiresAt ? new Date(ban.expiresAt).toLocaleString() : null;
+    app.innerHTML = `
+      <div class="chat-screen">
+        <div class="auth">
+          <div class="auth-inner">
+            <div class="auth-msg" style="color:var(--error);font-size:clamp(12px,3.4cqw,16px);min-height:0;">
+              You've been removed from this chat${until ? ' until ' + escapeHtml(until) : ''}.
+              ${ban.reason ? '<br><br>Reason: ' + escapeHtml(ban.reason) : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // ---------- INIT ----------
-  renderAuth();
+  let currentlyBanned = false;
+  bansRef.doc(CLIENT_ID).onSnapshot((doc) => {
+    const ban = doc.exists ? doc.data() : null;
+    const active = isBanActive(ban);
+    if (active) {
+      currentlyBanned = true;
+      session = null;
+      if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+      renderBanned(ban);
+    } else if (currentlyBanned) {
+      // The ban was lifted, or a timeout expired, while this tab was
+      // already sitting on the banned screen.
+      currentlyBanned = false;
+      renderAuth();
+    } else if (!session) {
+      renderAuth();
+    }
+  }, () => {
+    // Can't confirm ban status (offline, rules not yet deployed, etc.) —
+    // fails open to the normal join screen rather than locking everyone
+    // out over a read error.
+    if (!session) renderAuth();
+  });
 })();
 </script>
 
