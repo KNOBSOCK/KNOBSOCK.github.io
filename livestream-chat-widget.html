@@ -99,7 +99,7 @@
      stream, not something you're switching away from, so there's no
      stale frame to worry about hiding; the iframe is still hidden below
      just so a rebuffer doesn't leave an old frame showing under the
-     gif. */
+     offline card. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -113,7 +113,19 @@
   .video-loading[hidden] { display: none; }
   .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
+  /* Same 16:9 box, same centering, as .video-frame-wrap below — sized so
+     it sits exactly where the video itself would instead of just filling
+     whatever shape .video-pane happens to be. */
+  .offline-frame {
+    position: absolute;
+    display: block;
+    width: min(100cqw, calc(100cqh * 16 / 9));
+    height: min(100cqh, calc(100cqw * 9 / 16));
+    object-fit: cover;
+  }
+
   .gif-loader {
+    position: relative;
     display: block;
     width: min(90px, 30%);
     height: auto;
@@ -682,6 +694,7 @@
         </iframe>
       </div>
       <div class="video-loading" id="videoLoading">
+        <img class="offline-frame" src="/KNOBSOCK-live-offline.png" alt="We are currently offline">
         <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
       </div>
       <div class="video-controls" id="videoControls">
