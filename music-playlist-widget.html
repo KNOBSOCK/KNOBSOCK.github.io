@@ -1228,7 +1228,8 @@ function buildPlaylist(list, previousPlaylist) {
         id,
         title: manualTitle || (prev ? prev.title : null),
         author: prev ? prev.author : null,
-        album: (v.album && v.album.trim()) ? v.album.trim() : null
+        album: (v.album && v.album.trim()) ? v.album.trim() : null,
+        addedAt: v.addedAt || 0
       };
     })
     .filter(Boolean);
@@ -1370,6 +1371,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         title: v.title,
         author: v.author,
         album: v.album,
+        addedAt: v.addedAt,
         thumbnail: 'https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg',
         linkUrl: 'https://www.youtube.com/watch?v=' + v.id
       });
@@ -1401,6 +1403,39 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     return merged;
   }
 
+  // Under a specific creator filter, tracks are re-grouped by album
+  // instead of staying in raw "All" order — a song from one album could
+  // otherwise sit between two songs from another, breaking that album up
+  // into several disconnected runs (each getting its own heading). Groups
+  // are sorted by whichever album's most recently added track is newest;
+  // within a group, tracks keep their relative "All" order (the order
+  // admin.html has them arranged in) so this is still the source of truth
+  // for track order, just re-clustered by album. Under "All" itself,
+  // grouping is skipped entirely — the same album name could belong to
+  // several different artists there, so grouping would be misleading, and
+  // the admin's raw order is exactly what "All" is supposed to show.
+  function orderVisibleForFilter(visible) {
+    if (!activeAuthorFilter) return visible;
+    const groups = [];
+    const byAlbum = new Map();
+    visible.forEach(e => {
+      const key = e.album || '';
+      let g = byAlbum.get(key);
+      if (!g) {
+        g = { maxAdded: 0, items: [] };
+        byAlbum.set(key, g);
+        groups.push(g);
+      }
+      g.items.push(e);
+      if ((e.addedAt || 0) > g.maxAdded) g.maxAdded = e.addedAt || 0;
+    });
+    // Array#sort is stable — groups tied on maxAdded (e.g. no addedAt at
+    // all) keep the order they first appeared in, instead of jumping
+    // around on every re-render.
+    groups.sort((a, b) => b.maxAdded - a.maxAdded);
+    return groups.reduce((all, g) => all.concat(g.items), []);
+  }
+
   // ---------- PLAYLIST RENDER ----------
   function renderPlaylist(merged) {
     if (!merged.length) {
@@ -1417,14 +1452,14 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       return;
     }
 
-    playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' track' : ' tracks');
-    // Album headings only make sense once a single creator is picked —
-    // under "All" the same album name could belong to several different
-    // artists, so grouping there would be misleading. Only a run of
-    // consecutive tracks sharing an album gets one shared heading, so a
-    // song that shows up between two different albums doesn't merge them.
+    const ordered = orderVisibleForFilter(visible);
+    playlistCountEl.textContent = ordered.length + (ordered.length === 1 ? ' track' : ' tracks');
+    // Only a run of consecutive tracks sharing an album gets one shared
+    // heading — orderVisibleForFilter above already guarantees every
+    // track from the same album is one contiguous run, so this never
+    // fragments a single album into repeated headings.
     let lastAlbum = undefined;
-    playlistItemsEl.innerHTML = visible.map(e => {
+    playlistItemsEl.innerHTML = ordered.map(e => {
       const title = (typeof e.title === 'string' && e.title.trim()) ? e.title.trim() : 'Loading title…';
       const isActive = e.key === activeKey;
       // Shows who made it instead of a generic "Tap to play" once the
