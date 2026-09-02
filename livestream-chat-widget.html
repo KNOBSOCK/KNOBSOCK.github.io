@@ -1252,6 +1252,18 @@
     CENSOR_REGEXES = words.map(buildCensorRegex);
   }, () => {}); // offline/blocked read just keeps whatever list is already loaded
 
+  // Set by admin.html's "Clear Chat" button — see subscribeToMessages()
+  // further down, which is what actually applies this cutoff to the
+  // messages query.
+  configRef.doc('clear').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+    // Re-subscribe with the new cutoff immediately for anyone already
+    // sitting in the chat — same "takes effect right away" treatment as
+    // a ban, rather than only on their next reload.
+    if (session) subscribeToMessages();
+  }, () => {});
+
   function censorText(text) {
     let result = text;
     CENSOR_REGEXES.forEach(re => {
@@ -1483,13 +1495,21 @@
     }
   }
 
-  function startChat() {
-    renderChatShell();
+  // Set by admin.html's "Clear Chat" button (chat_config/clear) — the
+  // messages themselves are never deleted (admin.html's own chat log and
+  // search still see everything), this just moves the cutoff every
+  // visitor's own message query starts from. Kept live (see
+  // subscribeToConfig below) so an in-progress clear takes effect for an
+  // already-open tab immediately, the same way a ban does.
+  let clearedAt = 0;
 
+  function subscribeToMessages() {
     if (unsubscribeMessages) unsubscribeMessages();
 
-    unsubscribeMessages = messagesRef
-      .orderBy('ts', 'asc')
+    let query = messagesRef.orderBy('ts', 'asc');
+    if (clearedAt) query = query.where('ts', '>', clearedAt);
+
+    unsubscribeMessages = query
       .limitToLast(200)
       .onSnapshot(
         (snapshot) => {
@@ -1504,7 +1524,11 @@
           }
         }
       );
+  }
 
+  function startChat() {
+    renderChatShell();
+    subscribeToMessages();
     $('msgInput').focus();
   }
 
