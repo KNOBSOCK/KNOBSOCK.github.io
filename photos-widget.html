@@ -1021,58 +1021,5 @@
 })();
 </script>
 
-<!-- ---------- NATURAL-HEIGHT REPORTING ----------
-     Same knobsock-widget-height contract video-playlist-widget.html
-     uses, so photos.html sizes to this instead of letting it stretch to
-     fill the viewport on a tall/4K/8K window — without this the photo
-     pane and grid just kept growing to fill whatever height they were
-     handed. Desktop only; on phones the host page's own CSS is meant to
-     size the widget instead. Derived from the photo pane's own WIDTH
-     (not its rendered height) for the same reason the video widget
-     does: its rendered height already reflects whatever the parent
-     granted, so measuring that can never correct a bad size — reading
-     the width the row's own layout produced is what actually lets it
-     converge. There's no single fixed aspect ratio for photos the way
-     there is for 16:9 video, but 16:9 is still a reasonable landscape
-     assumption for how tall the pane needs to read as "sized to its
-     content" rather than "stretched to fill the page." -->
-<script>
-(function () {
-  const layout = document.getElementById('layout');
-  const pane = document.getElementById('photoPane');
-  const chin = document.getElementById('categoryChin');
-  let lastSent = 0;
-
-  function report() {
-    if (window.innerWidth <= 860) return;
-    const cs = getComputedStyle(layout);
-    const naturalPaneHeight = (pane.getBoundingClientRect().width * 9) / 16;
-    const height = Math.ceil(
-      naturalPaneHeight +
-      chin.getBoundingClientRect().height +
-      (parseFloat(cs.rowGap) || 0) +
-      parseFloat(cs.paddingTop) +
-      parseFloat(cs.paddingBottom)
-    );
-    if (!height || Math.abs(height - lastSent) < 2) return;
-    lastSent = height;
-    try {
-      parent.postMessage(
-        { type: 'knobsock-widget-height', height: height },
-        window.location.origin
-      );
-    } catch (err) { /* embedded cross-origin — nothing to tell */ }
-  }
-
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(report);
-    ro.observe(pane);
-    ro.observe(chin);
-  }
-  window.addEventListener('resize', report);
-  report();
-})();
-</script>
-
 </body>
 </html>

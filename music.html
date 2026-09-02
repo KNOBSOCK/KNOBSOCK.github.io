@@ -66,12 +66,10 @@
     object-fit: contain;
   }
 
-  /* The box the player lives in. The widget draws its own frosted panel
-     and handles its own responsive layout; the real height comes from
-     the widget itself (see the script at the bottom of this file),
-     exactly as videos.html does it. These values are only the fallback
-     for before that message arrives — or if it never does, e.g. JS off
-     or the widget served from another origin.
+  /* The box the player lives in, same as live.html's player-wrap — the
+     widget draws its own frosted panel and scales its own layout to
+     whatever room it's given, so it's meant to stretch on a tall/4K/8K
+     window rather than being capped to a "natural" height.
 
      min-height (not height) keeps it usable on very short screens,
      where the page then scrolls instead of squashing. */
@@ -123,64 +121,13 @@
     <img src="/knobsock-music-logo.png" alt="KNOBSOCK MUSIC">
   </a>
 
-  <div class="player-wrap" id="playerWrap">
+  <div class="player-wrap">
     <iframe src="/music-playlist-widget.html"
             title="KNOBSOCK Music"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>
   </div>
 </div>
-
-<script>
-// The widget reports the height its content actually wants (a 16:9
-// player and the Now Playing card) and this sizes the iframe to that —
-// the same knobsock-widget-height contract videos.html uses.
-//
-// Sizing it to the leftover window instead, which is what this used to
-// do, is what made the gold panel run all the way to the bottom of a
-// zoomed-out or 4K/8K screen: the widget fills whatever height it is
-// handed, so every extra pixel of window turned into empty panel under
-// the player.
-//
-// Desktop only — the widget doesn't even send this message on mobile
-// anymore (see the report() guard in music-playlist-widget.html): the
-// page there is locked to one screen (see the mobile media query above)
-// and the widget's own stacked content (video + Now Playing card +
-// playlist) scrolls inside its own .layout instead of the host page
-// growing/scrolling around it — an earlier version tried to size
-// #playerWrap to the widget's full natural height and scroll THAT, which
-// read as scrolling a separate nested frame instead of the page itself.
-// If the message never arrives (JS off, or the widget served from
-// another origin), the CSS above stands on its own.
-(function () {
-  var wrap = document.querySelector('.player-wrap');
-  var frame = wrap.querySelector('iframe');
-  var MOBILE = 860;
-
-  function clear() {
-    wrap.style.flex = '';
-    wrap.style.height = '';
-    wrap.style.minHeight = '';
-  }
-
-  window.addEventListener('message', function (e) {
-    if (e.origin !== window.location.origin) return;
-    if (e.source !== frame.contentWindow) return;
-    if (!e.data || e.data.type !== 'knobsock-widget-height') return;
-    if (window.innerWidth <= MOBILE) { clear(); return; }
-    wrap.style.flex = '0 0 auto';
-    // min-height from the stylesheet would otherwise win over a smaller
-    // measured height and keep the gap.
-    wrap.style.minHeight = '0';
-    var available = window.innerHeight - wrap.getBoundingClientRect().top - 12;
-    wrap.style.height = Math.min(e.data.height, Math.max(260, available)) + 'px';
-  });
-
-  window.addEventListener('resize', function () {
-    if (window.innerWidth <= MOBILE) clear();
-  });
-})();
-</script>
 
 </body>
 </html>
