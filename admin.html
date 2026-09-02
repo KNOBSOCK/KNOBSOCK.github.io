@@ -723,8 +723,12 @@
       </div>
 
       <div class="card live-chat-card">
-        <div class="card-head"><h2>Chat</h2></div>
+        <div class="card-head">
+          <h2>Chat</h2>
+          <button type="button" class="btn" id="clearChatBtn">Clear Chat</button>
+        </div>
         <div class="live-card-body">
+          <div class="note" id="chatClearedNote" hidden></div>
           <input type="text" class="search-input" id="chatSearchInput" placeholder="Search messages or usernames…">
           <div class="list-scroll" id="liveMessagesList" style="max-height:none;overflow-y:auto;"></div>
         </div>
@@ -824,6 +828,7 @@
   const CHAT_USERNAMES_REF = db.collection('chat_usernames');
   const CHAT_BANS_REF = db.collection('chat_bans');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
+  const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
 </script>
 
 <script>
@@ -1562,6 +1567,7 @@
   let liveUsers = [];          // [{id (=username key), username, createdAt, lastDeviceId, lastIp, lastSeenAt, color}]
   let liveBans = {};           // key -> {bannedAt, expiresAt, reason, bannedBy, usernames, lastKnownIp, enforced}
   let liveCensorWords = [];
+  let chatClearedAt = 0; // 0 = not cleared; a timestamp otherwise (see chat_config/clear)
   let chatSearchQuery = '';
   let userSearchQuery = '';
   let userHistoryUsername = null;
@@ -1745,6 +1751,38 @@
     CHAT_CENSORED_WORDS_REF.set({ words: words }, { merge: true }).catch(function (err) { alert('Save failed: ' + err.message); });
   }
 
+  // ---------- CLEAR CHAT ----------
+  // Moves the cutoff every visitor's own message query starts from
+  // (see livestream-chat-widget.html's subscribeToMessages) — the
+  // messages themselves are never deleted, so the chat log and search
+  // right here keep showing everything regardless of this.
+  function renderClearChatStatus() {
+    const note = document.getElementById('chatClearedNote');
+    const btn = document.getElementById('clearChatBtn');
+    if (chatClearedAt) {
+      note.hidden = false;
+      note.innerHTML = 'Chat was cleared on the front end as of ' + escapeAttr(timeLabel(chatClearedAt)) +
+        ' — everything from before that is still here to search, it just isn\'t shown to visitors. ' +
+        '<button type="button" class="btn-link" id="restoreChatBtn">Restore it</button>';
+      document.getElementById('restoreChatBtn').addEventListener('click', function () {
+        CHAT_CLEAR_REF.set({ clearedAt: 0 }).catch(function (err) { alert('Restore failed: ' + err.message); });
+      });
+      btn.textContent = 'Clear Chat Again';
+    } else {
+      note.hidden = true;
+      note.innerHTML = '';
+      btn.textContent = 'Clear Chat';
+    }
+  }
+
+  function clearChatOnFrontend() {
+    if (!confirm('Clear the chat on the live front end? Nothing is deleted — every message stays here to search, visitors just won\'t see anything from before now.')) return;
+    CHAT_CLEAR_REF.set({
+      clearedAt: Date.now(),
+      clearedBy: (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)) || 'admin'
+    }).catch(function (err) { alert('Clear failed: ' + err.message); });
+  }
+
   // ---------- USER HISTORY PANEL ----------
   function openUserHistory(username) {
     userHistoryUsername = username;
@@ -1886,6 +1924,14 @@
       const root = document.getElementById('censorWordsList');
       if (root) root.innerHTML = '<div class="empty-state">Could not load censored words: ' + escapeAttr(err.message) + '</div>';
     });
+
+    CHAT_CLEAR_REF.onSnapshot(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      chatClearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+      renderClearChatStatus();
+    }, function () {});
+
+    document.getElementById('clearChatBtn').addEventListener('click', clearChatOnFrontend);
 
     document.getElementById('chatSearchInput').addEventListener('input', function (e) {
       chatSearchQuery = e.target.value;
