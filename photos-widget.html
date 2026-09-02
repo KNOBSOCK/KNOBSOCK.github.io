@@ -117,10 +117,10 @@
     border-radius: 4px;
   }
   /* Only the actual photo (a direct child of #photoStage) is
-     clickable-to-fullscreen — not the loading gif, which sits nested a
+     clickable-to-zoom — not the loading gif, which sits nested a
      level deeper inside #photoLoadingBar/#photoEmptyState. */
   #photoStage > img {
-    cursor: pointer;
+    cursor: zoom-in;
   }
 
   /* ---------- PHOTO LOADING BAR ----------
@@ -167,13 +167,15 @@
   .magnify-btn svg { width: 58%; height: 58%; display: block; }
 
   /* ---------- LIGHTBOX (magnify / zoom+pan viewer) ----------
-     A real full-viewport overlay rather than the old pane-level
-     pseudo-fullscreen — it requests the browser Fullscreen API on
-     itself (the host page's iframe has allow="fullscreen") so the
-     photo genuinely fills the browser window, with pinch/wheel/
-     double-tap zoom and drag-to-pan layered on top in JS. Falls back
-     to just covering the widget's own viewport when the Fullscreen
-     API isn't available (e.g. iOS Safari). */
+     A fixed overlay drawn in-page, covering the widget's own viewport —
+     it does NOT request the browser's native Fullscreen API, so clicking
+     a photo reads as the photo zooming up in place rather than the
+     browser itself going fullscreen. Pinch/wheel/double-tap zoom and
+     drag-to-pan are layered on top in JS. */
+  @keyframes lightbox-zoom-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
   .lightbox {
     position: fixed;
     inset: 0;
@@ -185,6 +187,9 @@
     overflow: hidden;
     touch-action: none;
   }
+  .lightbox:not([hidden]) {
+    animation: lightbox-zoom-in 0.22s ease-out;
+  }
   .lightbox[hidden] { display: none; }
   .lightbox-stage {
     width: 100%;
@@ -193,7 +198,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    cursor: grab;
+    cursor: zoom-in;
   }
   .lightbox-stage.dragging { cursor: grabbing; }
   .lightbox-stage img {
@@ -468,7 +473,7 @@
 <div class="layout" id="layout">
   <div class="main-row" id="mainRow">
     <div class="photo-pane" id="photoPane">
-      <button type="button" class="magnify-btn" id="magnifyBtn" title="View fullscreen">
+      <button type="button" class="magnify-btn" id="magnifyBtn" title="Zoom in">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="10.5" cy="10.5" r="6.5"></circle>
           <line x1="20" y1="20" x2="15.3" y2="15.3"></line>
@@ -823,13 +828,12 @@
 </script>
 
 <!-- ---------- MAGNIFY / LIGHTBOX ----------
-     Opens the current photo in a full-viewport overlay and requests the
-     real browser Fullscreen API on it (falling back to just covering the
-     widget's own viewport on iOS Safari, which has no Fullscreen API for
-     arbitrary elements) — "fullscreen in browser" per the brief, rather
-     than the old pane-level pseudo-fullscreen. Zoom/pan is hand-rolled:
-     wheel + pinch (two-finger) to zoom, drag to pan once zoomed, double
-     click/tap to toggle a 2.5x zoom centered on the pointer. -->
+     Opens the current photo in a full-viewport overlay drawn in-page —
+     no native browser Fullscreen API, so it reads as the photo zooming
+     up rather than the browser itself going fullscreen. Zoom/pan is
+     hand-rolled: wheel + pinch (two-finger) to zoom, drag to pan once
+     zoomed, double click/tap to toggle a 2.5x zoom centered on the
+     pointer. -->
 <script>
 (function () {
   const magnifyBtn = document.getElementById('magnifyBtn');
@@ -844,12 +848,11 @@
   const MIN_SCALE = 1;
   const MAX_SCALE = 5;
   let scale = 1, tx = 0, ty = 0;
-  let usingPseudoFullscreen = false;
   let hintTimer = null;
 
   function applyTransform() {
     img.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')';
-    stage.style.cursor = scale > 1 ? 'grab' : 'default';
+    stage.style.cursor = scale > 1 ? 'zoom-out' : 'zoom-in';
   }
 
   function clampPan() {
@@ -885,46 +888,18 @@
     applyTransform();
   }
 
-  function hasNativeFullscreenSupport(el) {
-    return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
-  }
-
-  function requestFs(el) {
-    try {
-      let result;
-      if (el.requestFullscreen) result = el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) result = el.webkitRequestFullscreen();
-      else if (el.mozRequestFullScreen) result = el.mozRequestFullScreen();
-      else if (el.msRequestFullscreen) result = el.msRequestFullscreen();
-      if (result && typeof result.catch === 'function') result.catch(function () {});
-    } catch (e) { /* ignore — overlay itself already covers the viewport */ }
-  }
-
-  function exitFs() {
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-    else if (document.msExitFullscreen) document.msExitFullscreen();
-  }
-
-  function isBrowserFullscreen() {
-    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-  }
-
   function openLightbox() {
     // Direct-child combinator matters here: the loading bar's own <img>
     // (the gif) is nested a level deeper inside #photoLoadingBar, while
     // the actual photo is appended straight into #photoStage — a plain
     // descendant selector would match the loading gif first (it's
-    // earlier in the DOM) and fullscreen that instead of the photo.
+    // earlier in the DOM) and zoom that instead of the photo.
     const current = document.querySelector('#photoStage > img');
     if (!current || !current.src) return;
     img.src = current.src;
     img.alt = current.alt || '';
     resetZoom();
     lightbox.hidden = false;
-    if (hasNativeFullscreenSupport(lightbox)) requestFs(lightbox);
-    else usingPseudoFullscreen = true;
     document.addEventListener('keydown', handleKeydown);
     clearTimeout(hintTimer);
     hint.style.opacity = '1';
@@ -932,8 +907,6 @@
   }
 
   function closeLightbox() {
-    if (isBrowserFullscreen()) exitFs();
-    usingPseudoFullscreen = false;
     lightbox.hidden = true;
     img.src = '';
     document.removeEventListener('keydown', handleKeydown);
@@ -954,14 +927,6 @@
   closeBtn.addEventListener('click', closeLightbox);
   zoomInBtn.addEventListener('click', function () { setScale(scale + 1); });
   zoomOutBtn.addEventListener('click', function () { setScale(scale - 1); });
-
-  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(function (evt) {
-    document.addEventListener(evt, function () {
-      // Browser fullscreen was exited some other way (Esc, OS gesture) —
-      // close the overlay too instead of leaving a windowed lightbox open.
-      if (!isBrowserFullscreen() && !usingPseudoFullscreen && !lightbox.hidden) closeLightbox();
-    });
-  });
 
   // ---- Wheel zoom (desktop) ----
   stage.addEventListener('wheel', function (e) {
