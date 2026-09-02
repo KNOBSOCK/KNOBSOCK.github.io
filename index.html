@@ -913,10 +913,10 @@
           laserR.classList.remove('firing');
         }, 130);
       }
-      // Occasional, not constant — next shot 2-5s out.
-      setTimeout(fireLaser, 2000 + Math.random() * 3000);
+      // Frequent, but still with some variety — next shot 0.7-1.6s out.
+      setTimeout(fireLaser, 700 + Math.random() * 900);
     }
-    setTimeout(fireLaser, 1500 + Math.random() * 2000);
+    setTimeout(fireLaser, 500 + Math.random() * 700);
   })();
 </script>
 
