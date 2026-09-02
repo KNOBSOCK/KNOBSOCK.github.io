@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Button</title>
 <style>
+  /* Custom cursor matching index.html's — the only page this embeds
+     on. An iframe is a separate document, so index.html's own cursor
+     CSS can't reach in here on its own; this is what actually makes
+     the cursor stay consistent while hovering this widget. */
+  html, body { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto; }
+  a, button { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
@@ -26,7 +32,6 @@
     position: relative;
     width: 80%;
     height: 80%;
-    cursor: pointer;
   }
 
   .button-float {
@@ -109,6 +114,19 @@
       </div>
     </div>
   </a>
+
+<script>
+  // Relays this document's own mousemove to the parent page so
+  // index.html's cursor-chasing head easter egg can track the cursor
+  // seamlessly across this iframe's boundary too — an iframe is a
+  // separate browsing context, so the parent's own mousemove listener
+  // never sees events that happen in here on its own.
+  if (window.parent !== window) {
+    document.addEventListener('mousemove', function (e) {
+      window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');
+    }, { passive: true });
+  }
+</script>
 
 </body>
 </html>
