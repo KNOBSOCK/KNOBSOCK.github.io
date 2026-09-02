@@ -1251,13 +1251,37 @@
     return new RegExp('\\b' + pattern + '\\b', 'gi');
   }
 
+  // Same letter-substitution pattern as buildCensorRegex, but without the
+  // \b word-boundary anchors — "the glass shattered" shouldn't get
+  // censored in chat just for containing "ass", but someone picking a
+  // username tends to embed a banned word between other characters
+  // specifically to dodge a boundary-anchored filter (e.g. "xXslurXx"),
+  // so the username check has to match anywhere in the string instead.
+  function buildUsernameCensorRegex(word) {
+    const subs = {
+      a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
+      s: '[s$5]', g: '[g9]', t: '[t7]'
+    };
+    const pattern = word
+      .split('')
+      .map(ch => subs[ch] || ch)
+      .join('[\\W_]*');
+    return new RegExp(pattern, 'i');
+  }
+
   let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+  let USERNAME_CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildUsernameCensorRegex);
 
   configRef.doc('censoredWords').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
     CENSOR_REGEXES = words.map(buildCensorRegex);
+    USERNAME_CENSOR_REGEXES = words.map(buildUsernameCensorRegex);
   }, () => {}); // offline/blocked read just keeps whatever list is already loaded
+
+  function usernameContainsCensoredWord(name) {
+    return USERNAME_CENSOR_REGEXES.some(re => re.test(name));
+  }
 
   // Set by admin.html's "Clear Chat" button — see subscribeToMessages()
   // further down, which is what actually applies this cutoff to the
@@ -1380,6 +1404,10 @@
     }
     if (username.length > 24 || /\s/.test(username)) {
       renderAuth('Username must be 24 chars or fewer, no spaces.');
+      return;
+    }
+    if (usernameContainsCensoredWord(username)) {
+      renderAuth('That username isn\'t allowed. Please choose another.');
       return;
     }
 
