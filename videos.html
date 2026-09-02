@@ -74,10 +74,12 @@
     object-fit: contain;
   }
 
-  /* The player fills whatever's left. The widget draws its own frosted
-     blue panel and handles its own responsive layout, so this is just
-     the box it lives in. min-height keeps it usable on very short
-     screens, where the page then scrolls instead of squashing. */
+  /* The player fills whatever's left, same as live.html's player-wrap —
+     the widget draws its own frosted blue panel and scales its own
+     layout to whatever box it's given, so it's meant to stretch on a
+     tall/4K/8K window rather than being capped to a "natural" height.
+     min-height keeps it usable on very short screens, where the page
+     then scrolls instead of squashing. */
   .player-wrap {
     flex: 1 1 auto;
     min-height: min(560px, 68vh);
@@ -132,50 +134,6 @@
             allowfullscreen></iframe>
   </div>
 </div>
-
-<script>
-// The widget knows its own natural height (16:9 player + creator chin)
-// and posts it over; this sizes the iframe to that instead of letting it
-// stretch to the viewport. Without it the blue card ran the full height
-// of the window with the player floating in the middle of it.
-//
-// Desktop only — on phones the widget is meant to fill the remaining
-// screen, so the CSS above is left to do its job there. If the message
-// never arrives (JS off, or the widget served from another origin), the
-// CSS height stands and the page looks the way it did before.
-(function () {
-  var wrap = document.querySelector('.player-wrap');
-  var frame = wrap.querySelector('iframe');
-  var MOBILE = 860;
-
-  function clear() {
-    wrap.style.flex = '';
-    wrap.style.height = '';
-    wrap.style.minHeight = '';
-  }
-
-  window.addEventListener('message', function (e) {
-    if (e.origin !== window.location.origin) return;
-    if (e.source !== frame.contentWindow) return;
-    if (!e.data || e.data.type !== 'knobsock-widget-height') return;
-    if (window.innerWidth <= MOBILE) { clear(); return; }
-    wrap.style.flex = '0 0 auto';
-    // min-height from the stylesheet would otherwise win over a smaller
-    // measured height and keep the gap.
-    wrap.style.minHeight = '0';
-    // Never taller than the space actually left below the logo, so a
-    // short window scrolls nothing — the widget letterboxes slightly
-    // instead, which is the better of the two.
-    var available = window.innerHeight - wrap.getBoundingClientRect().top - 12;
-    wrap.style.height = Math.min(e.data.height, Math.max(260, available)) + 'px';
-  });
-
-  // Crossing back to the phone layout hands sizing back to the CSS.
-  window.addEventListener('resize', function () {
-    if (window.innerWidth <= MOBILE) clear();
-  });
-})();
-</script>
 
 </body>
 </html>
