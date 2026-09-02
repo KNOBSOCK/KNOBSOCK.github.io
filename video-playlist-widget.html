@@ -404,7 +404,10 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--accent);
+    /* Not --accent: this sits directly on .bg-glow's own blue wash with
+       no opaque backing behind it, so accent-blue text here read as
+       blue-on-blue. White keeps it legible against that glow. */
+    color: var(--text);
   }
 
   .playlist-count {
@@ -435,8 +438,9 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--accent);
-    opacity: 0.85;
+    /* Same blue-on-blue issue as .playlist-title above — this also sits
+       right on the glow with nothing opaque behind it. */
+    color: var(--text-dim);
     padding: 0 2px;
     margin-top: clamp(2px, 1cqh, 6px);
   }
