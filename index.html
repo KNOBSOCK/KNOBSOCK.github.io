@@ -596,13 +596,28 @@
 
 <script>
   const sat = document.getElementById('satellite');
+  const page = document.querySelector('.page');
   // Now that #satellite is position:absolute (scrolls with the page —
   // see its CSS comment), its wrap bounds need to cover the whole
   // document's height, not just one viewport's worth, or it would only
   // ever wander the top screenful and never be seen further down a
   // page taller than that.
+  //
+  // This measures .page's own extent rather than
+  // document.body.scrollHeight/document.documentElement.scrollHeight —
+  // #satellite is .page's sibling, not its descendant, and is the only
+  // other thing in the body free to sit outside .page's own bounds, so
+  // .page's height is real page content, unaffected by wherever the
+  // satellite itself currently happens to be. Reading
+  // document.body.scrollHeight directly here would self-inflate: once
+  // the satellite got near the bottom of that reading, its own
+  // position would push body's scrollHeight taller, which would then
+  // push next frame's wrap boundary even further down, and so on —
+  // exactly what was leaving a growing patch of dead space at the
+  // bottom of the page.
   function docHeight() {
-    return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    return page ? page.offsetTop + page.offsetHeight
+      : Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
   }
   let x = Math.random() * window.innerWidth;
   let y = Math.random() * docHeight();
@@ -618,12 +633,18 @@
     vy += (Math.random() - 0.5) * 0.02;
 
     // wrap around edges instead of bouncing (read fresh each frame so
-    // it keeps working as content loads and the page height changes)
+    // it keeps working as content loads and the page height changes).
+    // Horizontal overshoot is harmless — html,body already clip it via
+    // overflow-x:hidden — but the vertical wrap is kept flush with
+    // .page's own bottom edge (no "+100" margin past it, unlike the
+    // other three edges) so the satellite's own height can never push
+    // the page's real scrollable area taller than its actual content.
     const h = docHeight();
+    const satH = sat.offsetHeight || 60;
     if (x < -100) x = window.innerWidth + 100;
     if (x > window.innerWidth + 100) x = -100;
-    if (y < -100) y = h + 100;
-    if (y > h + 100) y = -100;
+    if (y < -100) y = h - satH;
+    if (y > h - satH) y = -100;
 
     sat.style.left = x + 'px';
     sat.style.top = y + 'px';
@@ -751,10 +772,10 @@
           laserR.classList.remove('firing');
         }, 130);
       }
-      // Occasional, not constant — next shot 4-9s out.
-      setTimeout(fireLaser, 4000 + Math.random() * 5000);
+      // Occasional, not constant — next shot 2-5s out.
+      setTimeout(fireLaser, 2000 + Math.random() * 3000);
     }
-    setTimeout(fireLaser, 3500 + Math.random() * 3000);
+    setTimeout(fireLaser, 1500 + Math.random() * 2000);
   })();
 </script>
 
