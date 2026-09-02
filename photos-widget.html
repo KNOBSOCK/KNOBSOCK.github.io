@@ -880,13 +880,23 @@
 
   let rawTree = null;
   let photoOrderData = null;
+  // True once the Firestore order listener has reported at least once
+  // (found a saved order, found none, hit an error, or was never available
+  // to begin with) — i.e. once we actually know what the "real" first
+  // photo is, rather than just whatever the GitHub tree's default
+  // alphabetical order happens to put first.
+  let orderDataReady = false;
   let hasShownInitialPhoto = false;
 
   // Re-run whenever either the GitHub tree or the admin's saved order
   // changes (both arrive independently and asynchronously). Only picks an
-  // initial photo the very first time — a reorder landing later, while a
-  // visitor is mid-browse, re-sorts the chin/grid under them without
-  // yanking their current photo out from under them.
+  // initial photo once orderDataReady — landing on the GitHub tree's
+  // alphabetically-first photo just because it happened to resolve before
+  // Firestore did would leave a fresh visit stuck showing a photo that's
+  // no longer actually first once the real saved order comes in a moment
+  // later. Once the initial photo IS chosen, later reorders (a visitor
+  // mid-browse while the admin changes the order) re-sort the chin/grid
+  // under them without yanking their current photo out from under them.
   function applyOrderAndRender() {
     if (!rawTree) return;
     categories = buildCategoriesFromTree(rawTree);
@@ -901,7 +911,7 @@
 
     renderChin();
     renderGrid();
-    if (!hasShownInitialPhoto) {
+    if (!hasShownInitialPhoto && orderDataReady) {
       hasShownInitialPhoto = true;
       selectPhoto(categories[0].photos[0]);
     }
@@ -910,10 +920,15 @@
   if (PHOTO_ORDER_DOC_REF) {
     PHOTO_ORDER_DOC_REF.onSnapshot(function (doc) {
       photoOrderData = doc.exists ? doc.data() : null;
+      orderDataReady = true;
       applyOrderAndRender();
     }, function (err) {
       console.error('Photo order listener failed:', err);
+      orderDataReady = true; // don't block the initial photo forever over this
+      applyOrderAndRender();
     });
+  } else {
+    orderDataReady = true; // Firebase never loaded — no override possible either way
   }
 
   fetch(TREE_API)
