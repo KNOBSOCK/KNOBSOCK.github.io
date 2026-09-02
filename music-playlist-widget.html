@@ -276,17 +276,41 @@
 
   .layout.playlist-hidden .playlist-pane { display: none; }
   @media (max-width: 860px) {
-    /* On a short phone, video-pane (fixed 16:9) and the Now Playing card
-       above this pane take their natural height first, and this pane's
-       min-height:0 above meant it absorbed the ENTIRE deficit if there
-       wasn't enough left — squeezing all the way down to a sliver that
-       showed a row of thumbnails with no room left for the title/artist
-       text under them, instead of the whole widget scrolling the way
-       .layout's own overflow-y:auto is meant to let it. Flooring this
-       pane at roughly one row's height forces that deficit into
-       .layout's scroll instead of into clipping this pane's own
-       content. */
-    .playlist-pane { min-height: 220px; }
+    /* A short phone doesn't have room for a full-width 16:9 video AND a
+       Now Playing card AND a full row of thumbnails+titles — something
+       has to give, and it needs to be the video, not this pane: a
+       min-height floor here still lets the pane grow past it whenever
+       flexbox has spare room (flex:1 1 auto), so on a tall phone it can
+       demand more than the layout actually has left over, forcing an
+       internal scroll and visibly overshooting the bottom edge before
+       that scroll even kicks in.
+       A concrete flex-basis (not "auto") fixes this pane's height at
+       exactly one row's worth, in both directions. It can't be "auto"
+       (sized to its own content) instead: .playlist-pane has
+       container-type:size for the cqw/cqh units used throughout its
+       card, so its size can't legitimately depend on that same content
+       — the two are circular, and the browser resolves that by
+       collapsing it to 0, blanking out the whole track list.
+       Whatever's left over goes entirely to the video pane below —
+       same "shrink the video first" idea the desktop CSS Grid layout
+       already uses (see .video-pane's min-height:0/max-height:100%
+       there), just via flex-shrink here. .video-frame-wrap's own
+       container-query sizing (min(100cqw, 100cqh*16/9) / min(100cqh,
+       100cqw*9/16)) already letterboxes it correctly inside a box
+       that isn't a perfect 16:9, so a squeeze just makes the video
+       pane shorter. */
+    .video-pane {
+      /* grow:0 — only ever shrinks below its natural 16:9 size on a
+         short phone, never grows past it on a tall one (grow:1 here
+         instead balloons the video into a huge box with the "Music
+         Videos" list pushed halfway off-screen below it). */
+      flex: 0 1 auto;
+      min-height: 56px;
+    }
+    .playlist-pane {
+      flex: 0 0 232px;
+      min-height: 0;
+    }
     .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; }
     /* Collapse Video: same growth the desktop .sc-card rule already gets
        (below, under the min-width query) — without it the freed video
