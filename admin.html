@@ -400,37 +400,200 @@
     color: #fff;
   }
 
-  /* ---------- LIVE TAB (placeholder) ---------- */
-  .roadmap-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  /* ---------- LIVE TAB ---------- */
+  .live-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .live-grid { grid-template-columns: 1fr 1fr; }
+    .live-chat-card { grid-column: 1 / -1; order: -1; }
+  }
+  @media (max-width: 700px) {
+    .live-grid { grid-template-columns: 1fr; }
+    .live-chat-card { grid-column: auto; }
+  }
+
+  .live-card-body {
     display: flex;
     flex-direction: column;
+    gap: 10px;
+    max-height: 560px;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+
+  .add-row {
+    display: flex;
     gap: 8px;
   }
-  .roadmap-list li {
+  .add-row input { flex: 1 1 auto; min-width: 0; }
+  .add-row .btn { flex: none; padding: 8px 12px; font-size: 12px; }
+
+  .user-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: var(--panel-2);
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 10px 14px;
-    color: var(--text-dim);
-    font-size: 13px;
-    opacity: 0.6;
+    padding: 8px 10px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font: inherit;
   }
-  .roadmap-list li .soon-tag {
-    margin-left: auto;
+  .user-row:hover { border-color: var(--accent); }
+  .user-row .user-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .user-row .banned-tag {
+    flex: none;
     font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--accent);
-    border: 1px solid var(--accent-dim);
+    letter-spacing: 0.03em;
+    color: var(--danger);
+    border: 1px solid var(--danger);
     border-radius: 999px;
-    padding: 2px 8px;
+    padding: 2px 7px;
+  }
+
+  .chat-log-row {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .chat-log-row-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .chat-log-row .log-username {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .chat-log-row .log-username:hover { text-decoration: underline; }
+  .chat-log-row .log-time {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .chat-log-row .log-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
     flex: none;
+  }
+  .chat-log-row .log-text {
+    color: var(--text);
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .icon-btn.small {
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+  }
+
+  .ban-row {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .ban-row .ban-row-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ban-row .ban-username { font-weight: 700; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ban-row .ban-meta { color: var(--text-dim); margin-top: 4px; }
+
+  .censor-word-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .censor-word-row span { flex: 1 1 auto; }
+
+  /* ---------- MODAL OVERLAY (ban dialog + user history) ---------- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal-overlay[hidden] { display: none; }
+  /* The ban dialog can be opened from within the user-history panel, so
+     it needs to stack visibly (and clickably) above it rather than
+     underneath — same z-index would leave the history panel's own
+     content, painted later in the DOM, intercepting clicks meant for
+     the ban dialog's buttons. */
+  #banModalOverlay { z-index: 60; }
+  .modal-panel {
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .modal-panel.wide { max-width: 640px; }
+  .duration-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+  }
+  .duration-row .btn { font-size: 12px; padding: 7px 12px; }
+  .duration-row .btn.selected { border-color: var(--accent); color: var(--accent); }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .user-history-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
   }
 </style>
 </head>
@@ -543,18 +706,82 @@
     </div>
   </div>
 
-  <!-- ===== LIVE (placeholder) ===== -->
+  <!-- ===== LIVE ===== -->
   <div class="tab-panel" id="tab-live" hidden>
     <h2 class="panel-heading">Live Chat Moderation</h2>
-    <p class="panel-sub">Coming soon — this section will let you moderate the live chat in real time as an administrator.</p>
-    <div class="card">
-      <div class="card-head"><h2>Planned tools</h2></div>
-      <ul class="roadmap-list">
-        <li>Ban a user from chat <span class="soon-tag">Soon</span></li>
-        <li>Remove an individual message <span class="soon-tag">Soon</span></li>
-        <li>Slow mode / pause chat <span class="soon-tag">Soon</span></li>
-      </ul>
+    <p class="panel-sub">This is the same live.html chat, in real time — search it, click any name to pull up everything they've said, and ban, timeout, or delete from there.</p>
+    <div class="note">
+      Banning blocks a browser at the database level (Firestore itself rejects the write, not just a check in this page) and deletes that browser's previous messages. It targets the device, not the name — a banned visitor typing a new username on the same browser is still blocked. A different browser or device isn't, since nothing on a static site like this one can reach that far. "Last known IP" below is a reference clue only (e.g. spotting two names that share one), not something this can actually block.
     </div>
+    <div class="live-grid">
+      <div class="card">
+        <div class="card-head"><h2>Users</h2></div>
+        <div class="live-card-body">
+          <input type="text" class="search-input" id="userSearchInput" placeholder="Search every user who's ever chatted…">
+          <div class="list-scroll" id="userList" style="max-height:none;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <div class="card live-chat-card">
+        <div class="card-head"><h2>Chat</h2></div>
+        <div class="live-card-body">
+          <input type="text" class="search-input" id="chatSearchInput" placeholder="Search messages or usernames…">
+          <div class="list-scroll" id="liveMessagesList" style="max-height:none;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card">
+          <div class="card-head"><h2>Banned</h2></div>
+          <div class="live-card-body" style="max-height:260px;">
+            <div class="list-scroll" id="bannedList" style="max-height:none;overflow-y:auto;"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Censored Words</h2></div>
+          <div class="live-card-body" style="max-height:280px;">
+            <div class="add-row">
+              <input type="text" class="search-input" id="newCensorWord" placeholder="Add a word to censor">
+              <button type="button" class="btn" id="addCensorWordBtn">+ Add</button>
+            </div>
+            <div class="list-scroll" id="censorWordsList" style="max-height:none;overflow-y:auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- BAN / TIMEOUT DIALOG ---------- -->
+<div class="modal-overlay" id="banModalOverlay" hidden>
+  <div class="modal-panel">
+    <div class="card-head"><h2 id="banModalTitle">Ban user</h2></div>
+    <label for="banReasonInput">Reason (optional, shown to them)</label>
+    <input type="text" id="banReasonInput" placeholder="e.g. spamming, slurs, harassment">
+    <div class="duration-row" id="banDurationRow">
+      <button type="button" class="btn" data-duration="3600000">1 Hour</button>
+      <button type="button" class="btn" data-duration="86400000">24 Hours</button>
+      <button type="button" class="btn" data-duration="604800000">7 Days</button>
+      <button type="button" class="btn selected" data-duration="permanent">Permanent</button>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="banConfirmBtn">Ban &amp; Delete Their Messages</button>
+      <button type="button" class="btn-link" id="banCancelBtn">Cancel</button>
+    </div>
+    <div class="save-status" id="banModalStatus"></div>
+  </div>
+</div>
+
+<!-- ---------- USER HISTORY PANEL ---------- -->
+<div class="modal-overlay" id="userHistoryOverlay" hidden>
+  <div class="modal-panel wide">
+    <div class="card-head">
+      <h2 id="userHistoryTitle"></h2>
+      <button type="button" class="btn-link" id="closeUserHistoryBtn">Close</button>
+    </div>
+    <div class="user-history-meta" id="userHistoryMeta"></div>
+    <div class="modal-actions" id="userHistoryActions"></div>
+    <div class="list-scroll" id="userHistoryMessages" style="max-height:360px;overflow-y:auto;margin-top:10px;"></div>
   </div>
 </div>
 
@@ -587,6 +814,16 @@
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const MUSIC_DOC_REF = db.collection('playlist').doc('music');
   const PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
+
+  // Same collections livestream-chat-widget.html itself reads/writes —
+  // see that file's own comments for the full schema. This page only
+  // ever touches chat_bans and chat_config/censoredWords by writing to
+  // them (moderation actions); chat_messages and chat_usernames it also
+  // deletes from (a ban's message purge, per-message removal).
+  const CHAT_MESSAGES_REF = db.collection('chat_messages');
+  const CHAT_USERNAMES_REF = db.collection('chat_usernames');
+  const CHAT_BANS_REF = db.collection('chat_bans');
+  const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
 </script>
 
 <script>
@@ -672,6 +909,7 @@
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).hidden = false;
       if (btn.dataset.tab === 'photos') loadPhotosTab();
+      if (btn.dataset.tab === 'live') startLiveModerationIfNeeded();
     });
   });
 
@@ -1309,6 +1547,375 @@
       plural: 'tracks',
       showAlbums: true
     }).load();
+  }
+
+  // ==========================================================
+  // LIVE CHAT MODERATION
+  // Reads/writes the exact same Firestore collections
+  // livestream-chat-widget.html itself uses — see that file's own
+  // comments for the schema (chat_messages, chat_usernames, chat_bans,
+  // chat_config/censoredWords) and for why a ban targets a device id
+  // rather than an IP address.
+  // ==========================================================
+  let liveModerationStarted = false;
+  let liveMessages = [];       // [{id, username, text, deviceId, ts}], newest first
+  let liveUsers = [];          // [{id (=username key), username, createdAt, lastDeviceId, lastIp, lastSeenAt, color}]
+  let liveBans = {};           // key -> {bannedAt, expiresAt, reason, bannedBy, usernames, lastKnownIp, enforced}
+  let liveCensorWords = [];
+  let chatSearchQuery = '';
+  let userSearchQuery = '';
+  let userHistoryUsername = null;
+  let banModalTarget = null;   // {username, deviceId, enforced}
+  let banModalDuration = 'permanent';
+
+  const MESSAGE_LOAD_LIMIT = 3000;
+
+  function isBanRowActive(ban) {
+    if (!ban) return false;
+    if (!ban.expiresAt) return true;
+    return ban.expiresAt > Date.now();
+  }
+
+  function findUserByUsername(username) {
+    const key = username.toLowerCase();
+    return liveUsers.find(function (u) { return u.id === key; }) || null;
+  }
+
+  // Resolves the identity a ban/delete/history action should key off of.
+  // A device id (see the chat widget's CLIENT_ID) is what a ban actually
+  // enforces and is what "delete their previous messages" matches
+  // against everywhere that device has posted, regardless of which name
+  // it used each time; falling back to the username alone still lets the
+  // admin clean up old messages, it just can't stop that visitor from
+  // coming back under a new name (there's nothing else this static site
+  // can check them against).
+  function resolveIdentity(username) {
+    const userDoc = findUserByUsername(username);
+    const deviceId = userDoc && userDoc.lastDeviceId;
+    return {
+      username: username,
+      deviceId: deviceId || null,
+      lastIp: userDoc && userDoc.lastIp,
+      enforced: !!deviceId
+    };
+  }
+
+  function messagesMatchingIdentity(identity) {
+    return liveMessages.filter(function (m) {
+      if (identity.deviceId) return m.deviceId === identity.deviceId;
+      return (m.username || '').toLowerCase() === identity.username.toLowerCase();
+    });
+  }
+
+  // Firestore batches cap at 500 writes — chunks the delete so a heavy
+  // chatter's history doesn't silently fail past that limit.
+  function batchDeleteMessages(msgs) {
+    const chunks = [];
+    for (let i = 0; i < msgs.length; i += 450) chunks.push(msgs.slice(i, i + 450));
+    return chunks.reduce(function (chain, chunk) {
+      return chain.then(function () {
+        const batch = db.batch();
+        chunk.forEach(function (m) { batch.delete(CHAT_MESSAGES_REF.doc(m.id)); });
+        return batch.commit();
+      });
+    }, Promise.resolve());
+  }
+
+  function timeLabel(ts) {
+    return ts ? new Date(ts).toLocaleString() : '';
+  }
+
+  // ---------- RENDER: USERS ----------
+  function renderUserList() {
+    const root = document.getElementById('userList');
+    if (!root) return;
+    const q = userSearchQuery.toLowerCase();
+    const filtered = liveUsers.filter(function (u) { return u.username.toLowerCase().indexOf(q) !== -1; });
+    if (!filtered.length) {
+      root.innerHTML = '<div class="empty-state">' + (liveUsers.length ? 'No users match that search.' : 'No one has joined chat yet.') + '</div>';
+      return;
+    }
+    root.innerHTML = filtered.map(function (u) {
+      const ban = u.lastDeviceId ? liveBans[u.lastDeviceId] : null;
+      const bannedTag = isBanRowActive(ban) ? '<span class="banned-tag">Banned</span>' : '';
+      return '<button type="button" class="user-row" data-username="' + escapeAttr(u.username) + '">' +
+        '<span class="user-name">' + escapeAttr(u.username) + '</span>' + bannedTag +
+        '</button>';
+    }).join('');
+    root.querySelectorAll('.user-row').forEach(function (row) {
+      row.addEventListener('click', function () { openUserHistory(row.getAttribute('data-username')); });
+    });
+  }
+
+  // ---------- RENDER: CHAT LOG ----------
+  function renderChatRow(m) {
+    return '<div class="chat-log-row" data-id="' + escapeAttr(m.id) + '">' +
+      '<div class="chat-log-row-head">' +
+        '<button type="button" class="log-username" data-username="' + escapeAttr(m.username) + '">' + escapeAttr(m.username) + '</button>' +
+        '<span class="log-time">' + escapeAttr(timeLabel(m.ts)) + '</span>' +
+        '<span class="log-actions">' +
+          '<button type="button" class="btn ban-btn" data-username="' + escapeAttr(m.username) + '" style="padding:2px 8px;font-size:11px;">Ban</button>' +
+          '<button type="button" class="icon-btn small delete-msg-btn" data-id="' + escapeAttr(m.id) + '" title="Delete this message">&times;</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="log-text">' + escapeAttr(m.text) + '</div>' +
+    '</div>';
+  }
+
+  function wireChatRowActions(root) {
+    root.querySelectorAll('.log-username').forEach(function (btn) {
+      btn.addEventListener('click', function () { openUserHistory(btn.getAttribute('data-username')); });
+    });
+    root.querySelectorAll('.ban-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openBanModal(btn.getAttribute('data-username')); });
+    });
+    root.querySelectorAll('.delete-msg-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Delete this message?')) return;
+        CHAT_MESSAGES_REF.doc(btn.getAttribute('data-id')).delete().catch(function (err) { alert('Delete failed: ' + err.message); });
+      });
+    });
+  }
+
+  function renderChatLog() {
+    const root = document.getElementById('liveMessagesList');
+    if (!root) return;
+    const q = chatSearchQuery.toLowerCase();
+    const filtered = !q ? liveMessages : liveMessages.filter(function (m) {
+      return (m.text || '').toLowerCase().indexOf(q) !== -1 || (m.username || '').toLowerCase().indexOf(q) !== -1;
+    });
+    if (!filtered.length) {
+      root.innerHTML = '<div class="empty-state">' + (liveMessages.length ? 'No messages match that search.' : 'No messages yet.') + '</div>';
+      return;
+    }
+    root.innerHTML = filtered.slice(0, 500).map(renderChatRow).join('');
+    wireChatRowActions(root);
+  }
+
+  // ---------- RENDER: BANNED ----------
+  function renderBannedList() {
+    const root = document.getElementById('bannedList');
+    if (!root) return;
+    const active = Object.keys(liveBans).filter(function (key) { return isBanRowActive(liveBans[key]); });
+    if (!active.length) {
+      root.innerHTML = '<div class="empty-state">No one is currently banned.</div>';
+      return;
+    }
+    root.innerHTML = active.map(function (key) {
+      const ban = liveBans[key];
+      const names = (ban.usernames || []).join(', ') || '(unknown)';
+      const until = ban.expiresAt ? 'Until ' + timeLabel(ban.expiresAt) : 'Permanent';
+      const enforcedNote = ban.enforced === false ? ' — name only, not enforced (no device on record)' : '';
+      return '<div class="ban-row">' +
+        '<div class="ban-row-head">' +
+          '<span class="ban-username">' + escapeAttr(names) + '</span>' +
+          '<button type="button" class="btn-link unban-btn" data-key="' + escapeAttr(key) + '">Unban</button>' +
+        '</div>' +
+        '<div class="ban-meta">' + escapeAttr(until) + enforcedNote + (ban.reason ? ' · ' + escapeAttr(ban.reason) : '') + '</div>' +
+      '</div>';
+    }).join('');
+    root.querySelectorAll('.unban-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        CHAT_BANS_REF.doc(btn.getAttribute('data-key')).delete().catch(function (err) { alert('Unban failed: ' + err.message); });
+      });
+    });
+  }
+
+  // ---------- RENDER: CENSORED WORDS ----------
+  function renderCensorWordsList() {
+    const root = document.getElementById('censorWordsList');
+    if (!root) return;
+    if (!liveCensorWords.length) {
+      root.innerHTML = '<div class="empty-state">No words configured — the chat falls back to its own built-in list.</div>';
+      return;
+    }
+    root.innerHTML = liveCensorWords.map(function (w) {
+      return '<div class="censor-word-row"><span>' + escapeAttr(w) + '</span>' +
+        '<button type="button" class="icon-btn small remove-word-btn" data-word="' + escapeAttr(w) + '" title="Remove">&times;</button></div>';
+    }).join('');
+    root.querySelectorAll('.remove-word-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const word = btn.getAttribute('data-word');
+        saveCensorWords(liveCensorWords.filter(function (w) { return w !== word; }));
+      });
+    });
+  }
+
+  function saveCensorWords(words) {
+    CHAT_CENSORED_WORDS_REF.set({ words: words }, { merge: true }).catch(function (err) { alert('Save failed: ' + err.message); });
+  }
+
+  // ---------- USER HISTORY PANEL ----------
+  function openUserHistory(username) {
+    userHistoryUsername = username;
+    document.getElementById('userHistoryOverlay').hidden = false;
+    renderUserHistory();
+  }
+
+  function closeUserHistory() {
+    userHistoryUsername = null;
+    document.getElementById('userHistoryOverlay').hidden = true;
+  }
+
+  function renderUserHistory() {
+    if (!userHistoryUsername) return;
+    const username = userHistoryUsername;
+    const identity = resolveIdentity(username);
+    const userDoc = findUserByUsername(username);
+    const ban = identity.deviceId ? liveBans[identity.deviceId] : null;
+    const banned = isBanRowActive(ban);
+
+    document.getElementById('userHistoryTitle').textContent = username;
+    document.getElementById('userHistoryMeta').innerHTML =
+      'Last known IP: ' + escapeAttr((userDoc && userDoc.lastIp) || 'unknown') + ' (reference only, not enforced)<br>' +
+      'Device on record: ' + (identity.deviceId ? 'yes' : 'no — a ban here can only delete their messages, not block them') + '<br>' +
+      'Joined: ' + escapeAttr(timeLabel(userDoc && userDoc.createdAt));
+
+    const actionsEl = document.getElementById('userHistoryActions');
+    if (banned) {
+      actionsEl.innerHTML = '<button type="button" class="btn" id="userHistoryUnbanBtn">Unban</button>';
+      document.getElementById('userHistoryUnbanBtn').addEventListener('click', function () {
+        CHAT_BANS_REF.doc(identity.deviceId).delete().catch(function (err) { alert('Unban failed: ' + err.message); });
+      });
+    } else {
+      actionsEl.innerHTML = '<button type="button" class="btn btn-primary" id="userHistoryBanBtn">Ban This User</button>';
+      document.getElementById('userHistoryBanBtn').addEventListener('click', function () { openBanModal(username); });
+    }
+
+    const msgs = messagesMatchingIdentity(identity);
+    const listEl = document.getElementById('userHistoryMessages');
+    listEl.innerHTML = msgs.length
+      ? msgs.map(renderChatRow).join('')
+      : '<div class="empty-state">No messages from this user in the most recent ' + MESSAGE_LOAD_LIMIT + ' site-wide.</div>';
+    wireChatRowActions(listEl);
+  }
+
+  // ---------- BAN MODAL ----------
+  function openBanModal(username) {
+    banModalTarget = resolveIdentity(username);
+    banModalDuration = 'permanent';
+    document.getElementById('banModalTitle').textContent = 'Ban ' + username;
+    document.getElementById('banReasonInput').value = '';
+    document.getElementById('banModalStatus').textContent = banModalTarget.enforced
+      ? ''
+      : 'No device on record for this user — this will delete their messages but can’t stop them from returning under a new name.';
+    document.getElementById('banModalStatus').style.color = 'var(--text-dim)';
+    document.querySelectorAll('#banDurationRow .btn').forEach(function (b) {
+      b.classList.toggle('selected', b.dataset.duration === 'permanent');
+    });
+    document.getElementById('banModalOverlay').hidden = false;
+  }
+
+  function closeBanModal() {
+    banModalTarget = null;
+    document.getElementById('banModalOverlay').hidden = true;
+  }
+
+  function confirmBan() {
+    if (!banModalTarget) return;
+    const reason = document.getElementById('banReasonInput').value.trim();
+    const statusEl = document.getElementById('banModalStatus');
+    const key = banModalTarget.deviceId || ('uname_' + banModalTarget.username.toLowerCase());
+    const expiresAt = banModalDuration === 'permanent' ? null : Date.now() + Number(banModalDuration);
+
+    statusEl.style.color = 'var(--accent)';
+    statusEl.textContent = 'Banning…';
+
+    const payload = {
+      bannedAt: Date.now(),
+      bannedBy: (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)) || 'admin',
+      expiresAt: expiresAt,
+      reason: reason,
+      enforced: banModalTarget.enforced,
+      usernames: firebase.firestore.FieldValue.arrayUnion(banModalTarget.username)
+    };
+    if (banModalTarget.lastIp) payload.lastKnownIp = banModalTarget.lastIp;
+
+    CHAT_BANS_REF.doc(key).set(payload, { merge: true })
+      .then(function () { return batchDeleteMessages(messagesMatchingIdentity(banModalTarget)); })
+      .then(function () {
+        closeBanModal();
+        if (userHistoryUsername) renderUserHistory();
+      })
+      .catch(function (err) {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = 'Failed: ' + err.message;
+      });
+  }
+
+  // ---------- LOAD / SUBSCRIBE ----------
+  function startLiveModerationIfNeeded() {
+    if (liveModerationStarted) return;
+    liveModerationStarted = true;
+
+    CHAT_MESSAGES_REF.orderBy('ts', 'desc').limit(MESSAGE_LOAD_LIMIT).onSnapshot(function (snapshot) {
+      liveMessages = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      renderChatLog();
+      renderUserList(); // banned-tag depends on liveBans, not messages, but re-render is cheap and keeps things simple
+      if (userHistoryUsername) renderUserHistory();
+    }, function (err) {
+      const root = document.getElementById('liveMessagesList');
+      if (root) root.innerHTML = '<div class="empty-state">Could not load chat: ' + escapeAttr(err.message) + '</div>';
+    });
+
+    CHAT_USERNAMES_REF.onSnapshot(function (snapshot) {
+      liveUsers = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      renderUserList();
+      if (userHistoryUsername) renderUserHistory();
+    }, function (err) {
+      const root = document.getElementById('userList');
+      if (root) root.innerHTML = '<div class="empty-state">Could not load users: ' + escapeAttr(err.message) + '</div>';
+    });
+
+    CHAT_BANS_REF.onSnapshot(function (snapshot) {
+      liveBans = {};
+      snapshot.docs.forEach(function (doc) { liveBans[doc.id] = doc.data(); });
+      renderBannedList();
+      renderUserList();
+      if (userHistoryUsername) renderUserHistory();
+    }, function (err) {
+      const root = document.getElementById('bannedList');
+      if (root) root.innerHTML = '<div class="empty-state">Could not load bans: ' + escapeAttr(err.message) + '</div>';
+    });
+
+    CHAT_CENSORED_WORDS_REF.onSnapshot(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      liveCensorWords = (data && Array.isArray(data.words)) ? data.words : [];
+      renderCensorWordsList();
+    }, function (err) {
+      const root = document.getElementById('censorWordsList');
+      if (root) root.innerHTML = '<div class="empty-state">Could not load censored words: ' + escapeAttr(err.message) + '</div>';
+    });
+
+    document.getElementById('chatSearchInput').addEventListener('input', function (e) {
+      chatSearchQuery = e.target.value;
+      renderChatLog();
+    });
+    document.getElementById('userSearchInput').addEventListener('input', function (e) {
+      userSearchQuery = e.target.value;
+      renderUserList();
+    });
+
+    document.getElementById('addCensorWordBtn').addEventListener('click', function () {
+      const input = document.getElementById('newCensorWord');
+      const word = input.value.trim().toLowerCase();
+      if (!word) return;
+      if (liveCensorWords.indexOf(word) === -1) saveCensorWords(liveCensorWords.concat([word]));
+      input.value = '';
+    });
+    document.getElementById('newCensorWord').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('addCensorWordBtn').click();
+    });
+
+    document.getElementById('closeUserHistoryBtn').addEventListener('click', closeUserHistory);
+    document.getElementById('banCancelBtn').addEventListener('click', closeBanModal);
+    document.getElementById('banConfirmBtn').addEventListener('click', confirmBan);
+    document.querySelectorAll('#banDurationRow .btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        banModalDuration = btn.dataset.duration;
+        document.querySelectorAll('#banDurationRow .btn').forEach(function (b) { b.classList.toggle('selected', b === btn); });
+      });
+    });
   }
 })();
 </script>
