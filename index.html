@@ -105,8 +105,8 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 150px;
-    height: 150px;
+    width: 75px;
+    height: 75px;
     z-index: 10000;
     pointer-events: none;
   }
@@ -714,7 +714,7 @@
     const img = document.getElementById('ufo');
     if (!wrap || !img) return;
 
-    const W = 150; // must match #ufoWrap's CSS width/height
+    const W = 75; // must match #ufoWrap's CSS width/height
     const SPEED = 0.5; // px/frame cruise speed
 
     function maxX() { return Math.max(0, window.innerWidth - W); }
