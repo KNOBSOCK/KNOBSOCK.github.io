@@ -262,6 +262,12 @@
     z-index: 5;
   }
 
+  /* Shown/hidden by the .controls-visible class (see the JS below)
+     instead of :hover/:focus-within — a real hover still triggers it on
+     desktop (mouseenter/mouseleave), but touch devices get an actual
+     tap-to-show/tap-again-to-hide toggle instead of relying on mobile
+     browsers' sticky-:hover-after-tap quirk, which never explicitly
+     hides again on its own. */
   .video-pane .unmute-btn,
   .video-pane .video-pane-actions,
   .video-pane .video-controls {
@@ -269,12 +275,9 @@
     pointer-events: none;
     transition: opacity 0.25s ease;
   }
-  .video-pane:hover .unmute-btn,
-  .video-pane:hover .video-pane-actions,
-  .video-pane:hover .video-controls,
-  .video-pane:focus-within .unmute-btn,
-  .video-pane:focus-within .video-pane-actions,
-  .video-pane:focus-within .video-controls {
+  .video-pane.controls-visible .unmute-btn,
+  .video-pane.controls-visible .video-pane-actions,
+  .video-pane.controls-visible .video-controls {
     opacity: 1;
     pointer-events: auto;
   }
@@ -763,6 +766,49 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   function hideVideoLoading() {
     videoLoading.hidden = true;
     videoPane.classList.remove('is-loading');
+  }
+
+  // ---------- Controls visibility ----------
+  // Real hover reveals the controls on desktop (mouseenter/mouseleave).
+  // Touch devices have no hover, so a tap shows them instead, auto-hiding
+  // after a few seconds — and, since that leaves no way to dismiss them
+  // on purpose, a second tap anywhere on the video itself hides them
+  // immediately too. Tapping an actual control (unmute, scrub bar, etc)
+  // never counts as that second "close" tap — it should just do its own
+  // thing, not also yank the bar out from under it.
+  const CONTROLS_AUTO_HIDE_MS = 3000;
+  const supportsHover = window.matchMedia('(hover: hover)').matches;
+  let controlsHideTimer = null;
+
+  function showControls(autoHide) {
+    videoPane.classList.add('controls-visible');
+    clearTimeout(controlsHideTimer);
+    if (autoHide) {
+      controlsHideTimer = setTimeout(() => {
+        videoPane.classList.remove('controls-visible');
+      }, CONTROLS_AUTO_HIDE_MS);
+    }
+  }
+  function hideControlsNow() {
+    clearTimeout(controlsHideTimer);
+    videoPane.classList.remove('controls-visible');
+  }
+
+  if (supportsHover) {
+    videoPane.addEventListener('mouseenter', () => showControls(false));
+    videoPane.addEventListener('mouseleave', () => hideControlsNow());
+  } else {
+    videoPane.addEventListener('touchstart', (e) => {
+      if (e.target.closest('.unmute-btn, .video-pane-actions, .video-controls')) {
+        showControls(true);
+        return;
+      }
+      if (videoPane.classList.contains('controls-visible')) {
+        hideControlsNow();
+      } else {
+        showControls(true);
+      }
+    }, { passive: true });
   }
 
   let ytPlayer = null;
