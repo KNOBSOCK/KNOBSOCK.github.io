@@ -323,18 +323,6 @@
     margin-bottom: 16px;
   }
 
-  .import-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-  .inline-input {
-    flex: 1 1 180px;
-    width: auto;
-    min-width: 0;
-  }
-
   /* ---------- PHOTOS TAB ---------- */
   .photo-cat-tabs {
     display: flex;
@@ -500,11 +488,6 @@
             <button type="button" class="btn" id="musicAddBtn">+ Add Track</button>
           </div>
         </div>
-        <div class="import-row">
-          <input type="text" class="inline-input" id="musicPlaylistUrl" placeholder="Paste a YouTube or YouTube Music playlist link">
-          <button type="button" class="btn" id="musicImportBtn">Import Playlist</button>
-        </div>
-        <div class="note">Bulk-adds every video in a YouTube (or YouTube Music) playlist, with titles filled in automatically. No API key needed — this goes through Piped and Invidious, two free open-source YouTube mirrors, instead of Google's official API. Both are volunteer-run, unofficial services though: it tries every public instance of each in turn before giving up, but if an import ever fails outright, it's usually worth just trying again in a bit.</div>
         <div class="list-scroll" id="musicList"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="musicSaveBtn">Save Changes</button>
@@ -599,20 +582,6 @@
       const m = trimmed.match(re);
       if (m) return m[1];
     }
-    return null;
-  }
-
-  // A bare playlist ID (starts with PL/UU/LL/FL/RD/OLAK5uy...) pasted as-is,
-  // or the `list=` query param off any playlist/watch URL that has one.
-  function extractPlaylistId(input) {
-    if (!input) return null;
-    const trimmed = input.trim();
-    if (!/[\/\s]/.test(trimmed) && !/^https?:/i.test(trimmed)) return trimmed;
-    try {
-      const url = new URL(trimmed);
-      const list = url.searchParams.get('list');
-      if (list) return list;
-    } catch (err) { /* not a parseable URL */ }
     return null;
   }
 
@@ -751,6 +720,20 @@
     let creatorAliases = {};
     let creatorOrder = [];
     let hiddenCreators = [];
+    // Only Music passes opts.showAlbums — an id unique to this editor
+    // instance so the per-row album inputs' <datalist> (rendered once,
+    // shared by every row) never collides with Videos' own, unused one.
+    const albumListId = 'albumOptions-' + Math.random().toString(36).slice(2);
+
+    function collectAlbums() {
+      const seen = new Set();
+      const list = [];
+      draftList.forEach(function (v) {
+        const a = (v.album || '').trim();
+        if (a && !seen.has(a)) { seen.add(a); list.push(a); }
+      });
+      return list;
+    }
 
     function setStatus(text, isError) {
       opts.statusEl.textContent = text;
@@ -826,12 +809,21 @@
         opts.listRoot.innerHTML = '<div class="empty-state">No ' + opts.plural + ' yet. Add one below.</div>';
         return;
       }
-      opts.listRoot.innerHTML = draftList.map(function (v, i) {
+      const albumOptionsHtml = opts.showAlbums
+        ? '<datalist id="' + albumListId + '">' + collectAlbums().map(function (a) {
+            return '<option value="' + escapeAttr(a) + '">';
+          }).join('') + '</datalist>'
+        : '';
+      opts.listRoot.innerHTML = albumOptionsHtml + draftList.map(function (v, i) {
+        const albumFieldHtml = opts.showAlbums
+          ? '<input type="text" class="album-input" list="' + albumListId + '" placeholder="Album (optional)" value="' + escapeAttr(v.album || '') + '">'
+          : '';
         return '<div class="row" data-draggable data-index="' + i + '">' +
           '<span class="grip" title="Drag to reorder">&#10303;</span>' +
           '<div class="row-fields">' +
             '<input type="text" class="url-input" placeholder="' + opts.urlPlaceholder + '" value="' + escapeAttr(v.url) + '">' +
             '<input type="text" class="title-input" placeholder="' + opts.singular + ' title" value="' + escapeAttr(v.title || '') + '">' +
+            albumFieldHtml +
           '</div>' +
           '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
         '</div>';
@@ -859,6 +851,19 @@
           draftList[idx].title = titleInput.value;
           draftList[idx]._titleTouched = true;
         });
+        const albumInput = row.querySelector('.album-input');
+        if (albumInput) {
+          albumInput.addEventListener('input', function () {
+            draftList[idx].album = albumInput.value;
+          });
+          // The datalist only reflects albums that existed at the last
+          // render — refresh it once the admin commits to a brand-new
+          // name (on blur, not every keystroke) so it shows up as an
+          // option for every other row without needing a reload.
+          albumInput.addEventListener('change', function () {
+            renderList();
+          });
+        }
         row.querySelector('.remove-btn').addEventListener('click', function () {
           draftList.splice(idx, 1);
           renderList();
@@ -903,7 +908,7 @@
     });
 
     opts.addBtn.addEventListener('click', function () {
-      draftList.unshift({ url: '', title: '', addedAt: Date.now(), author: null });
+      draftList.unshift({ url: '', title: '', addedAt: Date.now(), author: null, album: '' });
       renderList();
     });
 
@@ -913,207 +918,20 @@
     });
 
     opts.resetBtn.addEventListener('click', function () {
-      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, author: null }; });
+      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, author: null, album: '' }; });
       renderList();
       fetchAllAuthors();
       setStatus('Reset to default list — click Save Changes to apply.');
     });
 
-    // ---------- IMPORT FROM YOUTUBE PLAYLIST ----------
-    // Bulk-adds every video in a playlist (this also works for YouTube
-    // Music playlists, e.g. an auto-generated "OLAK5uy_..." release
-    // playlist — those are ordinary YouTube playlist IDs under the hood,
-    // just also exposed through music.youtube.com's own front end, so
-    // extractPlaylistId's plain `list=` lookup already handles them).
-    //
-    // noembed.com (used everywhere else in this file) can only fetch ONE
-    // video's info at a time and has no way to list a playlist's contents
-    // at all. The official way is the YouTube Data API v3, which needs
-    // its own API key (free for this kind of use, but still a Google
-    // Cloud project to set up) — this goes through two independent,
-    // free, open-source, no-key YouTube mirror networks instead: Piped,
-    // then Invidious as a second tier if every Piped instance fails.
-    // Both are volunteer-run with no uptime guarantee, and unlike an
-    // official API, individual instances routinely go down, get
-    // rate-limited, or sit behind bot-detection that blocks a plain
-    // fetch — so this fetches Piped's own live instance list (kept
-    // up to date by the Piped project) rather than a fixed one that
-    // could quietly go stale, tries every instance in turn, and only
-    // falls through to Invidious once all of them have failed.
-    if (opts.importBtn) {
-      const UNAVAILABLE_TITLES = ['private video', 'deleted video', '[private video]', '[deleted video]'];
-
-      // Used only if the live registry fetch below fails outright (not
-      // just if every listed instance is down — that's a separate,
-      // expected case already handled by trying the next one).
-      const PIPED_FALLBACK_INSTANCES = [
-        'https://pipedapi.kavin.rocks',
-        'https://pipedapi.adminforge.de',
-        'https://pipedapi.r4fo.com',
-        'https://api.piped.yt',
-        'https://pipedapi.leptons.xyz',
-        'https://piped-api.lunar.icu',
-        'https://pipedapi.syncpundit.io',
-        'https://pipedapi.moomoo.me'
-      ];
-      let cachedPipedInstances = null;
-      function getPipedInstances() {
-        if (cachedPipedInstances) return Promise.resolve(cachedPipedInstances);
-        return fetch('https://piped-instances.kavin.rocks/')
-          .then(function (res) { if (!res.ok) throw new Error('registry request failed'); return res.json(); })
-          .then(function (list) {
-            const urls = Array.isArray(list)
-              ? list.map(function (entry) { return entry && entry.api_url; }).filter(Boolean)
-              : [];
-            const merged = urls.concat(PIPED_FALLBACK_INSTANCES.filter(function (u) { return urls.indexOf(u) === -1; }));
-            cachedPipedInstances = merged.length ? merged : PIPED_FALLBACK_INSTANCES;
-            return cachedPipedInstances;
-          })
-          .catch(function () {
-            cachedPipedInstances = PIPED_FALLBACK_INSTANCES;
-            return cachedPipedInstances;
-          });
-      }
-
-      const INVIDIOUS_INSTANCES = [
-        'https://inv.nadeko.net',
-        'https://invidious.nerdvpn.de',
-        'https://iv.ggtyler.dev',
-        'https://invidious.f5.si',
-        'https://yewtu.be'
-      ];
-
-      // Piped's own `url` field per item is a relative path (e.g.
-      // "/watch?v=xxxxxxxxxxx"), not a full youtube.com URL —
-      // extractVideoId's patterns all require that domain literal, so a
-      // fake one gets prefixed on just for this parse.
-      function fetchPipedPage(base, playlistId, cursor) {
-        const url = base + '/playlists/' + encodeURIComponent(playlistId) +
-          (cursor ? '?nextpage=' + encodeURIComponent(cursor) : '');
-        return fetch(url).then(function (res) {
-          if (!res.ok) throw new Error('Piped request failed (' + res.status + ')');
-          return res.json();
-        }).then(function (data) {
-          if (data && data.error) throw new Error(data.message || String(data.error));
-          const items = (data.relatedStreams || []).map(function (item) {
-            return {
-              videoId: extractVideoId('https://youtube.com' + (item.url || '')),
-              title: (item.title || '').trim(),
-              author: item.uploaderName || null
-            };
-          });
-          return { items: items, nextCursor: data.nextpage || null };
-        });
-      }
-
-      // Invidious paginates by plain page number instead of an opaque
-      // cursor, and doesn't report a total page count up front — so this
-      // just keeps requesting the next page until one comes back empty.
-      function fetchInvidiousPage(base, playlistId, cursor) {
-        const page = cursor || 1;
-        const url = base + '/api/v1/playlists/' + encodeURIComponent(playlistId) + '?page=' + page;
-        return fetch(url).then(function (res) {
-          if (!res.ok) throw new Error('Invidious request failed (' + res.status + ')');
-          return res.json();
-        }).then(function (data) {
-          if (data && data.error) throw new Error(data.error);
-          const videos = data.videos || [];
-          const items = videos.map(function (v) {
-            return { videoId: v.videoId || null, title: (v.title || '').trim(), author: v.author || null };
-          });
-          return { items: items, nextCursor: items.length ? page + 1 : null };
-        });
-      }
-
-      const PROVIDERS = [
-        { name: 'Piped', getInstances: getPipedInstances, fetchPage: fetchPipedPage },
-        { name: 'Invidious', getInstances: function () { return Promise.resolve(INVIDIOUS_INSTANCES); }, fetchPage: fetchInvidiousPage }
-      ];
-
-      // Each instance attempt gets its own isolated existingIds/imported/
-      // counts, seeded fresh from the current draftList — so a partial
-      // result from an instance that fails partway through pagination
-      // never leaks into the next instance's attempt.
-      function attemptInstance(provider, base, playlistId) {
-        const existingIds = {};
-        draftList.forEach(function (v) {
-          const id = extractVideoId(v.url);
-          if (id) existingIds[id] = true;
-        });
-        const imported = [];
-        let addedCount = 0, dupeCount = 0, skippedCount = 0;
-
-        function loadPage(cursor) {
-          return provider.fetchPage(base, playlistId, cursor).then(function (result) {
-            result.items.forEach(function (item) {
-              if (!item.videoId) return;
-              if (!item.title || UNAVAILABLE_TITLES.indexOf(item.title.toLowerCase()) !== -1) { skippedCount++; return; }
-              if (existingIds[item.videoId]) { dupeCount++; return; }
-              existingIds[item.videoId] = true;
-              imported.push({ url: 'https://youtube.com/watch?v=' + item.videoId, title: item.title, author: item.author, addedAt: Date.now() });
-              addedCount++;
-            });
-            setStatus('Importing via ' + provider.name + '… ' + (addedCount + dupeCount + skippedCount) + ' seen so far');
-            if (result.nextCursor) return loadPage(result.nextCursor);
-          });
-        }
-
-        return loadPage(null).then(function () {
-          return { imported: imported, addedCount: addedCount, dupeCount: dupeCount, skippedCount: skippedCount };
-        });
-      }
-
-      function tryProviderInstances(provider, instances, idx, playlistId, lastErr) {
-        if (idx >= instances.length) return Promise.reject(lastErr || new Error(provider.name + ': no instances reachable'));
-        return attemptInstance(provider, instances[idx], playlistId).catch(function (err) {
-          return tryProviderInstances(provider, instances, idx + 1, playlistId, err);
-        });
-      }
-
-      function tryProviders(idx, playlistId, lastErr) {
-        if (idx >= PROVIDERS.length) {
-          return Promise.reject(new Error((lastErr && lastErr.message ? lastErr.message + ' — ' : '') +
-            'tried every Piped and Invidious mirror; none of them worked right now.'));
-        }
-        const provider = PROVIDERS[idx];
-        return provider.getInstances().then(function (instances) {
-          return tryProviderInstances(provider, instances, 0, playlistId);
-        }).catch(function (err) {
-          return tryProviders(idx + 1, playlistId, err);
-        });
-      }
-
-      function importPlaylist() {
-        const playlistId = extractPlaylistId(opts.playlistUrlInput.value);
-        if (!playlistId) { setStatus('That doesn’t look like a playlist link or ID.', true); return; }
-
-        opts.importBtn.disabled = true;
-        setStatus('Importing playlist…');
-        tryProviders(0, playlistId)
-          .then(function (result) {
-            draftList = result.imported.concat(draftList);
-            renderList();
-            draftCreators = buildDraftCreators();
-            renderCreators();
-            fetchAllAuthors();
-            const bits = ['Imported ' + result.addedCount + ' ' + (result.addedCount === 1 ? opts.singular.toLowerCase() : opts.plural) + '.'];
-            if (result.dupeCount) bits.push(result.dupeCount + ' already in the list.');
-            if (result.skippedCount) bits.push(result.skippedCount + ' unavailable, skipped.');
-            setStatus(bits.join(' '));
-          })
-          .catch(function (err) {
-            setStatus('Import failed: ' + (err && err.message ? err.message : 'unknown error'), true);
-          })
-          .finally(function () {
-            opts.importBtn.disabled = false;
-          });
-      }
-      opts.importBtn.addEventListener('click', importPlaylist);
-    }
 
     opts.saveBtn.addEventListener('click', function () {
       const cleaned = draftList
-        .map(function (v) { return { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now() }; })
+        .map(function (v) {
+          const item = { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now() };
+          if (opts.showAlbums) item.album = (v.album || '').trim();
+          return item;
+        })
         .filter(function (v) { return v.url; });
 
       const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url); });
@@ -1162,7 +980,7 @@
         const data = doc.data();
         const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : opts.defaultList;
         draftList = list.map(function (v) {
-          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, author: null };
+          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, author: null, album: v.album || '' };
         });
         creatorAliases = (data && data.creatorAliases) || {};
         creatorOrder = (data && data.creatorOrder) || [];
@@ -1384,12 +1202,11 @@
       saveBtn: document.getElementById('musicSaveBtn'),
       resetBtn: document.getElementById('musicResetBtn'),
       statusEl: document.getElementById('musicStatus'),
-      playlistUrlInput: document.getElementById('musicPlaylistUrl'),
-      importBtn: document.getElementById('musicImportBtn'),
       defaultList: DEFAULT_MUSIC_LIST,
       urlPlaceholder: 'Paste a YouTube link',
       singular: 'Track',
-      plural: 'tracks'
+      plural: 'tracks',
+      showAlbums: true
     }).load();
   }
 })();
