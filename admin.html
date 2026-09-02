@@ -472,12 +472,6 @@
             <button type="button" class="btn" id="videosAddBtn">+ Add Video</button>
           </div>
         </div>
-        <div class="import-row">
-          <input type="text" class="inline-input" id="videosApiKey" placeholder="YouTube Data API key">
-          <input type="text" class="inline-input" id="videosPlaylistUrl" placeholder="Paste a YouTube playlist link">
-          <button type="button" class="btn" id="videosImportBtn">Import Playlist</button>
-        </div>
-        <div class="note">Bulk-adds every video in a YouTube playlist, with titles filled in automatically. Needs a free YouTube Data API v3 key (console.cloud.google.com → APIs &amp; Services → Credentials) — only used for this import, and saved just in this browser, never in the site's source. Consider restricting the key to your own domain in the Cloud Console.</div>
         <div class="list-scroll" id="videosList"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="videosSaveBtn">Save Changes</button>
@@ -507,11 +501,10 @@
           </div>
         </div>
         <div class="import-row">
-          <input type="text" class="inline-input" id="musicApiKey" placeholder="YouTube Data API key">
-          <input type="text" class="inline-input" id="musicPlaylistUrl" placeholder="Paste a YouTube playlist link">
+          <input type="text" class="inline-input" id="musicPlaylistUrl" placeholder="Paste a YouTube or YouTube Music playlist link">
           <button type="button" class="btn" id="musicImportBtn">Import Playlist</button>
         </div>
-        <div class="note">Bulk-adds every video in a YouTube playlist, with titles filled in automatically (SoundCloud tracks still aren't affected). Needs a free YouTube Data API v3 key (console.cloud.google.com → APIs &amp; Services → Credentials) — only used for this import, and saved just in this browser, never in the site's source. Consider restricting the key to your own domain in the Cloud Console.</div>
+        <div class="note">Bulk-adds every video in a YouTube (or YouTube Music) playlist, with titles filled in automatically. No API key needed — this goes through Piped, a free open-source YouTube mirror, instead of Google's official API. That's a volunteer-run, unofficial service though: if an import fails, it's usually worth just trying again (it tries a few public Piped instances in turn), and it isn't something to rely on if it ever stops working entirely.</div>
         <div class="list-scroll" id="musicList"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="musicSaveBtn">Save Changes</button>
@@ -927,89 +920,118 @@
     });
 
     // ---------- IMPORT FROM YOUTUBE PLAYLIST ----------
-    // Bulk-adds every video in a playlist. noembed.com (used everywhere
-    // else in this file) only fetches ONE video's info at a time and has
-    // no way to list a playlist's contents at all, so this needs the real
-    // YouTube Data API v3 and its own API key — entered once here and
-    // kept in localStorage (shared between the Videos and Music tabs,
-    // never written into the site's own source, so nothing to expose by
-    // viewing page source). Each returned item already carries its title
-    // and uploader, so imported entries skip the usual per-video noembed
-    // fetch entirely, and only fall back to it if the API happened not to
-    // report an uploader for one.
-    const YT_KEY_STORAGE = 'knobsock-admin-yt-api-key';
-    if (opts.apiKeyInput) {
-      opts.apiKeyInput.value = localStorage.getItem(YT_KEY_STORAGE) || '';
-      opts.apiKeyInput.addEventListener('input', function () {
-        localStorage.setItem(YT_KEY_STORAGE, opts.apiKeyInput.value.trim());
-      });
-    }
+    // Bulk-adds every video in a playlist (this also works for YouTube
+    // Music playlists, e.g. an auto-generated "OLAK5uy_..." release
+    // playlist — those are ordinary YouTube playlist IDs under the hood,
+    // just also exposed through music.youtube.com's own front end, so
+    // extractPlaylistId's plain `list=` lookup already handles them).
+    //
+    // noembed.com (used everywhere else in this file) can only fetch ONE
+    // video's info at a time and has no way to list a playlist's contents
+    // at all. The official way is the YouTube Data API v3, which needs
+    // its own API key (free for this kind of use, but still a Google
+    // Cloud project to set up) — this uses Piped instead, a free,
+    // open-source, community-run mirror of YouTube's own data with a
+    // public, CORS-enabled, no-key API. The tradeoff is that it's
+    // unofficial and volunteer-run, with no uptime guarantee and any one
+    // instance can be down, so this tries a short list of public
+    // instances in turn rather than just one.
+    if (opts.importBtn) {
+      const PIPED_INSTANCES = [
+        'https://pipedapi.kavin.rocks',
+        'https://pipedapi.adminforge.de',
+        'https://pipedapi.r4fo.com',
+        'https://api.piped.yt',
+        'https://pipedapi.leptons.xyz'
+      ];
+      const UNAVAILABLE_TITLES = ['private video', 'deleted video', '[private video]', '[deleted video]'];
 
-    function importPlaylist() {
-      const key = (opts.apiKeyInput.value || '').trim();
-      const playlistId = extractPlaylistId(opts.playlistUrlInput.value);
-      if (!key) { setStatus('Add your YouTube Data API key above first.', true); return; }
-      if (!playlistId) { setStatus('That doesn’t look like a playlist link or ID.', true); return; }
+      // Each instance attempt gets its own isolated existingIds/imported/
+      // counts, seeded fresh from the current draftList — so a partial
+      // result from an instance that fails partway through pagination
+      // never leaks into the next instance's attempt.
+      function attemptInstance(base, playlistId) {
+        const existingIds = {};
+        draftList.forEach(function (v) {
+          const id = extractVideoId(v.url);
+          if (id) existingIds[id] = true;
+        });
+        const imported = [];
+        let addedCount = 0, dupeCount = 0, skippedCount = 0;
 
-      const existingIds = {};
-      draftList.forEach(function (v) {
-        const id = extractVideoId(v.url);
-        if (id) existingIds[id] = true;
-      });
-
-      const imported = [];
-      let addedCount = 0, dupeCount = 0, skippedCount = 0;
-
-      function fetchPage(pageToken) {
-        const params = new URLSearchParams({ part: 'snippet', maxResults: '50', playlistId: playlistId, key: key });
-        if (pageToken) params.set('pageToken', pageToken);
-        return fetch('https://www.googleapis.com/youtube/v3/playlistItems?' + params.toString())
-          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
-          .then(function (result) {
-            const data = result.data;
-            if (!result.ok) throw new Error((data && data.error && data.error.message) || 'YouTube API request failed');
-            (data.items || []).forEach(function (item) {
-              const sn = item.snippet || {};
-              const vid = sn.resourceId && sn.resourceId.videoId;
+        function loadPage(nextpage) {
+          const url = base + '/playlists/' + encodeURIComponent(playlistId) +
+            (nextpage ? '?nextpage=' + encodeURIComponent(nextpage) : '');
+          return fetch(url).then(function (res) {
+            if (!res.ok) throw new Error('Piped request failed (' + res.status + ')');
+            return res.json();
+          }).then(function (data) {
+            if (data && data.error) throw new Error(data.message || String(data.error));
+            (data.relatedStreams || []).forEach(function (item) {
+              // Piped's own `url` field is a relative path (e.g.
+              // "/watch?v=xxxxxxxxxxx"), not a full youtube.com URL —
+              // extractVideoId's patterns all require that domain literal,
+              // so a fake one gets prefixed on just for this parse.
+              const vid = extractVideoId('https://youtube.com' + (item.url || ''));
               if (!vid) return;
-              if (sn.title === 'Private video' || sn.title === 'Deleted video') { skippedCount++; return; }
+              const title = (item.title || '').trim();
+              if (!title || UNAVAILABLE_TITLES.indexOf(title.toLowerCase()) !== -1) { skippedCount++; return; }
               if (existingIds[vid]) { dupeCount++; return; }
               existingIds[vid] = true;
               imported.push({
                 url: 'https://youtube.com/watch?v=' + vid,
-                title: sn.title || '',
-                author: sn.videoOwnerChannelTitle || null,
+                title: title,
+                author: item.uploaderName || null,
                 addedAt: Date.now()
               });
               addedCount++;
             });
             setStatus('Importing… ' + (addedCount + dupeCount + skippedCount) + ' seen so far');
-            if (data.nextPageToken) return fetchPage(data.nextPageToken);
+            if (data.nextpage) return loadPage(data.nextpage);
           });
+        }
+
+        return loadPage(null).then(function () {
+          return { imported: imported, addedCount: addedCount, dupeCount: dupeCount, skippedCount: skippedCount };
+        });
       }
 
-      opts.importBtn.disabled = true;
-      setStatus('Importing playlist…');
-      fetchPage(null)
-        .then(function () {
-          draftList = imported.concat(draftList);
-          renderList();
-          draftCreators = buildDraftCreators();
-          renderCreators();
-          fetchAllAuthors();
-          const bits = ['Imported ' + addedCount + ' ' + (addedCount === 1 ? opts.singular.toLowerCase() : opts.plural) + '.'];
-          if (dupeCount) bits.push(dupeCount + ' already in the list.');
-          if (skippedCount) bits.push(skippedCount + ' private/deleted, skipped.');
-          setStatus(bits.join(' '));
-        })
-        .catch(function (err) {
-          setStatus('Import failed: ' + (err && err.message ? err.message : 'unknown error'), true);
-        })
-        .finally(function () {
-          opts.importBtn.disabled = false;
+      function tryInstances(idx, playlistId) {
+        if (idx >= PIPED_INSTANCES.length) {
+          return Promise.reject(new Error('Couldn’t reach any Piped mirror right now — try again in a bit.'));
+        }
+        return attemptInstance(PIPED_INSTANCES[idx], playlistId).catch(function () {
+          return tryInstances(idx + 1, playlistId);
         });
+      }
+
+      function importPlaylist() {
+        const playlistId = extractPlaylistId(opts.playlistUrlInput.value);
+        if (!playlistId) { setStatus('That doesn’t look like a playlist link or ID.', true); return; }
+
+        opts.importBtn.disabled = true;
+        setStatus('Importing playlist…');
+        tryInstances(0, playlistId)
+          .then(function (result) {
+            draftList = result.imported.concat(draftList);
+            renderList();
+            draftCreators = buildDraftCreators();
+            renderCreators();
+            fetchAllAuthors();
+            const bits = ['Imported ' + result.addedCount + ' ' + (result.addedCount === 1 ? opts.singular.toLowerCase() : opts.plural) + '.'];
+            if (result.dupeCount) bits.push(result.dupeCount + ' already in the list.');
+            if (result.skippedCount) bits.push(result.skippedCount + ' unavailable, skipped.');
+            setStatus(bits.join(' '));
+          })
+          .catch(function (err) {
+            setStatus('Import failed: ' + (err && err.message ? err.message : 'unknown error'), true);
+          })
+          .finally(function () {
+            opts.importBtn.disabled = false;
+          });
+      }
+      opts.importBtn.addEventListener('click', importPlaylist);
     }
-    if (opts.importBtn) opts.importBtn.addEventListener('click', importPlaylist);
 
     opts.saveBtn.addEventListener('click', function () {
       const cleaned = draftList
@@ -1269,9 +1291,6 @@
       saveBtn: document.getElementById('videosSaveBtn'),
       resetBtn: document.getElementById('videosResetBtn'),
       statusEl: document.getElementById('videosStatus'),
-      apiKeyInput: document.getElementById('videosApiKey'),
-      playlistUrlInput: document.getElementById('videosPlaylistUrl'),
-      importBtn: document.getElementById('videosImportBtn'),
       defaultList: DEFAULT_VIDEO_LIST,
       urlPlaceholder: 'Paste a YouTube link',
       singular: 'Video',
@@ -1287,7 +1306,6 @@
       saveBtn: document.getElementById('musicSaveBtn'),
       resetBtn: document.getElementById('musicResetBtn'),
       statusEl: document.getElementById('musicStatus'),
-      apiKeyInput: document.getElementById('musicApiKey'),
       playlistUrlInput: document.getElementById('musicPlaylistUrl'),
       importBtn: document.getElementById('musicImportBtn'),
       defaultList: DEFAULT_MUSIC_LIST,
