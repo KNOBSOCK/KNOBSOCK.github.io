@@ -425,8 +425,34 @@
   .playlist-items::-webkit-scrollbar-track { background: transparent; }
   .playlist-items::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
 
+  /* Groups a run of same-creator videos under one label — only rendered
+     (see renderPlaylist() below) under "All" itself, since a creator
+     filter already narrows the list to one creator with nothing left to
+     group. */
+  .creator-heading {
+    flex: none;
+    font-size: clamp(10px, 2.6cqw, 12px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.85;
+    padding: 0 2px;
+    margin-top: clamp(2px, 1cqh, 6px);
+  }
+  .creator-heading:first-child { margin-top: 0; }
+
   @media (max-width: 860px) {
     .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    /* The list becomes a horizontal strip above — a full-width label
+       doesn't fit between cards there, so it collapses to a slim,
+       vertically-set tab that scrolls along with its group instead. */
+    .creator-heading {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      margin-top: 0;
+      padding: 4px 0;
+    }
   }
 
   .playlist-item {
@@ -780,6 +806,43 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     }
   }
 
+  // Groups "All" itself by creator instead of leaving it flat — every
+  // video from one creator becomes one contiguous run, ordered by the
+  // same admin-set creatorOrder the chin's own chips already use (see
+  // music-playlist-widget.html's identical orderVisibleForAll for the
+  // full reasoning). An unresolved author (still being fetched) always
+  // sorts last, same treatment "Unknown" gets. Within a group, videos
+  // keep their original "All" order — this only re-clusters them.
+  function orderVisibleForAll(visible) {
+    const groups = [];
+    const byAuthor = new Map();
+    visible.forEach(entry => {
+      const display = entry.v.author ? resolveAuthorDisplay(entry.v.author) : null;
+      let g = byAuthor.get(display);
+      if (!g) {
+        g = { display: display, items: [] };
+        byAuthor.set(display, g);
+        groups.push(g);
+      }
+      g.items.push(entry);
+    });
+    groups.sort((a, b) => {
+      if (a.display === null || b.display === null) {
+        if (a.display === b.display) return 0;
+        return a.display === null ? 1 : -1;
+      }
+      const ia = creatorOrder.indexOf(a.display);
+      const ib = creatorOrder.indexOf(b.display);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      if (a.display === 'Unknown') return 1;
+      if (b.display === 'Unknown') return -1;
+      return a.display.localeCompare(b.display, undefined, { sensitivity: 'base' });
+    });
+    return groups.reduce((all, g) => all.concat(g.items), []);
+  }
+
   // ---------- PLAYLIST RENDER ----------
   // Filtering by creator happens here, over the same PLAYLIST array/data
   // used everywhere else — data-index still points at the real index in
@@ -802,8 +865,13 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       return;
     }
 
-    playlistCountEl.textContent = visible.length + (visible.length === 1 ? ' video' : ' videos');
-    playlistItemsEl.innerHTML = visible.map(({ v, i }) => {
+    const ordered = activeAuthorFilter ? visible : orderVisibleForAll(visible);
+    playlistCountEl.textContent = ordered.length + (ordered.length === 1 ? ' video' : ' videos');
+    // orderVisibleForAll above already guarantees every video sharing a
+    // creator is one contiguous run, so this never fragments one
+    // creator's heading into repeats.
+    let lastDisplay = undefined;
+    playlistItemsEl.innerHTML = ordered.map(({ v, i }) => {
       const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
       // Shows who made it instead of a generic "Tap to play" once the
       // author's known — falls back to "Tap to play" only while it's
@@ -811,7 +879,16 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       const sub = i === activeIndex
         ? 'Now playing'
         : (v.author ? escapeHtml(resolveAuthorDisplay(v.author)) : 'Tap to play');
-      return `
+      let heading = '';
+      if (!activeAuthorFilter) {
+        const display = v.author ? resolveAuthorDisplay(v.author) : null;
+        if (display && display !== lastDisplay) {
+          const label = display === 'Unknown' ? 'Unknown Channel' : display;
+          heading = `<div class="creator-heading">${escapeHtml(label)}</div>`;
+        }
+        lastDisplay = display || undefined;
+      }
+      return heading + `
       <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
           <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="${escapeHtml(title)}" loading="lazy" />

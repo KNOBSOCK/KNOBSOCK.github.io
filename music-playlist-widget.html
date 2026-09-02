@@ -618,8 +618,13 @@
 
   /* Groups a run of same-album tracks under one label — only rendered
      (see renderPlaylist() below) once a specific creator is filtered in,
-     since the same album name could span multiple artists under "All". */
-  .album-heading {
+     since the same album name could span multiple artists under "All".
+     .creator-heading is the same idea in reverse: it groups a run of
+     same-creator tracks under "All" itself (never shown together with
+     .album-heading — only one of the two grouping modes is active at a
+     time, matching whether a creator filter is selected). */
+  .album-heading,
+  .creator-heading {
     flex: none;
     font-size: clamp(10px, 2.6cqw, 12px);
     font-weight: 700;
@@ -630,7 +635,10 @@
     padding: 0 2px;
     margin-top: clamp(2px, 1cqh, 6px);
   }
-  .album-heading:first-child { margin-top: 0; }
+  .album-heading:first-child,
+  .creator-heading:first-child {
+    margin-top: 0;
+  }
 
   @media (max-width: 860px) {
     /* align-items: flex-start — NOT stretch. Stretching every card to
@@ -645,7 +653,8 @@
     /* The list becomes a horizontal strip above — a full-width label
        doesn't fit between cards there, so it collapses to a slim,
        vertically-set tab that scrolls along with its group instead. */
-    .album-heading {
+    .album-heading,
+    .creator-heading {
       writing-mode: vertical-rl;
       text-orientation: mixed;
       margin-top: 0;
@@ -1482,6 +1491,45 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     return groups.reduce((all, g) => all.concat(g.items), []);
   }
 
+  // Groups "All" itself by creator instead of leaving it flat — every
+  // track from one creator becomes one contiguous run (so it doesn't
+  // fragment the way a run-based grouping would), ordered by the same
+  // admin-set creatorOrder the chin's own chips already use, with an
+  // unresolved author (still being fetched) always sorting last so a
+  // slow oEmbed lookup can't jump a track ahead of creators that have
+  // already resolved. Within a group, tracks keep their original "All"
+  // order — this only re-clusters them, it never re-sorts by date or
+  // anything else.
+  function orderVisibleForAll(visible) {
+    const groups = [];
+    const byAuthor = new Map();
+    visible.forEach(e => {
+      const display = e.author ? resolveAuthorDisplay(e.author) : null;
+      let g = byAuthor.get(display);
+      if (!g) {
+        g = { display: display, items: [] };
+        byAuthor.set(display, g);
+        groups.push(g);
+      }
+      g.items.push(e);
+    });
+    groups.sort((a, b) => {
+      if (a.display === null || b.display === null) {
+        if (a.display === b.display) return 0;
+        return a.display === null ? 1 : -1;
+      }
+      const ia = creatorOrder.indexOf(a.display);
+      const ib = creatorOrder.indexOf(b.display);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      if (a.display === 'Unknown') return 1;
+      if (b.display === 'Unknown') return -1;
+      return a.display.localeCompare(b.display, undefined, { sensitivity: 'base' });
+    });
+    return groups.reduce((all, g) => all.concat(g.items), []);
+  }
+
   // ---------- PLAYLIST RENDER ----------
   function renderPlaylist(merged) {
     if (!merged.length) {
@@ -1498,13 +1546,14 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       return;
     }
 
-    const ordered = orderVisibleForFilter(visible);
+    const ordered = activeAuthorFilter ? orderVisibleForFilter(visible) : orderVisibleForAll(visible);
     playlistCountEl.textContent = ordered.length + (ordered.length === 1 ? ' track' : ' tracks');
-    // Only a run of consecutive tracks sharing an album gets one shared
-    // heading — orderVisibleForFilter above already guarantees every
-    // track from the same album is one contiguous run, so this never
-    // fragments a single album into repeated headings.
-    let lastAlbum = undefined;
+    // Only a run of consecutive tracks sharing an album (or, under "All",
+    // a creator) gets one shared heading — orderVisibleForFilter/
+    // orderVisibleForAll above already guarantee every track sharing that
+    // grouping key is one contiguous run, so this never fragments one
+    // group into repeated headings.
+    let lastGroupKey = undefined;
     playlistItemsEl.innerHTML = ordered.map(e => {
       const title = (typeof e.title === 'string' && e.title.trim()) ? e.title.trim() : 'Loading title…';
       const isActive = e.key === activeKey;
@@ -1515,10 +1564,19 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         ? 'Now playing'
         : (e.author ? escapeHtml(resolveAuthorDisplay(e.author)) : 'Tap to play');
       let heading = '';
-      if (activeAuthorFilter && e.album && e.album !== lastAlbum) {
-        heading = `<div class="album-heading">${escapeHtml(e.album)}</div>`;
+      if (activeAuthorFilter) {
+        if (e.album && e.album !== lastGroupKey) {
+          heading = `<div class="album-heading">${escapeHtml(e.album)}</div>`;
+        }
+        lastGroupKey = e.album || undefined;
+      } else {
+        const display = e.author ? resolveAuthorDisplay(e.author) : null;
+        if (display && display !== lastGroupKey) {
+          const label = display === 'Unknown' ? 'Unknown Channel' : display;
+          heading = `<div class="creator-heading">${escapeHtml(label)}</div>`;
+        }
+        lastGroupKey = display || undefined;
       }
-      lastAlbum = e.album || undefined;
       return heading + `
       <button class="playlist-item${isActive ? ' active' : ''}" data-key="${escapeHtml(e.key)}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
