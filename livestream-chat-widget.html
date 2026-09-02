@@ -1463,13 +1463,12 @@
 
     container.innerHTML = msgs.map(m => {
       const mine = m.username === session.username;
-      // "Mine" already stands out via its own accent-colored bubble/
-      // alignment, so it keeps that fixed accent instead of taking on
-      // its own name color here — the per-user color is there to tell
-      // OTHER people's messages apart from each other, not from yours.
-      const nameHtml = mine
-        ? escapeHtml(m.username)
-        : `<span style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
+      // Own messages get their real picked/auto color too now, same as
+      // everyone else's — "mine" still stands out on its own via the
+      // accent-colored bubble and right-aligned layout, so this doesn't
+      // lose that distinction, it just stops overriding your own name
+      // color specifically with a flat red regardless of what you chose.
+      const nameHtml = `<span style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
       return `
         <div class="msg ${mine ? 'mine' : ''}">
           <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
