@@ -530,6 +530,40 @@
      every field used here. -->
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
 
+<!-- ============================================================
+     FIREBASE — same project as the other widgets/admin.html, read-only
+     here: this widget only ever reads the admin-set photo/category
+     order, never writes it (that happens from admin.html, which signs
+     in as the admin account). -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  // Guarded: photo browsing worked with zero external dependencies besides
+  // GitHub before this, and a blocked/failed Firebase load (ad blocker,
+  // flaky network, gstatic.com down) shouldn't be able to take the whole
+  // gallery down with it — PHOTO_ORDER_DOC_REF just stays null, and the
+  // ordering code below treats that exactly like "no override saved yet".
+  let PHOTO_ORDER_DOC_REF = null;
+  if (window.firebase) {
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+      authDomain: "chat-for-website-efee2.firebaseapp.com",
+      projectId: "chat-for-website-efee2",
+      storageBucket: "chat-for-website-efee2.firebasestorage.app",
+      messagingSenderId: "509309222193",
+      appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+    };
+    const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    // Firestore document that holds the admin-set category/photo order —
+    // everyone reads this live; only a signed-in admin (per Firestore
+    // rules, via admin.html) can write it. Categories/photos with no
+    // entry here just keep the default alphabetical order
+    // buildCategoriesFromTree already produces.
+    PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
+  }
+</script>
+
 <script>
 (function () {
   // ====================================================================
@@ -805,23 +839,91 @@
     gridCountEl.textContent = '';
   }
 
+  // Applies the admin-set order (from admin.html, via PHOTO_ORDER_DOC_REF)
+  // on top of buildCategoriesFromTree's default alphabetical categories —
+  // any category/photo with no explicit position keeps its existing
+  // (alphabetical) place, via a stable sort. cats[0] is always the
+  // synthetic "All" aggregate; it's rebuilt from the real categories'
+  // new order afterward rather than reordered itself.
+  function applyPhotoOrderOverride(cats, orderData) {
+    const catOrder = Array.isArray(orderData.categoryOrder) ? orderData.categoryOrder : [];
+    const photoOrder = (orderData.photoOrder && typeof orderData.photoOrder === 'object') ? orderData.photoOrder : {};
+    const real = cats.slice(1);
+
+    real.sort((a, b) => {
+      const ia = catOrder.indexOf(a.name);
+      const ib = catOrder.indexOf(b.name);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return 0;
+    });
+
+    real.forEach((cat) => {
+      const order = photoOrder[cat.name];
+      if (!Array.isArray(order) || !order.length) return;
+      cat.photos.sort((a, b) => {
+        const ia = order.indexOf(a.filename);
+        const ib = order.indexOf(b.filename);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return 0;
+      });
+    });
+
+    const all = [];
+    real.forEach((c) => all.push(...c.photos));
+    cats[0].photos = all;
+    cats.splice(0, cats.length, cats[0], ...real);
+  }
+
+  let rawTree = null;
+  let photoOrderData = null;
+  let hasShownInitialPhoto = false;
+
+  // Re-run whenever either the GitHub tree or the admin's saved order
+  // changes (both arrive independently and asynchronously). Only picks an
+  // initial photo the very first time — a reorder landing later, while a
+  // visitor is mid-browse, re-sorts the chin/grid under them without
+  // yanking their current photo out from under them.
+  function applyOrderAndRender() {
+    if (!rawTree) return;
+    categories = buildCategoriesFromTree(rawTree);
+    if (photoOrderData) applyPhotoOrderOverride(categories, photoOrderData);
+
+    const totalPhotos = categories.length ? categories[0].photos.length : 0;
+    if (!totalPhotos) {
+      showFatalMessage('No photos yet — add some to the /photos folder on GitHub to see them here.');
+      return;
+    }
+    if (!categories.some((c) => c.name === activeCategory)) activeCategory = 'All';
+
+    renderChin();
+    renderGrid();
+    if (!hasShownInitialPhoto) {
+      hasShownInitialPhoto = true;
+      selectPhoto(categories[0].photos[0]);
+    }
+  }
+
+  if (PHOTO_ORDER_DOC_REF) {
+    PHOTO_ORDER_DOC_REF.onSnapshot(function (doc) {
+      photoOrderData = doc.exists ? doc.data() : null;
+      applyOrderAndRender();
+    }, function (err) {
+      console.error('Photo order listener failed:', err);
+    });
+  }
+
   fetch(TREE_API)
     .then((res) => {
       if (!res.ok) throw new Error('GitHub API returned ' + res.status);
       return res.json();
     })
     .then((data) => {
-      categories = buildCategoriesFromTree(data.tree || []);
-      const totalPhotos = categories.length ? categories[0].photos.length : 0;
-
-      if (!totalPhotos) {
-        showFatalMessage('No photos yet — add some to the /photos folder on GitHub to see them here.');
-        return;
-      }
-
-      renderChin();
-      renderGrid();
-      selectPhoto(categories[0].photos[0]);
+      rawTree = data.tree || [];
+      applyOrderAndRender();
     })
     .catch((err) => {
       console.error(err);

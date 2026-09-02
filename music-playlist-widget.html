@@ -1119,6 +1119,15 @@
     white-space: nowrap;
   }
 
+  .sc-source {
+    font-size: clamp(8px, 2vw, 10px);
+    color: var(--text-dim);
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-top: 1px;
+  }
+
   .sc-progress-track {
     margin-top: 4px;
     width: 100%;
@@ -1217,6 +1226,7 @@
             <div class="sc-title" id="scTitle"><span class="sc-title-copy">Loading…</span></div>
           </div>
           <div class="sc-artist" id="scArtist"></div>
+          <div class="sc-source" id="scSourceLabel"></div>
           <div class="sc-progress-track" id="scProgressTrack">
             <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
           </div>
@@ -2492,6 +2502,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const scTitleWrapEl = document.getElementById('scTitleWrap');
   const scTitleEl = document.getElementById('scTitle');
   const scArtistEl = document.getElementById('scArtist');
+  const scSourceLabelEl = document.getElementById('scSourceLabel');
   const scProgressTrackEl = document.getElementById('scProgressTrack');
   const scProgressFillEl = document.getElementById('scProgressFill');
 
@@ -2510,6 +2521,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function setScNowPlayingFromSound(sound) {
     setScTitle(sound.title || 'Untitled');
     scArtistEl.textContent = getScAuthor(sound);
+    scSourceLabelEl.textContent = 'via SoundCloud';
     scArtworkImgEl.src = getScArtworkUrl(sound);
     scArtworkLinkEl.href = sound.permalink_url || '#';
     scArtworkLinkEl.title = 'Open on SoundCloud';
@@ -2574,6 +2586,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   setNowPlayingFromVideo = function (info) {
     setScTitle(info.title);
     scArtistEl.textContent = info.author || '';
+    scSourceLabelEl.textContent = 'via YouTube';
     scArtworkImgEl.src = info.thumbnail;
     scArtworkLinkEl.href = info.linkUrl || '#';
     scArtworkLinkEl.title = 'Open on YouTube';
