@@ -455,9 +455,13 @@
     // ---------- Auto-hiding controls ----------
     // Both overlay buttons stay invisible until you interact, then fade
     // out again — hovering keeps them up on a real mouse (desktop), while
-    // a touch device has no hover, so a tap reveals them and a timer
-    // hides them again a second later.
-    const CONTROLS_AUTO_HIDE_MS = 1000;
+    // a touch device has no hover, so a tap reveals them, auto-hiding
+    // after a few seconds. Since that leaves no way to dismiss them on
+    // purpose, a second tap anywhere on the video itself hides them
+    // immediately too — tapping an actual control (unmute, scrubber)
+    // never counts as that second "close" tap, it should just do its own
+    // thing instead of also yanking the bar out from under it.
+    const CONTROLS_AUTO_HIDE_MS = 3000;
     const supportsHover = window.matchMedia('(hover: hover)').matches;
     let controlsHideTimer = null;
 
@@ -480,7 +484,17 @@
       playerBoxEl.addEventListener('mouseenter', () => showControls(false));
       playerBoxEl.addEventListener('mouseleave', () => hideControlsNow());
     } else {
-      playerBoxEl.addEventListener('touchstart', () => showControls(true), { passive: true });
+      playerBoxEl.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.unmute-btn, .scrubber')) {
+          showControls(true);
+          return;
+        }
+        if (gridFrameEl.classList.contains('controls-visible')) {
+          hideControlsNow();
+        } else {
+          showControls(true);
+        }
+      }, { passive: true });
     }
 
     // Real playback goes through the YouTube IFrame Player API (not a
