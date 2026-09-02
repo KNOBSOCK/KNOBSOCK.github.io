@@ -241,6 +241,9 @@
     line-height: 1;
     padding: 0 2px;
     user-select: none;
+    /* Without this, a touch-drag on the grip gets read as a page-scroll
+       gesture instead — the drag never gets a chance to start. */
+    touch-action: none;
   }
   .row-fields {
     flex: 1 1 auto;
@@ -318,6 +321,18 @@
     border-radius: 8px;
     padding: 10px 12px;
     margin-bottom: 16px;
+  }
+
+  .import-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .inline-input {
+    flex: 1 1 180px;
+    width: auto;
+    min-width: 0;
   }
 
   /* ---------- PHOTOS TAB ---------- */
@@ -457,6 +472,12 @@
             <button type="button" class="btn" id="videosAddBtn">+ Add Video</button>
           </div>
         </div>
+        <div class="import-row">
+          <input type="text" class="inline-input" id="videosApiKey" placeholder="YouTube Data API key">
+          <input type="text" class="inline-input" id="videosPlaylistUrl" placeholder="Paste a YouTube playlist link">
+          <button type="button" class="btn" id="videosImportBtn">Import Playlist</button>
+        </div>
+        <div class="note">Bulk-adds every video in a YouTube playlist, with titles filled in automatically. Needs a free YouTube Data API v3 key (console.cloud.google.com → APIs &amp; Services → Credentials) — only used for this import, and saved just in this browser, never in the site's source. Consider restricting the key to your own domain in the Cloud Console.</div>
         <div class="list-scroll" id="videosList"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="videosSaveBtn">Save Changes</button>
@@ -485,6 +506,12 @@
             <button type="button" class="btn" id="musicAddBtn">+ Add Track</button>
           </div>
         </div>
+        <div class="import-row">
+          <input type="text" class="inline-input" id="musicApiKey" placeholder="YouTube Data API key">
+          <input type="text" class="inline-input" id="musicPlaylistUrl" placeholder="Paste a YouTube playlist link">
+          <button type="button" class="btn" id="musicImportBtn">Import Playlist</button>
+        </div>
+        <div class="note">Bulk-adds every video in a YouTube playlist, with titles filled in automatically (SoundCloud tracks still aren't affected). Needs a free YouTube Data API v3 key (console.cloud.google.com → APIs &amp; Services → Credentials) — only used for this import, and saved just in this browser, never in the site's source. Consider restricting the key to your own domain in the Cloud Console.</div>
         <div class="list-scroll" id="musicList"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="musicSaveBtn">Save Changes</button>
@@ -582,6 +609,20 @@
     return null;
   }
 
+  // A bare playlist ID (starts with PL/UU/LL/FL/RD/OLAK5uy...) pasted as-is,
+  // or the `list=` query param off any playlist/watch URL that has one.
+  function extractPlaylistId(input) {
+    if (!input) return null;
+    const trimmed = input.trim();
+    if (!/[\/\s]/.test(trimmed) && !/^https?:/i.test(trimmed)) return trimmed;
+    try {
+      const url = new URL(trimmed);
+      const list = url.searchParams.get('list');
+      if (list) return list;
+    } catch (err) { /* not a parseable URL */ }
+    return null;
+  }
+
   // ---------- LOGIN ----------
   const loginWrap = document.getElementById('loginWrap');
   const appEl = document.getElementById('app');
@@ -646,42 +687,64 @@
     });
   });
 
-  // ---------- DRAG-AND-DROP (native HTML5 DnD, no library) ----------
+  // ---------- DRAG-AND-DROP (Pointer Events, no library) ----------
+  // Built on Pointer Events rather than the native HTML5 Drag and Drop
+  // API — HTML5 DnD has no real touch support (iOS Safari doesn't fire
+  // its drag events from a touch at all, which is exactly why dragging
+  // didn't work on mobile), while Pointer Events fire consistently for
+  // mouse AND touch input alike, so one implementation covers both.
+  //
+  // A drag only starts from the small grip icon (not the whole row), so
+  // tapping/clicking anywhere else — a text input, a checkbox, a photo
+  // tab's own click-to-select — is never mistaken for a drag.
+  //
   // Rows carry `data-draggable` + a `data-index` matching their position
-  // at render time. Dragging over a sibling live-moves the DOM node so
-  // the drop position is always what's on screen; on drop, the caller
-  // gets the ORIGINAL indices in their new visual order and is
-  // responsible for reordering its own array and re-rendering (which
-  // rebuilds these same data-index values fresh from 0).
+  // at render time. While dragging, the row being moved has its pointer
+  // captured (so pointermove/up keep targeting it even off-element), and
+  // `document.elementFromPoint` finds whatever's really under the pointer
+  // to decide where to live-move it — capture makes `e.target` always
+  // report the captured element instead. On release, the caller gets the
+  // ORIGINAL indices in their new visual order and is responsible for
+  // reordering its own array and re-rendering (which rebuilds these same
+  // data-index values fresh from 0).
   function makeSortable(container, onReorder) {
     let dragEl = null;
-    container.addEventListener('dragstart', function (e) {
-      const row = e.target.closest('[data-draggable]');
+    let pointerId = null;
+
+    container.addEventListener('pointerdown', function (e) {
+      const handle = e.target.closest('.grip');
+      if (!handle) return;
+      const row = handle.closest('[data-draggable]');
       if (!row || row.parentNode !== container) return;
-      dragEl = row;
-      e.dataTransfer.effectAllowed = 'move';
-      try { e.dataTransfer.setData('text/plain', ''); } catch (err) { /* Safari quirk, harmless */ }
-      setTimeout(function () { row.classList.add('dragging'); }, 0);
-    });
-    container.addEventListener('dragend', function () {
-      if (dragEl) dragEl.classList.remove('dragging');
-      dragEl = null;
-    });
-    container.addEventListener('dragover', function (e) {
-      if (!dragEl) return;
       e.preventDefault();
-      const row = e.target.closest('[data-draggable]');
+      dragEl = row;
+      pointerId = e.pointerId;
+      try { row.setPointerCapture(pointerId); } catch (err) { /* older browsers, harmless */ }
+      row.classList.add('dragging');
+    });
+
+    container.addEventListener('pointermove', function (e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const row = under && under.closest ? under.closest('[data-draggable]') : null;
       if (!row || row === dragEl || row.parentNode !== container) return;
       const rect = row.getBoundingClientRect();
       const before = (e.clientY - rect.top) < rect.height / 2;
       container.insertBefore(dragEl, before ? row : row.nextSibling);
     });
-    container.addEventListener('drop', function (e) {
-      if (!dragEl) return;
-      e.preventDefault();
+
+    function endDrag(e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      dragEl.classList.remove('dragging');
+      try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
       const rows = Array.prototype.slice.call(container.querySelectorAll('[data-draggable]'));
       onReorder(rows.map(function (r) { return parseInt(r.dataset.index, 10); }));
-    });
+      dragEl = null;
+      pointerId = null;
+    }
+    container.addEventListener('pointerup', endDrag);
+    container.addEventListener('pointercancel', endDrag);
   }
 
   // ---------- SHARED VIDEO/MUSIC PLAYLIST EDITOR ----------
@@ -771,7 +834,7 @@
         return;
       }
       opts.listRoot.innerHTML = draftList.map(function (v, i) {
-        return '<div class="row" draggable="true" data-draggable data-index="' + i + '">' +
+        return '<div class="row" data-draggable data-index="' + i + '">' +
           '<span class="grip" title="Drag to reorder">&#10303;</span>' +
           '<div class="row-fields">' +
             '<input type="text" class="url-input" placeholder="' + opts.urlPlaceholder + '" value="' + escapeAttr(v.url) + '">' +
@@ -816,7 +879,7 @@
         return;
       }
       opts.creatorsRoot.innerHTML = draftCreators.map(function (row, i) {
-        return '<div class="row creator-row" draggable="true" data-draggable data-index="' + i + '">' +
+        return '<div class="row creator-row" data-draggable data-index="' + i + '">' +
           '<div class="creator-row-top">' +
             '<span class="grip" title="Drag to reorder">&#10303;</span>' +
             '<span class="raw-name">' + escapeAttr(row.raw) + '</span>' +
@@ -862,6 +925,91 @@
       fetchAllAuthors();
       setStatus('Reset to default list — click Save Changes to apply.');
     });
+
+    // ---------- IMPORT FROM YOUTUBE PLAYLIST ----------
+    // Bulk-adds every video in a playlist. noembed.com (used everywhere
+    // else in this file) only fetches ONE video's info at a time and has
+    // no way to list a playlist's contents at all, so this needs the real
+    // YouTube Data API v3 and its own API key — entered once here and
+    // kept in localStorage (shared between the Videos and Music tabs,
+    // never written into the site's own source, so nothing to expose by
+    // viewing page source). Each returned item already carries its title
+    // and uploader, so imported entries skip the usual per-video noembed
+    // fetch entirely, and only fall back to it if the API happened not to
+    // report an uploader for one.
+    const YT_KEY_STORAGE = 'knobsock-admin-yt-api-key';
+    if (opts.apiKeyInput) {
+      opts.apiKeyInput.value = localStorage.getItem(YT_KEY_STORAGE) || '';
+      opts.apiKeyInput.addEventListener('input', function () {
+        localStorage.setItem(YT_KEY_STORAGE, opts.apiKeyInput.value.trim());
+      });
+    }
+
+    function importPlaylist() {
+      const key = (opts.apiKeyInput.value || '').trim();
+      const playlistId = extractPlaylistId(opts.playlistUrlInput.value);
+      if (!key) { setStatus('Add your YouTube Data API key above first.', true); return; }
+      if (!playlistId) { setStatus('That doesn’t look like a playlist link or ID.', true); return; }
+
+      const existingIds = {};
+      draftList.forEach(function (v) {
+        const id = extractVideoId(v.url);
+        if (id) existingIds[id] = true;
+      });
+
+      const imported = [];
+      let addedCount = 0, dupeCount = 0, skippedCount = 0;
+
+      function fetchPage(pageToken) {
+        const params = new URLSearchParams({ part: 'snippet', maxResults: '50', playlistId: playlistId, key: key });
+        if (pageToken) params.set('pageToken', pageToken);
+        return fetch('https://www.googleapis.com/youtube/v3/playlistItems?' + params.toString())
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+          .then(function (result) {
+            const data = result.data;
+            if (!result.ok) throw new Error((data && data.error && data.error.message) || 'YouTube API request failed');
+            (data.items || []).forEach(function (item) {
+              const sn = item.snippet || {};
+              const vid = sn.resourceId && sn.resourceId.videoId;
+              if (!vid) return;
+              if (sn.title === 'Private video' || sn.title === 'Deleted video') { skippedCount++; return; }
+              if (existingIds[vid]) { dupeCount++; return; }
+              existingIds[vid] = true;
+              imported.push({
+                url: 'https://youtube.com/watch?v=' + vid,
+                title: sn.title || '',
+                author: sn.videoOwnerChannelTitle || null,
+                addedAt: Date.now()
+              });
+              addedCount++;
+            });
+            setStatus('Importing… ' + (addedCount + dupeCount + skippedCount) + ' seen so far');
+            if (data.nextPageToken) return fetchPage(data.nextPageToken);
+          });
+      }
+
+      opts.importBtn.disabled = true;
+      setStatus('Importing playlist…');
+      fetchPage(null)
+        .then(function () {
+          draftList = imported.concat(draftList);
+          renderList();
+          draftCreators = buildDraftCreators();
+          renderCreators();
+          fetchAllAuthors();
+          const bits = ['Imported ' + addedCount + ' ' + (addedCount === 1 ? opts.singular.toLowerCase() : opts.plural) + '.'];
+          if (dupeCount) bits.push(dupeCount + ' already in the list.');
+          if (skippedCount) bits.push(skippedCount + ' private/deleted, skipped.');
+          setStatus(bits.join(' '));
+        })
+        .catch(function (err) {
+          setStatus('Import failed: ' + (err && err.message ? err.message : 'unknown error'), true);
+        })
+        .finally(function () {
+          opts.importBtn.disabled = false;
+        });
+    }
+    if (opts.importBtn) opts.importBtn.addEventListener('click', importPlaylist);
 
     opts.saveBtn.addEventListener('click', function () {
       const cleaned = draftList
@@ -998,7 +1146,7 @@
   function renderPhotoCategoryTabs() {
     photoCatTabsEl.innerHTML = categoryOrderDraft.map(function (name, i) {
       const count = (photoOrderDraft[name] || []).length;
-      return '<button type="button" class="photo-cat-tab' + (name === activePhotoCategory ? ' active' : '') + '" draggable="true" data-draggable data-index="' + i + '">' +
+      return '<button type="button" class="photo-cat-tab' + (name === activePhotoCategory ? ' active' : '') + '" data-draggable data-index="' + i + '">' +
         '<span class="grip">&#10303;</span>' + escapeAttr(name) + ' (' + count + ')' +
       '</button>';
     }).join('');
@@ -1018,7 +1166,7 @@
     photoGridEl.innerHTML = filenames.map(function (fn, i) {
       const photo = byFilename.get(fn);
       if (!photo) return '';
-      return '<div class="photo-tile" draggable="true" data-draggable data-index="' + i + '" title="' + escapeAttr(fn) + '">' +
+      return '<div class="photo-tile" data-draggable data-index="' + i + '" title="' + escapeAttr(fn) + '">' +
         '<img src="' + thumbUrl(photo.path) + '" alt="' + escapeAttr(fn) + '" loading="lazy">' +
         '<span class="grip">&#10303;</span>' +
       '</div>';
@@ -1121,6 +1269,9 @@
       saveBtn: document.getElementById('videosSaveBtn'),
       resetBtn: document.getElementById('videosResetBtn'),
       statusEl: document.getElementById('videosStatus'),
+      apiKeyInput: document.getElementById('videosApiKey'),
+      playlistUrlInput: document.getElementById('videosPlaylistUrl'),
+      importBtn: document.getElementById('videosImportBtn'),
       defaultList: DEFAULT_VIDEO_LIST,
       urlPlaceholder: 'Paste a YouTube link',
       singular: 'Video',
@@ -1136,6 +1287,9 @@
       saveBtn: document.getElementById('musicSaveBtn'),
       resetBtn: document.getElementById('musicResetBtn'),
       statusEl: document.getElementById('musicStatus'),
+      apiKeyInput: document.getElementById('musicApiKey'),
+      playlistUrlInput: document.getElementById('musicPlaylistUrl'),
+      importBtn: document.getElementById('musicImportBtn'),
       defaultList: DEFAULT_MUSIC_LIST,
       urlPlaceholder: 'Paste a YouTube link',
       singular: 'Track',
