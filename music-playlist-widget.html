@@ -1146,6 +1146,12 @@ let currentVideoList = DEFAULT_VIDEO_LIST;
 let creatorAliases = {};
 let creatorOrder = [];
 let hiddenCreators = [];
+// Admin-set priority order for album groups (see the "Albums" section
+// of admin.html's Music tab) — used by orderVisibleForFilter() below to
+// put a specific album first regardless of which track in it was added
+// most recently. An album not listed here still gets grouped, just
+// sorted in after every explicitly-ordered one, by recency.
+let albumOrder = [];
 
 // Which creator the chin is currently filtering to — null means "All".
 let activeAuthorFilter = null;
@@ -1451,17 +1457,28 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       const key = e.album || '';
       let g = byAlbum.get(key);
       if (!g) {
-        g = { maxAdded: 0, items: [] };
+        g = { album: key, maxAdded: 0, items: [] };
         byAlbum.set(key, g);
         groups.push(g);
       }
       g.items.push(e);
       if ((e.addedAt || 0) > g.maxAdded) g.maxAdded = e.addedAt || 0;
     });
-    // Array#sort is stable — groups tied on maxAdded (e.g. no addedAt at
+    // An album in the admin-set albumOrder (see admin.html's "Albums"
+    // section) sorts by that explicit position first, taking priority
+    // over recency entirely; an album not listed there sorts in after
+    // every explicitly-ordered one, newest-added-track first. Array#sort
+    // is stable — ties (e.g. two unordered albums with no addedAt at
     // all) keep the order they first appeared in, instead of jumping
     // around on every re-render.
-    groups.sort((a, b) => b.maxAdded - a.maxAdded);
+    groups.sort((a, b) => {
+      const ia = albumOrder.indexOf(a.album);
+      const ib = albumOrder.indexOf(b.album);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return b.maxAdded - a.maxAdded;
+    });
     return groups.reduce((all, g) => all.concat(g.items), []);
   }
 
@@ -2007,6 +2024,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     creatorAliases = (data && data.creatorAliases && typeof data.creatorAliases === 'object') ? data.creatorAliases : {};
     creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
     hiddenCreators = (data && Array.isArray(data.hiddenCreators)) ? data.hiddenCreators : [];
+    albumOrder = (data && Array.isArray(data.albumOrder)) ? data.albumOrder : [];
     handlePlaylistSnapshot(list);
   }, function (err) {
     console.error('Playlist sync error:', err);
