@@ -208,7 +208,7 @@
     justify-content: center;
   }
 
-  /* Live stats bar (active viewers + total views). .video-pane reserves
+  /* Live stats bar (active viewers). .video-pane reserves
      a fixed strip at its bottom via padding-bottom, so the video itself
      (sized via cqw/cqh above) never extends into this area — the bar
      sits right below the video instead of overlaying it. */
@@ -240,10 +240,6 @@
     background: var(--accent);
     box-shadow: 0 0 6px var(--accent);
     flex: none;
-  }
-
-  .stat-divider {
-    color: var(--accent-dim);
   }
 
   .pill-btn {
@@ -721,8 +717,6 @@
     <div class="stream-stats" id="streamStats">
       <span class="" aria-hidden="true"></span>
       <span id="activeViewersCount">0</span>watching
-      <span class="stat-divider">&middot;</span>
-      <span id="totalViewsCount">0</span>views
     </div>
   </div>
 
@@ -1726,43 +1720,25 @@
 })();
 </script>
 
-<!-- ---------- LIVE STATS (active viewers + total views) ----------
+<!-- ---------- LIVE STATS (active viewers) ----------
      Reuses the same Firebase app/project the chat above already
-     initialized — no separate config needed. "Views" increments once
-     per browser tab/session. "Watching now" is a lightweight presence
-     system: each open tab writes a heartbeat every 15s, and every
-     client independently counts how many heartbeats are still fresh
-     to get a live concurrent-viewer count, with no extra backend. -->
+     initialized — no separate config needed. "Watching now" is a
+     lightweight presence system: each open tab writes a heartbeat
+     every 15s, and every client independently counts how many
+     heartbeats are still fresh to get a live concurrent-viewer count,
+     with no extra backend. -->
 <script>
 (function () {
   const activeEl = document.getElementById('activeViewersCount');
-  const totalEl = document.getElementById('totalViewsCount');
-  if (!activeEl || !totalEl) return;
+  if (!activeEl) return;
 
   const db = firebase.firestore(); // reuses the app the chat widget already initialized
-  const statsRef = db.collection('chat_stats').doc('overview');
   const presenceId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
   const presenceRef = db.collection('chat_presence').doc(presenceId);
 
   const HEARTBEAT_MS = 15000;      // how often this tab refreshes its own presence
   const ACTIVE_WINDOW_MS = 40000;  // a presence doc counts as "active" if newer than this
   const STALE_CLEANUP_MS = 120000; // opportunistically delete very old presence docs
-
-  // ---- total view count: count this tab once, then just listen live ----
-  if (!sessionStorage.getItem('streamViewCounted')) {
-    sessionStorage.setItem('streamViewCounted', '1');
-    statsRef
-      .set({ totalViews: firebase.firestore.FieldValue.increment(1) }, { merge: true })
-      .catch((e) => console.error(e));
-  }
-
-  statsRef.onSnapshot(
-    (doc) => {
-      const data = doc.data();
-      totalEl.textContent = data && typeof data.totalViews === 'number' ? data.totalViews : 0;
-    },
-    (err) => console.error(err)
-  );
 
   // ---- active viewers: heartbeat presence, counted client-side ----
   let presenceById = {};
