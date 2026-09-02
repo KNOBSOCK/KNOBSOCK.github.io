@@ -168,6 +168,18 @@
     color: var(--text-dim);
   }
 
+  /* On a narrow phone, ADMIN + email + Sign Out already fill most of the
+     row, squeezing .tabs down to a sliver — since it's still wider than
+     that sliver, it becomes a horizontally-scrollable strip that starts
+     mid-scrolled instead of at "Videos", showing a clipped slice of two
+     tab labels instead of any one of them in full. Simplest fix: give
+     the tabs their own full-width row below, where there's easily enough
+     room for all four labels without needing to scroll at all. */
+  @media (max-width: 640px) {
+    .topbar { flex-wrap: wrap; row-gap: 8px; }
+    .tabs { order: 1; flex: 1 1 100%; overflow-x: visible; }
+  }
+
   .tab-panel { padding: 20px; max-width: 1200px; margin: 0 auto; }
   .tab-panel[hidden] { display: none; }
 
