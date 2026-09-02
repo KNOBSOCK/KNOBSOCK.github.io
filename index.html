@@ -42,6 +42,11 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     min-height: 100%;
+    /* Custom cursor sitewide-on-this-page — hotspot (2,2) sits on the
+       icon's own tip. Only covers this document itself: an iframe (nav
+       buttons, video/music players, etc.) is a separate document with
+       its own cursor styling, so this can't reach inside those. */
+    cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-default.png") 2 2, auto;
     /* The mobile carousel's side cards deliberately sit past the edges of
        the layout, so they'd otherwise widen the page and let it drag
        sideways. Vertical scrolling is untouched — leaving overflow-y
@@ -99,7 +104,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 70px;
+    width: 35px;
     z-index: 9999;
     pointer-events: none;
     opacity: 0;
@@ -241,7 +246,14 @@
      links, so they have to take clicks. */
   a.panel-label {
     pointer-events: auto;
-    cursor: pointer;
+    cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
+  }
+  /* Plain links/buttons that don't already declare their own cursor
+     above or below — a browser shows pointer on these regardless of
+     any author CSS, so this plain, low-specificity selector is enough
+     to override that default everywhere else on the page. */
+  a, button {
+    cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
   }
   .panel-label img { display: block; width: 100%; height: auto; }
   @keyframes floatY {
@@ -467,7 +479,7 @@
       z-index: 4;
     }
     .columns-row .panel:not(.is-active) {
-      cursor: pointer;
+      cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
     }
   }
   /* Desktop never needs the capture layer — there's no carousel to
@@ -638,7 +650,7 @@
     if (!window.matchMedia('(pointer: fine)').matches) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const HEAD_W = 70; // must match #chaseHead's CSS width
+    const HEAD_W = 35; // must match #chaseHead's CSS width
     const HEAD_H = HEAD_W * (1718 / 1279); // source photo's own aspect ratio
     // Eye centers as a fraction of the head image's own box, read off
     // the source photo — this is what actually aims the lasers.
@@ -647,8 +659,8 @@
 
     // Trails just up-left of the pointer instead of centering on it,
     // so it never sits exactly on top of whatever you're pointing at.
-    const OFFSET_X = 22;
-    const OFFSET_Y = -50;
+    const OFFSET_X = 11;
+    const OFFSET_Y = -25;
     const EASE = 0.07; // lower = laggier chase
 
     let mouseX = window.innerWidth / 2;
@@ -656,20 +668,61 @@
     let headX = mouseX;
     let headY = mouseY;
     let hasMouse = false;
+    // True while the real cursor is somewhere inside an <iframe> (nav
+    // buttons, the video/music players, article cards, ...). Each is a
+    // separate document/browsing context, so a mousemove happening
+    // inside one never reaches this page's own `window` listener at
+    // all — without this, the head would freeze solid the instant the
+    // cursor crossed into any of them, which is most of the page's own
+    // clickable/animated content.
+    let insideIframe = false;
 
     window.addEventListener('mousemove', function (e) {
       mouseX = e.clientX;
       mouseY = e.clientY;
+      insideIframe = false;
       if (!hasMouse) {
         hasMouse = true;
         head.classList.add('visible');
       }
     }, { passive: true });
 
+    // mouseenter/mouseleave on the <iframe> ELEMENT itself still fire
+    // normally on this document (crossing its border counts as
+    // entering/leaving that element) even though movement WITHIN it
+    // doesn't — so on entry, aim for its center as a best-available
+    // approximation instead of just leaving the last stale position as
+    // the target forever.
+    document.querySelectorAll('iframe').forEach(function (frame) {
+      frame.addEventListener('mouseenter', function () {
+        const r = frame.getBoundingClientRect();
+        mouseX = r.left + r.width / 2;
+        mouseY = r.top + r.height / 2;
+        insideIframe = true;
+        if (!hasMouse) {
+          hasMouse = true;
+          head.classList.add('visible');
+        }
+      });
+      frame.addEventListener('mouseleave', function () {
+        insideIframe = false;
+      });
+    });
+
     function animate() {
       if (hasMouse) {
-        headX += (mouseX + OFFSET_X - headX) * EASE;
-        headY += (mouseY + OFFSET_Y - headY) * EASE;
+        let targetX = mouseX + OFFSET_X;
+        let targetY = mouseY + OFFSET_Y;
+        if (insideIframe) {
+          // Can't see the exact cursor position in here — idle-bob
+          // around the approximate spot instead of sitting frozen, so
+          // it still visibly reads as "alive" while over one of these.
+          const t = performance.now() / 500;
+          targetX += Math.sin(t) * 14;
+          targetY += Math.cos(t * 0.8) * 10;
+        }
+        headX += (targetX - headX) * EASE;
+        headY += (targetY - headY) * EASE;
         head.style.transform = 'translate3d(' + (headX - HEAD_W / 2) + 'px, ' + (headY - HEAD_H / 2) + 'px, 0)';
       }
       requestAnimationFrame(animate);
