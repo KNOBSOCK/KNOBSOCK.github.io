@@ -504,7 +504,7 @@
           <input type="text" class="inline-input" id="musicPlaylistUrl" placeholder="Paste a YouTube or YouTube Music playlist link">
           <button type="button" class="btn" id="musicImportBtn">Import Playlist</button>
         </div>
-        <div class="note">Bulk-adds every video in a YouTube (or YouTube Music) playlist, with titles filled in automatically. No API key needed — this goes through Piped, a free open-source YouTube mirror, instead of Google's official API. That's a volunteer-run, unofficial service though: if an import fails, it's usually worth just trying again (it tries a few public Piped instances in turn), and it isn't something to rely on if it ever stops working entirely.</div>
+        <div class="note">Bulk-adds every video in a YouTube (or YouTube Music) playlist, with titles filled in automatically. No API key needed — this goes through Piped and Invidious, two free open-source YouTube mirrors, instead of Google's official API. Both are volunteer-run, unofficial services though: it tries every public instance of each in turn before giving up, but if an import ever fails outright, it's usually worth just trying again in a bit.</div>
         <div class="list-scroll" id="musicList"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="musicSaveBtn">Save Changes</button>
@@ -930,27 +930,111 @@
     // video's info at a time and has no way to list a playlist's contents
     // at all. The official way is the YouTube Data API v3, which needs
     // its own API key (free for this kind of use, but still a Google
-    // Cloud project to set up) — this uses Piped instead, a free,
-    // open-source, community-run mirror of YouTube's own data with a
-    // public, CORS-enabled, no-key API. The tradeoff is that it's
-    // unofficial and volunteer-run, with no uptime guarantee and any one
-    // instance can be down, so this tries a short list of public
-    // instances in turn rather than just one.
+    // Cloud project to set up) — this goes through two independent,
+    // free, open-source, no-key YouTube mirror networks instead: Piped,
+    // then Invidious as a second tier if every Piped instance fails.
+    // Both are volunteer-run with no uptime guarantee, and unlike an
+    // official API, individual instances routinely go down, get
+    // rate-limited, or sit behind bot-detection that blocks a plain
+    // fetch — so this fetches Piped's own live instance list (kept
+    // up to date by the Piped project) rather than a fixed one that
+    // could quietly go stale, tries every instance in turn, and only
+    // falls through to Invidious once all of them have failed.
     if (opts.importBtn) {
-      const PIPED_INSTANCES = [
+      const UNAVAILABLE_TITLES = ['private video', 'deleted video', '[private video]', '[deleted video]'];
+
+      // Used only if the live registry fetch below fails outright (not
+      // just if every listed instance is down — that's a separate,
+      // expected case already handled by trying the next one).
+      const PIPED_FALLBACK_INSTANCES = [
         'https://pipedapi.kavin.rocks',
         'https://pipedapi.adminforge.de',
         'https://pipedapi.r4fo.com',
         'https://api.piped.yt',
-        'https://pipedapi.leptons.xyz'
+        'https://pipedapi.leptons.xyz',
+        'https://piped-api.lunar.icu',
+        'https://pipedapi.syncpundit.io',
+        'https://pipedapi.moomoo.me'
       ];
-      const UNAVAILABLE_TITLES = ['private video', 'deleted video', '[private video]', '[deleted video]'];
+      let cachedPipedInstances = null;
+      function getPipedInstances() {
+        if (cachedPipedInstances) return Promise.resolve(cachedPipedInstances);
+        return fetch('https://piped-instances.kavin.rocks/')
+          .then(function (res) { if (!res.ok) throw new Error('registry request failed'); return res.json(); })
+          .then(function (list) {
+            const urls = Array.isArray(list)
+              ? list.map(function (entry) { return entry && entry.api_url; }).filter(Boolean)
+              : [];
+            const merged = urls.concat(PIPED_FALLBACK_INSTANCES.filter(function (u) { return urls.indexOf(u) === -1; }));
+            cachedPipedInstances = merged.length ? merged : PIPED_FALLBACK_INSTANCES;
+            return cachedPipedInstances;
+          })
+          .catch(function () {
+            cachedPipedInstances = PIPED_FALLBACK_INSTANCES;
+            return cachedPipedInstances;
+          });
+      }
+
+      const INVIDIOUS_INSTANCES = [
+        'https://inv.nadeko.net',
+        'https://invidious.nerdvpn.de',
+        'https://iv.ggtyler.dev',
+        'https://invidious.f5.si',
+        'https://yewtu.be'
+      ];
+
+      // Piped's own `url` field per item is a relative path (e.g.
+      // "/watch?v=xxxxxxxxxxx"), not a full youtube.com URL —
+      // extractVideoId's patterns all require that domain literal, so a
+      // fake one gets prefixed on just for this parse.
+      function fetchPipedPage(base, playlistId, cursor) {
+        const url = base + '/playlists/' + encodeURIComponent(playlistId) +
+          (cursor ? '?nextpage=' + encodeURIComponent(cursor) : '');
+        return fetch(url).then(function (res) {
+          if (!res.ok) throw new Error('Piped request failed (' + res.status + ')');
+          return res.json();
+        }).then(function (data) {
+          if (data && data.error) throw new Error(data.message || String(data.error));
+          const items = (data.relatedStreams || []).map(function (item) {
+            return {
+              videoId: extractVideoId('https://youtube.com' + (item.url || '')),
+              title: (item.title || '').trim(),
+              author: item.uploaderName || null
+            };
+          });
+          return { items: items, nextCursor: data.nextpage || null };
+        });
+      }
+
+      // Invidious paginates by plain page number instead of an opaque
+      // cursor, and doesn't report a total page count up front — so this
+      // just keeps requesting the next page until one comes back empty.
+      function fetchInvidiousPage(base, playlistId, cursor) {
+        const page = cursor || 1;
+        const url = base + '/api/v1/playlists/' + encodeURIComponent(playlistId) + '?page=' + page;
+        return fetch(url).then(function (res) {
+          if (!res.ok) throw new Error('Invidious request failed (' + res.status + ')');
+          return res.json();
+        }).then(function (data) {
+          if (data && data.error) throw new Error(data.error);
+          const videos = data.videos || [];
+          const items = videos.map(function (v) {
+            return { videoId: v.videoId || null, title: (v.title || '').trim(), author: v.author || null };
+          });
+          return { items: items, nextCursor: items.length ? page + 1 : null };
+        });
+      }
+
+      const PROVIDERS = [
+        { name: 'Piped', getInstances: getPipedInstances, fetchPage: fetchPipedPage },
+        { name: 'Invidious', getInstances: function () { return Promise.resolve(INVIDIOUS_INSTANCES); }, fetchPage: fetchInvidiousPage }
+      ];
 
       // Each instance attempt gets its own isolated existingIds/imported/
       // counts, seeded fresh from the current draftList — so a partial
       // result from an instance that fails partway through pagination
       // never leaks into the next instance's attempt.
-      function attemptInstance(base, playlistId) {
+      function attemptInstance(provider, base, playlistId) {
         const existingIds = {};
         draftList.forEach(function (v) {
           const id = extractVideoId(v.url);
@@ -959,35 +1043,18 @@
         const imported = [];
         let addedCount = 0, dupeCount = 0, skippedCount = 0;
 
-        function loadPage(nextpage) {
-          const url = base + '/playlists/' + encodeURIComponent(playlistId) +
-            (nextpage ? '?nextpage=' + encodeURIComponent(nextpage) : '');
-          return fetch(url).then(function (res) {
-            if (!res.ok) throw new Error('Piped request failed (' + res.status + ')');
-            return res.json();
-          }).then(function (data) {
-            if (data && data.error) throw new Error(data.message || String(data.error));
-            (data.relatedStreams || []).forEach(function (item) {
-              // Piped's own `url` field is a relative path (e.g.
-              // "/watch?v=xxxxxxxxxxx"), not a full youtube.com URL —
-              // extractVideoId's patterns all require that domain literal,
-              // so a fake one gets prefixed on just for this parse.
-              const vid = extractVideoId('https://youtube.com' + (item.url || ''));
-              if (!vid) return;
-              const title = (item.title || '').trim();
-              if (!title || UNAVAILABLE_TITLES.indexOf(title.toLowerCase()) !== -1) { skippedCount++; return; }
-              if (existingIds[vid]) { dupeCount++; return; }
-              existingIds[vid] = true;
-              imported.push({
-                url: 'https://youtube.com/watch?v=' + vid,
-                title: title,
-                author: item.uploaderName || null,
-                addedAt: Date.now()
-              });
+        function loadPage(cursor) {
+          return provider.fetchPage(base, playlistId, cursor).then(function (result) {
+            result.items.forEach(function (item) {
+              if (!item.videoId) return;
+              if (!item.title || UNAVAILABLE_TITLES.indexOf(item.title.toLowerCase()) !== -1) { skippedCount++; return; }
+              if (existingIds[item.videoId]) { dupeCount++; return; }
+              existingIds[item.videoId] = true;
+              imported.push({ url: 'https://youtube.com/watch?v=' + item.videoId, title: item.title, author: item.author, addedAt: Date.now() });
               addedCount++;
             });
-            setStatus('Importing… ' + (addedCount + dupeCount + skippedCount) + ' seen so far');
-            if (data.nextpage) return loadPage(data.nextpage);
+            setStatus('Importing via ' + provider.name + '… ' + (addedCount + dupeCount + skippedCount) + ' seen so far');
+            if (result.nextCursor) return loadPage(result.nextCursor);
           });
         }
 
@@ -996,12 +1063,23 @@
         });
       }
 
-      function tryInstances(idx, playlistId) {
-        if (idx >= PIPED_INSTANCES.length) {
-          return Promise.reject(new Error('Couldn’t reach any Piped mirror right now — try again in a bit.'));
+      function tryProviderInstances(provider, instances, idx, playlistId, lastErr) {
+        if (idx >= instances.length) return Promise.reject(lastErr || new Error(provider.name + ': no instances reachable'));
+        return attemptInstance(provider, instances[idx], playlistId).catch(function (err) {
+          return tryProviderInstances(provider, instances, idx + 1, playlistId, err);
+        });
+      }
+
+      function tryProviders(idx, playlistId, lastErr) {
+        if (idx >= PROVIDERS.length) {
+          return Promise.reject(new Error((lastErr && lastErr.message ? lastErr.message + ' — ' : '') +
+            'tried every Piped and Invidious mirror; none of them worked right now.'));
         }
-        return attemptInstance(PIPED_INSTANCES[idx], playlistId).catch(function () {
-          return tryInstances(idx + 1, playlistId);
+        const provider = PROVIDERS[idx];
+        return provider.getInstances().then(function (instances) {
+          return tryProviderInstances(provider, instances, 0, playlistId);
+        }).catch(function (err) {
+          return tryProviders(idx + 1, playlistId, err);
         });
       }
 
@@ -1011,7 +1089,7 @@
 
         opts.importBtn.disabled = true;
         setStatus('Importing playlist…');
-        tryInstances(0, playlistId)
+        tryProviders(0, playlistId)
           .then(function (result) {
             draftList = result.imported.concat(draftList);
             renderList();
