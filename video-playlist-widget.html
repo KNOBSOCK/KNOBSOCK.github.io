@@ -1245,7 +1245,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   // the fullscreen session, and folds wherever it ends up back into the
   // normal in-page player on exit. Every other platform keeps the
   // wrapper-div fullscreen above, untouched — it already works there.
-  const isIOS = /iP(hone|od|ad)/.test(navigator.platform) ||
+  const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
+    /iP(hone|od|ad)/.test(navigator.platform) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let iosFsFrame = null;
   let iosFsPlayer = null;
@@ -1262,41 +1263,51 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (ytPlayer) ytPlayer.playVideo();
     updateFullscreenIcon();
   }
+  // Returns true once it's actually kicked off the native-handoff
+  // attempt, false if it bailed out for any reason (nothing loaded yet,
+  // the requestFullscreen call itself threw, …) — the click handler
+  // below falls back to the ordinary wrapper-div/pseudo-fullscreen path
+  // whenever this returns false, so a tap always does *something*
+  // instead of silently no-oping if this path can't run.
   function enterIosFullscreen() {
-    const current = PLAYLIST[activeIndex];
-    if (!ytPlayer || !current || typeof ytPlayer.getCurrentTime !== 'function') return;
-    const startSeconds = ytPlayer.getCurrentTime() || 0;
-    const wasMuted = typeof ytPlayer.isMuted === 'function' ? ytPlayer.isMuted() : true;
-    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
-
-    iosFsFrame = document.createElement('iframe');
-    iosFsFrame.id = 'ytIosFsFrame';
-    iosFsFrame.allowFullscreen = true;
-    iosFsFrame.setAttribute('allow', 'accelerometer *; autoplay *; clipboard-write *; encrypted-media *; gyroscope *; picture-in-picture *; web-share *;');
-    iosFsFrame.setAttribute('referrerpolicy', 'strict-origin');
-    iosFsFrame.style.cssText = 'position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; border:0; z-index:99999; background:#000;';
-    iosFsFrame.src = 'https://www.youtube.com/embed/' + current.id +
-      '?rel=0&modestbranding=1&enablejsapi=1&playsinline=0' +
-      '&autoplay=1&mute=' + (wasMuted ? 1 : 0) +
-      '&start=' + Math.max(0, Math.floor(startSeconds));
-    document.body.appendChild(iosFsFrame);
-
     try {
+      const current = PLAYLIST[activeIndex];
+      if (!ytPlayer || !current || typeof ytPlayer.getCurrentTime !== 'function') return false;
+      if (!(HTMLElement.prototype.requestFullscreen || HTMLElement.prototype.webkitRequestFullscreen)) return false;
+
+      const startSeconds = ytPlayer.getCurrentTime() || 0;
+      const wasMuted = typeof ytPlayer.isMuted === 'function' ? ytPlayer.isMuted() : true;
+      if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+
+      iosFsFrame = document.createElement('iframe');
+      iosFsFrame.id = 'ytIosFsFrame';
+      iosFsFrame.allowFullscreen = true;
+      iosFsFrame.setAttribute('allow', 'accelerometer *; autoplay *; clipboard-write *; encrypted-media *; gyroscope *; picture-in-picture *; web-share *;');
+      iosFsFrame.setAttribute('referrerpolicy', 'strict-origin');
+      iosFsFrame.style.cssText = 'position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; border:0; z-index:99999; background:#000;';
+      iosFsFrame.src = 'https://www.youtube.com/embed/' + current.id +
+        '?rel=0&modestbranding=1&enablejsapi=1&playsinline=0' +
+        '&autoplay=1&mute=' + (wasMuted ? 1 : 0) +
+        '&start=' + Math.max(0, Math.floor(startSeconds));
+      document.body.appendChild(iosFsFrame);
+
       const result = iosFsFrame.requestFullscreen ? iosFsFrame.requestFullscreen() : iosFsFrame.webkitRequestFullscreen();
       if (result && typeof result.catch === 'function') result.catch(abortIosFullscreen);
+
+      iosFsActive = true;
+      updateFullscreenIcon();
+      iosFsPlayer = new YT.Player('ytIosFsFrame', {
+        events: {
+          onStateChange: function (event) {
+            if (event.data === YT.PlayerState.ENDED) exitIosFullscreen();
+          }
+        }
+      });
+      return true;
     } catch (e) {
       abortIosFullscreen();
-      return;
+      return false;
     }
-    iosFsActive = true;
-    updateFullscreenIcon();
-    iosFsPlayer = new YT.Player('ytIosFsFrame', {
-      events: {
-        onStateChange: function (event) {
-          if (event.data === YT.PlayerState.ENDED) exitIosFullscreen();
-        }
-      }
-    });
   }
   function exitIosFullscreen(skipExitFs) {
     if (!iosFsActive) return;
@@ -1333,8 +1344,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       else exitFs();
       return;
     }
-    if (isIOS) enterIosFullscreen();
-    else if (hasNativeFullscreenSupport(videoPane)) requestFs(videoPane);
+    if (isIOS && enterIosFullscreen()) return;
+    if (hasNativeFullscreenSupport(videoPane)) requestFs(videoPane);
     else enterPseudoFullscreen();
   });
   ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
