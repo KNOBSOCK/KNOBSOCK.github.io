@@ -1220,6 +1220,14 @@
     try { return localStorage.getItem(LAST_USERNAME_KEY); } catch (e) { return null; }
   }
 
+  // Only ever called when the device lock itself just got cleared (see
+  // the live listener below) — there's deliberately no user-facing way
+  // to trigger this, since forgetting a name on your own is exactly the
+  // identity-switching the device lock exists to prevent.
+  function forgetRememberedUsername() {
+    try { localStorage.removeItem(LAST_USERNAME_KEY); } catch (e) {}
+  }
+
   // ---------- DEVICE LOCK ----------
   // One browser, one username, forever — this is what actually stops
   // someone from ditching a name (sign out, clear the tab, whatever) and
@@ -1246,14 +1254,45 @@
   // browser/profile or a different browser is indistinguishable from a
   // brand-new visitor. That's the same ceiling the ban system already
   // operates under.
+  // A *live* listener rather than a one-time read: admin.html's "Free
+  // Up This Username" can delete this doc while this exact tab is
+  // sitting open and signed in, and that needs to boot the tab back to
+  // the join screen right away — same "takes effect immediately, not
+  // just on next reload" treatment the ban listener already gets.
   let deviceLockedUsername = null;
-  const deviceLockPromise = devicesRef.doc(CLIENT_ID).get().then((doc) => {
+  let resolveDeviceLockReady;
+  const deviceLockPromise = new Promise((resolve) => { resolveDeviceLockReady = resolve; });
+  let deviceLockReady = false;
+
+  function markDeviceLockReady() {
+    if (deviceLockReady) return;
+    deviceLockReady = true;
+    resolveDeviceLockReady();
+  }
+
+  devicesRef.doc(CLIENT_ID).onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
-    deviceLockedUsername = (data && data.username) || null;
-  }).catch(() => {
+    const lockedName = (data && data.username) || null;
+    const hadLock = deviceLockedUsername;
+    deviceLockedUsername = lockedName;
+    markDeviceLockReady();
+
+    // A ban screen takes priority over this — never stomp it — and only
+    // an already-open session that just lost the exact lock it was
+    // resumed from needs kicking; a lock that was never there to begin
+    // with (still-empty first read, or one that's simply moving from one
+    // name to another) isn't a free-up.
+    if (!currentlyBanned && hadLock && !lockedName && session) {
+      session = null;
+      forgetRememberedUsername();
+      if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+      renderAuth('An admin freed up your username — pick a new one to keep chatting.');
+    }
+  }, () => {
     // Can't confirm a lock (offline, rules not deployed yet, etc.) —
     // falls back to the locally-remembered name below rather than
     // blocking chat entirely over a read error.
+    markDeviceLockReady();
   });
 
   // ---------- USERNAME CLAIMING ----------
