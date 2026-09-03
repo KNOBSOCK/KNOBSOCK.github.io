@@ -684,9 +684,14 @@
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
       </div>
       <div class="video-frame-wrap">
+        <!-- No src here on purpose — it's set by JS once the configured
+             video id loads (see LIVE STREAM VIDEO below), so it's never
+             pointed at a stale hardcoded id even for a moment. The
+             .video-pane.is-loading overlay already hides this iframe
+             until playback actually starts, so the brief async gap
+             before src is set isn't visible. -->
         <iframe
           id="ytFrame"
-          src="https://www.youtube.com/embed/91UOOY-od88?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0"
           allowfullscreen
           scrolling="no"
           allow="accelerometer *; autoplay *; clipboard-write *; encrypted-media *; gyroscope *; picture-in-picture *; web-share *;"
@@ -1126,8 +1131,9 @@
 })();
 </script>
 
-<!-- YouTube IFrame Player API (lets the Unmute button control the existing embed) -->
-<script src="https://www.youtube.com/iframe_api"></script>
+<!-- YouTube IFrame Player API: injected by LIVE STREAM VIDEO below, once
+     the configured video id is known — not loaded unconditionally here,
+     so it never attaches to #ytFrame before the right id is set. -->
 
 <!-- Firebase SDK (compat build, no build tools needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1164,11 +1170,47 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const usernamesRef = db.collection('chat_usernames');
-  const usernameCountersRef = db.collection('chat_username_counters');
   const messagesRef = db.collection('chat_messages');
   const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
   const devicesRef = db.collection('chat_devices');
+
+  // ---------- LIVE STREAM VIDEO ----------
+  // Which video/stream #ytFrame embeds is admin-configurable (see
+  // admin.html's "Live Stream Video" section) instead of hardcoded, so a
+  // changed YouTube URL doesn't need a code deploy. A one-time read
+  // rather than a live listener — swapping the embed out from under
+  // someone mid-watch would just interrupt their playback, so this is
+  // meant to apply on next load, same as the other admin settings
+  // fields. The YouTube IFrame API script is only injected *after* this
+  // resolves (rather than loaded unconditionally), so it always attaches
+  // to the right video from the start instead of a hardcoded default
+  // that then gets swapped underneath it.
+  const DEFAULT_LIVE_VIDEO_ID = '91UOOY-od88';
+
+  function loadYouTubeIframeApi() {
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.body.appendChild(s);
+  }
+
+  function setLiveVideo(videoId) {
+    const frame = document.getElementById('ytFrame');
+    if (frame) {
+      frame.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
+    }
+    loadYouTubeIframeApi();
+  }
+
+  configRef.doc('liveVideo').get().then((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    setLiveVideo((data && data.videoId) || DEFAULT_LIVE_VIDEO_ID);
+  }).catch(() => {
+    // Can't confirm a configured video (offline, rules not deployed
+    // yet, etc.) — falls back to the built-in default rather than
+    // leaving the stream blank over a read error.
+    setLiveVideo(DEFAULT_LIVE_VIDEO_ID);
+  });
 
   let session = null; // { username }
   let unsubscribeMessages = null;
@@ -1286,7 +1328,7 @@
       session = null;
       forgetRememberedUsername();
       if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
-      renderAuth('An admin freed up your username — pick a new one to keep chatting.');
+      renderAuth('An admin signed you out — pick a new username to keep chatting.');
     }
   }, () => {
     // Can't confirm a lock (offline, rules not deployed yet, etc.) —
@@ -1296,28 +1338,23 @@
   });
 
   // ---------- USERNAME CLAIMING ----------
-  // Never rejects a name outright: the first person to type "gunoguap"
-  // gets it bare, and everyone after that gets the next free
-  // "gunoguap#0001", "gunoguap#0002", etc., up to "#9999". A per-base-name
-  // counter doc (chat_username_counters/<key>) hands out the next number
-  // instead of scanning up to 9999 possible docs to find a free one, and
-  // the whole read-then-write runs inside a single Firestore transaction
-  // so two people claiming the same name at the same instant can't both
-  // land on the bare name or the same number — Firestore itself retries
-  // one of the transactions against the other's committed result.
-  const USERNAME_SUFFIX_LIMIT = 9999;
-
-  function padSuffix(n) {
-    return String(n).padStart(4, '0');
-  }
-
+  // Usernames are permanently unique site-wide, first come first served —
+  // once "gunoguap" is taken, it's taken; nobody else gets "gunoguap#0001"
+  // as an automatic fallback. That auto-numbering used to exist because a
+  // device had no durable identity, so two different people who both
+  // wanted "gunoguap" needed some way to both get in; now that a device
+  // is permanently locked to one name (see DEVICE LOCK above), nobody
+  // needs to share a base name in the first place — a straight rejection
+  // with a clear "try another name" is simpler and good enough.
+  //
   // Returns { username, isNew }. isNew is false when this device already
   // owned a name coming in — the caller uses that to skip re-announcing
-  // a "join" for a device that never actually left.
+  // a "join" for a device that never actually left. Throws
+  // Error('USERNAME_TAKEN') if the requested name belongs to a different
+  // device already.
   async function claimUsernameSlot(rawUsername) {
     const baseKey = rawUsername.toLowerCase();
     const baseRef = usernamesRef.doc(baseKey);
-    const counterRef = usernameCountersRef.doc(baseKey);
     const deviceRef = devicesRef.doc(CLIENT_ID);
 
     // Checked as a plain read *before* the claim transaction, and any
@@ -1339,42 +1376,24 @@
       console.error('Device lock check failed, proceeding as a normal claim:', e);
     }
 
-    // Unchanged from before device-locking existed: claims (or suffixes)
-    // a username slot, isolated from the lock write below on purpose —
-    // this transaction succeeding is what actually gets someone into
-    // chat, and it must not depend on chat_devices being writable.
+    // Isolated from the lock write below on purpose — this transaction
+    // succeeding is what actually gets someone into chat, and it must
+    // not depend on chat_devices being writable.
     const finalUsername = await db.runTransaction(async (tx) => {
       const baseDoc = await tx.get(baseRef);
-      if (!baseDoc.exists) {
-        tx.set(baseRef, {
-          username: rawUsername,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          // Whoever claims a given username slot keeps it forever (see
-          // the comment above) — this is what lets admin.html resolve
-          // "ban this person" from a username straight to the one
-          // device that has ever actually owned it.
-          lastDeviceId: CLIENT_ID
-        });
-        return rawUsername;
+      if (baseDoc.exists) {
+        throw new Error('USERNAME_TAKEN');
       }
-
-      const counterDoc = await tx.get(counterRef);
-      const next = (counterDoc.exists ? counterDoc.data().next : 0) + 1;
-      if (next > USERNAME_SUFFIX_LIMIT) {
-        throw new Error('USERNAME_LIMIT_REACHED');
-      }
-
-      const suffixedUsername = rawUsername + '#' + padSuffix(next);
-      tx.set(counterRef, { next: next });
-      // Also registers the numbered form itself, so if someone later
-      // types "gunoguap#0001" literally, they get bumped to their own
-      // free number instead of colliding with this one.
-      tx.set(usernamesRef.doc(baseKey + '#' + padSuffix(next)), {
-        username: suffixedUsername,
+      tx.set(baseRef, {
+        username: rawUsername,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        // Whoever claims a given username slot keeps it forever (see
+        // the comment above) — this is what lets admin.html resolve
+        // "ban this person" from a username straight to the one
+        // device that has ever actually owned it.
         lastDeviceId: CLIENT_ID
       });
-      return suffixedUsername;
+      return rawUsername;
     });
 
     // Best-effort lock write: never blocks on this, and a failure here
@@ -1641,8 +1660,8 @@
       startChat();
     } catch (e) {
       console.error(e);
-      if (e && e.message === 'USERNAME_LIMIT_REACHED') {
-        renderAuth('That username has hit its 9999-user limit. Try another one.');
+      if (e && e.message === 'USERNAME_TAKEN') {
+        renderAuth('That username is already taken. Please choose another.');
       } else {
         renderAuth('Something went wrong. Please try again.');
       }
