@@ -1226,11 +1226,19 @@
   // rejoining as somebody else to impersonate another chatter. The first
   // username a device ever successfully claims gets written to
   // chat_devices/<CLIENT_ID>, and claimUsernameSlot() below always
-  // checks that doc *inside* its transaction before creating anything
-  // new — so even a resubmitted join form with a different typed name
-  // just hands back the device's existing name instead of creating a
-  // second one. Keyed by CLIENT_ID rather than username because the
-  // whole point is to bind the *device*, not the name.
+  // checks that doc before creating anything new — so even a
+  // resubmitted join form with a different typed name just hands back
+  // the device's existing name instead of creating a second one. Keyed
+  // by CLIENT_ID rather than username because the whole point is to
+  // bind the *device*, not the name.
+  //
+  // This lock is deliberately best-effort, not a hard gate: every read
+  // or write against chat_devices fails open (treated as "no lock yet")
+  // rather than blocking anything, so a problem with this one collection
+  // — Firestore rules not yet updated to allow it, an offline tab,
+  // whatever — degrades to "the anti-impersonation lock doesn't take
+  // effect this time," never to "chat stops working." See
+  // claimUsernameSlot() for where that matters most.
   //
   // Like CLIENT_ID itself, this only holds up as long as this browser's
   // localStorage (which is what CLIENT_ID lives in) survives — there's
@@ -1273,17 +1281,30 @@
     const counterRef = usernameCountersRef.doc(baseKey);
     const deviceRef = devicesRef.doc(CLIENT_ID);
 
-    return db.runTransaction(async (tx) => {
-      // Re-checked here (not just via the cached deviceLockedUsername)
-      // so two tabs on the same device racing to claim two different
-      // names at the same instant can't both slip through — whichever
-      // transaction commits first wins, and Firestore retries the other
-      // one against that committed state, which this read then sees.
-      const deviceDoc = await tx.get(deviceRef);
-      if (deviceDoc.exists) {
-        return { username: deviceDoc.data().username, isNew: false };
+    // Checked as a plain read *before* the claim transaction, and any
+    // failure here (offline, chat_devices not yet allowed by Firestore
+    // rules, whatever) is treated as "no lock yet" rather than aborting —
+    // a problem with the device lock must never be able to stop someone
+    // from joining chat at all, only from the anti-impersonation lock
+    // taking effect. This does reopen a narrow window where two tabs on
+    // a brand-new device could each claim a different name a few
+    // milliseconds apart before either lock write lands; that's an
+    // acceptable trade for never bricking chat over it.
+    try {
+      const deviceDoc = await deviceRef.get();
+      const lockedName = deviceDoc.exists && deviceDoc.data() && deviceDoc.data().username;
+      if (lockedName) {
+        return { username: lockedName, isNew: false };
       }
+    } catch (e) {
+      console.error('Device lock check failed, proceeding as a normal claim:', e);
+    }
 
+    // Unchanged from before device-locking existed: claims (or suffixes)
+    // a username slot, isolated from the lock write below on purpose —
+    // this transaction succeeding is what actually gets someone into
+    // chat, and it must not depend on chat_devices being writable.
+    const finalUsername = await db.runTransaction(async (tx) => {
       const baseDoc = await tx.get(baseRef);
       if (!baseDoc.exists) {
         tx.set(baseRef, {
@@ -1295,11 +1316,7 @@
           // device that has ever actually owned it.
           lastDeviceId: CLIENT_ID
         });
-        tx.set(deviceRef, {
-          username: rawUsername,
-          claimedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        return { username: rawUsername, isNew: true };
+        return rawUsername;
       }
 
       const counterDoc = await tx.get(counterRef);
@@ -1318,12 +1335,19 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastDeviceId: CLIENT_ID
       });
-      tx.set(deviceRef, {
-        username: suffixedUsername,
-        claimedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      return { username: suffixedUsername, isNew: true };
+      return suffixedUsername;
     });
+
+    // Best-effort lock write: never blocks on this, and a failure here
+    // (rules not updated for chat_devices yet, offline, etc.) can't undo
+    // or fail the claim above — worst case the anti-impersonation lock
+    // just doesn't take effect yet, chat still works either way.
+    devicesRef.doc(CLIENT_ID).set({
+      username: finalUsername,
+      claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch((e) => console.error('Could not persist device lock:', e));
+
+    return { username: finalUsername, isNew: true };
   }
 
   // Fetches this browser's public IP from a keyless lookup service and
@@ -1783,7 +1807,7 @@
       devicesRef.doc(CLIENT_ID).set({
         username: saved,
         claimedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(() => {});
+      }, { merge: true }).catch((e) => console.error('Could not persist device lock:', e));
       startChat();
       return;
     }
