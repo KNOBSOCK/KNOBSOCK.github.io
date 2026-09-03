@@ -147,11 +147,114 @@
   }
 
   .chat-pane {
+    position: relative;
     flex: 1 1 38%;
     min-width: 300px;
     display: flex;
     container-type: size;
     container-name: chatbox;
+  }
+
+  /* ---------- VODs DRAWER ----------
+     Pinned to the top of the chat pane on both layouts (unlike the
+     video's own viewer count in .stream-stats, which stays put in the
+     video pane) — .vods-tab never moves; only .vods-drawer's max-height
+     animates open/closed, unrolling down over the chat beneath it
+     rather than pushing it out of the way. */
+  .vods-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+  }
+  .vods-tab {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 1.5cqw, 10px);
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.8cqw, 13px);
+    padding: clamp(6px, 1.6cqh, 10px) 10px;
+    cursor: pointer;
+  }
+  .vods-tab-chevron {
+    display: inline-block;
+    font-size: 9px;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .vods-panel.open .vods-tab-chevron { transform: rotate(180deg); }
+
+  .vods-drawer {
+    flex: none;
+    max-height: 0;
+    overflow: hidden;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .vods-panel.open .vods-drawer {
+    max-height: min(60cqh, 420px);
+  }
+  .vods-list {
+    overflow-y: auto;
+    max-height: min(60cqh, 420px);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .vods-empty {
+    padding: 16px 10px;
+    text-align: center;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.8cqw, 12px);
+  }
+  .vod-row {
+    -webkit-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    padding: 6px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font-family: var(--font-body);
+  }
+  .vod-row:hover { background: rgba(255, 255, 255, 0.08); }
+  .vod-row.active { border-color: var(--accent); background: rgba(205, 50, 50, 0.25); }
+  .vod-row-thumb {
+    flex: none;
+    width: 88px;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--panel);
+  }
+  .vod-row-title {
+    min-width: 0;
+    font-size: clamp(11px, 2.8cqw, 13px);
+    line-height: 1.3;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   @media (max-width: 860px) {
@@ -412,6 +515,37 @@
     font-family: var(--font-body);
     white-space: nowrap;
   }
+
+  /* Same idea as YouTube's own "seek to live" pill: grey/hollow dot
+     while behind the live edge (a VOD, or scrubbed back during live),
+     red once caught up — see updateLiveButtonState() near LIVE STREAM
+     VIDEO STATE below. */
+  .live-btn {
+    flex: none;
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(10px, 2.8cqw, 12px);
+    padding: clamp(4px, 1.2cqh, 6px) clamp(8px, 2.2cqw, 12px);
+    cursor: pointer;
+  }
+  .live-btn:hover { background: rgba(255, 255, 255, 0.1); }
+  .live-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .live-btn.at-live .live-dot { background: var(--accent); }
 
   /* ---------- CHAT WIDGET (scales with .chat-pane's own size) ---------- */
   /* Fully transparent shell — only the text boxes (inputs, message
@@ -707,6 +841,15 @@
         <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
         <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
         <span class="time-label" id="timeLabel">0:00 / 0:00</span>
+        <!-- Grey dot = watching a VOD, or scrubbed behind the live edge;
+             red = caught up to live. Click jumps back to live (from a
+             VOD or a scrub), or to the offline card if nothing's live
+             right now — see updateLiveButtonState()/goLiveClicked()
+             near LIVE STREAM VIDEO STATE below. -->
+        <button type="button" class="live-btn" id="liveBtn" title="Go to live">
+          <span class="live-dot" id="liveDot" aria-hidden="true"></span>
+          Live
+        </button>
         <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
       </div>
     </div>
@@ -717,6 +860,20 @@
   </div>
 
   <div class="chat-pane" id="chatPane">
+    <!-- Sits above .app (z-index below), pinned to the top of the chat
+         pane on both layouts. The drawer animates its own max-height
+         open/closed; the tab itself never moves. -->
+    <div class="vods-panel" id="vodsPanel">
+      <button type="button" class="vods-tab" id="vodsTab">
+        <span><span id="vodsTabViewers">0</span> watching</span>
+        <span class="vods-tab-chevron" aria-hidden="true">&#9660;</span>
+      </button>
+      <div class="vods-drawer" id="vodsDrawer">
+        <div class="vods-list" id="vodsList">
+          <div class="vods-empty">No past streams yet.</div>
+        </div>
+      </div>
+    </div>
     <div class="chat-card" id="app">
       <div class="loading">Loading chat…</div>
     </div>
@@ -842,6 +999,7 @@
       updateRangeFill();
       timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
     }
+    updateLiveButtonState();
   }
 
   window.onYouTubeIframeAPIReady = function () {
@@ -876,8 +1034,22 @@
   // player lifecycle call here, next to ytPlayer/showVideoLoading/
   // hideVideoLoading, beats duplicating YT Player API calls across two
   // separate script blocks.
-  var currentLiveVideoId = null;
+  // configuredLiveVideoId/configuredIsLive track admin.html's live
+  // config as-is; loadedVideoId is whatever #ytFrame is ACTUALLY
+  // showing right now, which diverges from the config while
+  // watchingVodId is set (a viewer picked something from the VODs
+  // drawer) — applyLiveVideoState below still runs on every config
+  // change either way (so the Live button's grey/red state and
+  // "return to live" always have a fresh target), it just skips
+  // actually touching the player while a VOD is up, same idea as a
+  // podcast app not yanking you off a downloaded episode just because
+  // a new one dropped.
+  var configuredLiveVideoId = null;
+  var configuredIsLive = false;
+  var loadedVideoId = null;
+  var watchingVodId = null;
   var ytApiRequested = false;
+  var liveBtn = document.getElementById('liveBtn');
 
   function requestYouTubeIframeApi() {
     if (ytApiRequested) return;
@@ -887,12 +1059,34 @@
     document.body.appendChild(s);
   }
 
+  // Same "behind live" threshold feel as YouTube's own player: still
+  // counts as caught up within a few seconds of the live edge (normal
+  // buffering jitter), grey once you've actually scrubbed back.
+  var LIVE_EDGE_THRESHOLD_SEC = 8;
+
+  function updateLiveButtonState() {
+    if (!liveBtn) return;
+    var atLive = false;
+    if (!watchingVodId && configuredIsLive && ytPlayer && typeof ytPlayer.getDuration === 'function') {
+      var duration = ytPlayer.getDuration();
+      var current = ytPlayer.getCurrentTime();
+      atLive = !(duration > 0 && (duration - current) > LIVE_EDGE_THRESHOLD_SEC);
+    }
+    liveBtn.classList.toggle('at-live', atLive);
+    liveBtn.title = watchingVodId ? 'Return to live' : (atLive ? 'Live' : 'Jump to live');
+  }
+
   // Called on every config change, not just page load — admin.html's
   // "Go Offline"/"Go Live" toggle needs to take effect immediately for
   // anyone already sitting on the page, not just on their next visit.
   window.applyLiveVideoState = function (videoId, isLive) {
+    configuredLiveVideoId = isLive ? videoId : null;
+    configuredIsLive = !!isLive;
+    updateLiveButtonState();
+    if (watchingVodId) return; // a viewer's own VOD choice isn't interrupted by a config change alone
+
     if (!isLive) {
-      currentLiveVideoId = null;
+      loadedVideoId = null;
       if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
         try { ytPlayer.stopVideo(); } catch (e) {}
       }
@@ -900,8 +1094,8 @@
       return;
     }
 
-    if (videoId === currentLiveVideoId) return; // already showing this exact video
-    currentLiveVideoId = videoId;
+    if (videoId === loadedVideoId) return; // already showing this exact video
+    loadedVideoId = videoId;
 
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
       ytPlayer.loadVideoById(videoId);
@@ -914,6 +1108,57 @@
     }
     requestYouTubeIframeApi();
   };
+
+  // The VODs drawer (built in the main chat script further down) calls
+  // this to switch the player over to a picked-out VOD.
+  window.switchToVod = function (vodId) {
+    if (!vodId || (watchingVodId === vodId && loadedVideoId === vodId)) return;
+    watchingVodId = vodId;
+    loadedVideoId = vodId;
+    showVideoLoading();
+    if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+      ytPlayer.loadVideoById(vodId);
+    } else {
+      var frame = document.getElementById('ytFrame');
+      if (frame) {
+        frame.src = 'https://www.youtube.com/embed/' + vodId + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
+      }
+      requestYouTubeIframeApi();
+    }
+    updateLiveButtonState();
+    if (typeof window.onVodStateChange === 'function') window.onVodStateChange(watchingVodId);
+  };
+
+  // The Live button's own click handler — see below, next to
+  // unmuteBtn's — calls this. Also exposed on window since the VODs
+  // drawer's "now playing" state needs to know when the viewer has
+  // left a VOD via this path, not just by picking a different one.
+  window.returnToLive = function () {
+    watchingVodId = null;
+    loadedVideoId = null; // force applyLiveVideoState to actually (re)load below, even if it's the same live id as before
+    window.applyLiveVideoState(configuredLiveVideoId, configuredIsLive);
+    if (typeof window.onVodStateChange === 'function') window.onVodStateChange(null);
+  };
+
+  if (liveBtn) {
+    liveBtn.addEventListener('click', function () {
+      if (watchingVodId) {
+        window.returnToLive();
+        return;
+      }
+      if (!configuredIsLive) {
+        // Nothing live right now — the "catch up" gesture just means
+        // "take me to the live slot," which is the offline card when
+        // there's nothing there.
+        window.applyLiveVideoState(configuredLiveVideoId, false);
+        return;
+      }
+      if (ytPlayer && typeof ytPlayer.getDuration === 'function') {
+        var duration = ytPlayer.getDuration();
+        if (duration > 0) ytPlayer.seekTo(duration, true);
+      }
+    });
+  }
 
   unmuteBtn.addEventListener('click', function () {
     if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
@@ -1253,6 +1498,75 @@
     if (typeof window.applyLiveVideoState === 'function') {
       window.applyLiveVideoState(DEFAULT_LIVE_VIDEO_ID, true);
     }
+  });
+
+  // ---------- VODs DRAWER ----------
+  // Past streams the admin has added on the Live tab (see admin.html) —
+  // a simple ordered {url, title} list, unlike the single "what's live
+  // right now" doc above. The id is extracted here rather than trusted
+  // to already be a bare video id, since the admin side saves whatever
+  // URL format got pasted in, same as every other YouTube-link list on
+  // this site (see extractVideoId in admin.html for the same pattern).
+  function extractVideoId(input) {
+    if (!input) return null;
+    const trimmed = String(input).trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    const m = trimmed.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  const vodsPanel = document.getElementById('vodsPanel');
+  const vodsTab = document.getElementById('vodsTab');
+  const vodsListEl = document.getElementById('vodsList');
+  const vodsTabViewers = document.getElementById('vodsTabViewers');
+  let latestVods = [];
+  let activeVodId = null;
+
+  if (vodsTab) {
+    vodsTab.addEventListener('click', () => {
+      vodsPanel.classList.toggle('open');
+    });
+  }
+
+  // Lets the video-control script (LIVE STREAM VIDEO STATE, in the
+  // earlier script block) tell this one when the viewer has returned
+  // to live by some path other than picking a different VOD here —
+  // clicking the Live button, most likely — so the drawer's own
+  // "now playing" highlight stays in sync either way.
+  window.onVodStateChange = function (vodId) {
+    activeVodId = vodId;
+    renderVods();
+  };
+
+  function renderVods() {
+    if (!vodsListEl) return;
+    if (!latestVods.length) {
+      vodsListEl.innerHTML = '<div class="vods-empty">No past streams yet.</div>';
+      return;
+    }
+    vodsListEl.innerHTML = latestVods.map((v) => {
+      const active = v.id === activeVodId;
+      return '<button type="button" class="vod-row' + (active ? ' active' : '') + '" data-vod-id="' + v.id + '">' +
+        '<img class="vod-row-thumb" src="https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg" alt="" loading="lazy">' +
+        '<span class="vod-row-title">' + escapeHtml(v.title || 'Untitled') + '</span>' +
+      '</button>';
+    }).join('');
+    vodsListEl.querySelectorAll('.vod-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const id = row.dataset.vodId;
+        if (typeof window.switchToVod === 'function') window.switchToVod(id);
+        if (vodsPanel) vodsPanel.classList.remove('open');
+      });
+    });
+  }
+
+  configRef.doc('vods').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    const items = (data && Array.isArray(data.items)) ? data.items : [];
+    latestVods = items.map((v) => ({ id: extractVideoId(v.url), title: v.title })).filter((v) => v.id);
+    renderVods();
+  }, () => {
+    if (vodsListEl) vodsListEl.innerHTML = '<div class="vods-empty">Couldn’t load past streams.</div>';
   });
 
   let session = null; // { username }
@@ -1954,6 +2268,7 @@
 (function () {
   const activeEl = document.getElementById('activeViewersCount');
   if (!activeEl) return;
+  const vodsTabViewersEl = document.getElementById('vodsTabViewers'); // mirrors the same count into the VODs tab
 
   const db = firebase.firestore(); // reuses the app the chat widget already initialized
   const presenceId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
@@ -1977,6 +2292,7 @@
       if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
     });
     activeEl.textContent = count;
+    if (vodsTabViewersEl) vodsTabViewersEl.textContent = count;
   }
 
   db.collection('chat_presence').onSnapshot(
