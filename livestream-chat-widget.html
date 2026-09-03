@@ -382,7 +382,13 @@
     /* The whole watching bar is the handle here, so it gets the
        pointer, the chevron and a tap glow — and the nub below is
        retired entirely. */
-    .stream-stats {
+    /* Scoped under .layout, not bare ".stream-stats", purely to outrank
+       the base rule's later, equal-specificity "display: none" on
+       source order — the exact trap .stream-stats-vods's own comment
+       below already warns about. Undoes that default: this bar still
+       does a job here (the VODs handle), just not on desktop any more. */
+    .layout .stream-stats {
+      display: flex;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
     }
@@ -390,23 +396,18 @@
       background: #341010;
       box-shadow: inset 0 0 26px rgba(205, 50, 50, 0.5);
     }
-    /* Without the old nub there's nothing saying the bar opens
-       anything, so this is the affordance: a pill on the right, out of
-       the centred viewer count's way, sized to be spotted rather than
-       hunted for. Absolutely positioned so the count stays centred in
-       the bar rather than being shoved off by it. */
     /* Scoped under .stream-stats purely to outrank the base
        "display: none" — that rule lives further DOWN the file than
        this media query, so at equal specificity it would win on source
        order and the pill would never show at all. */
+    /* No longer sharing the bar with a viewer count (that moved to
+       .viewer-badge on the video pane), so this needs no positioning
+       of its own — .stream-stats' own justify-content:center already
+       centers it now that it's the bar's only content. */
     .stream-stats .stream-stats-vods {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -479,25 +480,24 @@
     display: none;
   }
 
-  /* When chat has been popped out into its own window, show a small
-     centered placeholder in its place instead of the normal layout. */
-  .chat-pane.popped-out {
-    align-items: center;
-    justify-content: center;
-  }
-
   /* Live stats bar (active viewers). .video-pane reserves
      a fixed strip at its bottom via padding-bottom, so the video itself
      (sized via cqw/cqh above) never extends into this area — the bar
      sits right below the video instead of overlaying it. */
+  /* Desktop has no use for this bar any more: viewer count moved onto
+     the video pane itself (.viewer-badge) and VODs already has its own
+     tucked-under-the-video tab there (.vods-tab/.vods-panel), so
+     showing it would just be an empty red stripe. Hidden here by
+     default; the mobile block re-enables it, where it's still the
+     VODs handle (see .stream-stats-vods below). */
   .stream-stats {
+    display: none;
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
     height: var(--stats-h);
     z-index: 5;
-    display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -554,22 +554,42 @@
   .pill-btn:active:not(:disabled) { background: var(--accent-dim); }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
 
-  /* Wrapper for the top-right video pane action buttons (hide chat /
-     pop out chat), so they sit side by side. */
+  /* Top-left group (unmute + hide chat), side by side via flex so
+     "Unmute"/"Mute" changing width never bumps the button next to it. */
   .video-pane-actions {
     position: absolute;
     top: clamp(8px, 2cqh, 14px);
-    right: clamp(8px, 2cqw, 14px);
+    left: clamp(8px, 2cqw, 14px);
     z-index: 5;
     display: flex;
     gap: clamp(6px, 1.5cqw, 10px);
   }
 
-  .unmute-btn {
+  /* Top-right: viewer count, icon + number instead of the "N watching"
+     text this replaces (that used to sit permanently in .stream-stats
+     below the video — see the badge's own fade rule just below, which
+     is what actually makes it come and go with tap/hover now). */
+  .viewer-badge {
     position: absolute;
     top: clamp(8px, 2cqh, 14px);
-    left: clamp(8px, 2cqw, 14px);
+    right: clamp(8px, 2cqw, 14px);
     z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: clamp(6px, 1.6cqh, 10px) clamp(10px, 2.6cqw, 14px);
+    border: 1px solid var(--accent);
+    border-radius: clamp(4px, 1.5cqw, 8px);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(11px, 3cqw, 14px);
+  }
+  .viewer-badge svg {
+    width: clamp(12px, 3.4cqw, 16px);
+    height: clamp(12px, 3.4cqw, 16px);
+    fill: var(--accent);
+    flex: none;
   }
 
   .auth-submit-btn {
@@ -581,16 +601,19 @@
      desktop (mouseenter/mouseleave), but touch devices get an actual
      tap-to-show/tap-again-to-hide toggle instead of relying on mobile
      browsers' sticky-:hover-after-tap quirk, which never explicitly
-     hides again on its own. */
-  .video-pane .unmute-btn,
+     hides again on its own. Just the two top-row groups and the
+     control bar — .unmute-btn doesn't need its own entry here now that
+     it's a plain flex child of .video-pane-actions, which already
+     fades as a whole. */
   .video-pane .video-pane-actions,
+  .video-pane .viewer-badge,
   .video-pane .video-controls {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease;
   }
-  .video-pane.controls-visible .unmute-btn,
   .video-pane.controls-visible .video-pane-actions,
+  .video-pane.controls-visible .viewer-badge,
   .video-pane.controls-visible .video-controls {
     opacity: 1;
     pointer-events: auto;
@@ -942,20 +965,6 @@
     font-size: clamp(10px, 2.4cqw, 12px);
   }
 
-  /* Shown in the chat-pane's spot on the main page while the chat is
-     popped out into its own window. */
-  .popout-placeholder {
-    margin: auto;
-    text-align: center;
-    color: var(--text-dim);
-    font-size: clamp(11px, 2.8cqw, 14px);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(8px, 2.4cqh, 12px);
-  }
-
   .composer-bar {
     flex: 0 0 auto;
     border-top: 1px solid var(--line);
@@ -999,10 +1008,16 @@
 <div class="layout" id="layout">
   <div class="video-pane is-loading" id="videoPane">
     <div class="video-stage" id="videoStage">
-      <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
       <div class="video-pane-actions">
-        <button class="pill-btn popout-chat-btn" id="popoutChatBtn" title="Pop out chat into a separate window">Pop Out Chat</button>
+        <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
+      </div>
+      <!-- Was permanent text in the bar below the video; now lives here
+           so it shows/hides with the rest of the controls instead of
+           sitting on screen at all times. -->
+      <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span id="activeViewersCount">0</span>
       </div>
       <div class="video-frame-wrap">
         <!-- No src here on purpose — it's set by JS once the configured
@@ -1046,8 +1061,6 @@
          separate nub below. Desktop keeps its own .vods-tab and this
          bar stays a plain readout. -->
     <div class="stream-stats" id="streamStats">
-      <span class="" aria-hidden="true"></span>
-      <span id="activeViewersCount">0</span>watching
       <span class="stream-stats-vods" aria-hidden="true">VODS<span class="stream-stats-chevron">&#9660;</span></span>
     </div>
   </div>
@@ -1149,7 +1162,7 @@
       // as "tapped the video" — otherwise one tap is spent toggling the
       // player controls and the bar needs a second one to register.
       if (e.target.closest('.stream-stats')) return;
-      if (e.target.closest('.unmute-btn, .video-pane-actions, .video-controls')) {
+      if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls')) {
         showControls(true);
         return;
       }
@@ -1500,138 +1513,6 @@
       document.addEventListener(evt, updateFullscreenIcon);
     }
   );
-})();
-</script>
-
-<!-- ---------- CHAT POP-OUT WINDOW ----------
-     Lets the chat widget be popped into its own separate browser window
-     (handy for screen-capturing/streaming just the chat as its own
-     source). It works by literally moving the #app DOM node into a new
-     window's document (adopting it), so all of the chat script's event
-     listeners and its live Firestore subscription keep working exactly
-     as before — nothing about the chat logic itself is touched. -->
-<script>
-(function () {
-  var popoutBtn = document.getElementById('popoutChatBtn');
-  var chatPane = document.getElementById('chatPane');
-  var appEl = document.getElementById('app');
-  var popoutWindow = null;
-  var closingFromHere = false;
-
-  function getPageStyles() {
-    var styleEl = document.querySelector('style');
-    return styleEl ? styleEl.textContent : '';
-  }
-
-  function buildPopoutHtml() {
-    return '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-      '<title>Chat</title><style>' + getPageStyles() +
-      // Black base layer on the window itself, with a brick-red glow
-      // layer sitting on top of it — same technique as the main page's
-      // .layout / .layout::before pair: a padded, rounded box
-      // (.popout-bg) whose ::before is an oversized, blurred color
-      // layer, so the tint reads as a soft glow instead of a flat,
-      // edge-to-edge block.
-      'html, body { margin:0; width:100%; height:100%; background: #000000; overflow: hidden; }' +
-      '.popout-bg { position: fixed; inset: clamp(8px, 3vw, 24px); border-radius: clamp(10px, 2.5vw, 28px); z-index: 0; }' +
-      '.popout-bg::before { content: ""; position: absolute; inset: -60px; background: rgba(205, 50, 50, 0.5); filter: blur(50px); border-radius: inherit; z-index: -1; }' +
-      '.chat-pane { position: relative; z-index: 1; width:100%; height:100%; min-width:0; }' +
-      '</style></head><body><div class="popout-bg"></div></body></html>';
-  }
-
-  function returnChatToMain() {
-    if (!popoutWindow) return;
-    closingFromHere = true;
-    var win = popoutWindow;
-    popoutWindow = null;
-
-    chatPane.classList.remove('popped-out');
-    chatPane.innerHTML = '';
-    chatPane.appendChild(appEl);
-
-    popoutBtn.textContent = 'Pop Out Chat';
-    popoutBtn.title = 'Pop out chat into a separate window';
-
-    if (win && !win.closed) win.close();
-    closingFromHere = false;
-  }
-
-  function openPopout() {
-    if (popoutWindow && !popoutWindow.closed) {
-      popoutWindow.focus();
-      return;
-    }
-
-    var popW = 400;
-    var popH = 650;
-    var screenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX || 0;
-    var screenTop = window.screenTop !== undefined ? window.screenTop : window.screenY || 0;
-    var screenW = window.screen.availWidth || popW;
-    var screenH = window.screen.availHeight || popH;
-    var popLeft = Math.max(0, Math.round(screenLeft + (screenW - popW) / 2));
-    var popTop = Math.max(0, Math.round(screenTop + (screenH - popH) / 2));
-    // Explicit width/height/left/top (plus the no-chrome flags below)
-    // signal to the browser that this is a small popup window, not a
-    // maximized/fullscreen one.
-    var features = 'width=' + popW + ',height=' + popH +
-      ',left=' + popLeft + ',top=' + popTop +
-      ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no';
-    var win = window.open('', 'chatPopoutWindow', features);
-    if (win) {
-      try {
-        win.resizeTo(popW, popH);
-        win.moveTo(popLeft, popTop);
-      } catch (e) {}
-    }
-    if (!win) {
-      alert('Your browser blocked the pop-out window. Please allow pop-ups for this page and try again.');
-      return;
-    }
-
-    var doc = win.document;
-    doc.open();
-    doc.write(buildPopoutHtml());
-    doc.close();
-
-    var wrapper = doc.createElement('div');
-    wrapper.className = 'chat-pane';
-    wrapper.id = 'chatPane';
-    doc.body.appendChild(wrapper);
-    wrapper.appendChild(appEl); // moves (adopts) the live chat node as-is
-
-    popoutWindow = win;
-
-    chatPane.classList.add('popped-out');
-    chatPane.innerHTML =
-      '<div class="popout-placeholder">Chat is popped out into a separate window.<br>' +
-      '<button class="pill-btn" id="returnChatBtn">Return Chat Here</button></div>';
-    var returnBtn = document.getElementById('returnChatBtn');
-    if (returnBtn) returnBtn.addEventListener('click', returnChatToMain);
-
-    popoutBtn.textContent = 'Return Chat';
-    popoutBtn.title = 'Bring chat back to this page';
-
-    win.addEventListener('unload', function () {
-      if (!closingFromHere) returnChatToMain();
-    });
-  }
-
-  popoutBtn.addEventListener('click', function () {
-    if (popoutWindow && !popoutWindow.closed) {
-      returnChatToMain();
-    } else {
-      openPopout();
-    }
-  });
-
-  // If the main page/tab closes while the chat is popped out, close the
-  // pop-out window too instead of leaving it orphaned.
-  window.addEventListener('beforeunload', function () {
-    if (popoutWindow && !popoutWindow.closed) {
-      try { popoutWindow.close(); } catch (e) {}
-    }
-  });
 })();
 </script>
 
