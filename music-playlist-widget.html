@@ -317,6 +317,13 @@
          Videos" list pushed halfway off-screen below it). */
       flex: 0 1 auto;
       min-height: 56px;
+      /* Belt-and-suspenders alongside the YT.Player width/height fix
+         above (see tryInitPlayer): aspect-ratio alone trusts the flex
+         basis math to keep this box at 16:9, and a taller iframe (even
+         briefly, mid-transition) can push it past that. Recomputing the
+         same 16:9-from-width bound here as a hard cap means the box
+         can't visibly grow no matter what the video inside does. */
+      max-height: calc((100vw - 2 * var(--inset-side)) * 9 / 16);
     }
     .playlist-pane {
       flex: 0 0 232px;
@@ -1938,6 +1945,13 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     loadedVideoId = VIDEO_PLAYLIST[0].id;
 
     ytPlayer = new YT.Player('ytFrame', {
+      // Without these, the API applies its own default size (~640x390,
+      // not even 16:9) to the iframe once the player's ready, as inline
+      // styles that beat our CSS — the pane visibly growing/reshaping
+      // right after the video loads. Telling it we want 100%/100% (what
+      // our CSS already gives it) keeps it from ever touching the size.
+      width: '100%',
+      height: '100%',
       events: {
         onReady: function () {
           apiReady = true;
