@@ -738,6 +738,17 @@
 
       <div style="display:flex;flex-direction:column;gap:20px;">
         <div class="card">
+          <div class="card-head"><h2>Live Stream Video</h2></div>
+          <div class="live-card-body" style="max-height:none;">
+            <div class="note">Paste the YouTube link for whatever's live (or about to go live) on live.html. Takes effect for anyone who loads or refreshes the page after saving.</div>
+            <div class="add-row">
+              <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste the YouTube live link">
+              <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
+            </div>
+            <div id="liveVideoStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Banned</h2></div>
           <div class="live-card-body" style="max-height:260px;">
             <div class="list-scroll" id="bannedList" style="max-height:none;overflow-y:auto;"></div>
@@ -826,9 +837,9 @@
   // ever touches chat_bans and chat_config/censoredWords by writing to
   // them (moderation actions); chat_messages, chat_usernames,
   // chat_username_counters and chat_devices it also deletes from (a
-  // ban's message purge, per-message removal, and "Free Up This
-  // Username" clearing a username family and the device locks tied to
-  // it — see freeUsernameFamily below).
+  // ban's message purge, per-message removal, and "Sign Out" clearing a
+  // sign-out group and the device locks tied to it — see
+  // signOutUsername below).
   const CHAT_MESSAGES_REF = db.collection('chat_messages');
   const CHAT_USERNAMES_REF = db.collection('chat_usernames');
   const CHAT_USERNAME_COUNTERS_REF = db.collection('chat_username_counters');
@@ -836,6 +847,7 @@
   const CHAT_BANS_REF = db.collection('chat_bans');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
   const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
+  const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
 </script>
 
 <script>
@@ -1663,36 +1675,52 @@
     return commitDeletesInBatches(msgs.map(function (m) { return CHAT_MESSAGES_REF.doc(m.id); }));
   }
 
-  // Every chat_usernames doc sharing a base name: the bare "gunoguap" (if
-  // it exists) plus every "gunoguap#0001", "gunoguap#0002", etc. that's
-  // ever actually been claimed. liveUsers already mirrors the whole
-  // collection live, so this is a plain filter, no extra reads needed.
-  function findUsernameFamily(username) {
+  // Every chat_usernames doc that should go down together when an admin
+  // signs someone out: every doc sharing this username's base name (a
+  // leftover of the old #0001-style suffix scheme — usernames claimed
+  // since are always bare, but older suffixed docs can still exist),
+  // plus — since IP is the closest thing this static site has to
+  // "probably the same person" — every doc recording the same
+  // last-known IP, whatever name it's registered under. IP is
+  // self-reported by each visitor's own browser (see logIpBestEffort in
+  // livestream-chat-widget.html) and never enforced, so this is a
+  // convenience heuristic for catching someone cycling through unrelated
+  // names on one connection, not a guarantee — a shared home/school/
+  // office wifi can just as easily sweep up unrelated people, which is
+  // why the confirm dialog below always lists every name about to be
+  // affected before anything happens. liveUsers already mirrors the
+  // whole chat_usernames collection live, so this is a plain filter, no
+  // extra reads needed.
+  function findSignOutGroup(username) {
     const baseKey = username.toLowerCase().split('#')[0];
-    return liveUsers.filter(function (u) { return u.id.split('#')[0] === baseKey; });
+    const target = findUserByUsername(username);
+    const ip = target && target.lastIp;
+    return liveUsers.filter(function (u) {
+      return u.id.split('#')[0] === baseKey || (ip && u.lastIp === ip);
+    });
   }
 
-  // Frees every doc in a username family in one go, instead of just the
-  // one numbered slot an admin happened to be looking at — so a base
-  // name that's been squatted/re-squatted under several numbers can be
-  // cleared out entirely in one action. Also deletes the chat_devices
-  // lock for each member's device (if it has one on record), which is
-  // what actually signs that device out immediately — see the live
-  // listener on chat_devices/<CLIENT_ID> in livestream-chat-widget.html
-  // — and lets it claim a different username afterward instead of just
-  // re-resolving back to the name that was just freed. The counter doc
-  // is cleared too, so if this base name gets claimed again and
-  // collides, numbering restarts at #0001 instead of picking up wherever
-  // this family's history left off.
-  function freeUsernameFamily(username) {
-    const baseKey = username.toLowerCase().split('#')[0];
-    const family = findUsernameFamily(username);
+  // Signs a person — or, when IP ties them to others, the whole group —
+  // out for good: deletes every chat_usernames doc in the group (see
+  // findSignOutGroup), every member's chat_devices lock, which is what
+  // actually boots any of them off chat immediately (see the live
+  // listener on chat_devices/<CLIENT_ID> in livestream-chat-widget.html),
+  // and each distinct base name's chat_username_counters doc, so a freed
+  // name that gets claimed again and collides restarts numbering at
+  // #0001 instead of resuming wherever its history left off. Every freed
+  // name goes back into the pool for anyone (including its old owner) to
+  // claim fresh — there's no way back in under the old name. Message
+  // history is untouched either way.
+  function signOutUsername(username) {
+    const group = findSignOutGroup(username);
+    const baseKeys = new Set();
     const refs = [];
-    family.forEach(function (u) {
+    group.forEach(function (u) {
       refs.push(CHAT_USERNAMES_REF.doc(u.id));
       if (u.lastDeviceId) refs.push(CHAT_DEVICES_REF.doc(u.lastDeviceId));
+      baseKeys.add(u.id.split('#')[0]);
     });
-    refs.push(CHAT_USERNAME_COUNTERS_REF.doc(baseKey));
+    baseKeys.forEach(function (key) { refs.push(CHAT_USERNAME_COUNTERS_REF.doc(key)); });
     return commitDeletesInBatches(refs);
   }
 
@@ -1913,16 +1941,16 @@
     } else {
       actionsHtml += '<button type="button" class="btn btn-primary" id="userHistoryBanBtn">Ban This User</button>';
     }
-    // Deletes the whole username family's chat_usernames registrations
-    // (see freeUsernameFamily) plus every member's chat_devices lock,
-    // not any messages — the base name and all its numbered versions go
-    // back into the pool, and anyone currently signed in under one of
-    // them gets kicked to the join screen right away. Only offered when
-    // there's actually a registration to free; a username resolved
-    // purely from message history (no doc on record) has nothing here
-    // to clear.
+    // Deletes the whole sign-out group's chat_usernames registrations
+    // (see signOutUsername/findSignOutGroup — same base name and/or same
+    // last-known IP) plus every member's chat_devices lock, not any
+    // messages — every name involved goes back into the pool and anyone
+    // currently signed in under one of them gets kicked to the join
+    // screen right away. Only offered when there's actually a
+    // registration to clear; a username resolved purely from message
+    // history (no doc on record) has nothing here to clear.
     if (userDoc) {
-      actionsHtml += '<button type="button" class="btn-link" id="userHistoryFreeBtn">Free Up This Username</button>';
+      actionsHtml += '<button type="button" class="btn-link" id="userHistorySignOutBtn">Sign Out</button>';
     }
     actionsEl.innerHTML = actionsHtml;
     if (banned) {
@@ -1933,14 +1961,14 @@
       document.getElementById('userHistoryBanBtn').addEventListener('click', function () { openBanModal(username); });
     }
     if (userDoc) {
-      document.getElementById('userHistoryFreeBtn').addEventListener('click', function () {
-        const family = findUsernameFamily(username);
-        const names = family.map(function (u) { return u.id; }).join(', ');
-        const prompt = family.length > 1
-          ? 'Free up every numbered version of this name (' + names + ')? Anyone currently signed in under one of these gets signed out and can claim a new username. Message history is kept either way.'
-          : 'Free up "' + username + '" so it can be claimed again? They\'ll be signed out and able to claim a new username. Message history is kept either way.';
+      document.getElementById('userHistorySignOutBtn').addEventListener('click', function () {
+        const group = findSignOutGroup(username);
+        const names = group.map(function (u) { return u.id; }).join(', ');
+        const prompt = group.length > 1
+          ? 'Sign out ' + names + ' (grouped by shared username and/or IP)? Each is booted to the join screen right now and their name is released — coming back means a different, unclaimed name. Message history is kept either way.'
+          : 'Sign out "' + username + '"? They\'re booted to the join screen right now and their name is released — coming back means a different, unclaimed name. Message history is kept either way.';
         if (!confirm(prompt)) return;
-        freeUsernameFamily(username)
+        signOutUsername(username)
           .then(closeUserHistory)
           .catch(function (err) { alert('Failed: ' + err.message); });
       });
@@ -2057,6 +2085,39 @@
       chatClearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
       renderClearChatStatus();
     }, function () {});
+
+    // One-time load rather than a live listener — this is a settings
+    // field one admin edits at a time, not a moderation list that needs
+    // to reflect another admin's actions as they happen, and a live
+    // listener would risk overwriting whatever's mid-edit in the input.
+    CHAT_LIVE_VIDEO_REF.get().then(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      const input = document.getElementById('liveVideoUrlInput');
+      if (input && data && data.videoId) {
+        input.value = 'https://www.youtube.com/watch?v=' + data.videoId;
+      }
+    }).catch(function () {});
+
+    document.getElementById('saveLiveVideoBtn').addEventListener('click', function () {
+      const input = document.getElementById('liveVideoUrlInput');
+      const statusEl = document.getElementById('liveVideoStatus');
+      const id = extractVideoId(input.value);
+      if (!id) {
+        statusEl.textContent = 'That doesn\'t look like a valid YouTube link.';
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-dim)';
+      CHAT_LIVE_VIDEO_REF.set({ videoId: id }, { merge: true }).then(function () {
+        input.value = 'https://www.youtube.com/watch?v=' + id;
+        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes live.html.';
+        statusEl.style.color = 'var(--accent)';
+      }).catch(function (err) {
+        statusEl.textContent = 'Save failed: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
+      });
+    });
 
     document.getElementById('clearChatBtn').addEventListener('click', clearChatOnFrontend);
 
