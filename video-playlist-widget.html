@@ -1190,7 +1190,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
   }
   function isFullscreen() {
-    return usingPseudoFullscreen || !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    return usingPseudoFullscreen || iosFsActive || !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   }
   function requestFs(el) {
     try {
@@ -1231,17 +1231,120 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     // background transparent again.
     layoutEl.classList.toggle('fullscreen-active', fs);
   }
+
+  // iOS won't hand our own wrapper div off to its native video player
+  // (AirPlay button, its own scrub bar/back button) — that only exists
+  // for a real <video> element, and the real one lives inside YouTube's
+  // iframe, cross-origin and out of this page's reach. requestFullscreen
+  // on our div either isn't supported there at all, or (newer iOS) just
+  // fills the screen with our own web content instead of handing off.
+  // The only way to get the actual native treatment is to let a YouTube
+  // iframe with ITS OWN controls go fullscreen on the tap — so on iOS
+  // specifically, this spins up a second, temporary iframe (YouTube's
+  // stock controls, seeded to the current position/mute state) just for
+  // the fullscreen session, and folds wherever it ends up back into the
+  // normal in-page player on exit. Every other platform keeps the
+  // wrapper-div fullscreen above, untouched — it already works there.
+  const isIOS = /iP(hone|od|ad)/.test(navigator.platform) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let iosFsFrame = null;
+  let iosFsPlayer = null;
+  let iosFsActive = false;
+
+  function cleanUpIosFsFrame() {
+    if (iosFsFrame && iosFsFrame.parentNode) iosFsFrame.parentNode.removeChild(iosFsFrame);
+    iosFsFrame = null;
+    iosFsPlayer = null;
+  }
+  function abortIosFullscreen() {
+    iosFsActive = false;
+    cleanUpIosFsFrame();
+    if (ytPlayer) ytPlayer.playVideo();
+    updateFullscreenIcon();
+  }
+  function enterIosFullscreen() {
+    const current = PLAYLIST[activeIndex];
+    if (!ytPlayer || !current || typeof ytPlayer.getCurrentTime !== 'function') return;
+    const startSeconds = ytPlayer.getCurrentTime() || 0;
+    const wasMuted = typeof ytPlayer.isMuted === 'function' ? ytPlayer.isMuted() : true;
+    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+
+    iosFsFrame = document.createElement('iframe');
+    iosFsFrame.id = 'ytIosFsFrame';
+    iosFsFrame.allowFullscreen = true;
+    iosFsFrame.setAttribute('allow', 'accelerometer *; autoplay *; clipboard-write *; encrypted-media *; gyroscope *; picture-in-picture *; web-share *;');
+    iosFsFrame.setAttribute('referrerpolicy', 'strict-origin');
+    iosFsFrame.style.cssText = 'position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; border:0; z-index:99999; background:#000;';
+    iosFsFrame.src = 'https://www.youtube.com/embed/' + current.id +
+      '?rel=0&modestbranding=1&enablejsapi=1&playsinline=0' +
+      '&autoplay=1&mute=' + (wasMuted ? 1 : 0) +
+      '&start=' + Math.max(0, Math.floor(startSeconds));
+    document.body.appendChild(iosFsFrame);
+
+    try {
+      const result = iosFsFrame.requestFullscreen ? iosFsFrame.requestFullscreen() : iosFsFrame.webkitRequestFullscreen();
+      if (result && typeof result.catch === 'function') result.catch(abortIosFullscreen);
+    } catch (e) {
+      abortIosFullscreen();
+      return;
+    }
+    iosFsActive = true;
+    updateFullscreenIcon();
+    iosFsPlayer = new YT.Player('ytIosFsFrame', {
+      events: {
+        onStateChange: function (event) {
+          if (event.data === YT.PlayerState.ENDED) exitIosFullscreen();
+        }
+      }
+    });
+  }
+  function exitIosFullscreen(skipExitFs) {
+    if (!iosFsActive) return;
+    let endSeconds = null;
+    let wasPlaying = true;
+    let endMuted = null;
+    if (iosFsPlayer && typeof iosFsPlayer.getCurrentTime === 'function') {
+      try {
+        endSeconds = iosFsPlayer.getCurrentTime();
+        wasPlaying = iosFsPlayer.getPlayerState() === YT.PlayerState.PLAYING;
+        endMuted = iosFsPlayer.isMuted();
+      } catch (e) {}
+    }
+    iosFsActive = false;
+    cleanUpIosFsFrame();
+    if (ytPlayer) {
+      if (endSeconds !== null) ytPlayer.seekTo(endSeconds, true);
+      if (endMuted === false) doUnmute();
+      else if (endMuted === true) {
+        ytPlayer.mute();
+        unmuteBtn.textContent = 'Unmute';
+        unmuteBtn.title = 'Unmute';
+      }
+      if (wasPlaying) ytPlayer.playVideo();
+    }
+    if (!skipExitFs) exitFs();
+    updateFullscreenIcon();
+  }
+
   fullscreenBtn.addEventListener('click', function () {
     if (isFullscreen()) {
-      if (usingPseudoFullscreen) exitPseudoFullscreen();
+      if (iosFsActive) exitIosFullscreen();
+      else if (usingPseudoFullscreen) exitPseudoFullscreen();
       else exitFs();
       return;
     }
-    if (hasNativeFullscreenSupport(videoPane)) requestFs(videoPane);
+    if (isIOS) enterIosFullscreen();
+    else if (hasNativeFullscreenSupport(videoPane)) requestFs(videoPane);
     else enterPseudoFullscreen();
   });
   ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
-    document.addEventListener(evt, updateFullscreenIcon);
+    document.addEventListener(evt, function () {
+      if (iosFsActive) {
+        const nativeFsActive = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+        if (!nativeFsActive) exitIosFullscreen(true);
+      }
+      updateFullscreenIcon();
+    });
   });
 
   // ---------- LIVE SYNC FROM FIRESTORE ----------
