@@ -1945,13 +1945,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     loadedVideoId = VIDEO_PLAYLIST[0].id;
 
     ytPlayer = new YT.Player('ytFrame', {
-      // Without these, the API applies its own default size (~640x390,
-      // not even 16:9) to the iframe once the player's ready, as inline
-      // styles that beat our CSS — the pane visibly growing/reshaping
-      // right after the video loads. Telling it we want 100%/100% (what
-      // our CSS already gives it) keeps it from ever touching the size.
-      width: '100%',
-      height: '100%',
       events: {
         onReady: function () {
           apiReady = true;
