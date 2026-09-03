@@ -264,6 +264,28 @@
   .pill-btn:active:not(:disabled) { background: var(--accent-dim); }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
 
+  /* A native <select> rather than a custom popover on purpose: .video-
+     pane has overflow:hidden (it clips to a rounded box), which would
+     cut off a custom dropdown opening above this bottom-anchored
+     control bar. A native select's open list renders in the browser's
+     own UI layer, so it's never subject to a CSS-clipping ancestor —
+     same trick used for the same reason in video-playlist-widget.html
+     and music-playlist-widget.html. */
+  .quality-select {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    max-width: clamp(72px, 22cqw, 110px);
+    padding-right: clamp(20px, 5cqw, 26px);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='white'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right clamp(8px, 2cqw, 10px) center;
+    background-size: 9px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .quality-select option { color: #000; }
+
   /* Wrapper for the top-right video pane action buttons (hide chat /
      pop out chat), so they sit side by side. */
   .video-pane-actions {
@@ -707,6 +729,9 @@
         <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
         <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
         <span class="time-label" id="timeLabel">0:00 / 0:00</span>
+        <select class="pill-btn quality-select" id="qualitySelect" title="Video quality" disabled>
+          <option value="">Quality</option>
+        </select>
         <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
       </div>
     </div>
@@ -743,6 +768,7 @@
   var playPauseBtn = document.getElementById('playPauseBtn');
   var scrubRange = document.getElementById('scrubRange');
   var timeLabel = document.getElementById('timeLabel');
+  var qualitySelect = document.getElementById('qualitySelect');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var videoPane = document.getElementById('videoPane');
   var videoLoading = document.getElementById('videoLoading');
@@ -750,6 +776,40 @@
   var ytPlayer = null;
   var isDragging = false;
   var pollTimer = null;
+  var preferredQuality = null; // last quality explicitly picked; reapplied whenever the video changes
+
+  // ---------- Quality selector ----------
+  // getAvailableQualityLevels() only ever returns what YouTube is
+  // actually willing to offer *right now* for *this* video — often just
+  // ['auto'] until enough has buffered, and YouTube doesn't guarantee
+  // setPlaybackQuality() is honored exactly even when a level is listed.
+  // This is a best-effort control on top of that, not a hard guarantee.
+  var QUALITY_LABELS = {
+    highres: 'Original', hd2160: '2160p', hd1440: '1440p', hd1080: '1080p',
+    hd720: '720p', large: '480p', medium: '360p', small: '240p', tiny: '144p', auto: 'Auto'
+  };
+  var QUALITY_ORDER = ['highres', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny', 'auto'];
+
+  function refreshQualityOptions() {
+    if (!ytPlayer || typeof ytPlayer.getAvailableQualityLevels !== 'function') return;
+    var levels = ytPlayer.getAvailableQualityLevels() || [];
+    var ordered = QUALITY_ORDER.filter(function (q) { return levels.indexOf(q) !== -1; });
+    if (!ordered.length) {
+      qualitySelect.disabled = true;
+      return;
+    }
+    var current = typeof ytPlayer.getPlaybackQuality === 'function' ? ytPlayer.getPlaybackQuality() : null;
+    qualitySelect.innerHTML = ordered.map(function (q) {
+      return '<option value="' + q + '"' + (q === current ? ' selected' : '') + '>' + (QUALITY_LABELS[q] || q) + '</option>';
+    }).join('');
+    qualitySelect.disabled = false;
+  }
+
+  qualitySelect.addEventListener('change', function () {
+    if (!ytPlayer || !qualitySelect.value) return;
+    preferredQuality = qualitySelect.value;
+    ytPlayer.setPlaybackQuality(preferredQuality);
+  });
 
   function showVideoLoading() {
     videoLoading.hidden = false;
@@ -853,6 +913,8 @@
           scrubRange.disabled = false;
           updatePlayPauseIcon(YT.PlayerState.PLAYING);
           updateProgress();
+          refreshQualityOptions();
+          if (preferredQuality) ytPlayer.setPlaybackQuality(preferredQuality);
           if (pollTimer) clearInterval(pollTimer);
           pollTimer = setInterval(updateProgress, 500);
         },
@@ -860,9 +922,13 @@
           updatePlayPauseIcon(event.data);
           if (event.data === YT.PlayerState.PLAYING) {
             hideVideoLoading();
+            refreshQualityOptions(); // more levels are often available once actually playing
           } else if (event.data === YT.PlayerState.BUFFERING) {
             showVideoLoading();
           }
+        },
+        onPlaybackQualityChange: function () {
+          refreshQualityOptions();
         }
       }
     });
@@ -905,6 +971,7 @@
 
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
       ytPlayer.loadVideoById(videoId);
+      if (preferredQuality) ytPlayer.setPlaybackQuality(preferredQuality);
       return;
     }
 

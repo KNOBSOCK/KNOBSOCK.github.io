@@ -396,6 +396,26 @@
   .pill-btn:active:not(:disabled) { background: var(--accent-dim); color: #ffffff; }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
 
+  /* A native <select> rather than a custom popover on purpose: .video-
+     pane has overflow:hidden (it clips to a rounded box), which would
+     cut off a custom dropdown opening above this bottom-anchored
+     control bar. A native select's open list renders in the browser's
+     own UI layer, so it's never subject to a CSS-clipping ancestor. */
+  .quality-select {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    max-width: clamp(72px, 22cqw, 110px);
+    padding-right: clamp(20px, 5cqw, 26px);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='white'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right clamp(8px, 2cqw, 10px) center;
+    background-size: 9px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .quality-select option { color: #000; }
+
   .video-pane-actions {
     position: absolute;
     top: clamp(8px, 2cqh, 14px);
@@ -1059,6 +1079,9 @@
       <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
       <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
       <span class="time-label" id="timeLabel">0:00 / 0:00</span>
+      <select class="pill-btn quality-select" id="qualitySelect" title="Video quality" disabled>
+        <option value="">Quality</option>
+      </select>
       <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
     </div>
   </div>
@@ -1332,6 +1355,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const playPauseBtn = document.getElementById('playPauseBtn');
   const scrubRange = document.getElementById('scrubRange');
   const timeLabel = document.getElementById('timeLabel');
+  const qualitySelect = document.getElementById('qualitySelect');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   const videoPane = document.getElementById('videoPane');
   const playlistItemsEl = document.getElementById('playlistItems');
@@ -1398,6 +1422,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   let ytPlayer = null;
   let isDragging = false;
   let pollTimer = null;
+  let preferredQuality = null; // last quality explicitly picked; reapplied whenever the video changes
   let apiReady = false;       // true once the YT.Player instance has fired onReady
   let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
   let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
@@ -1849,6 +1874,39 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     unmuteBtn.title = 'Mute';
   }
 
+  // ---------- Quality selector ----------
+  // getAvailableQualityLevels() only ever returns what YouTube is
+  // actually willing to offer *right now* for *this* video — often just
+  // ['auto'] until enough has buffered, and YouTube doesn't guarantee
+  // setPlaybackQuality() is honored exactly even when a level is listed.
+  // This is a best-effort control on top of that, not a hard guarantee.
+  const QUALITY_LABELS = {
+    highres: 'Original', hd2160: '2160p', hd1440: '1440p', hd1080: '1080p',
+    hd720: '720p', large: '480p', medium: '360p', small: '240p', tiny: '144p', auto: 'Auto'
+  };
+  const QUALITY_ORDER = ['highres', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny', 'auto'];
+
+  function refreshQualityOptions() {
+    if (!ytPlayer || typeof ytPlayer.getAvailableQualityLevels !== 'function') return;
+    const levels = ytPlayer.getAvailableQualityLevels() || [];
+    const ordered = QUALITY_ORDER.filter((q) => levels.indexOf(q) !== -1);
+    if (!ordered.length) {
+      qualitySelect.disabled = true;
+      return;
+    }
+    const current = typeof ytPlayer.getPlaybackQuality === 'function' ? ytPlayer.getPlaybackQuality() : null;
+    qualitySelect.innerHTML = ordered.map((q) =>
+      '<option value="' + q + '"' + (q === current ? ' selected' : '') + '>' + (QUALITY_LABELS[q] || q) + '</option>'
+    ).join('');
+    qualitySelect.disabled = false;
+  }
+
+  qualitySelect.addEventListener('change', function () {
+    if (!ytPlayer || !qualitySelect.value) return;
+    preferredQuality = qualitySelect.value;
+    ytPlayer.setPlaybackQuality(preferredQuality);
+  });
+
   // Covers the (paused, stale) video with the active SoundCloud track's
   // own cover art, so the pane doesn't just sit on whatever video frame
   // happened to be showing when SoundCloud took over.
@@ -1869,6 +1927,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     if (ytPlayer && apiReady) {
       showVideoLoading();
       ytPlayer.loadVideoById(id);
+      if (preferredQuality) ytPlayer.setPlaybackQuality(preferredQuality);
       if (autoUnmute) doUnmute();
     } else {
       pendingLoadId = id;
@@ -1930,11 +1989,14 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
           scrubRange.disabled = false;
           updatePlayPauseIcon(true);
           updateProgress();
+          refreshQualityOptions();
+          if (preferredQuality) ytPlayer.setPlaybackQuality(preferredQuality);
           if (pollTimer) clearInterval(pollTimer);
           pollTimer = setInterval(updateProgress, 500);
           if (pendingLoadId) {
             ytPlayer.loadVideoById(pendingLoadId);
             loadedVideoId = pendingLoadId;
+            if (preferredQuality) ytPlayer.setPlaybackQuality(preferredQuality);
             if (pendingUnmute) doUnmute();
             pendingLoadId = null;
             pendingUnmute = false;
@@ -1944,6 +2006,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
           if (isScKey(activeKey)) return; // a SoundCloud track owns playback right now
           if (event.data === YT.PlayerState.PLAYING) {
             hideVideoLoading();
+            refreshQualityOptions(); // more levels are often available once actually playing
           } else if (event.data === YT.PlayerState.BUFFERING) {
             showVideoLoading();
           }
@@ -1955,6 +2018,9 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
           if (event.data === YT.PlayerState.ENDED) {
             advanceFromKey(activeKey);
           }
+        },
+        onPlaybackQualityChange: function () {
+          refreshQualityOptions();
         }
       }
     });
