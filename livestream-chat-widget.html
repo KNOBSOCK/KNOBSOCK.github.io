@@ -15,6 +15,10 @@
     --text: #ffffff;
     --text-dim: #f5c9c9;
     --error: #ffb3b3;
+    /* Opaque on purpose — the VODs drawer/tab sit over live chat text,
+       where the translucent --panel/--panel-2 used elsewhere lets it
+       bleed through and read as broken. */
+    --vods-bg: #2a0909;
     --font-display: Tahoma, Arial, sans-serif;
     --font-body: Tahoma, Arial, sans-serif;
     --stats-h: 38px;
@@ -156,21 +160,39 @@
   }
 
   /* ---------- VODs DRAWER ----------
-     Pinned to the top of the chat pane on both layouts (unlike the
-     video's own viewer count in .stream-stats, which stays put in the
-     video pane) — .vods-tab never moves; only .vods-drawer's max-height
-     animates open/closed, unrolling down over the chat beneath it
-     rather than pushing it out of the way. */
+     Reads as the video's own "N watching" bar unfolding rather than as
+     a second bar of its own: on mobile the tab is just a small nub
+     hanging off that bar's bottom edge (pulled up by .layout's own gap
+     so it looks attached to it), and on desktop it's a full-width
+     "VODS" bar butted right against the video pane. Either way the
+     viewer count itself stays where it always was, in .stream-stats —
+     this never repeats it.
+
+     DOM order is drawer-then-tab on purpose: the tab stays pinned to
+     the panel's BOTTOM edge, so opening pushes it down below the list
+     instead of stranding it above. Backgrounds are opaque (not the
+     translucent --panel-2 the rest of the chat uses) since this panel
+     sits over live chat text — anything see-through reads as a
+     rendering glitch here. */
   .vods-panel {
     position: absolute;
     top: 0;
-    left: 0;
+    /* Closes .layout's own 14px column gap so the bar reaches the
+       video pane instead of floating a hair off it. Anchored to both
+       edges, so it re-fits itself at any window width. */
+    left: -14px;
     right: 0;
     z-index: 8;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    /* The panel's own box spans the full width even when the tab
+       inside it doesn't (mobile's centered nub) — without this it
+       would swallow clicks meant for the chat on either side of it. */
+    pointer-events: none;
   }
   .vods-tab {
+    pointer-events: auto;
     flex: none;
     -webkit-appearance: none;
     appearance: none;
@@ -180,10 +202,13 @@
     gap: clamp(6px, 1.5cqw, 10px);
     width: 100%;
     border: 0;
+    border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    background: var(--panel-2);
+    background: var(--vods-bg);
     color: var(--text);
     font-family: var(--font-body);
+    font-weight: 700;
+    letter-spacing: 0.08em;
     font-size: clamp(10px, 2.8cqw, 13px);
     padding: clamp(6px, 1.6cqh, 10px) 10px;
     cursor: pointer;
@@ -196,19 +221,35 @@
   .vods-panel.open .vods-tab-chevron { transform: rotate(180deg); }
 
   .vods-drawer {
+    pointer-events: auto;
     flex: none;
+    display: flex;
+    flex-direction: column;
     max-height: 0;
     overflow: hidden;
-    background: var(--panel-2);
-    border-bottom: 1px solid var(--line);
+    background: var(--vods-bg);
     transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .vods-panel.open .vods-drawer {
-    max-height: min(60cqh, 420px);
+    max-height: min(70cqh, 460px);
+  }
+  /* Desktop doesn't need this — the tab itself is labelled there. The
+     mobile nub has no room for a label, so the heading carries it. */
+  .vods-heading {
+    display: none;
+    flex: none;
+    text-align: center;
+    font-family: var(--font-body);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-size: clamp(11px, 3cqw, 14px);
+    color: var(--text);
+    padding: 10px 10px 4px;
   }
   .vods-list {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    max-height: min(60cqh, 420px);
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -285,6 +326,32 @@
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
+    }
+
+    /* Stacked layout: the tab becomes a small nub hanging off the
+       bottom edge of the video's own "N watching" bar (the -14px
+       closes .layout's column gap so it reads as part of that bar
+       rather than a separate one), and the list unrolls down over the
+       chat from there. No label — the nub is the whole affordance;
+       the drawer's own VODS heading names it once it's open. */
+    .vods-panel {
+      top: -14px;
+      left: 0;
+    }
+    .vods-tab {
+      align-self: center;
+      width: clamp(52px, 16cqw, 74px);
+      border: 1px solid var(--line);
+      border-top: 0;
+      border-radius: 0 0 10px 10px;
+      padding: 2px 0 4px;
+    }
+    .vods-tab-chevron { font-size: 10px; }
+    .vods-tab-label { display: none; }
+    .vods-heading { display: block; }
+    /* Covers essentially the whole chat pane when open, like the mock-up */
+    .vods-panel.open .vods-drawer {
+      max-height: min(88cqh, 560px);
     }
   }
 
@@ -860,19 +927,22 @@
   </div>
 
   <div class="chat-pane" id="chatPane">
-    <!-- Sits above .app (z-index below), pinned to the top of the chat
-         pane on both layouts. The drawer animates its own max-height
-         open/closed; the tab itself never moves. -->
+    <!-- Overlays the top of the chat card. Drawer first, tab second, so
+         the tab stays on the panel's bottom edge: closed, it's a nub
+         hanging off the video's "N watching" bar (mobile) or a "VODS"
+         bar butted against the video (desktop); open, it rides down to
+         the bottom of the list. See the VODs DRAWER CSS above. -->
     <div class="vods-panel" id="vodsPanel">
-      <button type="button" class="vods-tab" id="vodsTab">
-        <span><span id="vodsTabViewers">0</span> watching</span>
-        <span class="vods-tab-chevron" aria-hidden="true">&#9660;</span>
-      </button>
       <div class="vods-drawer" id="vodsDrawer">
+        <div class="vods-heading">VODS</div>
         <div class="vods-list" id="vodsList">
           <div class="vods-empty">No past streams yet.</div>
         </div>
       </div>
+      <button type="button" class="vods-tab" id="vodsTab" title="Past streams">
+        <span class="vods-tab-label">VODS</span>
+        <span class="vods-tab-chevron" aria-hidden="true">&#9660;</span>
+      </button>
     </div>
     <div class="chat-card" id="app">
       <div class="loading">Loading chat…</div>
@@ -1064,14 +1134,21 @@
   // buffering jitter), grey once you've actually scrubbed back.
   var LIVE_EDGE_THRESHOLD_SEC = 8;
 
+  // Red whenever you're on the live slot — including when that slot is
+  // showing the offline card, since you're still "on live", there just
+  // isn't a stream in it right now. The only two things that grey it
+  // out are the two things you'd click it to undo: watching a VOD, and
+  // having scrubbed back off the live edge mid-stream.
   function updateLiveButtonState() {
     if (!liveBtn) return;
-    var atLive = false;
-    if (!watchingVodId && configuredIsLive && ytPlayer && typeof ytPlayer.getDuration === 'function') {
+    var onLiveSlot = !watchingVodId;
+    var behindEdge = false;
+    if (onLiveSlot && configuredIsLive && ytPlayer && typeof ytPlayer.getDuration === 'function') {
       var duration = ytPlayer.getDuration();
       var current = ytPlayer.getCurrentTime();
-      atLive = !(duration > 0 && (duration - current) > LIVE_EDGE_THRESHOLD_SEC);
+      behindEdge = duration > 0 && (duration - current) > LIVE_EDGE_THRESHOLD_SEC;
     }
+    var atLive = onLiveSlot && !behindEdge;
     liveBtn.classList.toggle('at-live', atLive);
     liveBtn.title = watchingVodId ? 'Return to live' : (atLive ? 'Live' : 'Jump to live');
   }
@@ -1158,6 +1235,10 @@
         if (duration > 0) ytPlayer.seekTo(duration, true);
       }
     });
+    // Paint it once up front rather than waiting on the first Firestore
+    // snapshot or player poll — you land on the live slot, so it should
+    // already be red when the page finishes loading.
+    updateLiveButtonState();
   }
 
   unmuteBtn.addEventListener('click', function () {
@@ -1518,7 +1599,6 @@
   const vodsPanel = document.getElementById('vodsPanel');
   const vodsTab = document.getElementById('vodsTab');
   const vodsListEl = document.getElementById('vodsList');
-  const vodsTabViewers = document.getElementById('vodsTabViewers');
   let latestVods = [];
   let activeVodId = null;
 
@@ -2268,7 +2348,6 @@
 (function () {
   const activeEl = document.getElementById('activeViewersCount');
   if (!activeEl) return;
-  const vodsTabViewersEl = document.getElementById('vodsTabViewers'); // mirrors the same count into the VODs tab
 
   const db = firebase.firestore(); // reuses the app the chat widget already initialized
   const presenceId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
@@ -2292,7 +2371,6 @@
       if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
     });
     activeEl.textContent = count;
-    if (vodsTabViewersEl) vodsTabViewersEl.textContent = count;
   }
 
   db.collection('chat_presence').onSnapshot(
