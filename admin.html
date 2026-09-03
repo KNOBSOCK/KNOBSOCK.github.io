@@ -546,6 +546,8 @@
     font-size: 13px;
   }
   .censor-word-row span { flex: 1 1 auto; }
+  .censor-word-row .censor-word-text.masked { letter-spacing: 2px; color: var(--text-dim); }
+  .censor-word-row .reveal-word-btn:hover { color: var(--accent); border-color: var(--accent); }
 
   /* ---------- MODAL OVERLAY (ban dialog + user history) ---------- */
   .modal-overlay {
@@ -1589,6 +1591,7 @@
   let liveUsers = [];          // [{id (=username key), username, createdAt, lastDeviceId, lastIp, lastSeenAt, color}]
   let liveBans = {};           // key -> {bannedAt, expiresAt, reason, bannedBy, usernames, lastKnownIp, enforced}
   let liveCensorWords = [];
+  let revealedCensorWords = new Set(); // words currently un-masked in the Censored Words list
   let chatClearedAt = 0; // 0 = not cleared; a timestamp otherwise (see chat_config/clear)
   let chatSearchQuery = '';
   let userSearchQuery = '';
@@ -1771,13 +1774,27 @@
       root.innerHTML = '<div class="empty-state">No words configured — the chat falls back to its own built-in list.</div>';
       return;
     }
+    const EYE_OPEN = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><ellipse cx="12" cy="12" rx="10" ry="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>';
+    const EYE_CLOSED = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><ellipse cx="12" cy="12" rx="10" ry="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><line x1="3" y1="21" x2="21" y2="3" stroke="currentColor" stroke-width="2"/></svg>';
     root.innerHTML = liveCensorWords.map(function (w) {
-      return '<div class="censor-word-row"><span>' + escapeAttr(w) + '</span>' +
+      const revealed = revealedCensorWords.has(w);
+      const shown = revealed ? escapeAttr(w) : '&bull;'.repeat(w.length);
+      return '<div class="censor-word-row"><span class="censor-word-text' + (revealed ? '' : ' masked') + '">' + shown + '</span>' +
+        '<button type="button" class="icon-btn small reveal-word-btn" data-word="' + escapeAttr(w) + '" title="' + (revealed ? 'Hide word' : 'Show word') + '">' + (revealed ? EYE_CLOSED : EYE_OPEN) + '</button>' +
         '<button type="button" class="icon-btn small remove-word-btn" data-word="' + escapeAttr(w) + '" title="Remove">&times;</button></div>';
     }).join('');
+    root.querySelectorAll('.reveal-word-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const word = btn.getAttribute('data-word');
+        if (revealedCensorWords.has(word)) revealedCensorWords.delete(word);
+        else revealedCensorWords.add(word);
+        renderCensorWordsList();
+      });
+    });
     root.querySelectorAll('.remove-word-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         const word = btn.getAttribute('data-word');
+        revealedCensorWords.delete(word);
         saveCensorWords(liveCensorWords.filter(function (w) { return w !== word; }));
       });
     });
