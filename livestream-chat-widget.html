@@ -88,6 +88,13 @@
 
   .video-pane {
     position: relative;
+    /* Above .chat-pane (z-index:1) so the VODs tab, which extends back
+       past the layout gap, slides UNDER this pane instead of over it —
+       the pane's own black then hides the tucked-in part and fills the
+       corner curve, so the curve reads as the video sitting on top of
+       the tab rather than as a notch cut out of it. Without this, DOM
+       order alone would paint the (later) chat pane on top. */
+    z-index: 2;
     overflow: hidden;
     background: #000;
     border-radius: 10px;
@@ -156,6 +163,7 @@
 
   .chat-pane {
     position: relative;
+    z-index: 1; /* below .video-pane — see the note there */
     flex: 1 1 38%;
     min-width: 300px;
     display: flex;
@@ -180,16 +188,22 @@
      rendering glitch here. */
   .vods-panel {
     position: absolute;
-    /* Desktop: starts just below the video pane's 10px corner radius.
-       Flush with the top instead, its straight left edge runs alongside
-       that curve and leaves a crescent of background showing between
-       the two. */
-    top: 12px;
-    /* Closes .layout's own 14px column gap so the bar reaches the
-       video pane instead of floating a hair off it. Anchored to both
-       edges, so it re-fits itself at any window width. */
-    left: -14px;
+    top: 0;
+    /* Runs back past .layout's own 14px gap and a further ~14px behind
+       the video pane, which paints on top of it (see .video-pane's
+       z-index). So it doesn't just meet the video's edge, it disappears
+       under it: the pane's rounded corner then curves over the tab
+       rather than over page background, and there's no crescent to
+       line up in the first place. Anchored to both edges, so it
+       re-fits itself at any window width. */
+    left: -28px;
     right: 0;
+    /* Only the far edge is rounded — the tucked-in edge is hidden.
+       On the panel with overflow:hidden rather than on the tab and
+       drawer separately, so the two read as one shape and there's no
+       notch at the seam where they meet. */
+    border-radius: 0 10px 10px 0;
+    overflow: hidden;
     z-index: 8;
     display: flex;
     flex-direction: column;
@@ -363,6 +377,9 @@
     .vods-panel {
       top: -14px;
       left: 0;
+      /* Stacked layout: nothing to tuck under sideways, and the
+         rounding belongs on the drawer's bottom edge instead (below). */
+      border-radius: 0;
     }
     /* The video pane's rounded bottom corners are what the watching bar
        inherits, and a full-width square-cornered drawer butting up
@@ -1647,9 +1664,24 @@
   // straight into the drawer needs a hook on a shared ancestor, since
   // the pane is the chat pane's sibling rather than its child.
   const vodsLayoutEl = document.getElementById('layout');
+  // Matches .vods-drawer's max-height transition in the CSS above. The
+  // squared corners have to outlast the close animation: drop them the
+  // moment the tap lands and the video's rounded corners come back
+  // while a full-width, square-cornered drawer is still collapsing
+  // underneath them, which is the crescent flashing back mid-animation.
+  const VODS_ANIM_MS = 400;
+  let vodsCornerTimer = null;
   function setVodsOpen(open) {
     if (vodsPanel) vodsPanel.classList.toggle('open', open);
-    if (vodsLayoutEl) vodsLayoutEl.classList.toggle('vods-open', open);
+    if (!vodsLayoutEl) return;
+    clearTimeout(vodsCornerTimer);
+    if (open) {
+      vodsLayoutEl.classList.add('vods-open');
+    } else {
+      vodsCornerTimer = setTimeout(() => {
+        vodsLayoutEl.classList.remove('vods-open');
+      }, VODS_ANIM_MS);
+    }
   }
 
   if (vodsTab) {
