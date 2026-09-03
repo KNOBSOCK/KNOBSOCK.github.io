@@ -824,10 +824,15 @@
   // Same collections livestream-chat-widget.html itself reads/writes —
   // see that file's own comments for the full schema. This page only
   // ever touches chat_bans and chat_config/censoredWords by writing to
-  // them (moderation actions); chat_messages and chat_usernames it also
-  // deletes from (a ban's message purge, per-message removal).
+  // them (moderation actions); chat_messages, chat_usernames,
+  // chat_username_counters and chat_devices it also deletes from (a
+  // ban's message purge, per-message removal, and "Free Up This
+  // Username" clearing a username family and the device locks tied to
+  // it — see freeUsernameFamily below).
   const CHAT_MESSAGES_REF = db.collection('chat_messages');
   const CHAT_USERNAMES_REF = db.collection('chat_usernames');
+  const CHAT_USERNAME_COUNTERS_REF = db.collection('chat_username_counters');
+  const CHAT_DEVICES_REF = db.collection('chat_devices');
   const CHAT_BANS_REF = db.collection('chat_bans');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
   const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
@@ -1638,18 +1643,57 @@
     });
   }
 
-  // Firestore batches cap at 500 writes — chunks the delete so a heavy
-  // chatter's history doesn't silently fail past that limit.
-  function batchDeleteMessages(msgs) {
+  // Firestore batches cap at 500 writes — chunks a flat list of doc refs
+  // into safe-sized sequential batches so a big delete (a heavy chatter's
+  // whole message history, or a large family of numbered usernames)
+  // can't silently fail past that limit.
+  function commitDeletesInBatches(refs) {
     const chunks = [];
-    for (let i = 0; i < msgs.length; i += 450) chunks.push(msgs.slice(i, i + 450));
+    for (let i = 0; i < refs.length; i += 450) chunks.push(refs.slice(i, i + 450));
     return chunks.reduce(function (chain, chunk) {
       return chain.then(function () {
         const batch = db.batch();
-        chunk.forEach(function (m) { batch.delete(CHAT_MESSAGES_REF.doc(m.id)); });
+        chunk.forEach(function (ref) { batch.delete(ref); });
         return batch.commit();
       });
     }, Promise.resolve());
+  }
+
+  function batchDeleteMessages(msgs) {
+    return commitDeletesInBatches(msgs.map(function (m) { return CHAT_MESSAGES_REF.doc(m.id); }));
+  }
+
+  // Every chat_usernames doc sharing a base name: the bare "gunoguap" (if
+  // it exists) plus every "gunoguap#0001", "gunoguap#0002", etc. that's
+  // ever actually been claimed. liveUsers already mirrors the whole
+  // collection live, so this is a plain filter, no extra reads needed.
+  function findUsernameFamily(username) {
+    const baseKey = username.toLowerCase().split('#')[0];
+    return liveUsers.filter(function (u) { return u.id.split('#')[0] === baseKey; });
+  }
+
+  // Frees every doc in a username family in one go, instead of just the
+  // one numbered slot an admin happened to be looking at — so a base
+  // name that's been squatted/re-squatted under several numbers can be
+  // cleared out entirely in one action. Also deletes the chat_devices
+  // lock for each member's device (if it has one on record), which is
+  // what actually signs that device out immediately — see the live
+  // listener on chat_devices/<CLIENT_ID> in livestream-chat-widget.html
+  // — and lets it claim a different username afterward instead of just
+  // re-resolving back to the name that was just freed. The counter doc
+  // is cleared too, so if this base name gets claimed again and
+  // collides, numbering restarts at #0001 instead of picking up wherever
+  // this family's history left off.
+  function freeUsernameFamily(username) {
+    const baseKey = username.toLowerCase().split('#')[0];
+    const family = findUsernameFamily(username);
+    const refs = [];
+    family.forEach(function (u) {
+      refs.push(CHAT_USERNAMES_REF.doc(u.id));
+      if (u.lastDeviceId) refs.push(CHAT_DEVICES_REF.doc(u.lastDeviceId));
+    });
+    refs.push(CHAT_USERNAME_COUNTERS_REF.doc(baseKey));
+    return commitDeletesInBatches(refs);
   }
 
   // chat_messages.ts is always a plain millisecond number (Date.now()),
@@ -1869,12 +1913,14 @@
     } else {
       actionsHtml += '<button type="button" class="btn btn-primary" id="userHistoryBanBtn">Ban This User</button>';
     }
-    // Deletes just the chat_usernames registration, not any messages —
-    // the name (bare, or that exact suffixed form) goes back into the
-    // pool so someone can claim it fresh, same as if it had never been
-    // taken. Only offered when there's actually a registration to free;
-    // a username resolved purely from message history (no doc on
-    // record) has nothing here to clear.
+    // Deletes the whole username family's chat_usernames registrations
+    // (see freeUsernameFamily) plus every member's chat_devices lock,
+    // not any messages — the base name and all its numbered versions go
+    // back into the pool, and anyone currently signed in under one of
+    // them gets kicked to the join screen right away. Only offered when
+    // there's actually a registration to free; a username resolved
+    // purely from message history (no doc on record) has nothing here
+    // to clear.
     if (userDoc) {
       actionsHtml += '<button type="button" class="btn-link" id="userHistoryFreeBtn">Free Up This Username</button>';
     }
@@ -1888,8 +1934,13 @@
     }
     if (userDoc) {
       document.getElementById('userHistoryFreeBtn').addEventListener('click', function () {
-        if (!confirm('Free up "' + username + '" so it can be claimed again? Their message history is kept either way.')) return;
-        CHAT_USERNAMES_REF.doc(userDoc.id).delete()
+        const family = findUsernameFamily(username);
+        const names = family.map(function (u) { return u.id; }).join(', ');
+        const prompt = family.length > 1
+          ? 'Free up every numbered version of this name (' + names + ')? Anyone currently signed in under one of these gets signed out and can claim a new username. Message history is kept either way.'
+          : 'Free up "' + username + '" so it can be claimed again? They\'ll be signed out and able to claim a new username. Message history is kept either way.';
+        if (!confirm(prompt)) return;
+        freeUsernameFamily(username)
           .then(closeUserHistory)
           .catch(function (err) { alert('Failed: ' + err.message); });
       });
