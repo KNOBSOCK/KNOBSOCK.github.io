@@ -395,7 +395,11 @@
        the centred viewer count's way, sized to be spotted rather than
        hunted for. Absolutely positioned so the count stays centred in
        the bar rather than being shoved off by it. */
-    .stream-stats-vods {
+    /* Scoped under .stream-stats purely to outrank the base
+       "display: none" — that rule lives further DOWN the file than
+       this media query, so at equal specificity it would win on source
+       order and the pill would never show at all. */
+    .stream-stats .stream-stats-vods {
       display: inline-flex;
       align-items: center;
       gap: 5px;
