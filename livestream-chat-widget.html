@@ -362,11 +362,10 @@
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
-      /* The nub is now sized to stop dead at this pane's top edge (see
-         .vods-tab's height below), so this isn't clearance for it —
-         it's just breathing room so the first chat line doesn't sit
-         flush under it. */
-      padding-top: 6px;
+      /* No padding reserved up here: the nub is sized to stop dead at
+         this pane's top edge (see .vods-tab's height below), so it
+         needs no clearance, and any padding just widens the dead strip
+         between the watching bar and the first line of chat. */
     }
 
     /* Stacked layout: the tab becomes a small nub hanging off the
@@ -819,6 +818,13 @@
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 2.4cqh, 12px);
+    /* This list scrolls under its own top edge, so whatever message is
+       up there is always sheared off mid-line — which reads as
+       something covering it, especially now that the VODs bar sits
+       directly above. Fading the first few pixels turns that hard cut
+       into a soft edge instead. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
   }
   /* flat, thin scrollbar */
   .messages::-webkit-scrollbar { width: 8px; }
