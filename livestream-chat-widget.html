@@ -198,11 +198,13 @@
        re-fits itself at any window width. */
     left: -28px;
     right: 0;
-    /* Only the far edge is rounded — the tucked-in edge is hidden.
-       On the panel with overflow:hidden rather than on the tab and
-       drawer separately, so the two read as one shape and there's no
+    /* Top-right only: the left edge is tucked under the video, and the
+       bottom edge is where the drawer unrolls out of, so a curve there
+       reads as the bar being clipped short rather than as a shape that
+       opens. On the panel with overflow:hidden rather than on the tab
+       and drawer separately, so the two read as one shape with no
        notch at the seam where they meet. */
-    border-radius: 0 10px 10px 0;
+    border-radius: 0 10px 0 0;
     overflow: hidden;
     z-index: 8;
     display: flex;
@@ -223,9 +225,12 @@
     justify-content: center;
     gap: clamp(6px, 1.5cqw, 10px);
     width: 100%;
+    /* No rules top or bottom — --line is a pale peach that reads as
+       two stray white lines across the bar. The opaque fill against
+       the red chat is enough of an edge on its own. (Mobile's nub
+       re-adds a border below, where it needs the outline to hold its
+       tab shape against the chat behind it.) */
     border: 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
     background: var(--vods-bg);
     color: var(--text);
     font-family: var(--font-body);
@@ -357,15 +362,11 @@
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
-      /* The nub hangs a few px past the top of this pane, and it's
-         opaque, so without this it sits on top of whatever chat line
-         happens to be at the top and slices a block out of it. Padding
-         on the pane (not the card) reserves the strip for real: an
-         absolutely positioned child measures from the padding box, so
-         the nub stays put while the chat card starts below it — and it
-         holds while the message list scrolls, which a margin on the
-         first message wouldn't. */
-      padding-top: 12px;
+      /* The nub is now sized to stop dead at this pane's top edge (see
+         .vods-tab's height below), so this isn't clearance for it —
+         it's just breathing room so the first chat line doesn't sit
+         flush under it. */
+      padding-top: 6px;
     }
 
     /* Stacked layout: the tab becomes a small nub hanging off the
@@ -401,7 +402,14 @@
       border: 1px solid var(--line);
       border-top: 0;
       border-radius: 0 0 10px 10px;
-      padding: 2px 0 4px;
+      /* Exactly .layout's column gap, which is what the -14px above
+         pulls it up by — so the nub fills that gap and stops dead at
+         the chat pane's top edge. Sizing it instead of padding it
+         means it can't reach the chat and clip a line of text no
+         matter what the font metrics do; box-sizing:border-box is
+         global here, so the border is inside the 14px. */
+      height: 14px;
+      padding: 0;
     }
     .vods-tab-chevron { font-size: 10px; }
     .vods-tab-label { display: none; }
