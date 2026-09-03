@@ -980,6 +980,15 @@
 
   .sc-info { min-width: 0; flex: 1 1 auto; }
 
+  /* Top-aligned (not the row's default vertical centering) so its top
+     edge lands level with the title's, and flex:none so it keeps its
+     own natural size instead of being squeezed by .sc-info's flex:1 1
+     auto next to it. */
+  .toggle-video-btn {
+    flex: none;
+    align-self: flex-start;
+  }
+
   .sc-title-wrap {
     overflow: hidden;
     white-space: nowrap;
@@ -1138,10 +1147,6 @@
       </iframe>
       <div class="sc-header">
         <span class="sc-title-label">Now Playing</span>
-        <!-- Lives here (not in .video-pane) so it stays on screen and
-             clickable even once the video pane itself is collapsed —
-             see .layout.video-collapsed below. -->
-        <button class="pill-btn toggle-video-btn" id="toggleVideoBtn" title="Hide video">Hide Video</button>
       </div>
       <div class="sc-now-playing">
         <a class="sc-artwork-link" id="scArtworkLink" href="#" target="_blank" rel="noopener noreferrer" title="Open">
@@ -1159,6 +1164,15 @@
             <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
           </div>
         </div>
+        <!-- Lives in this row (not .sc-header) and top-aligned so it no
+             longer sets the header row's height — that row used to be
+             as tall as this button's own padding demanded just to fit
+             it next to the much shorter "Now Playing" label, wasting
+             space above the title on every phone. Still not inside
+             .video-pane, so it stays on screen and clickable even once
+             the video pane itself is collapsed — see
+             .layout.video-collapsed below. -->
+        <button class="pill-btn toggle-video-btn" id="toggleVideoBtn" title="Hide video">Hide Video</button>
       </div>
     </div>
   </div>
