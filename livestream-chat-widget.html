@@ -230,6 +230,9 @@
   .vods-tab-chevron {
     display: inline-block;
     font-size: 9px;
+    /* Pinned so the mobile nub's height is font-metric independent —
+       the chat pane's padding-top below is sized against it. */
+    line-height: 1;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .vods-panel.open .vods-tab-chevron { transform: rotate(180deg); }
@@ -340,6 +343,15 @@
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
+      /* The nub hangs a few px past the top of this pane, and it's
+         opaque, so without this it sits on top of whatever chat line
+         happens to be at the top and slices a block out of it. Padding
+         on the pane (not the card) reserves the strip for real: an
+         absolutely positioned child measures from the padding box, so
+         the nub stays put while the chat card starts below it — and it
+         holds while the message list scrolls, which a margin on the
+         first message wouldn't. */
+      padding-top: 12px;
     }
 
     /* Stacked layout: the tab becomes a small nub hanging off the
