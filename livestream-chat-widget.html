@@ -868,6 +868,53 @@
     });
   };
 
+  // ---------- LIVE STREAM VIDEO STATE ----------
+  // Bridges from the Firebase-backed admin config (videoId + isLive)
+  // watched in the main chat script further down — that script runs
+  // later, in its own IIFE, so it calls this via window instead of
+  // reaching in and touching ytPlayer directly. Keeping every actual
+  // player lifecycle call here, next to ytPlayer/showVideoLoading/
+  // hideVideoLoading, beats duplicating YT Player API calls across two
+  // separate script blocks.
+  var currentLiveVideoId = null;
+  var ytApiRequested = false;
+
+  function requestYouTubeIframeApi() {
+    if (ytApiRequested) return;
+    ytApiRequested = true;
+    var s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.body.appendChild(s);
+  }
+
+  // Called on every config change, not just page load — admin.html's
+  // "Go Offline"/"Go Live" toggle needs to take effect immediately for
+  // anyone already sitting on the page, not just on their next visit.
+  window.applyLiveVideoState = function (videoId, isLive) {
+    if (!isLive) {
+      currentLiveVideoId = null;
+      if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
+        try { ytPlayer.stopVideo(); } catch (e) {}
+      }
+      showVideoLoading();
+      return;
+    }
+
+    if (videoId === currentLiveVideoId) return; // already showing this exact video
+    currentLiveVideoId = videoId;
+
+    if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+      ytPlayer.loadVideoById(videoId);
+      return;
+    }
+
+    var frame = document.getElementById('ytFrame');
+    if (frame) {
+      frame.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
+    }
+    requestYouTubeIframeApi();
+  };
+
   unmuteBtn.addEventListener('click', function () {
     if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
     if (ytPlayer.isMuted()) {
@@ -1176,40 +1223,36 @@
   const devicesRef = db.collection('chat_devices');
 
   // ---------- LIVE STREAM VIDEO ----------
-  // Which video/stream #ytFrame embeds is admin-configurable (see
-  // admin.html's "Live Stream Video" section) instead of hardcoded, so a
-  // changed YouTube URL doesn't need a code deploy. A one-time read
-  // rather than a live listener — swapping the embed out from under
-  // someone mid-watch would just interrupt their playback, so this is
-  // meant to apply on next load, same as the other admin settings
-  // fields. The YouTube IFrame API script is only injected *after* this
-  // resolves (rather than loaded unconditionally), so it always attaches
-  // to the right video from the start instead of a hardcoded default
-  // that then gets swapped underneath it.
+  // Which video/stream #ytFrame embeds, and whether it's shown at all
+  // right now, is admin-configurable (see admin.html's "Live Stream
+  // Video" section — the URL field and the Go Offline/Go Live toggle)
+  // instead of hardcoded/always-on, so a changed YouTube URL doesn't
+  // need a code deploy and going offline doesn't leave the last
+  // broadcast's replay looping for anyone who loads the page. A *live*
+  // listener, not a one-time read — the offline toggle has to take
+  // effect immediately for anyone already sitting on the page, the same
+  // way a ban does elsewhere in this file. The actual player calls live
+  // in window.applyLiveVideoState (see LIVE STREAM VIDEO STATE, in the
+  // earlier video-control script block) — this just watches Firestore
+  // and hands it the result. A missing isLive field defaults to true
+  // (online), so a site that hasn't touched the new toggle yet behaves
+  // exactly as it did before this existed.
   const DEFAULT_LIVE_VIDEO_ID = '91UOOY-od88';
 
-  function loadYouTubeIframeApi() {
-    const s = document.createElement('script');
-    s.src = 'https://www.youtube.com/iframe_api';
-    document.body.appendChild(s);
-  }
-
-  function setLiveVideo(videoId) {
-    const frame = document.getElementById('ytFrame');
-    if (frame) {
-      frame.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
-    }
-    loadYouTubeIframeApi();
-  }
-
-  configRef.doc('liveVideo').get().then((doc) => {
+  configRef.doc('liveVideo').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
-    setLiveVideo((data && data.videoId) || DEFAULT_LIVE_VIDEO_ID);
-  }).catch(() => {
-    // Can't confirm a configured video (offline, rules not deployed
-    // yet, etc.) — falls back to the built-in default rather than
-    // leaving the stream blank over a read error.
-    setLiveVideo(DEFAULT_LIVE_VIDEO_ID);
+    const videoId = (data && data.videoId) || DEFAULT_LIVE_VIDEO_ID;
+    const isLive = !(data && data.isLive === false);
+    if (typeof window.applyLiveVideoState === 'function') {
+      window.applyLiveVideoState(videoId, isLive);
+    }
+  }, () => {
+    // Can't confirm live-video config (offline, rules not deployed yet,
+    // etc.) — falls back to the built-in default video, online, rather
+    // than leaving the stream blank over a read error.
+    if (typeof window.applyLiveVideoState === 'function') {
+      window.applyLiveVideoState(DEFAULT_LIVE_VIDEO_ID, true);
+    }
   });
 
   let session = null; // { username }

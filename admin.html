@@ -740,7 +740,12 @@
         <div class="card">
           <div class="card-head"><h2>Live Stream Video</h2></div>
           <div class="live-card-body" style="max-height:none;">
-            <div class="note">Paste the YouTube link for whatever's live (or about to go live) on live.html. Takes effect for anyone who loads or refreshes the page after saving.</div>
+            <div class="add-row" style="align-items:center;">
+              <div id="liveStatusLabel" style="flex:1 1 auto;font-weight:700;"></div>
+              <button type="button" class="btn" id="liveStatusToggleBtn">…</button>
+            </div>
+            <div class="note">When offline, live.html shows the "We are currently offline" card instead of playing the last broadcast's replay — flip this the moment a stream ends, and back on before the next one starts. Takes effect immediately for anyone already on the page.</div>
+            <div class="note">Paste the YouTube link for whatever's live (or about to go live). Takes effect for anyone who loads or refreshes the page after saving.</div>
             <div class="add-row">
               <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste the YouTube live link">
               <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
@@ -2086,17 +2091,43 @@
       renderClearChatStatus();
     }, function () {});
 
-    // One-time load rather than a live listener — this is a settings
-    // field one admin edits at a time, not a moderation list that needs
-    // to reflect another admin's actions as they happen, and a live
-    // listener would risk overwriting whatever's mid-edit in the input.
-    CHAT_LIVE_VIDEO_REF.get().then(function (doc) {
+    // A live listener — the online/offline status needs to always read
+    // correctly (e.g. across two admin tabs, or right after this same
+    // toggle is clicked) — but the URL input is only ever prefilled
+    // from the *first* snapshot. Live-updating that field too would
+    // risk overwriting whatever's mid-edit in the input the moment
+    // anything else about this doc changes (like the toggle below).
+    let liveVideoUrlPrefilled = false;
+    let currentLiveStatus = true; // corrected by the listener below before it matters
+
+    function renderLiveStatusToggle() {
+      const label = document.getElementById('liveStatusLabel');
+      const btn = document.getElementById('liveStatusToggleBtn');
+      if (!label || !btn) return;
+      label.textContent = currentLiveStatus ? 'Status: Live' : 'Status: Offline';
+      label.style.color = currentLiveStatus ? 'var(--accent)' : 'var(--text-dim)';
+      btn.textContent = currentLiveStatus ? 'Go Offline' : 'Go Live';
+      btn.classList.toggle('btn-primary', !currentLiveStatus);
+    }
+
+    CHAT_LIVE_VIDEO_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
-      const input = document.getElementById('liveVideoUrlInput');
-      if (input && data && data.videoId) {
-        input.value = 'https://www.youtube.com/watch?v=' + data.videoId;
+      currentLiveStatus = !(data && data.isLive === false); // missing/true = live
+      renderLiveStatusToggle();
+
+      if (!liveVideoUrlPrefilled) {
+        liveVideoUrlPrefilled = true;
+        const input = document.getElementById('liveVideoUrlInput');
+        if (input && data && data.videoId) {
+          input.value = 'https://www.youtube.com/watch?v=' + data.videoId;
+        }
       }
-    }).catch(function () {});
+    }, function () {});
+
+    document.getElementById('liveStatusToggleBtn').addEventListener('click', function () {
+      CHAT_LIVE_VIDEO_REF.set({ isLive: !currentLiveStatus }, { merge: true })
+        .catch(function (err) { alert('Failed to update live status: ' + err.message); });
+    });
 
     document.getElementById('saveLiveVideoBtn').addEventListener('click', function () {
       const input = document.getElementById('liveVideoUrlInput');
