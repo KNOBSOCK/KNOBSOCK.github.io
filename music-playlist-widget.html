@@ -1051,6 +1051,31 @@
     background: var(--accent);
   }
 
+  /* On mobile, the video pane is the one that gives up room when
+     everything doesn't fit (see .video-pane's min-height:56px/shrink
+     above) — but this card eats into that same shared budget too, and
+     a fully populated card (real title/artist/album/source text, not
+     the "Loading…" placeholder it starts on) is taller than what that
+     balance was tuned against, so the video was losing more room than
+     it should on an ordinary phone. Trimming this card's own baseline
+     size hands that room back to the video on every phone, not just
+     the tightest ones. */
+  @media (max-width: 860px) {
+    .sc-card {
+      padding: 6px;
+      gap: 4px;
+    }
+    .sc-title,
+    .sc-artist,
+    .sc-album,
+    .sc-source {
+      line-height: 1.15;
+    }
+    .sc-progress-track {
+      margin-top: 2px;
+    }
+  }
+
 </style>
 </head>
 <body>
