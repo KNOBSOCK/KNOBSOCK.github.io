@@ -125,7 +125,18 @@
          shrinking has to come out of the video — which letterboxes
          inside its own pane and still looks right — rather than out of
          the "Now Playing" card, which has nowhere to go and would just
-         have its artwork and controls cropped off the bottom. */
+         have its artwork and controls cropped off the bottom.
+
+         The 1fr here is still needed even though .sc-card itself no
+         longer stretches to fill it (see the .sc-card rule further
+         down) — "playlist" spans both this row and the video row above
+         as one grid area (see grid-template-areas below), so shrinking
+         this row's *track* down to .sc-card's content size would take
+         the playlist pane's height down with it. The 1fr keeps the row
+         — and so the playlist column — filling the available height;
+         .sc-card just no longer insists on filling the row itself, so
+         it sits at the row's top instead, with .sc-section's own
+         (transparent) background showing through the space below it. */
       grid-template-rows: minmax(0, auto) minmax(min-content, 1fr);
       grid-template-areas:
         "video      playlist"
@@ -860,18 +871,29 @@
     color: var(--text);
   }
 
-  /* Desktop only: stretches the card to fill the "soundcloud" grid row's
-     full leftover height — flush against the video above and the bottom
-     of the widget below — instead of shrinking to its content's height
-     and leaving it squished with dead space above it. Placed AFTER the
-     base .sc-card rule above on purpose (same specificity, so source
-     order decides) — a media-scoped override earlier in the file than
-     the unscoped rule it's meant to override gets silently undone by it,
-     since scoping alone doesn't add specificity. On mobile .sc-section
-     isn't a flex container, so this flex value has no effect there
-     regardless. */
+  /* Desktop, video-collapsed only: stretches the card to fill the
+     "soundcloud" grid row's full height (which spans what's normally
+     both the video and soundcloud rows in that state — see
+     .layout.video-collapsed .sc-section's grid-row override) and
+     centers its content in the freed space, instead of leaving it
+     pinned to the top with a big gap below. In the ordinary state
+     (video visible) .sc-card is left content-sized instead — see the
+     plain .sc-card rule above. The row itself still fills the
+     available height either way (see the 1fr on the SoundCloud row in
+     grid-template-rows above — that's load-bearing for the playlist
+     column's height, not just this card, so it stays); what changed is
+     only whether .sc-card insists on filling *its* row too. Left
+     un-stretched, it just sits at the row's top with .sc-section's own
+     (transparent) background showing through the leftover space below
+     it, instead of the card's own bordered box stretching down through
+     that space with its content centered inside. The compound selector
+     below already outweighs the base .sc-card rule's specificity on
+     its own, so unlike some other overrides in this file, this one
+     doesn't depend on staying below it in source order. On mobile
+     .sc-section isn't a flex container outside its own video-collapsed
+     override further down, so this has no effect there regardless. */
   @media (min-width: 861px) {
-    .sc-card { flex: 1 1 auto; justify-content: center; }
+    .layout.video-collapsed .sc-card { flex: 1 1 auto; justify-content: center; }
   }
 
   .sc-header {
