@@ -329,7 +329,7 @@
       flex: 0 0 232px;
       min-height: 0;
     }
-    .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; }
+    .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
     /* Collapse Video: same growth the desktop .sc-card rule already gets
        (below, under the min-width query) — without it the freed video
        space would just sit empty above the playlist row instead of the
@@ -508,6 +508,13 @@
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     width: 100vw; height: 100vh; height: 100dvh;
+    /* The mobile media query above caps this pane at a 16:9-from-width
+       max-height so it can't outgrow its normal in-page box — but that
+       cap doesn't know about fullscreen, so left in place here it was
+       clamping the "fullscreen" pane back down to that same small box
+       instead of actually filling the screen, leaving the rest of the
+       screen showing .layout's own background underneath. */
+    max-height: none;
     margin: 0;
     border-radius: 0;
     z-index: 9999;
@@ -538,6 +545,7 @@
     top: 0; left: 0; right: 0; bottom: 0;
     width: 100vw; height: 100vh;
     aspect-ratio: auto;
+    max-height: none;
     margin: 0;
     border-radius: 0;
   }
