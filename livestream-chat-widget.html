@@ -362,10 +362,15 @@
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
-      /* No padding reserved up here: the nub is sized to stop dead at
-         this pane's top edge (see .vods-tab's height below), so it
-         needs no clearance, and any padding just widens the dead strip
-         between the watching bar and the first line of chat. */
+      /* Runs UP behind the video pane — past .layout's 14px gap and on
+         under the watching bar — instead of starting below it. The
+         video pane is opaque and paints on top (z-index 2 vs 1), so
+         the message list's own top edge, and the half-cut line that
+         always sits at it, are hidden behind the bar rather than
+         showing as a slice of text under a dead strip. Chat just
+         disappears under the bar as it scrolls, which is the whole
+         point: nothing is clipped in view, so nothing needs fading. */
+      margin-top: calc(-1 * (14px + var(--stats-h)));
     }
 
     /* Stacked layout: the tab becomes a small nub hanging off the
@@ -374,8 +379,26 @@
        rather than a separate one), and the list unrolls down over the
        chat from there. No label — the nub is the whole affordance;
        the drawer's own VODS heading names it once it's open. */
+    /* The whole watching bar is the handle here, so it gets the
+       pointer, the chevron and a tap glow — and the nub below is
+       retired entirely. */
+    .stream-stats {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .stream-stats:active {
+      background: #341010;
+      box-shadow: inset 0 0 26px rgba(205, 50, 50, 0.5);
+    }
+    .stream-stats-chevron { display: inline-block; }
+    .layout.vods-open .stream-stats-chevron { transform: rotate(180deg); }
+    .vods-tab { display: none; }
+
     .vods-panel {
-      top: -14px;
+      /* The pane's top now sits behind the bar (see .chat-pane's
+         margin above), so the drawer starts a bar's height down from
+         it — i.e. flush under the bar, where it used to start. */
+      top: var(--stats-h);
       left: 0;
       /* Stacked layout: nothing to tuck under sideways, and the
          rounding belongs on the drawer's bottom edge instead (below). */
@@ -465,6 +488,15 @@
     font-weight: 700;
     font-size: clamp(11px, 1.6vw, 14px);
     white-space: nowrap;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+  }
+  /* Desktop leaves this a plain readout — it only becomes the VODs
+     handle in the stacked layout (see the mobile block below). */
+  .stream-stats-chevron {
+    display: none;
+    font-size: 9px;
+    line-height: 1;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .stat-live-dot {
@@ -818,13 +850,6 @@
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 2.4cqh, 12px);
-    /* This list scrolls under its own top edge, so whatever message is
-       up there is always sheared off mid-line — which reads as
-       something covering it, especially now that the VODs bar sits
-       directly above. Fading the first few pixels turns that hard cut
-       into a soft edge instead. */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
   }
   /* flat, thin scrollbar */
   .messages::-webkit-scrollbar { width: 8px; }
@@ -991,9 +1016,15 @@
         <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
       </div>
     </div>
+    <!-- Doubles as the VODs handle on mobile: the whole bar is the tap
+         target there (see the click wiring in the VODs DRAWER script),
+         which is why the chevron lives in here rather than on a
+         separate nub below. Desktop keeps its own .vods-tab and this
+         bar stays a plain readout. -->
     <div class="stream-stats" id="streamStats">
       <span class="" aria-hidden="true"></span>
       <span id="activeViewersCount">0</span>watching
+      <span class="stream-stats-chevron" aria-hidden="true">&#9660;</span>
     </div>
   </div>
 
@@ -1698,9 +1729,21 @@
     }
   }
 
-  if (vodsTab) {
-    vodsTab.addEventListener('click', () => {
-      setVodsOpen(!vodsPanel.classList.contains('open'));
+  function toggleVods() {
+    setVodsOpen(!vodsPanel.classList.contains('open'));
+  }
+
+  if (vodsTab) vodsTab.addEventListener('click', toggleVods);
+
+  // On mobile the whole "N watching" bar is the handle, not a separate
+  // nub. Guarded rather than always-on: on desktop that bar sits under
+  // the video while the drawer opens over on the chat side, so making
+  // it open something across the layout would just be confusing.
+  const vodsBarQuery = window.matchMedia('(max-width: 860px)');
+  const streamStatsEl = document.getElementById('streamStats');
+  if (streamStatsEl) {
+    streamStatsEl.addEventListener('click', () => {
+      if (vodsBarQuery.matches) toggleVods();
     });
   }
 
