@@ -466,15 +466,6 @@
   .round-btn:active:not(:disabled) { background: var(--accent-dim); }
   .round-btn:disabled { opacity: 0.5; cursor: default; }
 
-  .signout {
-    width: clamp(22px, 7cqw, 28px);
-    font-size: clamp(11px, 3.4cqw, 14px);
-    background: var(--accent-dim);
-    color: #ffffff;
-    border-color: var(--line);
-    flex: none;
-  }
-
   .status-actions {
     display: flex;
     align-items: center;
@@ -1177,6 +1168,7 @@
   const messagesRef = db.collection('chat_messages');
   const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
+  const devicesRef = db.collection('chat_devices');
 
   let session = null; // { username }
   let unsubscribeMessages = null;
@@ -1210,27 +1202,51 @@
   }
   const CLIENT_ID = getClientId();
 
-  // ---------- REMEMBERED USERNAME ----------
-  // Once someone's claimed a username, this browser doesn't need to ask
-  // again on the next visit/refresh — the same "just stash it in
-  // localStorage" trick as CLIENT_ID above, but for skipping the join
-  // screen itself rather than for moderation. This never re-adds the
-  // user to the site's own account system (there isn't one); it just
-  // means "auto-fill and re-enter chat as the name this browser used
-  // last," same as a browser remembering you're signed into a site.
+  // ---------- REMEMBERED USERNAME (local fast-path cache) ----------
+  // A quick local echo of this device's permanent username (see DEVICE
+  // LOCK below, which is the actual source of truth) — this is what lets
+  // an offline/slow-to-load tab resume chat immediately instead of
+  // waiting on a round trip, and it's what the very first version of
+  // this feature used on its own before device-locking existed. It is
+  // never used to grant a *different* name, only to echo the one the
+  // device lock already settled on.
   const LAST_USERNAME_KEY = 'chat_last_username';
 
   function rememberUsername(username) {
     try { localStorage.setItem(LAST_USERNAME_KEY, username); } catch (e) {}
   }
 
-  function forgetUsername() {
-    try { localStorage.removeItem(LAST_USERNAME_KEY); } catch (e) {}
-  }
-
   function getRememberedUsername() {
     try { return localStorage.getItem(LAST_USERNAME_KEY); } catch (e) { return null; }
   }
+
+  // ---------- DEVICE LOCK ----------
+  // One browser, one username, forever — this is what actually stops
+  // someone from ditching a name (sign out, clear the tab, whatever) and
+  // rejoining as somebody else to impersonate another chatter. The first
+  // username a device ever successfully claims gets written to
+  // chat_devices/<CLIENT_ID>, and claimUsernameSlot() below always
+  // checks that doc *inside* its transaction before creating anything
+  // new — so even a resubmitted join form with a different typed name
+  // just hands back the device's existing name instead of creating a
+  // second one. Keyed by CLIENT_ID rather than username because the
+  // whole point is to bind the *device*, not the name.
+  //
+  // Like CLIENT_ID itself, this only holds up as long as this browser's
+  // localStorage (which is what CLIENT_ID lives in) survives — there's
+  // no server here to check a real identity against, so a fully wiped
+  // browser/profile or a different browser is indistinguishable from a
+  // brand-new visitor. That's the same ceiling the ban system already
+  // operates under.
+  let deviceLockedUsername = null;
+  const deviceLockPromise = devicesRef.doc(CLIENT_ID).get().then((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    deviceLockedUsername = (data && data.username) || null;
+  }).catch(() => {
+    // Can't confirm a lock (offline, rules not deployed yet, etc.) —
+    // falls back to the locally-remembered name below rather than
+    // blocking chat entirely over a read error.
+  });
 
   // ---------- USERNAME CLAIMING ----------
   // Never rejects a name outright: the first person to type "gunoguap"
@@ -1248,12 +1264,26 @@
     return String(n).padStart(4, '0');
   }
 
+  // Returns { username, isNew }. isNew is false when this device already
+  // owned a name coming in — the caller uses that to skip re-announcing
+  // a "join" for a device that never actually left.
   async function claimUsernameSlot(rawUsername) {
     const baseKey = rawUsername.toLowerCase();
     const baseRef = usernamesRef.doc(baseKey);
     const counterRef = usernameCountersRef.doc(baseKey);
+    const deviceRef = devicesRef.doc(CLIENT_ID);
 
     return db.runTransaction(async (tx) => {
+      // Re-checked here (not just via the cached deviceLockedUsername)
+      // so two tabs on the same device racing to claim two different
+      // names at the same instant can't both slip through — whichever
+      // transaction commits first wins, and Firestore retries the other
+      // one against that committed state, which this read then sees.
+      const deviceDoc = await tx.get(deviceRef);
+      if (deviceDoc.exists) {
+        return { username: deviceDoc.data().username, isNew: false };
+      }
+
       const baseDoc = await tx.get(baseRef);
       if (!baseDoc.exists) {
         tx.set(baseRef, {
@@ -1265,7 +1295,11 @@
           // device that has ever actually owned it.
           lastDeviceId: CLIENT_ID
         });
-        return rawUsername;
+        tx.set(deviceRef, {
+          username: rawUsername,
+          claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return { username: rawUsername, isNew: true };
       }
 
       const counterDoc = await tx.get(counterRef);
@@ -1284,7 +1318,11 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastDeviceId: CLIENT_ID
       });
-      return suffixedUsername;
+      tx.set(deviceRef, {
+        username: suffixedUsername,
+        claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      return { username: suffixedUsername, isNew: true };
     });
   }
 
@@ -1526,11 +1564,17 @@
     btn.textContent = 'Joining…';
 
     try {
-      const finalUsername = await claimUsernameSlot(username);
-      session = { username: finalUsername };
-      rememberUsername(finalUsername);
-      logIpBestEffort(finalUsername);
-      sendJoinNotice(finalUsername);
+      const claim = await claimUsernameSlot(username);
+      session = { username: claim.username };
+      rememberUsername(claim.username);
+      deviceLockedUsername = claim.username;
+      // A device that already owned a name never actually "joins" again
+      // here — claimUsernameSlot just handed back its existing identity
+      // regardless of what was typed, so there's nothing new to announce.
+      if (claim.isNew) {
+        logIpBestEffort(claim.username);
+        sendJoinNotice(claim.username);
+      }
       startChat();
     } catch (e) {
       console.error(e);
@@ -1564,7 +1608,6 @@
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
-              <button class="round-btn signout" id="signoutBtn" title="Sign out">&times;</button>
             </div>
           </div>
           <div class="composer">
@@ -1574,13 +1617,6 @@
         </div>
       </div>
     `;
-
-    $('signoutBtn').addEventListener('click', () => {
-      session = null;
-      forgetUsername();
-      if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
-      renderAuth();
-    });
 
     $('colorPicker').addEventListener('input', (e) => {
       const color = e.target.value;
@@ -1720,14 +1756,39 @@
   // Goes straight back into chat under the last remembered username
   // instead of the join form, whenever there's no more pressing reason
   // (like an active ban) to make someone type a name again.
-  function enterAuthOrRestore() {
+  async function enterAuthOrRestore() {
+    await deviceLockPromise; // near-instant once resolved; only waits on first check
+
+    // A ban can land while the check above was still in flight (this only
+    // ever has a real network wait on the very first call) — don't let a
+    // slow-resolving restore stomp the ban screen it raced against.
+    if (currentlyBanned) return;
+
+    if (deviceLockedUsername) {
+      // Authoritative: this device already has a permanent identity, so
+      // it always resumes as that name — never a way to become someone
+      // else, whatever a stale local cache might otherwise suggest.
+      session = { username: deviceLockedUsername };
+      rememberUsername(deviceLockedUsername);
+      startChat();
+      return;
+    }
+
     const saved = getRememberedUsername();
     if (saved) {
       session = { username: saved };
+      // Backfills a device that picked its name before device-locking
+      // existed, so it's pinned from here on same as a fresh claim.
+      deviceLockedUsername = saved;
+      devicesRef.doc(CLIENT_ID).set({
+        username: saved,
+        claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(() => {});
       startChat();
-    } else {
-      renderAuth();
+      return;
     }
+
+    renderAuth();
   }
 
   // ---------- INIT ----------
