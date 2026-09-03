@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNOBSOCK Chat Overlay</title>
+<style>
+  /* Built for OBS's Browser Source, not for a visitor's tab: no chrome,
+     no input box, no join/leave spam — just message rows on a fully
+     transparent page background so only the text sits over your scene.
+     (OBS's Browser Source runs on Chromium/CEF and honors a transparent
+     background natively — this isn't a chroma-key trick.) */
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    font-family: Tahoma, Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Column anchored to the bottom: when messages overflow whatever
+     height you set the Browser Source to, the oldest lines are the ones
+     that fall off (above the top edge) while the newest stays pinned at
+     the bottom — same feel as a normal stream chat overlay, with no
+     scrollbar and no JS scroll-management needed. */
+  #messages {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+    gap: 10px;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .msg {
+    font-size: 20px;
+    line-height: 1.35;
+    color: #fff;
+    word-wrap: break-word;
+    /* Layered shadow + a thin stroke stand in for a real text outline so
+       the chat stays readable over whatever's on screen behind it. */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
+    -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.6);
+    animation: msgIn 0.25s ease-out;
+  }
+  .msg .msg-name { font-weight: 700; }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="messages"></div>
+
+<!-- Firebase SDK (compat build, no build tools needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+(function () {
+  // Same public project/config livestream-chat-widget.html uses — this
+  // page only ever reads, same as that widget does with no auth step.
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410",
+    measurementId: "G-RQF7G6VD1L"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const messagesRef = db.collection('chat_messages');
+  const usernamesRef = db.collection('chat_usernames');
+  const configRef = db.collection('chat_config');
+
+  const MAX_VISIBLE = 12;     // how many recent messages stay on screen
+  const FETCH_LIMIT = 60;     // overfetch so filtering out join-events doesn't starve MAX_VISIBLE
+
+  // ---------- censorship (mirrors livestream-chat-widget.html) ----------
+  const DEFAULT_CENSORED_WORDS = [
+    'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
+    'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
+    'towelhead', 'raghead', 'cunt'
+  ];
+  function buildCensorRegex(word) {
+    const subs = {
+      a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
+      s: '[s$5]', g: '[g9]', t: '[t7]'
+    };
+    const pattern = word.split('').map(ch => subs[ch] || ch).join('[\\W_]*');
+    return new RegExp('\\b' + pattern + '\\b', 'gi');
+  }
+  let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+  configRef.doc('censoredWords').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
+    CENSOR_REGEXES = words.map(buildCensorRegex);
+  }, () => {}); // offline/blocked read just keeps whatever list is already loaded
+  function censorText(text) {
+    let result = text;
+    CENSOR_REGEXES.forEach(re => {
+      result = result.replace(re, match => '*'.repeat(match.length));
+    });
+    return result;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  // ---------- username colors (same hash-based scheme as the live chat) ----------
+  function hashHue(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return hash % 360;
+  }
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+    return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+  }
+  function defaultColorFor(username) {
+    return hslToHex(hashHue(username.toLowerCase()), 70, 72);
+  }
+  const usernameColorCache = {};
+  function colorForUsername(username, onResolved) {
+    const key = username.toLowerCase();
+    if (usernameColorCache[key] && usernameColorCache[key] !== 'pending') {
+      return usernameColorCache[key];
+    }
+    if (!usernameColorCache[key]) {
+      usernameColorCache[key] = 'pending';
+      usernamesRef.doc(key).get().then((doc) => {
+        const data = doc.exists ? doc.data() : null;
+        usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
+        if (onResolved) onResolved();
+      }).catch(() => {
+        usernameColorCache[key] = defaultColorFor(username);
+        if (onResolved) onResolved();
+      });
+    }
+    return defaultColorFor(username); // shown immediately; onResolved repaints if a custom pick exists
+  }
+
+  // ---------- render ----------
+  const container = document.getElementById('messages');
+  let lastMsgs = [];
+
+  function render(msgs) {
+    lastMsgs = msgs;
+    container.innerHTML = msgs.map(m => {
+      const color = colorForUsername(m.username, () => render(lastMsgs));
+      return '<div class="msg">' +
+        '<span class="msg-name" style="color:' + color + '">' + escapeHtml(m.username) + ':</span> ' +
+        '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  // ---------- live query (mirrors chat_config/clear cutoff) ----------
+  let clearedAt = 0;
+  let unsubscribeMessages = null;
+
+  function subscribeToMessages() {
+    if (unsubscribeMessages) unsubscribeMessages();
+    let query = messagesRef.orderBy('ts', 'asc');
+    if (clearedAt) query = query.where('ts', '>', clearedAt);
+    unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
+      (snapshot) => {
+        const msgs = snapshot.docs.map(doc => doc.data())
+          .filter(m => m.type !== 'join')
+          .slice(-MAX_VISIBLE);
+        render(msgs);
+      },
+      // A stream overlay should never flash an error banner on screen —
+      // just log it and leave whatever was last showing in place.
+      (err) => console.error(err)
+    );
+  }
+
+  configRef.doc('clear').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+    subscribeToMessages();
+  }, () => subscribeToMessages());
+})();
+</script>
+
+</body>
+</html>

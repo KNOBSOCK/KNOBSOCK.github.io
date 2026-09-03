@@ -1210,6 +1210,28 @@
   }
   const CLIENT_ID = getClientId();
 
+  // ---------- REMEMBERED USERNAME ----------
+  // Once someone's claimed a username, this browser doesn't need to ask
+  // again on the next visit/refresh — the same "just stash it in
+  // localStorage" trick as CLIENT_ID above, but for skipping the join
+  // screen itself rather than for moderation. This never re-adds the
+  // user to the site's own account system (there isn't one); it just
+  // means "auto-fill and re-enter chat as the name this browser used
+  // last," same as a browser remembering you're signed into a site.
+  const LAST_USERNAME_KEY = 'chat_last_username';
+
+  function rememberUsername(username) {
+    try { localStorage.setItem(LAST_USERNAME_KEY, username); } catch (e) {}
+  }
+
+  function forgetUsername() {
+    try { localStorage.removeItem(LAST_USERNAME_KEY); } catch (e) {}
+  }
+
+  function getRememberedUsername() {
+    try { return localStorage.getItem(LAST_USERNAME_KEY); } catch (e) { return null; }
+  }
+
   // ---------- USERNAME CLAIMING ----------
   // Never rejects a name outright: the first person to type "gunoguap"
   // gets it bare, and everyone after that gets the next free
@@ -1506,6 +1528,7 @@
     try {
       const finalUsername = await claimUsernameSlot(username);
       session = { username: finalUsername };
+      rememberUsername(finalUsername);
       logIpBestEffort(finalUsername);
       sendJoinNotice(finalUsername);
       startChat();
@@ -1554,6 +1577,7 @@
 
     $('signoutBtn').addEventListener('click', () => {
       session = null;
+      forgetUsername();
       if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
       renderAuth();
     });
@@ -1693,6 +1717,19 @@
     `;
   }
 
+  // Goes straight back into chat under the last remembered username
+  // instead of the join form, whenever there's no more pressing reason
+  // (like an active ban) to make someone type a name again.
+  function enterAuthOrRestore() {
+    const saved = getRememberedUsername();
+    if (saved) {
+      session = { username: saved };
+      startChat();
+    } else {
+      renderAuth();
+    }
+  }
+
   // ---------- INIT ----------
   let currentlyBanned = false;
   bansRef.doc(CLIENT_ID).onSnapshot((doc) => {
@@ -1707,15 +1744,15 @@
       // The ban was lifted, or a timeout expired, while this tab was
       // already sitting on the banned screen.
       currentlyBanned = false;
-      renderAuth();
+      enterAuthOrRestore();
     } else if (!session) {
-      renderAuth();
+      enterAuthOrRestore();
     }
   }, () => {
     // Can't confirm ban status (offline, rules not yet deployed, etc.) —
-    // fails open to the normal join screen rather than locking everyone
-    // out over a read error.
-    if (!session) renderAuth();
+    // fails open to the normal join screen (or a remembered session)
+    // rather than locking everyone out over a read error.
+    if (!session) enterAuthOrRestore();
   });
 })();
 </script>
