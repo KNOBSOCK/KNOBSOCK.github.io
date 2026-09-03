@@ -24,19 +24,23 @@
     overflow: hidden;
   }
 
-  /* Column anchored to the bottom: when messages overflow whatever
-     height you set the Browser Source to, the oldest lines are the ones
-     that fall off (above the top edge) while the newest stays pinned at
-     the bottom — same feel as a normal stream chat, with no scrollbar
-     and no JS scroll-management needed. */
+  /* A normal top-to-bottom scrollable column (not bottom-anchored with
+     clipped overflow, like the transparent overlay uses) — this is your
+     own reference view, so you can scroll up through recent history
+     instead of only ever seeing the latest few lines. justify-content:
+     flex-end is deliberately NOT used here: combined with overflow-y:
+     auto, it makes the overflowed (older) content unreachable by
+     scrolling in most browsers. The render() function below scrolls to
+     the bottom on its own whenever you're already there, so it still
+     reads as a normal live chat by default — it just won't yank you
+     back down if you've scrolled up to read something. */
   #messages {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
     height: 100%;
     gap: 10px;
     padding: 16px;
-    overflow: hidden;
+    overflow-y: auto;
   }
 
   .msg {
@@ -82,8 +86,9 @@
   const usernamesRef = db.collection('chat_usernames');
   const configRef = db.collection('chat_config');
 
-  const MAX_VISIBLE = 12;     // how many recent messages stay on screen
-  const FETCH_LIMIT = 60;     // overfetch so filtering out join-events doesn't starve MAX_VISIBLE
+  const MAX_VISIBLE = 50;     // how many recent messages stay scrollable — higher than the on-stream
+                               // overlay's since this is a private view meant to actually be read
+  const FETCH_LIMIT = 120;    // overfetch so filtering out join-events doesn't starve MAX_VISIBLE
 
   // ---------- censorship (mirrors livestream-chat-widget.html) ----------
   const DEFAULT_CENSORED_WORDS = [
@@ -162,6 +167,11 @@
 
   function render(msgs) {
     lastMsgs = msgs;
+    // Only auto-follow to the newest message if you were already at (or
+    // very near) the bottom — otherwise a new message arriving while
+    // you're scrolled up reading history would keep yanking you back
+    // down to the live edge.
+    const wasNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 40;
     container.innerHTML = msgs.map(m => {
       const color = colorForUsername(m.username, () => render(lastMsgs));
       return '<div class="msg">' +
@@ -169,6 +179,7 @@
         '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
         '</div>';
     }).join('');
+    if (wasNearBottom) container.scrollTop = container.scrollHeight;
   }
 
   // ---------- live query (mirrors chat_config/clear cutoff) ----------
