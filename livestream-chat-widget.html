@@ -17,8 +17,12 @@
     --error: #ffb3b3;
     /* Opaque on purpose — the VODs drawer/tab sit over live chat text,
        where the translucent --panel/--panel-2 used elsewhere lets it
-       bleed through and read as broken. */
-    --vods-bg: #2a0909;
+       bleed through and read as broken. This exact value is what
+       .stream-stats' old rgba(58,10,10,0.55) composited to over the
+       video pane's black; both use this now, so the watching bar and
+       the drawer extending out of it are the same colour by
+       construction rather than by two values that happen to be close. */
+    --vods-bg: #200606;
     --font-display: Tahoma, Arial, sans-serif;
     --font-body: Tahoma, Arial, sans-serif;
     --stats-h: 38px;
@@ -176,7 +180,11 @@
      rendering glitch here. */
   .vods-panel {
     position: absolute;
-    top: 0;
+    /* Desktop: starts just below the video pane's 10px corner radius.
+       Flush with the top instead, its straight left edge runs alongside
+       that curve and leaves a crescent of background showing between
+       the two. */
+    top: 12px;
     /* Closes .layout's own 14px column gap so the bar reaches the
        video pane instead of floating a hair off it. Anchored to both
        edges, so it re-fits itself at any window width. */
@@ -212,6 +220,12 @@
     font-size: clamp(10px, 2.8cqw, 13px);
     padding: clamp(6px, 1.6cqh, 10px) 10px;
     cursor: pointer;
+  }
+  /* Same red as the "N watching" text this is meant to look like an
+     extension of, rather than the plain white used inside the chat. */
+  .vods-tab-label,
+  .vods-tab-chevron {
+    color: var(--accent);
   }
   .vods-tab-chevron {
     display: inline-block;
@@ -338,6 +352,20 @@
       top: -14px;
       left: 0;
     }
+    /* The video pane's rounded bottom corners are what the watching bar
+       inherits, and a full-width square-cornered drawer butting up
+       under them leaves a crescent of background in each corner. While
+       the drawer is open the two are one continuous card, so the seam
+       between them goes straight and the rounding moves to the bottom
+       of the drawer instead. Closed, nothing but the centred nub is
+       down there, so the pane keeps its own corners. */
+    .layout.vods-open .video-pane {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .vods-drawer {
+      border-radius: 0 0 10px 10px;
+    }
     .vods-tab {
       align-self: center;
       width: clamp(52px, 16cqw, 74px);
@@ -394,7 +422,7 @@
     justify-content: center;
     gap: 8px;
     padding: 0 14px;
-    background: rgba(58, 10, 10, 0.55);
+    background: var(--vods-bg);
     border-top: 1px solid var(--line);
     color: var(--accent);
     font-family: var(--font-body);
@@ -1602,9 +1630,19 @@
   let latestVods = [];
   let activeVodId = null;
 
+  // The open state lives on .layout too, not just the panel: squaring
+  // off the video pane's bottom corners so the watching bar runs
+  // straight into the drawer needs a hook on a shared ancestor, since
+  // the pane is the chat pane's sibling rather than its child.
+  const vodsLayoutEl = document.getElementById('layout');
+  function setVodsOpen(open) {
+    if (vodsPanel) vodsPanel.classList.toggle('open', open);
+    if (vodsLayoutEl) vodsLayoutEl.classList.toggle('vods-open', open);
+  }
+
   if (vodsTab) {
     vodsTab.addEventListener('click', () => {
-      vodsPanel.classList.toggle('open');
+      setVodsOpen(!vodsPanel.classList.contains('open'));
     });
   }
 
@@ -1635,7 +1673,7 @@
       row.addEventListener('click', () => {
         const id = row.dataset.vodId;
         if (typeof window.switchToVod === 'function') window.switchToVod(id);
-        if (vodsPanel) vodsPanel.classList.remove('open');
+        setVodsOpen(false);
       });
     });
   }
