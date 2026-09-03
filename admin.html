@@ -754,6 +754,21 @@
           </div>
         </div>
         <div class="card">
+          <div class="card-head">
+            <h2>VODs</h2>
+            <button type="button" class="btn btn-primary" id="vodsSaveBtn">Save Changes</button>
+          </div>
+          <div class="live-card-body" style="max-height:none;">
+            <div class="note">Past streams the viewer can pick from the "VODs" drawer on live.html. Drag the grip (&#10303;) to reorder — that order is what viewers see.</div>
+            <div class="list-scroll" id="vodsList" style="max-height:320px;overflow-y:auto;"></div>
+            <div class="add-row">
+              <input type="text" class="search-input" id="vodsAddInput" placeholder="Paste a YouTube link">
+              <button type="button" class="btn" id="vodsAddBtn">Add</button>
+            </div>
+            <div class="save-status" id="vodsStatus"></div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Banned</h2></div>
           <div class="live-card-body" style="max-height:260px;">
             <div class="list-scroll" id="bannedList" style="max-height:none;overflow-y:auto;"></div>
@@ -853,6 +868,7 @@
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
   const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
   const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
+  const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
 </script>
 
 <script>
@@ -2147,6 +2163,134 @@
       }).catch(function (err) {
         statusEl.textContent = 'Save failed: ' + err.message;
         statusEl.style.color = 'var(--danger)';
+      });
+    });
+
+    // ---------- VODs ----------
+    // Simpler cousin of the Videos/Music playlist editor above — one
+    // streamer's own past-stream archive doesn't need creator chips or
+    // albums, just an ordered list of links + titles, so this is its
+    // own small editor rather than another createPlaylistEditor() call
+    // (which requires a creators list that wouldn't mean anything here).
+    let vodDraftList = [];
+
+    function fetchVodTitleFor(item) {
+      const id = extractVideoId(item.url);
+      if (!id) return;
+      const watchUrl = 'https://www.youtube.com/watch?v=' + id;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function () { controller.abort(); }, 8000);
+      fetch('https://noembed.com/embed?url=' + encodeURIComponent(watchUrl) + '&format=json', { signal: controller.signal })
+        .then(function (res) { if (!res.ok) throw new Error('oEmbed failed'); return res.json(); })
+        .then(function (data) {
+          clearTimeout(timeoutId);
+          if (!item._titleTouched) {
+            const t = data && typeof data.title === 'string' ? data.title.trim() : '';
+            if (t) { item.title = t; renderVodsList(); }
+          }
+        })
+        .catch(function () { clearTimeout(timeoutId); });
+    }
+
+    function renderVodsList() {
+      const root = document.getElementById('vodsList');
+      if (!vodDraftList.length) {
+        root.innerHTML = '<div class="empty-state">No VODs yet. Add one below.</div>';
+        return;
+      }
+      root.innerHTML = vodDraftList.map(function (v, i) {
+        return '<div class="row" data-draggable data-index="' + i + '">' +
+          '<span class="grip" title="Drag to reorder">&#10303;</span>' +
+          '<div class="row-fields">' +
+            '<input type="text" class="url-input" placeholder="Paste a YouTube link" value="' + escapeAttr(v.url) + '">' +
+            '<input type="text" class="title-input" placeholder="VOD title" value="' + escapeAttr(v.title || '') + '">' +
+          '</div>' +
+          '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
+        '</div>';
+      }).join('');
+
+      root.querySelectorAll('.row').forEach(function (row) {
+        const idx = parseInt(row.dataset.index, 10);
+        const urlInput = row.querySelector('.url-input');
+        let debounceTimer = null;
+        urlInput.addEventListener('input', function () {
+          const item = vodDraftList[idx];
+          item.url = urlInput.value;
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(function () {
+            const id = extractVideoId(urlInput.value);
+            if (id && id !== item._lastFetchedId) {
+              item._lastFetchedId = id;
+              fetchVodTitleFor(item);
+            }
+          }, 400);
+        });
+        row.querySelector('.title-input').addEventListener('input', function () {
+          vodDraftList[idx].title = row.querySelector('.title-input').value;
+          vodDraftList[idx]._titleTouched = true;
+        });
+        row.querySelector('.remove-btn').addEventListener('click', function () {
+          vodDraftList.splice(idx, 1);
+          renderVodsList();
+        });
+      });
+    }
+
+    makeSortable(document.getElementById('vodsList'), function (order) {
+      vodDraftList = order.map(function (i) { return vodDraftList[i]; });
+      renderVodsList();
+    });
+
+    CHAT_VODS_REF.onSnapshot(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      vodDraftList = items.map(function (v) {
+        return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0 };
+      });
+      renderVodsList();
+    }, function (err) {
+      const root = document.getElementById('vodsList');
+      if (root) root.innerHTML = '<div class="empty-state">Could not load VODs: ' + escapeAttr(err.message) + '</div>';
+    });
+
+    document.getElementById('vodsAddBtn').addEventListener('click', function () {
+      const input = document.getElementById('vodsAddInput');
+      const url = input.value.trim();
+      if (!url) return;
+      const item = { url: url, title: '', addedAt: Date.now() };
+      vodDraftList.push(item);
+      renderVodsList();
+      fetchVodTitleFor(item);
+      input.value = '';
+    });
+
+    document.getElementById('vodsSaveBtn').addEventListener('click', function () {
+      const saveBtn = document.getElementById('vodsSaveBtn');
+      const statusEl = document.getElementById('vodsStatus');
+      const cleaned = vodDraftList
+        .map(function (v) { return { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now() }; })
+        .filter(function (v) { return v.url; });
+      const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url); });
+      if (invalid.length) {
+        statusEl.textContent = 'One or more links don’t look like valid YouTube links — fix those and save again.';
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+      saveBtn.disabled = true;
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-dim)';
+      CHAT_VODS_REF.set({
+        items: cleaned,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: auth.currentUser.email || auth.currentUser.uid
+      }).then(function () {
+        statusEl.textContent = 'Saved — everyone will see the update.';
+        statusEl.style.color = 'var(--accent)';
+      }).catch(function (err) {
+        statusEl.textContent = 'Save failed: ' + err.message + ' (check your Firestore security rules).';
+        statusEl.style.color = 'var(--danger)';
+      }).finally(function () {
+        saveBtn.disabled = false;
       });
     });
 
