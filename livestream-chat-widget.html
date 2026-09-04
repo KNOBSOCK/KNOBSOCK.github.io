@@ -2049,6 +2049,16 @@
   let lastTapInAt = 0;
   let tapinCooldownTimer = null;
 
+  // ts values of tap-in messages THIS TAB is actively in the middle of
+  // writing right now — lets subscribeToMessages() recognize "this is
+  // my brand new write" precisely during its own settling window (see
+  // there for why that matters), without also matching this same
+  // device's tap-ins from a past session that are simply still sitting
+  // in history (deviceId alone can't tell those apart, since CLIENT_ID
+  // persists across reloads). In-memory only and short-lived — nothing
+  // here needs to survive a reload.
+  const pendingOwnTapinTimestamps = new Set();
+
   // mm:ss, e.g. 299999ms -> "5:00", 7000ms -> "0:07".
   function formatCooldown(ms) {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -2092,6 +2102,8 @@
     if (TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt) > 0) return; // button should already be disabled — belt & suspenders
     lastTapInAt = Date.now();
     refreshTapInButtonState();
+    const ts = Date.now();
+    pendingOwnTapinTimestamps.add(ts);
     try {
       await devicesRef.doc(CLIENT_ID).set({ lastTapInAt: lastTapInAt }, { merge: true });
       await messagesRef.add({
@@ -2099,10 +2111,15 @@
         username: session.username,
         text: 'just tapped in',
         deviceId: CLIENT_ID,
-        ts: Date.now()
+        ts: ts
       });
     } catch (e) {
       console.error('Tap in failed:', e);
+    } finally {
+      // Generous cleanup window — well past any realistic settling
+      // delay, just here so this doesn't grow forever across a long
+      // chat session with lots of tap-ins.
+      setTimeout(() => pendingOwnTapinTimestamps.delete(ts), 30000);
     }
   }
 
@@ -2514,7 +2531,29 @@
     // sometimes playing itself on login with nobody having clicked
     // anything. Waiting for an actual non-cached snapshot before ever
     // touching docChanges closes that gap.
+    //
+    // But that gate has its own edge: the composer (tap-in button
+    // included) is clickable the instant renderChatShell() runs, which
+    // can easily be before this SAME listener's first real snapshot
+    // has come back — someone trying the new button right away, the
+    // moment they see it, races straight into that window. A tap-in
+    // THIS tab is actively in the middle of sending right now (tracked
+    // in pendingOwnTapinTimestamps, see sendTapIn) is never "historical
+    // catch-up" by definition, so it's let through regardless of the
+    // settling gate — checking deviceId alone wouldn't be enough, since
+    // CLIENT_ID persists across reloads and would just as easily match
+    // this same device's tap-ins from a past session still sitting in
+    // history. Only other devices' (or this device's own OLD) messages
+    // arriving mid-settling are held back as possibly-stale.
     let sawServerSnapshot = false;
+
+    function handleAddedChange(change, stillSettling) {
+      if (change.type !== 'added') return;
+      const m = change.doc.data();
+      if (stillSettling && !pendingOwnTapinTimestamps.has(m.ts)) return;
+      checkSpam(m);
+      if (m.type === 'tapin') triggerTapInEffect(m.username);
+    }
 
     unsubscribeMessages = query
       .limitToLast(200)
@@ -2523,16 +2562,9 @@
           const msgs = snapshot.docs.map(doc => doc.data());
           renderMessages(msgs);
 
-          if (!sawServerSnapshot) {
-            if (!snapshot.metadata.fromCache) sawServerSnapshot = true;
-          } else {
-            snapshot.docChanges().forEach((change) => {
-              if (change.type !== 'added') return;
-              const m = change.doc.data();
-              checkSpam(m);
-              if (m.type === 'tapin') triggerTapInEffect(m.username);
-            });
-          }
+          const stillSettling = !sawServerSnapshot;
+          if (!snapshot.metadata.fromCache) sawServerSnapshot = true;
+          snapshot.docChanges().forEach((change) => handleAddedChange(change, stillSettling));
         },
         (err) => {
           console.error(err);
