@@ -100,6 +100,35 @@
       min-height: 0;
     }
   }
+
+  /* Phone rotated to landscape: same one-screen lock as the portrait
+     rule above (checked on max-height here since that's the dimension
+     a phone's short side ends up on once rotated — its width can be
+     well over 860px lying sideways), plus the logo and its padding/gap
+     go away entirely so the player gets the whole screen instead of
+     losing a chunk of an already-short viewport to a header. The
+     widget itself still needs telling to give up its own portrait-
+     shaped mobile stack — see livestream-chat-widget.html's own
+     matching landscape query.
+     hover:none + pointer:coarse (true only for touchscreens) are load-
+     bearing, not belt-and-suspenders: a perfectly ordinary desktop
+     browser window is "landscape" by nature and very often under
+     860px tall too (a laptop screen minus its own chrome), so
+     max-height + orientation alone was hiding the logo on regular
+     desktop visits — confirmed by testing an actual 1400x900 window,
+     not just guessing. The touch check is what actually scopes this to
+     phones/tablets. */
+  @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
+    html, body { overflow: hidden; }
+    .page {
+      height: 100vh;
+      height: 100dvh;
+      padding: 0;
+      gap: 0;
+    }
+    .logo-link { display: none; }
+    .player-wrap { min-height: 0; }
+  }
 </style>
 </head>
 <body>

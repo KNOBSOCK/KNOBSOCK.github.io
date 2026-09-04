@@ -498,6 +498,31 @@
     flex: 1 1 100%;
   }
 
+  /* Landscape phone: the mobile stack above assumes a tall portrait
+     screen (video capped to 38vh, chat scrolling below it) — on its
+     side, that same 38vh is a sliver of an already-short viewport.
+     Rather than build a third layout, this applies the same "Hide
+     Chat" treatment above unconditionally instead. Checked on
+     max-height, not max-width: that's the dimension a phone's short
+     side ends up on once rotated, and its width can be well over
+     860px lying sideways. The ".layout" prefix is load-bearing, not
+     stylistic — .video-pane above (and the mobile-only .video-pane
+     rule) are equal-specificity with this, so without it this would
+     only win when it happens to land later in the file — same trap
+     .layout .stream-stats works around elsewhere in this file. The
+     host page's own matching landscape query is what actually frees
+     up the room this then fills — see live.html.
+     hover:none + pointer:coarse (true only for touchscreens) are load-
+     bearing too: an ordinary desktop browser window is "landscape" by
+     nature and often under 860px tall as well (a laptop screen minus
+     its own chrome), so max-height + orientation alone was hiding
+     chat on regular desktop visits — confirmed by testing an actual
+     1400x900 window, not just guessing. */
+  @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+    .layout .chat-pane { display: none; }
+    .layout .video-pane { flex: 1 1 100%; }
+  }
+
   /* Whichever fullscreen path is active, explicitly hide the chat pane
      rather than relying on the video simply covering it, so there's no
      overlap even if a browser sizes fullscreen differently than
