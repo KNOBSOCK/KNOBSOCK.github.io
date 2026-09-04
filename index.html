@@ -314,7 +314,14 @@
   .live-now-badge {
     display: block;
     position: absolute;
-    top: 100%;
+    /* NOT 100%: home-button-live.html centers its own graphic at
+       width:80%;height:80% of the iframe body, so the blob's actual
+       visible bottom edge sits at 90% down the iframe, not the iframe's
+       own bottom edge — the badge was anchoring ~22px below the visible
+       button instead of just under it. That 80/90 split is this
+       button's own internal layout, not this page's — check
+       home-button-live.html first if it's ever redone differently. */
+    top: 90%;
     left: 50%;
     width: 60%;
     margin-top: 2px;
