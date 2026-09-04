@@ -890,6 +890,18 @@
   .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
   .color-picker::-moz-color-swatch { border: none; border-radius: 50%; }
 
+  /* Registering --tapin-frac as a real animatable number (not just a
+     string substituted into calc()) is what lets the transition below
+     actually sweep smoothly between refreshTapInButtonState's once-a-
+     second updates, instead of jumping. Unsupported browsers (older
+     Firefox/Safari) just skip the transition and jump once a second —
+     still correct, just less smooth. */
+  @property --tapin-frac {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 1;
+  }
+
   /* Sits right next to the color picker in .status-actions — same round
      button as the rest of the UI, just sized to sit comfortably beside
      the small circular swatch. Disabled (via .round-btn:disabled above)
@@ -899,38 +911,24 @@
     width: clamp(22px, 7cqw, 28px);
     font-size: clamp(11px, 3.4cqw, 14px);
     flex: none;
+    transition: --tapin-frac 1s linear;
   }
-
-  /* Positioning context for the little countdown pill below — just
-     wraps the button itself (not the color picker too) so the pill can
-     float above it without disturbing .status-actions' own flex gap. */
-  .tapin-btn-wrap {
-    position: relative;
-    display: inline-flex;
-    flex: none;
+  /* Countdown "sweep": a conic-gradient wedge that shrinks away to the
+     dim color as --tapin-frac (fraction of the cooldown still
+     remaining, 1 -> 0) counts down, like a pie-timer's hand sweeping
+     round — the second color-stop's position of plain "0" is a standard
+     conic-gradient trick: since it's less than the first stop's actual
+     angle, it gets clamped up to meet it, so --accent-dim fills exactly
+     the rest of the circle instead of needing its own calc(). */
+  .tapin-btn.on-cooldown {
+    background: conic-gradient(var(--accent) calc(var(--tapin-frac, 1) * 360deg), var(--accent-dim) 0);
   }
-  /* Floats just above the button while the 5-minute cooldown is
-     running, counting down live — hidden the rest of the time (see
-     refreshTapInButtonState). .chat-card clips overflow, but that's a
-     large ancestor and this only ever needs a few px of clearance above
-     a composer-row button, so it's never actually reached. */
-  .tapin-countdown {
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: 4px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    color: var(--text);
-    font-family: var(--font-body);
-    font-size: 10px;
+  /* Swaps for the mm:ss label at the same cadence (see
+     refreshTapInButtonState) — smaller than the emoji it replaces so a
+     4-5 character countdown still fits inside this small a circle. */
+  .tapin-btn-label.is-countdown {
+    font-size: clamp(7px, 2.4cqw, 9px);
     font-weight: 700;
-    line-height: 1.4;
-    white-space: nowrap;
-    pointer-events: none;
   }
 
   /* Auth screen now fills the whole chat card and centers its content,
@@ -2059,25 +2057,34 @@
     return m + ':' + String(s).padStart(2, '0');
   }
 
+  const TAPIN_EMOJI = '\u{1F37A}'; // matches the &#127866; the button starts with in the template above
+
   function refreshTapInButtonState() {
     const btn = $('tapinBtn');
-    const countdown = $('tapinCountdown');
+    const label = $('tapinBtnLabel');
     if (!btn) return;
     clearTimeout(tapinCooldownTimer);
     const remaining = TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt);
     if (remaining > 0) {
       btn.disabled = true;
-      if (countdown) {
-        countdown.hidden = false;
-        countdown.textContent = formatCooldown(remaining);
+      btn.classList.add('on-cooldown');
+      btn.style.setProperty('--tapin-frac', String(Math.max(0, remaining / TAPIN_COOLDOWN_MS)));
+      if (label) {
+        label.textContent = formatCooldown(remaining);
+        label.classList.add('is-countdown');
       }
       // Reruns every second (not just once at the very end) so the
-      // countdown pill actually counts down instead of only flipping
-      // the button back on when the cooldown finally expires.
+      // sweep and mm:ss label actually count down instead of only
+      // flipping the button back on when the cooldown finally expires.
       tapinCooldownTimer = setTimeout(refreshTapInButtonState, Math.min(remaining, 1000));
     } else {
       btn.disabled = false;
-      if (countdown) countdown.hidden = true;
+      btn.classList.remove('on-cooldown');
+      btn.style.removeProperty('--tapin-frac');
+      if (label) {
+        label.textContent = TAPIN_EMOJI;
+        label.classList.remove('is-countdown');
+      }
     }
   }
 
@@ -2388,10 +2395,7 @@
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
-              <span class="tapin-btn-wrap">
-                <span class="tapin-countdown" id="tapinCountdown" hidden></span>
-                <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!">&#127866;</button>
-              </span>
+              <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel">&#127866;</span></button>
             </div>
           </div>
           <div class="composer">
@@ -2494,13 +2498,23 @@
     if (clearedAt) query = query.where('ts', '>', clearedAt);
 
     // The initial callback reports every doc in the batch as an "added"
-    // change (normal Firestore behavior) — isInitialLoad skips spam
-    // detection and the tap-in effect on that first batch, so loading a
-    // page with old messages in view can't retroactively "spam-ban"
-    // someone or replay every past tap-in's sound/animation. Only a
-    // change delivered after that first callback is a genuinely live,
-    // just-happened event.
-    let isInitialLoad = true;
+    // change (normal Firestore behavior) — skipping docChanges on that
+    // first batch is what stops a page load from retroactively
+    // "spam-banning" someone or replaying every past tap-in's
+    // sound/animation. But "the first callback" isn't reliably "the
+    // real initial batch": Firestore can deliver an incomplete snapshot
+    // from LOCAL CACHE first (snapshot.metadata.fromCache === true) —
+    // e.g. on a slow/flaky connection — before the real, server-
+    // confirmed one arrives a moment later. A flag that latches false
+    // after only the very first callback treats that second, larger,
+    // server-confirmed batch as "not initial", so every message that
+    // was merely missing from the smaller cached batch (which can
+    // easily include a tap-in still within the last 200 messages) looks
+    // like it was just newly added — this was the bug behind the gif
+    // sometimes playing itself on login with nobody having clicked
+    // anything. Waiting for an actual non-cached snapshot before ever
+    // touching docChanges closes that gap.
+    let sawServerSnapshot = false;
 
     unsubscribeMessages = query
       .limitToLast(200)
@@ -2509,8 +2523,8 @@
           const msgs = snapshot.docs.map(doc => doc.data());
           renderMessages(msgs);
 
-          if (isInitialLoad) {
-            isInitialLoad = false;
+          if (!sawServerSnapshot) {
+            if (!snapshot.metadata.fromCache) sawServerSnapshot = true;
           } else {
             snapshot.docChanges().forEach((change) => {
               if (change.type !== 'added') return;

@@ -174,7 +174,14 @@
     position: absolute;
     left: 50%;
     top: 22vh;
-    transform: translateX(-50%) scale(0.4);
+    /* Resting scale matches the pop keyframe's OWN end state (100%
+       below), not its starting one — so when is-visible is removed and
+       the animation stops applying, transform falls back to exactly
+       where the animation already had it, with no snap. The animation
+       still starts from its own 0% (scale 0.4) on entry regardless of
+       what's specified here, since an active keyframe animation
+       overrides the base value for as long as it runs. */
+    transform: translateX(-50%) scale(1);
     width: min(94vw, 1200px);
     margin: 0;
     text-align: center;
@@ -188,15 +195,26 @@
       0 8px 20px rgba(0, 0, 0, 0.6);
     opacity: 0;
     overflow-wrap: anywhere;
+    /* Deliberately the ONLY thing driving opacity — a transition here
+       fades it smoothly both in and out as is-visible toggles. Opacity
+       used to be part of the pop keyframe below instead, but a CSS
+       transition can't pick up a smooth handoff from a property an
+       animation was just driving: once the animation stops applying,
+       the value just jumps to the next matching rule with no
+       interpolation, which is why the fade-out wasn't visibly fading
+       at all before this. Keeping the keyframe to ONLY transform
+       (a different property) sidesteps that entirely. */
+    transition: opacity 0.35s ease;
   }
   .tapin-overlay .tapin-name { color: #ffff00; }
   .tapin-overlay .tapin-text.is-visible {
+    opacity: 1;
     animation: tapinTextPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
   @keyframes tapinTextPop {
-    0%   { opacity: 0; transform: translateX(-50%) scale(0.4); }
-    65%  { opacity: 1; transform: translateX(-50%) scale(1.1); }
-    100% { opacity: 1; transform: translateX(-50%) scale(1); }
+    0%   { transform: translateX(-50%) scale(0.4); }
+    65%  { transform: translateX(-50%) scale(1.1); }
+    100% { transform: translateX(-50%) scale(1); }
   }
 </style>
 </head>
@@ -232,6 +250,8 @@
 
   var IMG_SRC = '/gif%20version.gif';
   var hideTimer = null;
+  var textFadeTimer = null;
+  var TEXT_FADE_OUT_MS = 350; // keep in sync with .tapin-text's transition duration above
 
   // This gif's own native one-loop duration: 182 frames at ~30-40ms
   // each, measured by summing each frame's real delay (PIL:
@@ -246,6 +266,7 @@
 
   function playTapInEffect(username) {
     clearTimeout(hideTimer);
+    clearTimeout(textFadeTimer);
 
     // No src at all until the moment of playback (not even "", which in
     // some browsers re-requests the current page) — an animated image
@@ -287,9 +308,16 @@
     }
     hideTimer = setTimeout(function () {
       audio.pause();
-      overlay.classList.remove('is-active');
-      img.classList.remove('is-visible');
-      text.classList.remove('is-visible');
+      img.classList.remove('is-visible'); // the gif itself still cuts off instantly - no fade-out asked for there
+      text.classList.remove('is-visible'); // starts the text's own opacity transition (see its CSS)
+
+      // The overlay's own display:none (see .tapin-overlay/.is-active)
+      // would cut that transition off invisibly the instant it applies,
+      // so it - and nothing else needs it, the gif's already gone -
+      // waits for the text to actually finish fading first.
+      textFadeTimer = setTimeout(function () {
+        overlay.classList.remove('is-active');
+      }, TEXT_FADE_OUT_MS);
     }, durationMs);
   }
 
