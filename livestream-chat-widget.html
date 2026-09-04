@@ -529,6 +529,31 @@
        was before rotating. */
     .layout .video-pane { flex: 1 1 100%; padding-bottom: 0; }
     .layout .stream-stats { display: none; }
+    /* .layout's own --inset-bottom (a much bigger gap than --inset-top/
+       --inset-side — 16-32px vs 4-8px, part of the frosted .bg-glow
+       panel's general framing in every other mode) was still leaving a
+       visible strip below .video-controls even after the two rules
+       above reclaimed .stream-stats' own space — the controls bar sits
+       flush with .video-pane's bottom edge same as ever, but .video-pane
+       itself was stopping short of the real screen edge. Zeroed here
+       only (not the barely-noticeable top/side insets, and not touched
+       at all outside this landscape mode) so the controls actually
+       reach the bottom of the screen instead of just the bottom of a
+       pane with room to spare underneath it. */
+    .layout { padding-bottom: 0; }
+    /* .bg-glow (the frosted panel's own visible background, a separate
+       absolutely-positioned element behind .layout's content) sets its
+       bottom edge from this same --inset-bottom — without matching it
+       here too, .video-pane would now extend past its own background's
+       bottom edge instead of the two staying flush together. */
+    .bg-glow { bottom: 0; }
+    /* The mobile block above (a plain max-width query, so it applies in
+       landscape too) holds the controls bar bottom: var(--stats-h) —
+       clear of the .stream-stats strip it normally sits above. That
+       strip is hidden in this mode already, so left alone the controls
+       would float 38px short of .video-pane's now-flush-with-the-
+       screen bottom edge instead of actually reaching it. */
+    .layout .video-controls { bottom: 0; }
   }
 
   /* Whichever fullscreen path is active, explicitly hide the chat pane
