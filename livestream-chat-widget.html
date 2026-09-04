@@ -104,7 +104,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-bottom: var(--stats-h);
+    /* No padding-bottom reserved here — the strip it would leave room
+       for (.stream-stats) is hidden on desktop, so reserving space for
+       it would just leave the video, and the controls overlaid on it,
+       stopping short of a flush bottom edge. The mobile block below
+       re-adds this once that strip is visible again. */
   }
 
   /* Sits over the video pane while the embed has nothing to show yet —
@@ -118,7 +122,6 @@
   .video-loading {
     position: absolute;
     inset: 0;
-    bottom: var(--stats-h);
     z-index: 1;
     display: flex;
     align-items: center;
@@ -340,6 +343,20 @@
     }
     .video-pane {
       flex: 0 0 38vh;
+      padding-bottom: var(--stats-h);
+    }
+    /* Mirrors the padding-bottom above, restoring room for .stream-stats
+       now that the mobile block re-shows it — desktop's flush bottom
+       (see the base rule) doesn't apply once that strip is visible. */
+    .video-loading {
+      bottom: var(--stats-h);
+    }
+    /* ".layout" prefix is load-bearing, not stylistic: the base rule it
+       overrides (bottom: 0) sits further down this stylesheet, so at
+       equal specificity it would win the cascade on mobile too and
+       cancel this override — same trap as .layout .stream-stats below. */
+    .layout .video-controls {
+      bottom: var(--stats-h);
     }
     /* The mobile pane's own aspect ratio isn't 16:9, so fitting the
        offline card to that box like desktop does leaves black bars down
@@ -624,7 +641,10 @@
     position: absolute;
     left: 0;
     right: 0;
-    bottom: var(--stats-h);
+    /* Flush with the pane's own bottom edge — there's no .stream-stats
+       strip below to leave room for on desktop (see the mobile override,
+       which pulls this back up once that strip is visible again). */
+    bottom: 0;
     z-index: 6;
     display: flex;
     align-items: center;
