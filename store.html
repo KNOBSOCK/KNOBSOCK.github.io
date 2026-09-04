@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/store">
+<meta property="og:title" content="Store - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Store - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* Standalone shell in the same style as photos.html/music.html/videos.html/
+     live.html — store-widget.html draws the actual page; this is just the
+     logo + iframe scaffold, with a background matched to the widget's own
+     pink palette (its --ink), same as every other page here matches its
+     own widget's ink color instead of the tiled GeoCities GIF the rest of
+     the site uses.
+
+     No hand-drawn /knobsock-store-logo.png exists yet (unlike the other
+     four pages, each of which uses its own wordmark PNG) — rather than
+     block this page on new artwork, the wordmark below is built straight
+     out of CSS text using the same hard-outline technique live.html's own
+     "___ has tapped in" pop-up text already uses. If real hand-drawn logo
+     art ever gets made for Store, swap the <span class="text-logo"> below
+     for an <img src="/knobsock-store-logo.png"> and this page needs no
+     other changes. */
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #4a0a2e;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  html { overflow-x: hidden; }
+
+  .page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    gap: 2px;
+    padding: clamp(8px, 2vw, 20px) 0 0;
+  }
+
+  .logo-link {
+    flex: 0 0 auto;
+    display: block;
+    text-align: center;
+    padding: 0 clamp(10px, 3vw, 24px);
+    text-decoration: none;
+  }
+
+  /* ---------- CSS TEXT WORDMARK ----------
+     "KNOBSOCK" stays the house yellow every real logo file on this site
+     uses; "STORE" sits tucked under its baseline in this page's own pink,
+     echoing how MUSIC/PHOTOS/etc. sit under the wordmark in the real PNGs.
+     The 4-direction text-shadow is a plain black outline that renders
+     identically in every browser (unlike -webkit-text-stroke, which only
+     some engines support) — copied from the same trick live.html already
+     uses for its tap-in name pop-up. */
+  .text-logo {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: clamp(4px, 1.2vw, 12px);
+    max-width: 760px;
+    margin: 0 auto;
+    padding: clamp(6px, 1.5vw, 14px) 0;
+  }
+  .tl-main, .tl-sub {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 900;
+    line-height: 0.9;
+    white-space: nowrap;
+  }
+  .tl-main {
+    font-size: clamp(30px, 7.4vw, 68px);
+    letter-spacing: -0.01em;
+    color: #ffe600;
+    text-shadow:
+      -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000,
+      0 8px 16px rgba(0, 0, 0, 0.35);
+    transform: rotate(-1.5deg);
+  }
+  .tl-sub {
+    font-size: clamp(14px, 3.2vw, 27px);
+    letter-spacing: 0.02em;
+    color: #ff4fa8;
+    text-shadow:
+      -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000,
+      0 5px 10px rgba(0, 0, 0, 0.35);
+    transform: rotate(2deg);
+    margin-bottom: clamp(2px, 1vw, 9px);
+  }
+
+  /* The widget fills whatever room it's given (it's built at 100% width/
+     height with its own frosted panel), same as photos.html's content-wrap
+     — meant to stretch on a tall/4K/8K window rather than being capped to
+     a "natural" height. min-height keeps it usable on very short screens,
+     where the page then scrolls instead of squashing. */
+  .content-wrap {
+    flex: 1 1 auto;
+    min-height: min(560px, 68vh);
+    display: flex;
+  }
+  .content-wrap iframe {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  /* On mobile, lock the page itself to exactly one screen instead of
+     letting it grow/scroll — the widget's own content already has its own
+     internal overflow-y:auto (see store-widget.html), so scrolling stays
+     inside the widget instead of moving the logo off-screen. min-height:0
+     (replacing the desktop floor above) lets .content-wrap shrink to
+     whatever's actually left below the logo on a very short phone. */
+  @media (max-width: 860px) {
+    html, body { overflow: hidden; }
+    .page {
+      height: 100vh;
+      height: 100dvh;
+    }
+    .content-wrap {
+      min-height: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <a class="logo-link" href="/" target="_top">
+    <span class="text-logo">
+      <span class="tl-main">KNOBSOCK</span><span class="tl-sub">STORE</span>
+    </span>
+  </a>
+
+  <div class="content-wrap">
+    <iframe src="/store-widget.html"
+            title="KNOBSOCK Store"
+            loading="lazy"></iframe>
+  </div>
+</div>
+
+</body>
+</html>

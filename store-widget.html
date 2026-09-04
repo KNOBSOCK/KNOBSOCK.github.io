@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Store</title>
+<style>
+  /* Same shell/theme system as photos-widget.html and the other widgets on
+     this site (CSS vars, .bg-glow, a frosted card, hover-pop tiles), just
+     pink instead of orange/blue/gold/red — and, unlike those, with no real
+     data source wired up yet. There's no store platform connected, so
+     PRODUCTS (see the script below) stays empty and this renders a
+     "coming soon" category preview instead of a product grid. The product
+     grid itself is fully built and ready — see the PRODUCTS comment near
+     the bottom of the script for the one place a real feed plugs in later,
+     the same "auto populate" pattern photos-widget.html uses for /photos. */
+  :root {
+    --ink: #4a0a2e;
+    --panel-2: rgba(74, 10, 46, 0.8);
+    --line: rgba(255, 170, 210, 0.6);
+    --accent: #ff4fa8;
+    --accent-dim: #a3195f;
+    --accent-yellow: #ffdd00;
+    --accent-green: #38e07a;
+    --text: #ffffff;
+    --text-dim: #ffd6ec;
+    --font-display: Arial, Helvetica, sans-serif;
+    --font-body: Arial, Helvetica, sans-serif;
+    /* Shared between .bg-glow and .layout below so the panel's edges and
+       the content's padding can never drift apart at any window size. */
+    --inset-top: clamp(4px, 1vw, 8px);
+    --inset-side: clamp(4px, 1vw, 8px);
+    --inset-bottom: clamp(16px, 3vw, 32px);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body { position: relative; }
+
+  /* Full-bleed edge-to-edge frosted wash, same technique as every other
+     widget's .bg-glow — a width cap here while .layout's height is free to
+     grow unbounded is what would make the widget elongate instead of
+     scaling proportionally on a big/zoomed-out window. */
+  .bg-glow {
+    position: absolute;
+    inset: var(--inset-bottom);
+    top: var(--inset-top);
+    left: var(--inset-side);
+    right: var(--inset-side);
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: rgba(255, 79, 168, 0.45);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .layout {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: var(--inset-top) var(--inset-side) var(--inset-bottom);
+    background: transparent;
+  }
+
+  /* ---------- THE CARD ----------
+     One panel, not a main-pane/side-pane split like photos or video — a
+     store is fundamentally one browsable grid, so it gets the same
+     "frosted card with a header and a scrolling body" shape those widgets'
+     own side panes use (.grid-card in photos-widget.html), just as the
+     whole widget instead of half of it. */
+  .store-card {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .store-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: clamp(10px, 2.2vw, 16px) clamp(12px, 2.6vw, 18px);
+    border-bottom: 1px solid var(--line);
+  }
+  .store-heading {
+    display: flex;
+    align-items: baseline;
+    gap: clamp(6px, 1.4vw, 10px);
+    min-width: 0;
+  }
+  .store-heading .eyebrow {
+    font-family: var(--font-display);
+    font-size: clamp(9px, 2vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    opacity: 0.85;
+  }
+  .store-heading .title {
+    font-family: var(--font-display);
+    font-size: clamp(15px, 3.2vw, 19px);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .store-heading .count {
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.2vw, 12px);
+    color: var(--text-dim);
+  }
+  .store-heading .count:empty { display: none; }
+
+  /* Status pill: a small pulsing dot + label, sitting in for a "we're
+     live"/"we're not" indicator the way livestream-chat-widget.html's own
+     status dot does — yellow + pulsing while there's nothing for sale,
+     swapped to green + "Shop Now" the moment renderProducts() below ever
+     actually runs. */
+  .status-pill {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(10px, 2.2vw, 12px);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    color: var(--text);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: clamp(5px, 1.4vw, 7px) clamp(10px, 2.2vw, 14px);
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-yellow);
+    animation: pulseDot 1.8s ease-out infinite;
+  }
+  @keyframes pulseDot {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 221, 0, 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(255, 221, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 221, 0, 0); }
+  }
+  .status-pill.is-live .status-dot {
+    background: var(--accent-green);
+    animation-name: pulseDotLive;
+  }
+  @keyframes pulseDotLive {
+    0%   { box-shadow: 0 0 0 0 rgba(56, 224, 122, 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(56, 224, 122, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(56, 224, 122, 0); }
+  }
+
+  .store-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: clamp(14px, 2.6vw, 22px) clamp(12px, 2.6vw, 18px);
+  }
+  .store-body::-webkit-scrollbar { width: 8px; }
+  .store-body::-webkit-scrollbar-track { background: transparent; }
+  .store-body::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  /* ---------- HERO ("not open yet") ---------- */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: clamp(8px, 1.6vw, 12px);
+    padding: clamp(10px, 3vw, 22px) clamp(8px, 2vw, 16px) clamp(20px, 4vw, 32px);
+  }
+  .hero-icon-wrap {
+    width: clamp(58px, 12vw, 84px);
+    height: clamp(58px, 12vw, 84px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-dim));
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+    color: var(--text);
+    animation: bagFloat 3.6s ease-in-out infinite;
+  }
+  @keyframes bagFloat {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50%      { transform: translateY(-8px) rotate(3deg); }
+  }
+  .hero-icon-wrap svg { width: 52%; height: 52%; }
+  .hero-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(17px, 3.6vw, 24px);
+    color: var(--text);
+  }
+  .hero-text {
+    margin: 0;
+    max-width: 46ch;
+    font-family: var(--font-body);
+    font-size: clamp(12px, 2.6vw, 14px);
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+
+  /* ---------- "WHAT'S COMING" PREVIEW ---------- */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 clamp(10px, 2vw, 14px);
+  }
+  .section-label span:first-child {
+    flex: 0 0 auto;
+    font-family: var(--font-display);
+    font-size: clamp(10px, 2.2vw, 12px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .section-line {
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(120px, 22vw, 160px), 1fr));
+    gap: clamp(10px, 2vw, 14px);
+  }
+
+  /* Decorative, not clickable — cursor stays default and the hover is a
+     gentle lift with no border/color change, unlike .product-card below,
+     so it doesn't visually promise an action that isn't there yet. */
+  .preview-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: clamp(14px, 2.6vw, 20px) clamp(8px, 1.6vw, 12px);
+    background: rgba(0, 0, 0, 0.16);
+    border: 1px solid var(--line);
+    border-radius: clamp(10px, 2vw, 14px);
+    cursor: default;
+    transition: transform 0.25s ease;
+  }
+  .preview-card:hover { transform: translateY(-3px); }
+  .pc-icon {
+    width: clamp(28px, 6vw, 36px);
+    height: clamp(28px, 6vw, 36px);
+    color: var(--accent);
+  }
+  .pc-icon svg { width: 100%; height: 100%; }
+  .pc-name {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(12px, 2.6vw, 14px);
+    color: var(--text);
+  }
+  .pc-tag {
+    font-family: var(--font-body);
+    font-size: clamp(9px, 2vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 999px;
+    padding: 3px 10px;
+  }
+
+  /* ---------- PRODUCT GRID ----------
+     Dormant until renderProducts() (see the script) actually has products
+     to show — see the PRODUCTS comment in the script for how that happens.
+     Cards ARE real links (target the storefront platform's own product
+     page/checkout), so — unlike .preview-card above — these get the same
+     full hover pop every other clickable tile on this site uses. */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(120px, 20vw, 160px), 1fr));
+    gap: clamp(10px, 2vw, 14px);
+    margin-bottom: clamp(16px, 3vw, 24px);
+  }
+  .product-grid[hidden] { display: none; }
+
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.16);
+    border: 1px solid var(--line);
+    border-radius: clamp(10px, 2vw, 14px);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s;
+  }
+  .product-card:hover,
+  .product-card:focus-visible {
+    border-color: var(--accent);
+    transform: scale(1.05) rotate(-1deg);
+    z-index: 2;
+  }
+  .product-card:active { transform: scale(0.97); }
+  .prod-thumb {
+    display: block;
+    aspect-ratio: 1 / 1;
+    border-radius: clamp(6px, 1.4vw, 10px);
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .prod-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .prod-title {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(11px, 2.4vw, 13px);
+    color: var(--text);
+    /* Clamp to two lines rather than letting a long product name push
+       every card in the row to a different height. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .prod-price {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(11px, 2.4vw, 13px);
+    color: var(--accent-yellow);
+  }
+
+  .footnote {
+    margin: clamp(4px, 1vw, 8px) 0 0;
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.2vw, 12px);
+    color: var(--text-dim);
+    opacity: 0.75;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="layout">
+  <div class="store-card">
+    <div class="store-header">
+      <div class="store-heading">
+        <span class="eyebrow">KNOBSOCK</span>
+        <span class="title">Store</span>
+        <span class="count" id="itemCount"></span>
+      </div>
+      <span class="status-pill" id="statusPill">
+        <span class="status-dot"></span><span id="statusText">Opening Soon</span>
+      </span>
+    </div>
+
+    <div class="store-body">
+      <div class="hero">
+        <span class="hero-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z"/>
+            <path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>
+          </svg>
+        </span>
+        <h2 class="hero-title">The shop isn't open yet</h2>
+        <p class="hero-text">We're setting things up behind the scenes. Once merch goes live, everything for sale will show up right here on its own — no rebuild, no page reload.</p>
+      </div>
+
+      <!-- Populated by renderProducts() once PRODUCTS actually has
+           anything in it — hidden and empty until then. -->
+      <div class="product-grid" id="productGrid" hidden></div>
+
+      <div class="preview-section" id="previewSection">
+        <div class="section-label"><span>What's coming</span><span class="section-line" aria-hidden="true"></span></div>
+        <div class="preview-grid" id="previewGrid"></div>
+      </div>
+
+      <p class="footnote">New products will appear here automatically the moment the store connects.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Small hand-drawn stroke icons, same style/viewBox as the magnify and
+  // lightbox icons in photos-widget.html — no icon library needed for
+  // four simple shapes.
+  var ICONS = {
+    shirt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.3 3.6 4 6.5l2.1 3.2L9.3 8v12.5h5.4V8l3.2 1.7L20 6.5l-5.3-2.9Q12 5.4 9.3 3.6Z"/></svg>',
+    cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="1.2"/><line x1="12" y1="5.2" x2="12" y2="6.6"/><path d="M4 15a8 8 0 0 1 16 0"/><path d="M3 15h18"/></svg>',
+    sticker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l5 5v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M15 4v4a1 1 0 0 0 1 1h4"/><path d="M8.5 13.5c1 1 2 1.3 3 0s2-1 3 0"/></svg>',
+    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9.5" width="17" height="10.5" rx="1"/><path d="M3.5 13.5h17"/><path d="M12 9.5v10.5"/><path d="M12 9.5C9 9.5 8 8 8 6.5A2 2 0 0 1 12 5.5 2 2 0 0 1 16 6.5c0 1.5-1 3-4 3Z"/></svg>'
+  };
+
+  var CATEGORIES = [
+    { name: 'Apparel', icon: ICONS.shirt },
+    { name: 'Accessories', icon: ICONS.cap },
+    { name: 'Stickers & Prints', icon: ICONS.sticker },
+    { name: 'Mystery Drops', icon: ICONS.gift }
+  ];
+
+  var previewSection = document.getElementById('previewSection');
+  var previewGrid = document.getElementById('previewGrid');
+  var productGrid = document.getElementById('productGrid');
+  var statusPill = document.getElementById('statusPill');
+  var statusText = document.getElementById('statusText');
+  var itemCount = document.getElementById('itemCount');
+
+  function renderCategoryPreview() {
+    previewGrid.innerHTML = CATEGORIES.map(function (cat) {
+      return '<div class="preview-card">' +
+        '<span class="pc-icon">' + cat.icon + '</span>' +
+        '<span class="pc-name">' + cat.name + '</span>' +
+        '<span class="pc-tag">Coming soon</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatPrice(price) {
+    if (typeof price === 'number') return '$' + price.toFixed(2);
+    return escapeHtml(price || '');
+  }
+
+  // Turns a PRODUCTS array into the same card grid every other widget on
+  // this site uses — this is what starts actually running the moment
+  // loadProducts() below returns something real.
+  function renderProducts(products) {
+    previewSection.hidden = true;
+    productGrid.hidden = false;
+    statusPill.classList.add('is-live');
+    statusText.textContent = 'Shop Now';
+    itemCount.textContent = products.length + (products.length === 1 ? ' item' : ' items');
+
+    productGrid.innerHTML = products.map(function (p) {
+      return '<a class="product-card" href="' + encodeURI(p.url || '#') + '" target="_blank" rel="noopener">' +
+        '<span class="prod-thumb"><img src="' + escapeHtml(p.image || '') + '" alt="" loading="lazy" decoding="async"></span>' +
+        '<span class="prod-title">' + escapeHtml(p.title || '') + '</span>' +
+        '<span class="prod-price">' + formatPrice(p.price) + '</span>' +
+        '</a>';
+    }).join('');
+  }
+
+  // ====================================================================
+  // PRODUCTS — the one place a real storefront feed plugs in.
+  //
+  // Nothing's connected yet, so this just resolves empty and the widget
+  // shows the "opening soon" category preview above instead. Once a
+  // platform is picked (Shopify, Printful, Etsy, Gumroad, BigCartel, or
+  // even a plain JSON file dropped in this repo — anything that can hand
+  // back a list), replace the body of loadProducts() with a real fetch()
+  // against it. Each item just needs to look like:
+  //   { title: 'Sticker Pack', price: 12, image: 'https://...', url: 'https://...' }
+  // renderProducts() above already knows how to turn that into the same
+  // card grid every other widget here uses — nothing else in this file
+  // has to change for real inventory to "just appear", the same
+  // auto-populate spirit photos-widget.html uses for /photos.
+  // ====================================================================
+  function loadProducts() {
+    return Promise.resolve([]);
+  }
+
+  loadProducts().then(function (products) {
+    if (products && products.length) renderProducts(products);
+    else renderCategoryPreview();
+  }).catch(function () {
+    renderCategoryPreview();
+  });
+})();
+</script>
+
+</body>
+</html>
