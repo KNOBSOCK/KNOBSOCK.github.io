@@ -254,7 +254,7 @@
     gap: var(--nav-gap);
     margin: 0 0 clamp(10px, 3vw, 24px);
   }
-  .nav-buttons iframe {
+  .nav-buttons > iframe {
     display: block;
     flex: 0 1 auto;
     min-width: 0;
@@ -262,6 +262,48 @@
     aspect-ratio: 2 / 3;
     border: 0;
   }
+
+  /* Wraps just the Live button so the "LIVE NOW!" banner (.live-now-badge
+     below) can stack directly under it, in normal flow, without touching
+     the other three plain iframes. Same width formula as those iframes
+     (via .nav-buttons > iframe above) so the row's spacing is identical
+     whether or not the banner is currently shown. */
+  .nav-button-live {
+    flex: 0 1 auto;
+    min-width: 0;
+    width: min(150px, calc((100% - 3 * var(--nav-gap)) / 4));
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nav-button-live iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border: 0;
+  }
+
+  /* Toggled by admin.html's "Go Live"/"Go Offline" button — see the
+     Firebase listener near the end of the body. Hidden by default so a
+     page load never flashes it before that first snapshot arrives. */
+  .live-now-badge {
+    display: block;
+    /* Right-aligned and floored at a legible min-width instead of just
+       stretching to match the column's own width like the other 3
+       buttons do — that column shrinks well under 150px on a narrow
+       phone, which made the "LIVE NOW!" text unreadably small. Growing
+       past the column extends left, over the empty space below the
+       other buttons (harmless — none of them have anything below them
+       either), rather than right toward the page's own edge. */
+    align-self: flex-end;
+    width: 100%;
+    min-width: 150px;
+    margin-top: clamp(2px, 1vw, 6px);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .live-now-badge:hover { transform: scale(1.08); }
+  .live-now-badge[hidden] { display: none; }
+  .live-now-badge img { display: block; width: 100%; height: auto; }
 
   /* ---------- SECTION CARDS ---------- */
   /* A soft, transparent panel behind each content section — not the
@@ -582,7 +624,15 @@
       <iframe src="/home-button-videos.html" title="Videos" loading="lazy"></iframe>
       <iframe src="/home-button-photos.html" title="Photos" loading="lazy"></iframe>
       <iframe src="/home-button-music.html" title="Music" loading="lazy"></iframe>
-      <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
+      <div class="nav-button-live">
+        <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
+        <!-- Shown/hidden by the Firebase listener near the end of the
+             body, mirroring admin.html's "Go Live" toggle (same
+             chat_config/liveVideo doc the live.html player watches). -->
+        <a class="live-now-badge" id="liveNowBadge" href="/live" target="_top" hidden>
+          <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/LIVE%20NOW.gif" alt="Live now — click to watch">
+        </a>
+      </div>
     </div>
 
     <div class="columns-row" id="columnsRow">
@@ -1140,6 +1190,45 @@
 
     layout(0);
   })();
+</script>
+
+<!-- ============================================================
+     FIREBASE — reuses the same project/doc admin.html's "Go Live"
+     toggle and live.html's player both already use, just to read the
+     one isLive flag: no chat, no video embed, nothing else here. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  // Reuse the existing app instance if this page is ever embedded
+  // alongside another widget that already called initializeApp
+  // (calling it twice throws).
+  const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // A live listener, not a one-time read — going live/offline from
+  // admin.html has to show/hide this banner immediately for anyone
+  // already sitting on the homepage, not just on their next visit. A
+  // missing isLive field defaults to true (online), matching the same
+  // "missing/true = live" rule live.html's player and admin.html's own
+  // toggle both already use for this exact field.
+  const liveNowBadge = document.getElementById('liveNowBadge');
+  db.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
+    const data = doc.exists ? doc.data() : null;
+    const isLive = !(data && data.isLive === false);
+    liveNowBadge.hidden = !isLive;
+  }, function () {
+    // Can't confirm live status (offline, rules not deployed yet, etc.)
+    // — stays hidden rather than claiming we're live when we can't tell.
+    liveNowBadge.hidden = true;
+  });
 </script>
 
 </body>
