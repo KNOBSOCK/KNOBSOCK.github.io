@@ -297,24 +297,48 @@
      under the button — it's now much narrower than the button itself,
      so left-aligning it (as when it matched the button's full width)
      would leave it looking stuck to one side instead of hanging under
-     the icon. Source image is pre-cropped (see the gif itself) rather
-     than cropped here in CSS — a previous version tried to crop the
-     old, uncropped source by hand with computed offsets, which rendered
-     wrong on real phones; simply not needing a crop at all removes that
-     risk entirely. */
+     the icon. Even the newer, "pre-cropped" gif still has a sizable
+     transparent margin baked into its own canvas (713x234, with the
+     glyphs only filling 578x110 of that, off-center toward the top) —
+     showing that canvas as-is at width:100%;height:auto left a visible
+     gap of empty space above the text. object-fit:cover on a box sized
+     to roughly the glyphs' own proportions (578:110) crops that margin
+     away; object-position is tuned to this exact source (measured once:
+     bbox 101,41–679,151) so it centers on the glyphs instead of
+     clipping them — cover's own default centering would clip a few
+     pixels off the top here, since the glyphs sit above center in this
+     particular canvas. object-fit is a standard browser feature, not
+     hand-rolled math, so — unlike the calc()'d crop that broke on real
+     phones two iterations ago — it isn't a likely source of further
+     cross-browser surprises. */
   .live-now-badge {
     display: block;
     position: absolute;
-    top: 100%;
+    /* NOT 100%: home-button-live.html centers its own graphic at
+       width:80%;height:80% of the iframe body, so the blob's actual
+       visible bottom edge sits at 90% down the iframe, not the iframe's
+       own bottom edge — the badge was anchoring ~22px below the visible
+       button instead of just under it. That 80/90 split is this
+       button's own internal layout, not this page's — check
+       home-button-live.html first if it's ever redone differently. */
+    top: 90%;
     left: 50%;
     width: 60%;
     margin-top: 2px;
+    aspect-ratio: 578 / 110;
+    overflow: hidden;
     transform: translateX(-50%);
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .live-now-badge:hover { transform: translateX(-50%) scale(1.08); }
   .live-now-badge[hidden] { display: none; }
-  .live-now-badge img { display: block; width: 100%; height: auto; }
+  .live-now-badge img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 28.6%;
+  }
 
   /* ---------- SECTION CARDS ---------- */
   /* A soft, transparent panel behind each content section — not the
