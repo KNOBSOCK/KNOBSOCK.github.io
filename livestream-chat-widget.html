@@ -703,6 +703,20 @@
     pointer-events: auto;
   }
 
+  /* Nothing configured live and no VOD picked (see updateOfflineCardState
+     near LIVE STREAM VIDEO STATE below) - the pane shows only the looping
+     placeholder, so none of these do anything meaningful (nothing to
+     play/pause/scrub, no audio to unmute) and stay hidden no matter what
+     .controls-visible says. display:none rather than another opacity:0 -
+     a different property than that rule sets, so both apply with no
+     cascade ordering to get right: an element that's actually removed
+     from rendering stays removed regardless of its opacity. */
+  .video-pane.offline-card .video-pane-actions,
+  .video-pane.offline-card .viewer-badge,
+  .video-pane.offline-card .video-controls {
+    display: none;
+  }
+
   /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
   .video-controls {
     position: absolute;
@@ -1182,7 +1196,15 @@
         </iframe>
       </div>
       <div class="video-loading" id="videoLoading">
-        <img class="offline-frame" src="/KNOBSOCK-live-offline.png" alt="We are currently offline">
+        <!-- Muted+looped, no controls attribute, and inheriting
+             pointer-events:none from .video-loading (see its own rule
+             above) - nothing about it responds to a click/tap/right-click,
+             so it reads as a moving picture rather than a video with
+             nothing wired up. disablepictureinpicture/disableRemotePlayback
+             suppress Chrome's own automatic PiP/cast overlay buttons,
+             which it can still draw over a plain <video> even without a
+             controls attribute. -->
+        <video class="offline-frame" id="offlineVideo" src="/OFFLINE%20PLAYCARD%202.mp4" autoplay muted loop playsinline webkit-playsinline="true" disablepictureinpicture disableRemotePlayback preload="auto" aria-label="We are currently offline"></video>
         <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
       </div>
       <div class="video-controls" id="videoControls">
@@ -1443,6 +1465,21 @@
     liveBtn.title = watchingVodId ? 'Return to live' : (atLive ? 'Live' : 'Jump to live');
   }
 
+  // Nothing configured live and no VOD picked = the pane is showing only
+  // the looping offline placeholder (see .offline-frame/#offlineVideo
+  // above), so none of play/pause, scrub, live/fullscreen, unmute, or
+  // hide-chat do anything meaningful — .offline-card (CSS above) hides
+  // that whole overlay regardless of hover/tap .controls-visible state.
+  // Deliberately its own flag rather than reusing is-loading, which also
+  // covers ordinary YT buffering of an actually-live stream/VOD — the
+  // controls must stay put through those, only this specific state hides
+  // them. Defaults to true (offline) before the first Firestore snapshot
+  // arrives, same assumption configuredIsLive's own default makes.
+  function updateOfflineCardState() {
+    videoPane.classList.toggle('offline-card', !watchingVodId && !configuredIsLive);
+  }
+  updateOfflineCardState();
+
   // Called on every config change, not just page load — admin.html's
   // "Go Offline"/"Go Live" toggle needs to take effect immediately for
   // anyone already sitting on the page, not just on their next visit.
@@ -1450,6 +1487,7 @@
     configuredLiveVideoId = isLive ? videoId : null;
     configuredIsLive = !!isLive;
     updateLiveButtonState();
+    updateOfflineCardState();
     if (watchingVodId) return; // a viewer's own VOD choice isn't interrupted by a config change alone
 
     if (!isLive) {
@@ -1493,6 +1531,7 @@
       requestYouTubeIframeApi();
     }
     updateLiveButtonState();
+    updateOfflineCardState();
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(watchingVodId);
   };
 
