@@ -304,10 +304,15 @@
     /* The source gif's own canvas is much taller than the actual glyphs
        in it (a lot of transparent padding above/below the text) — sized
        to the canvas as-is, the visible text would render tiny. Cropped
-       to the glyphs' own bounding box (measured once: 101,173–679,283 of
-       720x486) via a scaled + shifted absolutely-positioned image inside
-       this fixed-aspect box, so the badge's box is exactly as tall as
-       the text actually needs. */
+       down via object-fit:cover on a fixed-aspect box roughly matching
+       the glyphs' own proportions (measured once, ~578:110 out of the
+       source's 720x486), so the badge's box is close to as tall as the
+       text actually needs. A manually calc()'d crop (scaling and
+       shifting the <img> by hand with percentages) sat here previously
+       and was NOT reliable cross-browser — real phones rendered it
+       oversized with the crop offset wrong, clipping the leading "L".
+       object-fit is a standard, browser-native replacement for exactly
+       that kind of by-hand math, so it doesn't carry the same risk. */
     aspect-ratio: 578 / 110;
     overflow: hidden;
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -316,11 +321,9 @@
   .live-now-badge[hidden] { display: none; }
   .live-now-badge img {
     display: block;
-    position: absolute;
-    width: calc(720 / 578 * 100%);
-    max-width: none;
-    left: calc(-101 / 578 * 100%);
-    top: calc(-173 / 110 * 100%);
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   /* ---------- SECTION CARDS ---------- */
