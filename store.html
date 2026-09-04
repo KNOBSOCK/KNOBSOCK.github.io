@@ -22,16 +22,7 @@
      logo + iframe scaffold, with a background matched to the widget's own
      pink palette (its --ink), same as every other page here matches its
      own widget's ink color instead of the tiled GeoCities GIF the rest of
-     the site uses.
-
-     No hand-drawn /knobsock-store-logo.png exists yet (unlike the other
-     four pages, each of which uses its own wordmark PNG) — rather than
-     block this page on new artwork, the wordmark below is built straight
-     out of CSS text using the same hard-outline technique live.html's own
-     "___ has tapped in" pop-up text already uses. If real hand-drawn logo
-     art ever gets made for Store, swap the <span class="text-logo"> below
-     for an <img src="/knobsock-store-logo.png"> and this page needs no
-     other changes. */
+     the site uses. */
   * { box-sizing: border-box; }
 
   html, body {
@@ -54,6 +45,10 @@
     padding: clamp(8px, 2vw, 20px) 0 0;
   }
 
+  /* Header logo — capped by width AND by a share of the viewport height
+     so it can't eat the content area's room on a short/landscape screen.
+     Same treatment as videos.html/live.html/music.html/photos.html's own
+     logo-link. */
   .logo-link {
     flex: 0 0 auto;
     display: block;
@@ -61,47 +56,14 @@
     padding: 0 clamp(10px, 3vw, 24px);
     text-decoration: none;
   }
-
-  /* ---------- CSS TEXT WORDMARK ----------
-     "KNOBSOCK" stays the house yellow every real logo file on this site
-     uses; "STORE" sits tucked under its baseline in this page's own pink,
-     echoing how MUSIC/PHOTOS/etc. sit under the wordmark in the real PNGs.
-     The 4-direction text-shadow is a plain black outline that renders
-     identically in every browser (unlike -webkit-text-stroke, which only
-     some engines support) — copied from the same trick live.html already
-     uses for its tap-in name pop-up. */
-  .text-logo {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: clamp(4px, 1.2vw, 12px);
-    max-width: 760px;
+  .logo-link img {
+    display: block;
     margin: 0 auto;
-    padding: clamp(6px, 1.5vw, 14px) 0;
-  }
-  .tl-main, .tl-sub {
-    font-family: Arial, Helvetica, sans-serif;
-    font-weight: 900;
-    line-height: 0.9;
-    white-space: nowrap;
-  }
-  .tl-main {
-    font-size: clamp(30px, 7.4vw, 68px);
-    letter-spacing: -0.01em;
-    color: #ffe600;
-    text-shadow:
-      -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000,
-      0 8px 16px rgba(0, 0, 0, 0.35);
-    transform: rotate(-1.5deg);
-  }
-  .tl-sub {
-    font-size: clamp(14px, 3.2vw, 27px);
-    letter-spacing: 0.02em;
-    color: #ff4fa8;
-    text-shadow:
-      -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000,
-      0 5px 10px rgba(0, 0, 0, 0.35);
-    transform: rotate(2deg);
-    margin-bottom: clamp(2px, 1vw, 9px);
+    width: 100%;
+    max-width: 760px;
+    max-height: 18vh;
+    height: auto;
+    object-fit: contain;
   }
 
   /* The widget fills whatever room it's given (it's built at 100% width/
@@ -146,9 +108,7 @@
 
 <div class="page">
   <a class="logo-link" href="/" target="_top">
-    <span class="text-logo">
-      <span class="tl-main">KNOBSOCK</span><span class="tl-sub">STORE</span>
-    </span>
+    <img src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
   </a>
 
   <div class="content-wrap">
