@@ -188,7 +188,7 @@
   var audio = document.getElementById('tapinAudio');
   if (!overlay || !img || !audio) return;
 
-  var IMG_SRC = '/beer%20opening.webp';
+  var IMG_SRC = '/gif%20version.gif';
   var hideTimer = null;
 
   function playTapInEffect() {
@@ -212,7 +212,7 @@
       audio.play().catch(function () {}); // best-effort — a browser blocking autoplay-with-sound here still shows the animation
     });
 
-    // The webp and mp3 are pre-timed to match, but a plain <img>-hosted
+    // The gif and mp3 are pre-timed to match, but a plain <img>-hosted
     // animated image has no "finished playing" event to listen for — the
     // known-good audio length is what actually ends the effect (falling
     // back to a safe estimate on the off chance duration isn't known yet).
@@ -227,7 +227,7 @@
     if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect();
   });
 
-  // The webp is a big (~18MB) full-animation file — fetching it eagerly
+  // The gif is a big (~18MB) full-animation file — fetching it eagerly
   // via a render-blocking-priority <link rel=preload> would tax mobile
   // data on every single visit just to shave latency off a feature most
   // visitors never click. Warming it in the background well after the
