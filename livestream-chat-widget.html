@@ -242,6 +242,15 @@
     font-size: clamp(10px, 2.8cqw, 13px);
     padding: clamp(6px, 1.6cqh, 10px) 10px;
     cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  /* Desktop-only in effect — mobile sets this display:none further
+     down, so there's nothing here to hover on a touch device anyway.
+     Without this the bar had zero visual feedback on hover, so it
+     never read as clickable next to the rest of this UI, which
+     highlights everything else interactive. */
+  .vods-tab:hover {
+    background: var(--accent-dim);
   }
   /* Same red as the "N watching" text this is meant to look like an
      extension of, rather than the plain white used inside the chat. */
