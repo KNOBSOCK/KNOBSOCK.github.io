@@ -361,6 +361,14 @@
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .playlist-pane { display: none; }
     .layout .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
+    /* Not unconditional: .layout.video-collapsed already means the user
+       chose audio-only (see the "Hide Video" button, further down this
+       file) — .sc-section is the ONLY thing left on screen then, so
+       hiding it here too would leave a blank screen with nothing to
+       tap back on. Only hide it while the video is actually the thing
+       being watched, which is the whole point of rotating to landscape
+       in the first place. */
+    .layout:not(.video-collapsed) .sc-section { display: none; }
   }
 
 
