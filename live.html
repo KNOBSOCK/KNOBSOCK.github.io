@@ -129,6 +129,36 @@
     .logo-link { display: none; }
     .player-wrap { min-height: 0; }
   }
+
+  /* ---------- TAP IN (fullscreen effect) ----------
+     Triggered by a postMessage from livestream-chat-widget.html's tap-in
+     button (see that file's TAP IN section). Has to live in this
+     top-level page rather than inside that iframe: position:fixed inside
+     an iframe only ever covers the iframe's OWN box (livestream-chat-
+     widget.html's own comment on .bg-glow notes the same constraint),
+     and on desktop especially that box sits below the header logo, so it
+     could never actually cover the real browser viewport the way "full
+     screen, like a hand came off the side of the browser" calls for.
+     pointer-events:none keeps it purely decorative — never blocks
+     clicking the chat/video underneath while it plays. */
+  .tapin-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: none;
+    pointer-events: none;
+  }
+  .tapin-overlay.is-active { display: block; }
+  .tapin-overlay img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .tapin-overlay img.is-visible { opacity: 1; }
 </style>
 </head>
 <body>
@@ -145,6 +175,74 @@
             allowfullscreen></iframe>
   </div>
 </div>
+
+<div class="tapin-overlay" id="tapinOverlay" aria-hidden="true">
+  <img id="tapinImg" alt="">
+</div>
+<audio id="tapinAudio" preload="auto" src="/beer%20can%20sound2.mp3"></audio>
+
+<script>
+(function () {
+  var overlay = document.getElementById('tapinOverlay');
+  var img = document.getElementById('tapinImg');
+  var audio = document.getElementById('tapinAudio');
+  if (!overlay || !img || !audio) return;
+
+  var IMG_SRC = '/beer%20opening.webp';
+  var hideTimer = null;
+
+  function playTapInEffect() {
+    clearTimeout(hideTimer);
+
+    // No src at all until the moment of playback (not even "", which in
+    // some browsers re-requests the current page) — an animated image
+    // just keeps playing from wherever it left off once it has a src, and
+    // there's no JS seek/restart control for that format, so a fresh src
+    // assignment is the only reliable way to guarantee it starts at frame
+    // 0 every single time this is triggered, first tap-in or fiftieth.
+    img.classList.remove('is-visible');
+    img.removeAttribute('src');
+    audio.pause();
+    audio.currentTime = 0;
+
+    overlay.classList.add('is-active');
+    requestAnimationFrame(function () {
+      img.src = IMG_SRC;
+      img.classList.add('is-visible');
+      audio.play().catch(function () {}); // best-effort — a browser blocking autoplay-with-sound here still shows the animation
+    });
+
+    // The webp and mp3 are pre-timed to match, but a plain <img>-hosted
+    // animated image has no "finished playing" event to listen for — the
+    // known-good audio length is what actually ends the effect (falling
+    // back to a safe estimate on the off chance duration isn't known yet).
+    var durationMs = (audio.duration && isFinite(audio.duration)) ? audio.duration * 1000 : 4000;
+    hideTimer = setTimeout(function () {
+      overlay.classList.remove('is-active');
+      img.classList.remove('is-visible');
+    }, durationMs + 150);
+  }
+
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect();
+  });
+
+  // The webp is a big (~18MB) full-animation file — fetching it eagerly
+  // via a render-blocking-priority <link rel=preload> would tax mobile
+  // data on every single visit just to shave latency off a feature most
+  // visitors never click. Warming it in the background well after the
+  // real page (logo/chat/video) has already loaded costs nothing on that
+  // initial load, and a livestream page is a long-dwell-time page, so by
+  // the time anyone actually taps in this has almost always already
+  // finished — the fetch here shares the same HTTP cache img.src reads
+  // from in playTapInEffect above, it just isn't attached to a live
+  // <img> (which would risk it silently animating in the background well
+  // before its first real trigger).
+  window.addEventListener('load', function () {
+    try { fetch(IMG_SRC, { priority: 'low' }).catch(function () {}); } catch (e) {}
+  });
+})();
+</script>
 
 </body>
 </html>

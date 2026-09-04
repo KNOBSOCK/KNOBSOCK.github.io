@@ -890,6 +890,17 @@
   .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
   .color-picker::-moz-color-swatch { border: none; border-radius: 50%; }
 
+  /* Sits right next to the color picker in .status-actions — same round
+     button as the rest of the UI, just sized to sit comfortably beside
+     the small circular swatch. Disabled (via .round-btn:disabled above)
+     for the 5-minute cooldown between taps, same visual language as the
+     video player's own disabled controls. */
+  .tapin-btn {
+    width: clamp(22px, 7cqw, 28px);
+    font-size: clamp(11px, 3.4cqw, 14px);
+    flex: none;
+  }
+
   /* Auth screen now fills the whole chat card and centers its content,
      since the top tab/header bar has been removed on this screen. */
   .auth {
@@ -1859,6 +1870,9 @@
     deviceLockedUsername = lockedName;
     markDeviceLockReady();
 
+    lastTapInAt = (data && data.lastTapInAt) || 0;
+    refreshTapInButtonState();
+
     // A ban screen takes priority over this — never stomp it — and only
     // an already-open session that just lost the exact lock it was
     // resumed from needs kicking; a lock that was never there to begin
@@ -1977,17 +1991,112 @@
     });
   }
 
-  // Posts a "X has tapped in" system line to the shared message feed when
+  // Posts a "X has joined" system line to the shared message feed when
   // someone joins. Fire-and-forget like logIpBestEffort above — a failed
   // write here shouldn't block the person from actually joining chat.
   function sendJoinNotice(username) {
     messagesRef.add({
       type: 'join',
       username: username,
-      text: 'has tapped in',
+      text: 'has joined',
       deviceId: CLIENT_ID,
       ts: Date.now()
     }).catch(() => {});
+  }
+
+  // ---------- TAP IN ----------
+  // A fun, low-stakes button next to the color picker: posts a "just
+  // tapped in" system line (same shared feed as join notices, just a
+  // different type/text so the two read distinctly) and tells the
+  // top-level page (see live.html) to run the fullscreen beer-can effect.
+  // One tap per device per TAPIN_COOLDOWN_MS — enforced the same
+  // best-effort way as everything else identity-related on this page
+  // (see the DEVICE LOCK comments above): lastTapInAt lives on the same
+  // chat_devices/<CLIENT_ID> doc already used for the device lock, and a
+  // determined user could bypass the client-side check entirely. Not
+  // worth a harder gate for a sound-effect button.
+  const TAPIN_COOLDOWN_MS = 5 * 60 * 1000;
+  let lastTapInAt = 0;
+  let tapinCooldownTimer = null;
+
+  function refreshTapInButtonState() {
+    const btn = $('tapinBtn');
+    if (!btn) return;
+    clearTimeout(tapinCooldownTimer);
+    const remaining = TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt);
+    if (remaining > 0) {
+      btn.disabled = true;
+      tapinCooldownTimer = setTimeout(refreshTapInButtonState, remaining);
+    } else {
+      btn.disabled = false;
+    }
+  }
+
+  async function sendTapIn() {
+    if (TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt) > 0) return; // button should already be disabled — belt & suspenders
+    lastTapInAt = Date.now();
+    refreshTapInButtonState();
+    try {
+      await devicesRef.doc(CLIENT_ID).set({ lastTapInAt: lastTapInAt }, { merge: true });
+      await messagesRef.add({
+        type: 'tapin',
+        username: session.username,
+        text: 'just tapped in',
+        deviceId: CLIENT_ID,
+        ts: Date.now()
+      });
+    } catch (e) {
+      console.error('Tap in failed:', e);
+    }
+  }
+
+  // Tells live.html (this widget's parent page, not itself — see the
+  // "position:fixed inside an iframe" note near the top of this file) to
+  // run the actual fullscreen sound+animation. The effect has to live up
+  // there: this widget only ever fills the iframe box live.html gives it,
+  // which on desktop sits below a header logo, so anything "fullscreen"
+  // drawn in here could never actually cover the real browser viewport.
+  function triggerTapInEffect(username) {
+    try {
+      window.parent.postMessage({ type: 'knobsock-tapin', username: username }, '*');
+    } catch (e) {}
+  }
+
+  // ---------- SPAM AUTO-TIMEOUT ----------
+  // More than SPAM_MESSAGE_THRESHOLD messages from the same device within
+  // a rolling SPAM_WINDOW_MS gets a SPAM_TIMEOUT_MS timeout — written as
+  // an ordinary expiring chat_bans doc, so every existing ban code path
+  // (the ban-gate listener below, admin.html's ban list/unban button)
+  // handles it with zero changes. Every connected tab independently
+  // watches the same live message feed and can be the one to notice and
+  // write the ban — including the spamming tab's own — the same
+  // "whoever notices first cleans it up" pattern already used for stale
+  // presence docs, so this doesn't depend on trusting the spamming
+  // client to police itself. spamActionedDeviceIds just stops one tab
+  // from re-writing the same ban on every subsequent message while
+  // already over the threshold.
+  const SPAM_MESSAGE_THRESHOLD = 10;
+  const SPAM_WINDOW_MS = 60 * 1000;
+  const SPAM_TIMEOUT_MS = 10 * 60 * 1000;
+  const recentMessagesByDevice = {};
+  const spamActionedDeviceIds = new Set();
+
+  function checkSpam(m) {
+    if (!m.deviceId || m.type === 'join' || m.type === 'tapin') return;
+    const arr = recentMessagesByDevice[m.deviceId] || (recentMessagesByDevice[m.deviceId] = []);
+    arr.push(m.ts || Date.now());
+    const cutoff = Date.now() - SPAM_WINDOW_MS;
+    while (arr.length && arr[0] < cutoff) arr.shift();
+    if (arr.length <= SPAM_MESSAGE_THRESHOLD || spamActionedDeviceIds.has(m.deviceId)) return;
+    spamActionedDeviceIds.add(m.deviceId);
+    bansRef.doc(m.deviceId).set({
+      bannedAt: Date.now(),
+      bannedBy: 'system (auto spam filter)',
+      expiresAt: Date.now() + SPAM_TIMEOUT_MS,
+      reason: 'Automatic timeout: sent ' + arr.length + ' messages in under a minute',
+      enforced: true,
+      usernames: firebase.firestore.FieldValue.arrayUnion(m.username)
+    }, { merge: true }).catch((e) => console.error('Auto-timeout failed:', e));
   }
 
   function escapeHtml(s) {
@@ -2230,6 +2339,7 @@
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
+              <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!">&#127866;</button>
             </div>
           </div>
           <div class="composer">
@@ -2252,6 +2362,9 @@
     $('msgInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
+
+    $('tapinBtn').addEventListener('click', sendTapIn);
+    refreshTapInButtonState();
   }
 
   // Kept around so a username color that resolves (or gets picked) after
@@ -2270,7 +2383,10 @@
 
     container.innerHTML = msgs.map(m => {
       if (m.type === 'join') {
-        return `<div class="system-msg">${escapeHtml(m.username)} has tapped in</div>`;
+        return `<div class="system-msg">${escapeHtml(m.username)} has joined</div>`;
+      }
+      if (m.type === 'tapin') {
+        return `<div class="system-msg">${escapeHtml(m.username)} just tapped in</div>`;
       }
       const mine = m.username === session.username;
       // Own messages get their real picked/auto color too now, same as
@@ -2325,12 +2441,32 @@
     let query = messagesRef.orderBy('ts', 'asc');
     if (clearedAt) query = query.where('ts', '>', clearedAt);
 
+    // The initial callback reports every doc in the batch as an "added"
+    // change (normal Firestore behavior) — isInitialLoad skips spam
+    // detection and the tap-in effect on that first batch, so loading a
+    // page with old messages in view can't retroactively "spam-ban"
+    // someone or replay every past tap-in's sound/animation. Only a
+    // change delivered after that first callback is a genuinely live,
+    // just-happened event.
+    let isInitialLoad = true;
+
     unsubscribeMessages = query
       .limitToLast(200)
       .onSnapshot(
         (snapshot) => {
           const msgs = snapshot.docs.map(doc => doc.data());
           renderMessages(msgs);
+
+          if (isInitialLoad) {
+            isInitialLoad = false;
+          } else {
+            snapshot.docChanges().forEach((change) => {
+              if (change.type !== 'added') return;
+              const m = change.doc.data();
+              checkSpam(m);
+              if (m.type === 'tapin') triggerTapInEffect(m.username);
+            });
+          }
         },
         (err) => {
           console.error(err);
