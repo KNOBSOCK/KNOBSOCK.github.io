@@ -131,16 +131,18 @@
   .video-loading[hidden] { display: none; }
   .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
-  /* Same 16:9 box, same centering, as .video-frame-wrap below — sized so
-     it sits exactly where the video itself would instead of just filling
-     whatever shape .video-pane happens to be. On mobile this gets
-     overridden below to fill the whole pane instead (cropping the image
-     rather than letterboxing it) — see the mobile media query. */
+  /* Unlike .video-frame-wrap below, deliberately NOT boxed to a centered
+     16:9 shape — that convention exists so a real embedded stream never
+     gets cropped/distorted, which doesn't apply to a decorative placeholder
+     loop with no content worth preserving edge-to-edge. Filling the whole
+     pane and letting object-fit: cover crop it reads better than black
+     bars down the sides whenever .video-pane isn't itself 16:9 (true on
+     both mobile and desktop, depending on window shape). */
   .offline-frame {
     position: absolute;
     display: block;
-    width: min(100cqw, calc(100cqh * 16 / 9));
-    height: min(100cqh, calc(100cqw * 9 / 16));
+    width: 100cqw;
+    height: 100cqh;
     object-fit: cover;
   }
 
@@ -366,16 +368,6 @@
        cancel this override — same trap as .layout .stream-stats below. */
     .layout .video-controls {
       bottom: var(--stats-h);
-    }
-    /* The mobile pane's own aspect ratio isn't 16:9, so fitting the
-       offline card to that box like desktop does leaves black bars down
-       the sides. Fill the whole pane instead and let object-fit: cover
-       crop the image — there's no video controls/letterboxing convention
-       to match here like there is on desktop, so cropping reads better
-       than bars. */
-    .offline-frame {
-      width: 100cqw;
-      height: 100cqh;
     }
     /* min-height:0 (not just min-width) is required here: .layout is
        column-direction on mobile, so .chat-pane's relevant flex-shrink
@@ -714,6 +706,19 @@
   .video-pane.offline-card .video-pane-actions,
   .video-pane.offline-card .viewer-badge,
   .video-pane.offline-card .video-controls {
+    display: none;
+  }
+
+  /* .gif-loader is a sibling of .offline-frame inside #videoLoading (see
+     the HTML below) - normally that's the spinner shown while a real
+     live/VOD video is buffering, sitting over a black pane with nothing
+     else to look at yet. But #videoLoading is also what's visible for
+     the offline card itself (it's what .offline-frame lives in), and
+     unlike a genuine buffering wait, that state can sit on screen
+     indefinitely - long enough for the spinner's own translucent watermark
+     to become a distracting, permanent smudge over the offline video
+     instead of a brief "still loading" hint. */
+  .video-pane.offline-card .gif-loader {
     display: none;
   }
 
@@ -1266,6 +1271,26 @@
     toggleBtn.textContent = hidden ? 'Show Chat' : 'Hide Chat';
     toggleBtn.title = hidden ? 'Show chat' : 'Hide chat';
   });
+})();
+
+(function () {
+  // Mobile browsers (iOS Safari especially) pause every <video> element -
+  // even a muted, looping, purely decorative one - the moment its tab/app
+  // is backgrounded, and never resume it just because the tab came back to
+  // the foreground: autoplay only ever fires once, on the initial load.
+  // Left alone, switching away for a while and coming back leaves the
+  // offline placeholder frozen on whatever frame it paused on. Resuming it
+  // by hand on every return to the foreground (only if it's actually
+  // paused - a real live/VOD stream showing instead by then is left alone)
+  // is the standard fix for this.
+  var offlineVideo = document.getElementById('offlineVideo');
+  if (offlineVideo) {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && offlineVideo.paused) {
+        offlineVideo.play().catch(function () {});
+      }
+    });
+  }
 })();
 
 (function () {
@@ -2637,12 +2662,32 @@
     // arriving mid-settling are held back as possibly-stale.
     let sawServerSnapshot = false;
 
+    // The settling gate above only covers the listener's very first
+    // snapshot(s) - it says nothing about a gap opening back up *after*
+    // that, any time this same listener goes quiet for a while and
+    // reconnects: the tab backgrounded on mobile (both iOS/Android
+    // aggressively suspend a hidden tab's network), a laptop sleeping, or
+    // just a network blip. Firestore then delivers everything that
+    // changed in the meantime as one catch-up snapshot, and every doc in
+    // it is STILL reported as an "added" change - indistinguishable, as
+    // far as docChanges() is concerned, from something that just
+    // happened live. checkSpam already sidesteps this by keying its
+    // window off each message's own ts rather than trusting "added" to
+    // mean "just now"; the tap-in effect had no equivalent guard, so
+    // stepping away for a while and coming back would replay (sound and
+    // fullscreen animation both) every tap-in that landed while gone,
+    // one after another - the exact "leave for a bit, get spammed with a
+    // backlog on return" the age check below closes off.
+    const TAPIN_EFFECT_MAX_AGE_MS = 15000;
+
     function handleAddedChange(change, stillSettling) {
       if (change.type !== 'added') return;
       const m = change.doc.data();
       if (stillSettling && !pendingOwnTapinTimestamps.has(m.ts)) return;
       checkSpam(m);
-      if (m.type === 'tapin') triggerTapInEffect(m.username);
+      if (m.type === 'tapin' && Date.now() - m.ts < TAPIN_EFFECT_MAX_AGE_MS) {
+        triggerTapInEffect(m.username);
+      }
     }
 
     unsubscribeMessages = query
