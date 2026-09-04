@@ -156,9 +156,48 @@
     height: 100%;
     object-fit: cover;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.375s ease; /* 25% slower than the original 0.3s */
   }
   .tapin-overlay img.is-visible { opacity: 1; }
+
+  /* "____ has tapped in", Streamlabs-alert style: giant bold text over
+     the top of the animation, popping in exactly when it plays. A black
+     stroke (the four offset shadows) plus a soft drop shadow keeps it
+     readable regardless of what's behind it (video, offline card, chat
+     panel), since unlike a normal caption this sits over arbitrary page
+     content rather than a designed background. top:22vh (not a few
+     percent) is deliberate: the gif is transparent up there for most of
+     the animation, so the header logo (capped at max-height:18vh) shows
+     straight through — both it and this text are bold yellow lettering,
+     so anything higher up overlaps them into an unreadable jumble. */
+  .tapin-overlay .tapin-text {
+    position: absolute;
+    left: 50%;
+    top: 22vh;
+    transform: translateX(-50%) scale(0.4);
+    width: min(94vw, 1200px);
+    margin: 0;
+    text-align: center;
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 900;
+    font-size: clamp(26px, 7vw, 84px);
+    line-height: 1.15;
+    color: #fff;
+    text-shadow:
+      -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000,
+      0 8px 20px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    overflow-wrap: anywhere;
+  }
+  .tapin-overlay .tapin-name { color: #ffff00; }
+  .tapin-overlay .tapin-text.is-visible {
+    animation: tapinTextPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes tapinTextPop {
+    0%   { opacity: 0; transform: translateX(-50%) scale(0.4); }
+    65%  { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  }
 </style>
 </head>
 <body>
@@ -178,6 +217,7 @@
 
 <div class="tapin-overlay" id="tapinOverlay" aria-hidden="true">
   <img id="tapinImg" alt="">
+  <div class="tapin-text" id="tapinText"><span class="tapin-name" id="tapinName"></span> has tapped in</div>
 </div>
 <audio id="tapinAudio" preload="auto" src="/beer%20can%20sound2.mp3"></audio>
 
@@ -186,7 +226,9 @@
   var overlay = document.getElementById('tapinOverlay');
   var img = document.getElementById('tapinImg');
   var audio = document.getElementById('tapinAudio');
-  if (!overlay || !img || !audio) return;
+  var text = document.getElementById('tapinText');
+  var nameEl = document.getElementById('tapinName');
+  if (!overlay || !img || !audio || !text || !nameEl) return;
 
   var IMG_SRC = '/gif%20version.gif';
   var hideTimer = null;
@@ -202,7 +244,7 @@
   var GIF_LOOP_MS = 6030;
   var GIF_CUTOFF_MS = GIF_LOOP_MS - 120;
 
-  function playTapInEffect() {
+  function playTapInEffect(username) {
     clearTimeout(hideTimer);
 
     // No src at all until the moment of playback (not even "", which in
@@ -216,10 +258,21 @@
     audio.pause();
     audio.currentTime = 0;
 
+    // Same restart concern as the image above, but for the CSS pop
+    // animation instead of a src: removing the class doesn't rewind an
+    // already-finished animation on its own, so a forced reflow (reading
+    // offsetWidth) is needed before re-adding it, or a second tap-in
+    // wouldn't visibly pop at all. textContent (not innerHTML) is enough
+    // to keep a username with HTML-looking characters inert.
+    nameEl.textContent = username || '';
+    text.classList.remove('is-visible');
+    void text.offsetWidth;
+
     overlay.classList.add('is-active');
     requestAnimationFrame(function () {
       img.src = IMG_SRC;
       img.classList.add('is-visible');
+      text.classList.add('is-visible');
       audio.play().catch(function () {}); // best-effort — a browser blocking autoplay-with-sound here still shows the animation
     });
 
@@ -236,11 +289,12 @@
       audio.pause();
       overlay.classList.remove('is-active');
       img.classList.remove('is-visible');
+      text.classList.remove('is-visible');
     }, durationMs);
   }
 
   window.addEventListener('message', function (e) {
-    if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect();
+    if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect(e.data.username);
   });
 
   // The gif is a big (~18MB) full-animation file — fetching it eagerly
