@@ -264,17 +264,20 @@
   }
 
   /* Wraps just the Live button so the "LIVE NOW!" banner (.live-now-badge
-     below) can stack directly under it, in normal flow, without touching
-     the other three plain iframes. Same width formula as those iframes
-     (via .nav-buttons > iframe above) so the row's spacing is identical
-     whether or not the banner is currently shown. */
+     below) can anchor to it. Plain block, NOT a flex container — sized
+     with the exact same formula as the plain iframes above (so the row's
+     spacing/the button's own size are identical either way) and nothing
+     more, deliberately: an earlier version made this a nested column flex
+     container, and stretch-sizing an aspect-ratio iframe two flex levels
+     deep rendered inconsistently (the Live button came out visibly
+     bigger than the other three in real browsers). The badge is
+     absolutely positioned below, so it can't feed back into this
+     element's own size the way a normal-flow flex child could. */
   .nav-button-live {
+    position: relative;
     flex: 0 1 auto;
     min-width: 0;
     width: min(150px, calc((100% - 3 * var(--nav-gap)) / 4));
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
   }
   .nav-button-live iframe {
     display: block;
@@ -285,25 +288,40 @@
 
   /* Toggled by admin.html's "Go Live"/"Go Offline" button — see the
      Firebase listener near the end of the body. Hidden by default so a
-     page load never flashes it before that first snapshot arrives. */
+     page load never flashes it before that first snapshot arrives.
+     Positioned absolutely (not normal flow) so its size can never affect
+     the Live button/row above it, and pinned to exactly the button's own
+     width — same proportions on any screen, matching the row's actual
+     buttons instead of a fixed size that's oversized on a small phone
+     and undersized on a wide desktop (or vice versa). */
   .live-now-badge {
     display: block;
-    /* Right-aligned and floored at a legible min-width instead of just
-       stretching to match the column's own width like the other 3
-       buttons do — that column shrinks well under 150px on a narrow
-       phone, which made the "LIVE NOW!" text unreadably small. Growing
-       past the column extends left, over the empty space below the
-       other buttons (harmless — none of them have anything below them
-       either), rather than right toward the page's own edge. */
-    align-self: flex-end;
+    position: absolute;
+    top: 100%;
+    left: 0;
     width: 100%;
-    min-width: 150px;
-    margin-top: clamp(2px, 1vw, 6px);
+    margin-top: 2px;
+    /* The source gif's own canvas is much taller than the actual glyphs
+       in it (a lot of transparent padding above/below the text) — sized
+       to the canvas as-is, the visible text would render tiny. Cropped
+       to the glyphs' own bounding box (measured once: 101,173–679,283 of
+       720x486) via a scaled + shifted absolutely-positioned image inside
+       this fixed-aspect box, so the badge's box is exactly as tall as
+       the text actually needs. */
+    aspect-ratio: 578 / 110;
+    overflow: hidden;
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .live-now-badge:hover { transform: scale(1.08); }
   .live-now-badge[hidden] { display: none; }
-  .live-now-badge img { display: block; width: 100%; height: auto; }
+  .live-now-badge img {
+    display: block;
+    position: absolute;
+    width: calc(720 / 578 * 100%);
+    max-width: none;
+    left: calc(-101 / 578 * 100%);
+    top: calc(-173 / 110 * 100%);
+  }
 
   /* ---------- SECTION CARDS ---------- */
   /* A soft, transparent panel behind each content section — not the
