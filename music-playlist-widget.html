@@ -339,6 +339,30 @@
     .layout.video-collapsed .sc-card { flex: 1 1 auto; justify-content: center; }
   }
 
+  /* Landscape phone: the mobile stack above still leaves the video
+     squeezed near its natural 16:9 height, fighting the Now Playing
+     card and track list for an already-short viewport. Rather than
+     build a third layout, this applies the same "Hide Playlist"
+     treatment above unconditionally instead. Checked on max-height,
+     not max-width: that's the dimension a phone's short side ends up
+     on once rotated, and its width can be well over 860px lying
+     sideways. The ".layout" prefix is load-bearing, not stylistic —
+     .video-pane/.playlist-pane above are equal-specificity with
+     these, so without it this would only win when it happens to land
+     later in the file. The host page's own matching landscape query
+     is what actually frees up the room this then fills — see
+     music.html.
+     hover:none + pointer:coarse (true only for touchscreens) are load-
+     bearing too: an ordinary desktop browser window is "landscape" by
+     nature and often under 860px tall as well (a laptop screen minus
+     its own chrome), so max-height + orientation alone was hiding the
+     playlist on regular desktop visits — confirmed by testing an
+     actual 1400x900 window, not just guessing. */
+  @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+    .layout .playlist-pane { display: none; }
+    .layout .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
+  }
+
 
   /* ---------- CREATOR CHIN ----------
      A row of pill buttons across the bottom, one per creator seen in the
