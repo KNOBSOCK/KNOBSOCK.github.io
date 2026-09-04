@@ -901,6 +901,38 @@
     flex: none;
   }
 
+  /* Positioning context for the little countdown pill below — just
+     wraps the button itself (not the color picker too) so the pill can
+     float above it without disturbing .status-actions' own flex gap. */
+  .tapin-btn-wrap {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+  }
+  /* Floats just above the button while the 5-minute cooldown is
+     running, counting down live — hidden the rest of the time (see
+     refreshTapInButtonState). .chat-card clips overflow, but that's a
+     large ancestor and this only ever needs a few px of clearance above
+     a composer-row button, so it's never actually reached. */
+  .tapin-countdown {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 4px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
   /* Auth screen now fills the whole chat card and centers its content,
      since the top tab/header bar has been removed on this screen. */
   .auth {
@@ -2019,16 +2051,33 @@
   let lastTapInAt = 0;
   let tapinCooldownTimer = null;
 
+  // mm:ss, e.g. 299999ms -> "5:00", 7000ms -> "0:07".
+  function formatCooldown(ms) {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
   function refreshTapInButtonState() {
     const btn = $('tapinBtn');
+    const countdown = $('tapinCountdown');
     if (!btn) return;
     clearTimeout(tapinCooldownTimer);
     const remaining = TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt);
     if (remaining > 0) {
       btn.disabled = true;
-      tapinCooldownTimer = setTimeout(refreshTapInButtonState, remaining);
+      if (countdown) {
+        countdown.hidden = false;
+        countdown.textContent = formatCooldown(remaining);
+      }
+      // Reruns every second (not just once at the very end) so the
+      // countdown pill actually counts down instead of only flipping
+      // the button back on when the cooldown finally expires.
+      tapinCooldownTimer = setTimeout(refreshTapInButtonState, Math.min(remaining, 1000));
     } else {
       btn.disabled = false;
+      if (countdown) countdown.hidden = true;
     }
   }
 
@@ -2339,7 +2388,10 @@
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
-              <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!">&#127866;</button>
+              <span class="tapin-btn-wrap">
+                <span class="tapin-countdown" id="tapinCountdown" hidden></span>
+                <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!">&#127866;</button>
+              </span>
             </div>
           </div>
           <div class="composer">
