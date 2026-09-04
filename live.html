@@ -191,6 +191,17 @@
   var IMG_SRC = '/gif%20version.gif';
   var hideTimer = null;
 
+  // This gif's own native one-loop duration: 182 frames at ~30-40ms
+  // each, measured by summing each frame's real delay (PIL:
+  // im.info['duration'] per frame) rather than guessed — if the file
+  // is ever swapped again, re-measure and update this. It loops
+  // forever like most animated GIFs (its own loop count is 0 =
+  // infinite), so waiting past this point lets it visibly wrap back to
+  // frame 0 and start replaying before the effect gets hidden — cutting
+  // it off a few frames early avoids that "restart flash" at the end.
+  var GIF_LOOP_MS = 6030;
+  var GIF_CUTOFF_MS = GIF_LOOP_MS - 120;
+
   function playTapInEffect() {
     clearTimeout(hideTimer);
 
@@ -212,15 +223,20 @@
       audio.play().catch(function () {}); // best-effort — a browser blocking autoplay-with-sound here still shows the animation
     });
 
-    // The gif and mp3 are pre-timed to match, but a plain <img>-hosted
-    // animated image has no "finished playing" event to listen for — the
-    // known-good audio length is what actually ends the effect (falling
-    // back to a safe estimate on the off chance duration isn't known yet).
-    var durationMs = (audio.duration && isFinite(audio.duration)) ? audio.duration * 1000 : 4000;
+    // Ends at the earlier of "the audio actually finished" or "the gif
+    // is about to loop" — GIF_CUTOFF_MS on its own would be enough
+    // since the two are pre-timed to match, but if the audio ever ends
+    // up the shorter of the pair this still won't run the visual on
+    // past it.
+    var durationMs = GIF_CUTOFF_MS;
+    if (audio.duration && isFinite(audio.duration) && audio.duration * 1000 < durationMs) {
+      durationMs = audio.duration * 1000;
+    }
     hideTimer = setTimeout(function () {
+      audio.pause();
       overlay.classList.remove('is-active');
       img.classList.remove('is-visible');
-    }, durationMs + 150);
+    }, durationMs);
   }
 
   window.addEventListener('message', function (e) {
