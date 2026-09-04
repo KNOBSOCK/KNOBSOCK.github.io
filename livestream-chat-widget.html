@@ -1152,11 +1152,41 @@
   .composer input {
     flex: 1;
   }
+  /* A drawn "SEND" button graphic, not a flat circle like the rest of
+     the .round-btn family (see FLAT CIRCULAR BUTTONS below) - not built
+     from that class at all, since none of its circular shape/flat-color
+     background fit an oval image with its own baked-in coloring. Sized
+     by height alone (cqmin, matching the scale every other control in
+     this row already uses) with width left to aspect-ratio - the one
+     CSS property that guarantees the button stays in-proportion at any
+     size, screen, or resolution rather than stretching. The ratio is the
+     shipped send-button.png's own exact pixel dimensions, so there's no
+     rounding drift between the two. */
   .send-btn {
-    width: clamp(34px, 10cqmin, 42px);
-    font-size: clamp(14px, 3.8cqmin, 18px);
+    -webkit-appearance: none;
+    appearance: none;
     flex: none;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    height: clamp(28px, 8cqmin, 36px);
+    aspect-ratio: 480 / 286;
+    transition: filter 0.15s ease;
   }
+  .send-btn img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  /* Darkening a drawn image (rather than swapping a flat background
+     color, like every other button here does on hover/active) is a
+     brightness filter - it dims the whole graphic uniformly regardless
+     of its own colors, so it works the same way whether the art behind
+     it ever changes. */
+  .send-btn:hover:not(:disabled) { filter: brightness(0.82); }
+  .send-btn:active:not(:disabled) { filter: brightness(0.68); }
 
   .loading {
     margin: auto;
@@ -2532,7 +2562,7 @@
           </div>
           <div class="composer">
             <input type="text" id="msgInput" placeholder="Type a message…" maxlength="500" />
-            <button class="round-btn send-btn" id="sendBtn" title="Send">&#9658;</button>
+            <button class="send-btn" id="sendBtn" title="Send" aria-label="Send"><img src="/send-button.png" alt=""></button>
           </div>
         </div>
       </div>
