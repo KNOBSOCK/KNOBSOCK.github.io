@@ -835,7 +835,8 @@
   }
 
   .who {
-    font-size: clamp(10px, 3cqw, 13px);
+    /* cqmin, matching .status-actions' buttons beside it - see the note there */
+    font-size: clamp(10px, 3cqmin, 13px);
     color: var(--text-dim);
     white-space: nowrap;
   }
@@ -867,7 +868,17 @@
   .status-actions {
     display: flex;
     align-items: center;
-    gap: clamp(6px, 2cqw, 10px);
+    /* cqmin throughout this row (here and in .color-picker/.tapin-btn/
+       .composer/.send-btn below): using cqw and cqh separately let a
+       container whose width and height scale at different rates (a
+       wide-but-short chat pane on a big screen, or Safari zoomed way
+       out) pull them out of ratio with each other — width-sized things
+       ballooned while height-sized things stayed small, reading as
+       everything "smushed" together rather than one consistent scale.
+       cqmin keys every one of them off whichever dimension is smaller,
+       so they always grow and shrink together regardless of the pane's
+       aspect ratio. */
+    gap: clamp(6px, 2cqmin, 10px);
     flex: none;
   }
 
@@ -877,8 +888,8 @@
   .color-picker {
     -webkit-appearance: none;
     appearance: none;
-    width: clamp(20px, 6.4cqw, 26px);
-    height: clamp(20px, 6.4cqw, 26px);
+    width: clamp(20px, 6.4cqmin, 26px);
+    height: clamp(20px, 6.4cqmin, 26px);
     border: 1px solid var(--line);
     border-radius: 50%;
     padding: 0;
@@ -908,8 +919,8 @@
      for the 5-minute cooldown between taps, same visual language as the
      video player's own disabled controls. */
   .tapin-btn {
-    width: clamp(22px, 7cqw, 28px);
-    font-size: clamp(11px, 3.4cqw, 14px);
+    width: clamp(22px, 7cqmin, 28px);
+    font-size: clamp(11px, 3.4cqmin, 14px);
     flex: none;
     transition: --tapin-frac 1s linear;
   }
@@ -927,7 +938,7 @@
      refreshTapInButtonState) — smaller than the emoji it replaces so a
      4-5 character countdown still fits inside this small a circle. */
   .tapin-btn-label.is-countdown {
-    font-size: clamp(7px, 2.4cqw, 9px);
+    font-size: clamp(7px, 2.4cqmin, 9px);
     font-weight: 700;
   }
 
@@ -958,10 +969,16 @@
   /* Readable text box — flat, no inset/bevel shadow */
   input[type="text"] {
     width: 100%;
-    padding: clamp(8px, 2.4cqh, 11px) clamp(8px, 2.4cqw, 12px);
+    /* cqmin (not cqw/cqh separately) so this can't drift out of ratio
+       with the round buttons beside it (see .status-actions etc. below)
+       on a container whose width and height grow at different rates —
+       a wide-but-short pane on a big screen, or Safari zoomed out, was
+       letting cqw-sized things and cqh-sized things scale apart from
+       each other, which read as everything "smushed" together. */
+    padding: clamp(8px, 2.4cqmin, 11px) clamp(8px, 2.4cqmin, 12px);
     background: var(--ink);
     border: 1px solid var(--line);
-    border-radius: clamp(2px, 1cqw, 4px);
+    border-radius: clamp(2px, 1cqmin, 4px);
     color: var(--text);
     font-size: max(16px, 3.6cqw);
     font-family: var(--font-body);
@@ -1070,21 +1087,22 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: clamp(5px, 1.6cqh, 8px) clamp(10px, 3cqw, 14px) 0;
+    /* cqmin — see the note on .status-actions above */
+    padding: clamp(5px, 1.6cqmin, 8px) clamp(10px, 3cqmin, 14px) 0;
   }
 
   .composer {
     display: flex;
-    gap: clamp(5px, 1.8cqw, 8px);
-    padding: clamp(8px, 2.8cqh, 14px);
+    gap: clamp(5px, 1.8cqmin, 8px);
+    padding: clamp(8px, 2.8cqmin, 14px);
     flex: 0 0 auto;
   }
   .composer input {
     flex: 1;
   }
   .send-btn {
-    width: clamp(34px, 10cqw, 42px);
-    font-size: clamp(14px, 3.8cqw, 18px);
+    width: clamp(34px, 10cqmin, 42px);
+    font-size: clamp(14px, 3.8cqmin, 18px);
     flex: none;
   }
 
