@@ -520,7 +520,15 @@
      1400x900 window, not just guessing. */
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .chat-pane { display: none; }
-    .layout .video-pane { flex: 1 1 100%; }
+    /* padding-bottom: 0 reclaims the strip .stream-stats normally sits
+       in (reserved via the mobile block's .video-pane padding-bottom
+       below) — without it the video stops short of the bottom edge,
+       leaving an empty gap where that bar used to be. The VODs drawer
+       itself needs no separate handling here: it lives inside
+       .chat-pane, already hidden above, whatever its open/closed state
+       was before rotating. */
+    .layout .video-pane { flex: 1 1 100%; padding-bottom: 0; }
+    .layout .stream-stats { display: none; }
   }
 
   /* Whichever fullscreen path is active, explicitly hide the chat pane
