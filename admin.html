@@ -613,8 +613,12 @@
     overflow: hidden;
     background: var(--panel-2);
     border: 1px solid var(--line);
+    cursor: grab;
+    touch-action: none;
   }
-  .photo-upload-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-upload-tile.dragging { opacity: 0.4; cursor: grabbing; }
+  .photo-upload-tile.is-uploading { cursor: default; }
+  .photo-upload-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .photo-upload-tile .remove-photo-btn {
     position: absolute;
     top: 2px;
@@ -947,7 +951,7 @@
     <label class="field-label" for="productSizesInput">Sizes (optional, comma-separated)</label>
     <input type="text" id="productSizesInput" placeholder="S, M, L, XL">
 
-    <label class="field-label">Photos</label>
+    <label class="field-label">Photos <span style="font-weight:400;color:var(--text-dim);">— drag a photo to reorder</span></label>
     <div class="photo-upload-grid" id="productPhotosGrid"></div>
     <input type="file" id="productPhotosInput" accept="image/*" multiple>
 
@@ -1252,6 +1256,51 @@
       try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
       const rows = Array.prototype.slice.call(container.querySelectorAll('[data-draggable]'));
       onReorder(rows.map(function (r) { return parseInt(r.dataset.index, 10); }));
+      dragEl = null;
+      pointerId = null;
+    }
+    container.addEventListener('pointerup', endDrag);
+    container.addEventListener('pointercancel', endDrag);
+  }
+
+  // Same drag-to-reorder idea as makeSortable above, but for a wrapping
+  // grid of same-size tiles (the product photo picker) rather than a
+  // vertical list of rows — there's no separate .grip handle (the whole
+  // tile drags), and "before or after the hovered tile" is decided by
+  // horizontal position within it instead of vertical, since two tiles
+  // being compared are usually side by side in the same row.
+  function makeGridSortable(container, tileSelector, onReorder) {
+    let dragEl = null;
+    let pointerId = null;
+
+    container.addEventListener('pointerdown', function (e) {
+      const tile = e.target.closest(tileSelector);
+      if (!tile || tile.parentNode !== container) return;
+      if (e.target.closest('.remove-photo-btn') || tile.classList.contains('is-uploading')) return;
+      e.preventDefault();
+      dragEl = tile;
+      pointerId = e.pointerId;
+      try { tile.setPointerCapture(pointerId); } catch (err) { /* older browsers, harmless */ }
+      tile.classList.add('dragging');
+    });
+
+    container.addEventListener('pointermove', function (e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const tile = under && under.closest ? under.closest(tileSelector) : null;
+      if (!tile || tile === dragEl || tile.parentNode !== container) return;
+      const rect = tile.getBoundingClientRect();
+      const before = (e.clientX - rect.left) < rect.width / 2;
+      container.insertBefore(dragEl, before ? tile : tile.nextSibling);
+    });
+
+    function endDrag(e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      dragEl.classList.remove('dragging');
+      try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
+      const tiles = Array.prototype.slice.call(container.querySelectorAll(tileSelector + '[data-index]'));
+      onReorder(tiles.map(function (t) { return parseInt(t.dataset.index, 10); }));
       dragEl = null;
       pointerId = null;
     }
@@ -2645,7 +2694,7 @@
 
   function renderPhotosGrid() {
     productPhotosGrid.innerHTML = editingProductImages.map(function (url, i) {
-      return '<div class="photo-upload-tile"><img src="' + escapeAttr(url) + '"><button type="button" class="remove-photo-btn" data-index="' + i + '" title="Remove">&times;</button></div>';
+      return '<div class="photo-upload-tile" data-index="' + i + '"><img src="' + escapeAttr(url) + '"><button type="button" class="remove-photo-btn" data-index="' + i + '" title="Remove">&times;</button></div>';
     }).join('');
     Array.prototype.forEach.call(productPhotosGrid.querySelectorAll('.remove-photo-btn'), function (btn) {
       btn.addEventListener('click', function () {
@@ -2654,6 +2703,15 @@
       });
     });
   }
+
+  // Drag any photo tile onto another to reorder — see makeGridSortable's
+  // own comment. Bound once to the container (its innerHTML gets replaced
+  // wholesale by renderPhotosGrid, but the listeners here live on
+  // productPhotosGrid itself, not its children, so they survive that).
+  makeGridSortable(productPhotosGrid, '.photo-upload-tile', function (newOrderIndices) {
+    editingProductImages = newOrderIndices.map(function (i) { return editingProductImages[i]; });
+    renderPhotosGrid();
+  });
 
   function openProductModal(productId) {
     editingProductId = productId || null;
