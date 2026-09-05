@@ -21,7 +21,6 @@
     --accent: #ff4fa8;
     --accent-dim: #a3195f;
     --accent-yellow: #ffdd00;
-    --accent-green: #38e07a;
     --text: #ffffff;
     --text-dim: #ffd6ec;
     --font-display: Arial, Helvetica, sans-serif;
@@ -77,9 +76,11 @@
   /* ---------- THE CARD ----------
      One panel, not a main-pane/side-pane split like photos or video — a
      store is fundamentally one browsable grid, so it gets the same
-     "frosted card with a header and a scrolling body" shape those widgets'
-     own side panes use (.grid-card in photos-widget.html), just as the
-     whole widget instead of half of it. */
+     frosted-card shape those widgets' own side panes use (.grid-card in
+     photos-widget.html), just as the whole widget instead of half of it,
+     and with no header bar of its own — store.html's own big logo above
+     this iframe already says KNOBSOCK STORE, so repeating that in a
+     second, smaller bar in here just duplicated it. */
   .store-card {
     flex: 1 1 auto;
     min-height: 0;
@@ -89,88 +90,6 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     overflow: hidden;
-  }
-
-  .store-header {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: clamp(10px, 2.2vw, 16px) clamp(12px, 2.6vw, 18px);
-    border-bottom: 1px solid var(--line);
-  }
-  .store-heading {
-    display: flex;
-    align-items: baseline;
-    gap: clamp(6px, 1.4vw, 10px);
-    min-width: 0;
-  }
-  .store-heading .eyebrow {
-    font-family: var(--font-display);
-    font-size: clamp(9px, 2vw, 11px);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    opacity: 0.85;
-  }
-  .store-heading .title {
-    font-family: var(--font-display);
-    font-size: clamp(15px, 3.2vw, 19px);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-  .store-heading .count {
-    font-family: var(--font-body);
-    font-size: clamp(10px, 2.2vw, 12px);
-    color: var(--text-dim);
-  }
-  .store-heading .count:empty { display: none; }
-
-  /* Status pill: a small pulsing dot + label, sitting in for a "we're
-     live"/"we're not" indicator the way livestream-chat-widget.html's own
-     status dot does — yellow + pulsing while there's nothing for sale,
-     swapped to green + "Shop Now" the moment renderProducts() below ever
-     actually runs. */
-  .status-pill {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--font-body);
-    font-weight: 700;
-    font-size: clamp(10px, 2.2vw, 12px);
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-    color: var(--text);
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: clamp(5px, 1.4vw, 7px) clamp(10px, 2.2vw, 14px);
-  }
-  .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--accent-yellow);
-    animation: pulseDot 1.8s ease-out infinite;
-  }
-  @keyframes pulseDot {
-    0%   { box-shadow: 0 0 0 0 rgba(255, 221, 0, 0.55); }
-    70%  { box-shadow: 0 0 0 7px rgba(255, 221, 0, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 221, 0, 0); }
-  }
-  .status-pill.is-live .status-dot {
-    background: var(--accent-green);
-    animation-name: pulseDotLive;
-  }
-  @keyframes pulseDotLive {
-    0%   { box-shadow: 0 0 0 0 rgba(56, 224, 122, 0.55); }
-    70%  { box-shadow: 0 0 0 7px rgba(56, 224, 122, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(56, 224, 122, 0); }
   }
 
   .store-body {
@@ -375,17 +294,6 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout">
   <div class="store-card">
-    <div class="store-header">
-      <div class="store-heading">
-        <span class="eyebrow">KNOBSOCK</span>
-        <span class="title">Store</span>
-        <span class="count" id="itemCount"></span>
-      </div>
-      <span class="status-pill" id="statusPill">
-        <span class="status-dot"></span><span id="statusText">Opening Soon</span>
-      </span>
-    </div>
-
     <div class="store-body">
       <div class="hero">
         <span class="hero-icon-wrap" aria-hidden="true">
@@ -434,9 +342,6 @@
   var previewSection = document.getElementById('previewSection');
   var previewGrid = document.getElementById('previewGrid');
   var productGrid = document.getElementById('productGrid');
-  var statusPill = document.getElementById('statusPill');
-  var statusText = document.getElementById('statusText');
-  var itemCount = document.getElementById('itemCount');
 
   function renderCategoryPreview() {
     previewGrid.innerHTML = CATEGORIES.map(function (cat) {
@@ -465,9 +370,6 @@
   function renderProducts(products) {
     previewSection.hidden = true;
     productGrid.hidden = false;
-    statusPill.classList.add('is-live');
-    statusText.textContent = 'Shop Now';
-    itemCount.textContent = products.length + (products.length === 1 ? ' item' : ' items');
 
     productGrid.innerHTML = products.map(function (p) {
       return '<a class="product-card" href="' + encodeURI(p.url || '#') + '" target="_blank" rel="noopener">' +
