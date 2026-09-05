@@ -28,10 +28,16 @@
     /* Matches the live chat widget's own red palette (its --ink) instead
        of the tiled GeoCities GIF every other non-widget page here uses,
        so the page the widget sits in reads as part of the same color
-       scheme instead of a mismatched backdrop behind it. */
-    background: #3a0a0a;
+       scheme instead of a mismatched backdrop behind it. Swapped to
+       off-black by the knobsock-live-state postMessage handler below
+       (matching html.is-offline's --ink in livestream-chat-widget.html)
+       whenever admin.html's Go Offline toggle is set — starts on the
+       dark value since the widget itself defaults to offline until its
+       first Firestore snapshot confirms otherwise. */
+    background: #0d0d0d;
     font-family: Arial, Helvetica, sans-serif;
   }
+  body.is-live { background: #3a0a0a; }
 
   html { overflow-x: hidden; }
 
@@ -323,6 +329,9 @@
 
   window.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect(e.data.username);
+    if (e.data && e.data.type === 'knobsock-live-state') {
+      document.body.classList.toggle('is-live', !!e.data.isLive);
+    }
   });
 
   // The gif is a big (~18MB) full-animation file — fetching it eagerly
