@@ -7,13 +7,13 @@
 <style>
   /* Same shell/theme system as photos-widget.html and the other widgets on
      this site (CSS vars, .bg-glow, a frosted card, hover-pop tiles), just
-     pink instead of orange/blue/gold/red — and, unlike those, with no real
-     data source wired up yet. There's no store platform connected, so
-     PRODUCTS (see the script below) stays empty and this renders a
-     "coming soon" category preview instead of a product grid. The product
-     grid itself is fully built and ready — see the PRODUCTS comment near
-     the bottom of the script for the one place a real feed plugs in later,
-     the same "auto populate" pattern photos-widget.html uses for /photos. */
+     pink instead of orange/blue/gold/red.
+
+     Products now come straight from Firestore's store_products collection
+     (added/edited from admin.html's Store tab) — see loadProducts() near
+     the bottom of the script. Whenever there are zero active products
+     (nothing added yet, or everything's a draft), this falls back to the
+     "opening soon" category preview instead of an empty grid. */
   :root {
     --ink: #4a0a2e;
     --panel-2: rgba(74, 10, 46, 0.8);
@@ -80,8 +80,10 @@
      photos-widget.html), just as the whole widget instead of half of it,
      and with no header bar of its own — store.html's own big logo above
      this iframe already says KNOBSOCK STORE, so repeating that in a
-     second, smaller bar in here just duplicated it. */
+     second, smaller bar in here just duplicated it. position:relative so
+     .cart-btn below can pin to its corner without its own header row. */
   .store-card {
+    position: relative;
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
@@ -102,6 +104,52 @@
   .store-body::-webkit-scrollbar { width: 8px; }
   .store-body::-webkit-scrollbar-track { background: transparent; }
   .store-body::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
+
+  /* ---------- CART BUTTON ----------
+     Pinned to the card's own corner rather than living in a header bar —
+     see the comment on .store-card above for why there isn't one. Only
+     shown once there's an actual store to shop from (see toggleCartBtn in
+     the script) — no point offering a cart while every product is a draft. */
+  .cart-btn {
+    position: absolute;
+    top: clamp(10px, 2.2vw, 16px);
+    right: clamp(10px, 2.2vw, 16px);
+    z-index: 5;
+    display: none;
+    width: clamp(34px, 8vw, 42px);
+    aspect-ratio: 1 / 1;
+    -webkit-appearance: none;
+    appearance: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--line);
+    color: var(--text);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s;
+  }
+  .cart-btn.is-visible { display: inline-flex; }
+  .cart-btn:hover { background: var(--accent-dim); transform: scale(1.1) rotate(-4deg); }
+  .cart-btn svg { width: 56%; height: 56%; }
+  .cart-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--accent-yellow);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 17px;
+    text-align: center;
+    display: none;
+  }
+  .cart-count.is-visible { display: block; }
 
   /* ---------- HERO ("not open yet") ---------- */
   .hero {
@@ -215,11 +263,10 @@
   }
 
   /* ---------- PRODUCT GRID ----------
-     Dormant until renderProducts() (see the script) actually has products
-     to show — see the PRODUCTS comment in the script for how that happens.
-     Cards ARE real links (target the storefront platform's own product
-     page/checkout), so — unlike .preview-card above — these get the same
-     full hover pop every other clickable tile on this site uses. */
+     Dormant (hidden, empty) until loadProducts() actually finds active
+     products in Firestore — see the script. Cards are buttons (not links)
+     since clicking one opens the in-widget product detail view below
+     rather than navigating anywhere. */
   .product-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(clamp(120px, 20vw, 160px), 1fr));
@@ -236,8 +283,12 @@
     background: rgba(0, 0, 0, 0.16);
     border: 1px solid var(--line);
     border-radius: clamp(10px, 2vw, 14px);
-    text-decoration: none;
+    text-align: left;
+    font: inherit;
     color: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s;
   }
   .product-card:hover,
@@ -248,11 +299,14 @@
   }
   .product-card:active { transform: scale(0.97); }
   .prod-thumb {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     aspect-ratio: 1 / 1;
     border-radius: clamp(6px, 1.4vw, 10px);
     overflow: hidden;
     background: rgba(0, 0, 0, 0.25);
+    color: var(--text-dim);
   }
   .prod-thumb img {
     width: 100%;
@@ -260,6 +314,7 @@
     object-fit: cover;
     display: block;
   }
+  .prod-thumb svg { width: 34%; height: 34%; }
   .prod-title {
     font-family: var(--font-body);
     font-weight: 700;
@@ -278,6 +333,231 @@
     font-size: clamp(11px, 2.4vw, 13px);
     color: var(--accent-yellow);
   }
+
+  /* ---------- PRODUCT DETAIL OVERLAY ----------
+     Covers the widget's own bounds (position:fixed inside an iframe is
+     relative to the iframe's own viewport, which here already is the
+     whole store — no need for the parent-page postMessage dance
+     photos-widget.html's lightbox uses, since that one deliberately needs
+     to cover the logo above it too). */
+  .product-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(10px, 3vw, 24px);
+  }
+  .product-overlay[hidden] { display: none; }
+  .overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 2, 7, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .product-detail {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    max-height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: clamp(12px, 2.5vw, 20px);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+  }
+  @media (min-width: 561px) {
+    .product-detail { flex-direction: row; }
+    .detail-gallery { width: 48%; flex: 0 0 auto; }
+  }
+  .detail-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 30px;
+    height: 30px;
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .detail-close:hover { background: var(--accent-dim); }
+
+  .detail-gallery {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    flex: 0 0 auto;
+  }
+  .detail-gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .detail-gallery svg { width: 30%; height: 30%; }
+  .gallery-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .gallery-nav:hover { background: var(--accent-dim); }
+  .gallery-nav[hidden] { display: none; }
+  .gallery-prev { left: 8px; }
+  .gallery-next { right: 8px; }
+  .gallery-dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 5px;
+  }
+  .gallery-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .gallery-dots span.active { background: var(--text); }
+
+  .detail-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1.8vw, 12px);
+    padding: clamp(16px, 3.4vw, 26px);
+  }
+  .detail-title {
+    margin: 0;
+    padding-right: 26px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(17px, 3.4vw, 21px);
+    color: var(--text);
+  }
+  .detail-price {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(15px, 3vw, 18px);
+    color: var(--accent-yellow);
+  }
+  .detail-desc {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: clamp(12px, 2.6vw, 14px);
+    line-height: 1.55;
+    color: var(--text-dim);
+    white-space: pre-line;
+  }
+  .detail-label {
+    display: block;
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.2vw, 12px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .detail-sizes[hidden] { display: none; }
+  .size-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .size-pill {
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(11px, 2.4vw, 13px);
+    border-radius: 999px;
+    padding: 6px 14px;
+    background: rgba(0, 0, 0, 0.24);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .size-pill:hover { border-color: var(--accent); }
+  .size-pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #2a0018;
+  }
+
+  .detail-qty-row { display: flex; align-items: center; gap: 12px; }
+  .qty-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .qty-stepper button {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 30px;
+    height: 30px;
+    background: rgba(0, 0, 0, 0.24);
+    border: 0;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .qty-stepper button:hover { background: var(--accent-dim); }
+  .qty-stepper span {
+    display: inline-block;
+    min-width: 30px;
+    text-align: center;
+    font-family: var(--font-body);
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .add-to-cart-btn {
+    margin-top: auto;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 20px;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: clamp(13px, 2.8vw, 15px);
+    color: #2a0018;
+    background: var(--accent-yellow);
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  .add-to-cart-btn:hover { transform: translateY(-1px); }
+  .add-to-cart-btn.is-added { background: var(--accent-yellow); }
 </style>
 </head>
 <body>
@@ -285,6 +565,15 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout">
   <div class="store-card">
+    <button type="button" class="cart-btn" id="cartBtn" title="View cart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="9.5" cy="20" r="1.2"></circle>
+        <circle cx="18" cy="20" r="1.2"></circle>
+        <path d="M2.5 3h2l2.2 12.1a2 2 0 0 0 2 1.65h8.6a2 2 0 0 0 1.97-1.66L20.8 7.5H6.1"></path>
+      </svg>
+      <span class="cart-count" id="cartCount">0</span>
+    </button>
+
     <div class="store-body">
       <div class="hero">
         <span class="hero-icon-wrap" aria-hidden="true">
@@ -293,12 +582,12 @@
             <path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>
           </svg>
         </span>
-        <h2 class="hero-title">The shop isn't open yet</h2>
-        <p class="hero-text">We're setting things up behind the scenes.</p>
+        <h2 class="hero-title" id="heroTitle">The shop isn't open yet</h2>
+        <p class="hero-text" id="heroText">We're setting things up behind the scenes.</p>
       </div>
 
-      <!-- Populated by renderProducts() once PRODUCTS actually has
-           anything in it — hidden and empty until then. -->
+      <!-- Populated by renderProducts() once Firestore actually has active
+           products in it — hidden and empty until then. -->
       <div class="product-grid" id="productGrid" hidden></div>
 
       <div class="preview-section" id="previewSection">
@@ -309,8 +598,70 @@
   </div>
 </div>
 
+<div class="product-overlay" id="productOverlay" hidden>
+  <div class="overlay-backdrop" id="overlayBackdrop"></div>
+  <div class="product-detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <button type="button" class="detail-close" id="detailClose" aria-label="Close">&times;</button>
+    <div class="detail-gallery" id="detailGallery">
+      <img id="detailImg" src="" alt="" hidden>
+      <svg id="detailImgFallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z"/>
+        <path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>
+      </svg>
+      <button type="button" class="gallery-nav gallery-prev" id="galleryPrev" hidden aria-label="Previous photo">&lsaquo;</button>
+      <button type="button" class="gallery-nav gallery-next" id="galleryNext" hidden aria-label="Next photo">&rsaquo;</button>
+      <div class="gallery-dots" id="galleryDots"></div>
+    </div>
+    <div class="detail-info">
+      <h3 class="detail-title" id="detailTitle"></h3>
+      <div class="detail-price" id="detailPrice"></div>
+      <p class="detail-desc" id="detailDesc"></p>
+      <div class="detail-sizes" id="detailSizes" hidden>
+        <span class="detail-label">Size</span>
+        <div class="size-pills" id="sizePills"></div>
+      </div>
+      <div class="detail-qty-row">
+        <span class="detail-label" style="margin-bottom:0;">Qty</span>
+        <div class="qty-stepper">
+          <button type="button" id="qtyMinus" aria-label="Decrease quantity">&minus;</button>
+          <span id="qtyValue">1</span>
+          <button type="button" id="qtyPlus" aria-label="Increase quantity">+</button>
+        </div>
+      </div>
+      <button type="button" class="add-to-cart-btn" id="addToCartBtn">Add to Cart</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     FIREBASE — same project as the other widgets/admin.html, read-only
+     here: this widget only ever reads published products, never writes
+     them (that happens from admin.html's Store tab). Guarded the same way
+     photos-widget.html guards its own Firebase read — a blocked/failed
+     load just means the "opening soon" preview shows, not a broken page. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  let STORE_PRODUCTS_REF = null;
+  if (window.firebase) {
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+      authDomain: "chat-for-website-efee2.firebaseapp.com",
+      projectId: "chat-for-website-efee2",
+      storageBucket: "chat-for-website-efee2.firebasestorage.app",
+      messagingSenderId: "509309222193",
+      appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+    };
+    const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    STORE_PRODUCTS_REF = db.collection('store_products');
+  }
+</script>
+
 <script>
 (function () {
+  var CART_KEY = 'knobsock_cart';
+
   // Small hand-drawn stroke icons, same style/viewBox as the magnify and
   // lightbox icons in photos-widget.html — no icon library needed for
   // four simple shapes.
@@ -328,9 +679,15 @@
     { name: 'Mystery Drops', icon: ICONS.gift }
   ];
 
+  var heroTitle = document.getElementById('heroTitle');
+  var heroText = document.getElementById('heroText');
   var previewSection = document.getElementById('previewSection');
   var previewGrid = document.getElementById('previewGrid');
   var productGrid = document.getElementById('productGrid');
+  var cartBtn = document.getElementById('cartBtn');
+  var cartCount = document.getElementById('cartCount');
+
+  var PRODUCTS = []; // whatever loadProducts() most recently resolved
 
   function renderCategoryPreview() {
     previewGrid.innerHTML = CATEGORIES.map(function (cat) {
@@ -348,51 +705,250 @@
     });
   }
 
-  function formatPrice(price) {
-    if (typeof price === 'number') return '$' + price.toFixed(2);
-    return escapeHtml(price || '');
+  function formatCents(cents) {
+    return '$' + (Math.max(0, cents | 0) / 100).toFixed(2);
   }
 
-  // Turns a PRODUCTS array into the same card grid every other widget on
-  // this site uses — this is what starts actually running the moment
-  // loadProducts() below returns something real.
   function renderProducts(products) {
+    PRODUCTS = products;
+    heroTitle.textContent = 'KNOBSOCK Store';
+    heroText.textContent = 'Everything below ships out once you order it.';
     previewSection.hidden = true;
     productGrid.hidden = false;
+    cartBtn.classList.add('is-visible');
 
-    productGrid.innerHTML = products.map(function (p) {
-      return '<a class="product-card" href="' + encodeURI(p.url || '#') + '" target="_blank" rel="noopener">' +
-        '<span class="prod-thumb"><img src="' + escapeHtml(p.image || '') + '" alt="" loading="lazy" decoding="async"></span>' +
-        '<span class="prod-title">' + escapeHtml(p.title || '') + '</span>' +
-        '<span class="prod-price">' + formatPrice(p.price) + '</span>' +
-        '</a>';
+    productGrid.innerHTML = products.map(function (p, i) {
+      var thumb = p.images[0]
+        ? '<img src="' + escapeHtml(p.images[0]) + '" alt="" loading="lazy" decoding="async">'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>';
+      return '<button type="button" class="product-card" data-index="' + i + '">' +
+        '<span class="prod-thumb">' + thumb + '</span>' +
+        '<span class="prod-title">' + escapeHtml(p.title) + '</span>' +
+        '<span class="prod-price">' + formatCents(p.priceCents) + '</span>' +
+        '</button>';
     }).join('');
+
+    Array.prototype.forEach.call(productGrid.querySelectorAll('.product-card'), function (btn) {
+      btn.addEventListener('click', function () {
+        openProductDetail(PRODUCTS[parseInt(btn.dataset.index, 10)], btn);
+      });
+    });
   }
 
   // ====================================================================
-  // PRODUCTS — the one place a real storefront feed plugs in.
-  //
-  // Nothing's connected yet, so this just resolves empty and the widget
-  // shows the "opening soon" category preview above instead. Once a
-  // platform is picked (Shopify, Printful, Etsy, Gumroad, BigCartel, or
-  // even a plain JSON file dropped in this repo — anything that can hand
-  // back a list), replace the body of loadProducts() with a real fetch()
-  // against it. Each item just needs to look like:
-  //   { title: 'Sticker Pack', price: 12, image: 'https://...', url: 'https://...' }
-  // renderProducts() above already knows how to turn that into the same
-  // card grid every other widget here uses — nothing else in this file
-  // has to change for real inventory to "just appear", the same
-  // auto-populate spirit photos-widget.html uses for /photos.
+  // Where products actually come from: whatever's marked active in the
+  // store_products collection, in the order set from admin.html's Store
+  // tab. Zero results (nothing added yet, or Firestore didn't load) falls
+  // back to the "opening soon" category preview instead of an empty grid.
   // ====================================================================
   function loadProducts() {
-    return Promise.resolve([]);
+    if (!STORE_PRODUCTS_REF) return Promise.resolve([]);
+    return STORE_PRODUCTS_REF.where('active', '==', true).orderBy('sortOrder').get()
+      .then(function (snap) {
+        return snap.docs.map(function (doc) {
+          var d = doc.data();
+          return {
+            id: doc.id,
+            title: d.title || 'Untitled',
+            description: d.description || '',
+            priceCents: typeof d.priceCents === 'number' ? d.priceCents : 0,
+            images: Array.isArray(d.images) ? d.images.filter(Boolean) : [],
+            sizes: Array.isArray(d.sizes) ? d.sizes.filter(Boolean) : []
+          };
+        });
+      })
+      .catch(function (err) {
+        // If this logs a "requires an index" error, Firestore's own
+        // message includes a link that creates it in one click — this
+        // specific shape (one equality filter + orderBy a different
+        // field) normally doesn't need one, but if that ever changes,
+        // that link is the fix, not a code change here.
+        console.error('Failed to load store products', err);
+        return [];
+      });
   }
 
   loadProducts().then(function (products) {
     if (products && products.length) renderProducts(products);
     else renderCategoryPreview();
-  }).catch(function () {
-    renderCategoryPreview();
+  });
+
+  // ====================================================================
+  // CART — plain localStorage, shared with cart.html (same origin, so it
+  // reads the exact same key). Each line is { productId, title,
+  // priceCents, image, size, quantity }; productId+size together decide
+  // whether an "Add to Cart" merges into an existing line or starts a
+  // new one.
+  // ====================================================================
+  function getCart() {
+    try {
+      var raw = localStorage.getItem(CART_KEY);
+      var cart = raw ? JSON.parse(raw) : [];
+      return Array.isArray(cart) ? cart : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function saveCart(cart) {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) { /* storage full/blocked — cart just won't persist this time */ }
+    updateCartBadge(cart);
+  }
+
+  function updateCartBadge(cart) {
+    cart = cart || getCart();
+    var total = cart.reduce(function (sum, line) { return sum + (line.quantity || 0); }, 0);
+    cartCount.textContent = total > 99 ? '99+' : String(total);
+    cartCount.classList.toggle('is-visible', total > 0);
+  }
+
+  function addToCart(line) {
+    var cart = getCart();
+    var existing = cart.find(function (l) { return l.productId === line.productId && l.size === line.size; });
+    if (existing) existing.quantity += line.quantity;
+    else cart.push(line);
+    saveCart(cart);
+  }
+
+  updateCartBadge();
+
+  cartBtn.addEventListener('click', function () {
+    // Escapes the iframe on purpose — the cart is its own top-level page
+    // (store.html only embeds the browse experience), same target="_top"
+    // pattern the site's other cross-page links already use.
+    window.top.location.href = '/cart.html';
+  });
+
+  // ====================================================================
+  // PRODUCT DETAIL OVERLAY
+  // ====================================================================
+  var overlay = document.getElementById('productOverlay');
+  var overlayBackdrop = document.getElementById('overlayBackdrop');
+  var detailClose = document.getElementById('detailClose');
+  var detailImg = document.getElementById('detailImg');
+  var detailImgFallback = document.getElementById('detailImgFallback');
+  var galleryPrev = document.getElementById('galleryPrev');
+  var galleryNext = document.getElementById('galleryNext');
+  var galleryDots = document.getElementById('galleryDots');
+  var detailTitle = document.getElementById('detailTitle');
+  var detailPrice = document.getElementById('detailPrice');
+  var detailDesc = document.getElementById('detailDesc');
+  var detailSizes = document.getElementById('detailSizes');
+  var sizePills = document.getElementById('sizePills');
+  var qtyValue = document.getElementById('qtyValue');
+  var qtyMinus = document.getElementById('qtyMinus');
+  var qtyPlus = document.getElementById('qtyPlus');
+  var addToCartBtn = document.getElementById('addToCartBtn');
+
+  var currentProduct = null;
+  var currentImageIndex = 0;
+  var currentSize = '';
+  var currentQty = 1;
+  var lastFocusedEl = null;
+  var addedTimer = null;
+
+  function renderGalleryImage() {
+    var images = currentProduct.images;
+    if (images.length) {
+      detailImg.src = images[currentImageIndex];
+      detailImg.hidden = false;
+      detailImgFallback.hidden = true;
+    } else {
+      detailImg.hidden = true;
+      detailImgFallback.hidden = false;
+    }
+    var multi = images.length > 1;
+    galleryPrev.hidden = !multi;
+    galleryNext.hidden = !multi;
+    galleryDots.innerHTML = multi ? images.map(function (_, i) {
+      return '<span class="' + (i === currentImageIndex ? 'active' : '') + '"></span>';
+    }).join('') : '';
+  }
+
+  function renderSizePills() {
+    var sizes = currentProduct.sizes;
+    detailSizes.hidden = !sizes.length;
+    if (!sizes.length) { currentSize = ''; return; }
+    if (sizes.indexOf(currentSize) === -1) currentSize = sizes[0];
+    sizePills.innerHTML = sizes.map(function (s) {
+      return '<button type="button" class="size-pill' + (s === currentSize ? ' active' : '') + '" data-size="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(sizePills.querySelectorAll('.size-pill'), function (btn) {
+      btn.addEventListener('click', function () {
+        currentSize = btn.dataset.size;
+        renderSizePills();
+      });
+    });
+  }
+
+  function openProductDetail(product, triggerEl) {
+    currentProduct = product;
+    currentImageIndex = 0;
+    currentSize = '';
+    currentQty = 1;
+    lastFocusedEl = triggerEl || null;
+
+    detailTitle.textContent = product.title;
+    detailPrice.textContent = formatCents(product.priceCents);
+    detailDesc.textContent = product.description;
+    detailDesc.hidden = !product.description;
+    qtyValue.textContent = '1';
+    addToCartBtn.textContent = 'Add to Cart';
+    addToCartBtn.classList.remove('is-added');
+
+    renderGalleryImage();
+    renderSizePills();
+
+    overlay.hidden = false;
+    detailClose.focus();
+    document.addEventListener('keydown', handleOverlayKeydown);
+  }
+
+  function closeProductDetail() {
+    overlay.hidden = true;
+    document.removeEventListener('keydown', handleOverlayKeydown);
+    if (lastFocusedEl) lastFocusedEl.focus();
+  }
+
+  function handleOverlayKeydown(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') closeProductDetail();
+  }
+
+  detailClose.addEventListener('click', closeProductDetail);
+  overlayBackdrop.addEventListener('click', closeProductDetail);
+
+  galleryPrev.addEventListener('click', function () {
+    currentImageIndex = (currentImageIndex - 1 + currentProduct.images.length) % currentProduct.images.length;
+    renderGalleryImage();
+  });
+  galleryNext.addEventListener('click', function () {
+    currentImageIndex = (currentImageIndex + 1) % currentProduct.images.length;
+    renderGalleryImage();
+  });
+
+  qtyMinus.addEventListener('click', function () {
+    currentQty = Math.max(1, currentQty - 1);
+    qtyValue.textContent = String(currentQty);
+  });
+  qtyPlus.addEventListener('click', function () {
+    currentQty = Math.min(20, currentQty + 1);
+    qtyValue.textContent = String(currentQty);
+  });
+
+  addToCartBtn.addEventListener('click', function () {
+    addToCart({
+      productId: currentProduct.id,
+      title: currentProduct.title,
+      priceCents: currentProduct.priceCents,
+      image: currentProduct.images[0] || '',
+      size: currentSize,
+      quantity: currentQty
+    });
+
+    addToCartBtn.textContent = 'Added ✓';
+    addToCartBtn.classList.add('is-added');
+    clearTimeout(addedTimer);
+    addedTimer = setTimeout(closeProductDetail, 700);
   });
 })();
 </script>

@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// ============================================================================
+// READ THIS BEFORE DEPLOYING
+//
+// This file only defines rules for the NEW store collections (store_products,
+// store_orders, store_meta). It does NOT include rules for the chat/playlist/
+// photo-order collections this site already uses (chat_messages, chat_config,
+// playlist, etc.) — those exist only in whatever's currently deployed in the
+// Firebase console, not anywhere in this repo.
+//
+// `firebase deploy --only firestore:rules` REPLACES the entire ruleset — it
+// does not merge with what's live. Deploying this file as-is would make
+// every one of those existing collections fall back to Firestore's default
+// (deny everything), breaking live chat, the photo/video/music admin
+// ordering, and anything else that currently depends on them.
+//
+// Before deploying: open the Firebase console → Firestore Database → Rules,
+// copy what's live there right now, and merge the two `match` blocks below
+// into it. If an `isAdmin()` (or similarly-named) helper already exists
+// there, reuse it instead of defining a second one.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Matches how admin.html's own login screen already behaves — it shows
+    // the app to ANY signed-in Firebase Auth user, with no further check,
+    // which only works safely because this project has a login for exactly
+    // one account (the site owner). If that ever changes — a second
+    // Firebase Auth user gets created for something unrelated — tighten
+    // this to check a specific email/uid or a custom claim instead.
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // ---------- STORE ----------
+
+    // Public visitors need to read active products (that's what
+    // store-widget.html shows on /store); the admin needs to read and write
+    // everything, including drafts that aren't marked active yet.
+    match /store_products/{productId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Orders hold real customer PII (name, email, phone, shipping address).
+    // No client — admin or not — can list/enumerate this collection, and no
+    // client can create a doc in it (only stripeWebhook does that, via the
+    // Admin SDK, which bypasses these rules entirely — `allow create: if
+    // false` only blocks the browser, never the Cloud Function).
+    //
+    // `get` (fetching ONE order by its exact document id) is allowed for
+    // anyone, which sounds looser than it is: the document id IS the Stripe
+    // Checkout Session id — a long, cryptographically random token nobody
+    // could guess. Knowing it is only possible if you were just redirected
+    // here by Stripe after paying, which is exactly the trust
+    // confirmation.html relies on to show a receipt without needing its own
+    // signed-in session.
+    match /store_orders/{orderId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    // The order-number counter (see stripeWebhook in functions/index.js) —
+    // only the Cloud Function increments it; the admin can read it out of
+    // curiosity but never needs to write it directly.
+    match /store_meta/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+  }
+}

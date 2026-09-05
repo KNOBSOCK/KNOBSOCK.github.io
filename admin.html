@@ -597,6 +597,77 @@
     color: var(--text-dim);
     margin-bottom: 10px;
   }
+
+  /* ---------- STORE: product photo uploads ---------- */
+  .photo-upload-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .photo-upload-tile {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
+  .photo-upload-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-upload-tile .remove-photo-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .photo-upload-tile.is-uploading { display: flex; align-items: center; justify-content: center; }
+  .upload-spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- STORE: orders "spreadsheet" ---------- */
+  .table-scroll { overflow-x: auto; }
+  .orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .orders-table th, .orders-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    white-space: pre-line;
+  }
+  .orders-table th {
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 10px;
+  }
+  .orders-table select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
 </style>
 </head>
 <body>
@@ -792,10 +863,35 @@
   <!-- ===== STORE ===== -->
   <div class="tab-panel" id="tab-store" hidden>
     <h2 class="panel-heading">Store</h2>
-    <p class="panel-sub">Reserved for managing what shows up on the Store page. Nothing to configure yet.</p>
+    <p class="panel-sub">Add and edit what's for sale on the Store page, and see every order that's come in once checkout is actually connected (see functions/README.md) — this is the closest thing to a shipping queue this site has.</p>
+
     <div class="card">
-      <div class="card-head"><h2>Products</h2></div>
-      <div class="note">Not connected to anything yet. Once it's decided how products get added — typed in here by hand, or pulled automatically from a connected storefront platform — this card is where that'll happen. Until then, the Store page shows an "opening soon" preview instead of real products.</div>
+      <div class="card-head">
+        <h2>Products</h2>
+        <button type="button" class="btn btn-primary" id="productAddBtn">+ Add Product</button>
+      </div>
+      <div class="note">Drag the grip (&#10303;) to reorder — that's the order they show in on the Store page. A product marked (draft) is saved but hidden from visitors until you check Active.</div>
+      <div class="list-scroll" id="productsList" style="max-height:420px;"></div>
+      <div class="save-status" id="productsStatus"></div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+      <div class="card-head">
+        <h2>Orders</h2>
+        <button type="button" class="btn" id="ordersExportBtn">Export CSV</button>
+      </div>
+      <div class="note">Every completed order lands here automatically the moment Stripe confirms payment — nothing to add by hand. Once something's packed and dropped off, flip its Status to Shipped; that's the only thing here you ever need to touch.</div>
+      <div class="table-scroll">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Order #</th><th>Date</th><th>Customer</th><th>Contact</th><th>Ship to</th><th>Items</th><th>Total</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTableBody"></tbody>
+        </table>
+      </div>
+      <div class="save-status" id="ordersStatus"></div>
     </div>
   </div>
 </div>
@@ -817,6 +913,51 @@
       <button type="button" class="btn-link" id="banCancelBtn">Cancel</button>
     </div>
     <div class="save-status" id="banModalStatus"></div>
+  </div>
+</div>
+
+<!-- ---------- ADD/EDIT PRODUCT ---------- -->
+<div class="modal-overlay" id="productModalOverlay" hidden>
+  <div class="modal-panel wide">
+    <div class="card-head">
+      <h2 id="productModalTitle">Add Product</h2>
+      <button type="button" class="btn-link" id="productModalCloseBtn">Close</button>
+    </div>
+
+    <label class="field-label" for="productTitleInput">Title</label>
+    <input type="text" id="productTitleInput" placeholder="Classic Logo Tee">
+
+    <label class="field-label" for="productDescInput">Description</label>
+    <textarea id="productDescInput" rows="4" placeholder="Soft cotton tee with the KNOBSOCK wordmark on the front." style="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:9px 10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+      <div style="flex:1 1 140px;">
+        <label class="field-label" for="productPriceInput">Price (USD)</label>
+        <input type="text" id="productPriceInput" placeholder="28.00" inputmode="decimal">
+      </div>
+      <div style="flex:1 1 140px;">
+        <label class="field-label" for="productCategoryInput">Category</label>
+        <input type="text" id="productCategoryInput" placeholder="Apparel">
+      </div>
+    </div>
+
+    <label class="field-label" for="productSizesInput">Sizes (optional, comma-separated)</label>
+    <input type="text" id="productSizesInput" placeholder="S, M, L, XL">
+
+    <label class="field-label">Photos</label>
+    <div class="photo-upload-grid" id="productPhotosGrid"></div>
+    <input type="file" id="productPhotosInput" accept="image/*" multiple>
+
+    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;font-size:13px;color:var(--text-dim);">
+      <input type="checkbox" id="productActiveInput" checked style="width:auto;">
+      Active (visible on the live Store page)
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="productSaveBtn">Save Product</button>
+      <button type="button" class="btn-link" id="productDeleteBtn" style="color:var(--danger);" hidden>Delete Product</button>
+    </div>
+    <div class="save-status" id="productModalStatus"></div>
   </div>
 </div>
 
@@ -842,6 +983,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
@@ -854,6 +996,10 @@
   const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const auth = firebase.auth();
+  // Used only by the Store tab's product-photo uploads — guarded the same
+  // way as everything else here (a blocked/failed script load just means
+  // photo upload won't work, not that the whole admin page breaks).
+  const storage = firebase.storage ? firebase.storage() : null;
 
   // Same three Firestore documents the widgets themselves read from —
   // saving here is exactly what saving from a widget's own hidden admin
@@ -880,6 +1026,11 @@
   const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
   const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
   const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
+
+  // Store tab — see store-widget.html (reads store_products) and
+  // functions/index.js's stripeWebhook (writes store_orders).
+  const STORE_PRODUCTS_REF = db.collection('store_products');
+  const STORE_ORDERS_REF = db.collection('store_orders');
 </script>
 
 <script>
@@ -974,6 +1125,7 @@
     document.getElementById('tab-' + tabName).hidden = false;
     if (tabName === 'photos') loadPhotosTab();
     if (tabName === 'live') startLiveModerationIfNeeded();
+    if (tabName === 'store') loadStoreTab();
     if (updateUrl !== false) history.replaceState(null, '', '#' + tabName);
   }
 
@@ -2337,6 +2489,350 @@
       });
     });
   }
+
+  // ---------- STORE: PRODUCTS ----------
+  let storeProducts = [];
+  let storeProductsLoaded = false;
+  let storeOrdersLoaded = false;
+  let editingProductId = null;   // null while the modal is adding a new product
+  let editingProductImages = []; // urls, live-edited while the modal's open
+  let productUploadFolderId = null; // shared by every photo uploaded in one modal session — see openProductModal
+
+  const productsList = document.getElementById('productsList');
+  const productsStatus = document.getElementById('productsStatus');
+  const productModalOverlay = document.getElementById('productModalOverlay');
+  const productModalTitle = document.getElementById('productModalTitle');
+  const productTitleInput = document.getElementById('productTitleInput');
+  const productDescInput = document.getElementById('productDescInput');
+  const productPriceInput = document.getElementById('productPriceInput');
+  const productCategoryInput = document.getElementById('productCategoryInput');
+  const productSizesInput = document.getElementById('productSizesInput');
+  const productActiveInput = document.getElementById('productActiveInput');
+  const productPhotosGrid = document.getElementById('productPhotosGrid');
+  const productPhotosInput = document.getElementById('productPhotosInput');
+  const productSaveBtn = document.getElementById('productSaveBtn');
+  const productDeleteBtn = document.getElementById('productDeleteBtn');
+  const productModalStatus = document.getElementById('productModalStatus');
+
+  function formatCents(cents) {
+    return '$' + (Math.max(0, cents || 0) / 100).toFixed(2);
+  }
+
+  function loadStoreTab() {
+    if (!storeProductsLoaded) {
+      storeProductsLoaded = true;
+      STORE_PRODUCTS_REF.orderBy('sortOrder').get().then(function (snap) {
+        storeProducts = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+        renderProductsList();
+      }).catch(function (err) {
+        productsList.innerHTML = '<div class="note">Failed to load products: ' + escapeAttr(err.message) + '</div>';
+      });
+    }
+    if (!storeOrdersLoaded) {
+      storeOrdersLoaded = true;
+      loadOrders();
+    }
+  }
+
+  function renderProductsList() {
+    if (!storeProducts.length) {
+      productsList.innerHTML = '<div class="note">No products yet — use + Add Product to create the first one.</div>';
+      return;
+    }
+    productsList.innerHTML = storeProducts.map(function (p, i) {
+      var thumb = (p.images && p.images[0])
+        ? '<img src="' + escapeAttr(p.images[0]) + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex:none;">'
+        : '<span style="display:inline-block;width:40px;height:40px;border-radius:6px;background:var(--panel-2);flex:none;"></span>';
+      return '<div class="row" data-draggable data-index="' + i + '">' +
+        '<span class="grip" title="Drag to reorder">&#10303;</span>' +
+        thumb +
+        '<div class="row-fields" style="flex-direction:row;align-items:center;gap:10px;">' +
+          '<span style="flex:1 1 auto;font-weight:700;">' + escapeAttr(p.title) +
+            (p.active === false ? ' <span style="color:var(--text-dim);font-weight:400;">(draft)</span>' : '') +
+          '</span>' +
+          '<span style="color:var(--text-dim);">' + formatCents(p.priceCents) + '</span>' +
+        '</div>' +
+        '<button type="button" class="btn edit-product-btn" data-id="' + escapeAttr(p.id) + '">Edit</button>' +
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(productsList.querySelectorAll('.edit-product-btn'), function (btn) {
+      btn.addEventListener('click', function () { openProductModal(btn.dataset.id); });
+    });
+
+    makeSortable(productsList, function (newOrderIndices) {
+      storeProducts = newOrderIndices.map(function (i) { return storeProducts[i]; });
+      var batch = db.batch();
+      storeProducts.forEach(function (p, i) { batch.update(STORE_PRODUCTS_REF.doc(p.id), { sortOrder: i }); });
+      batch.commit().then(function () {
+        productsStatus.textContent = 'Order saved.';
+        setTimeout(function () { productsStatus.textContent = ''; }, 2000);
+      }).catch(function (err) {
+        productsStatus.textContent = 'Failed to save order: ' + err.message;
+      });
+    });
+  }
+
+  function renderPhotosGrid() {
+    productPhotosGrid.innerHTML = editingProductImages.map(function (url, i) {
+      return '<div class="photo-upload-tile"><img src="' + escapeAttr(url) + '"><button type="button" class="remove-photo-btn" data-index="' + i + '" title="Remove">&times;</button></div>';
+    }).join('');
+    Array.prototype.forEach.call(productPhotosGrid.querySelectorAll('.remove-photo-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        editingProductImages.splice(parseInt(btn.dataset.index, 10), 1);
+        renderPhotosGrid();
+      });
+    });
+  }
+
+  function openProductModal(productId) {
+    editingProductId = productId || null;
+    // Shared by every photo uploaded during this one modal session (even
+    // across several separate file-picker uses) so they all land in the
+    // same Storage folder — an existing product just uses its own id;
+    // a still-unsaved new one gets a throwaway id good enough to group
+    // its uploads under until Save actually creates the real doc.
+    productUploadFolderId = editingProductId || ('draft-' + Date.now());
+
+    var product = editingProductId ? storeProducts.find(function (p) { return p.id === editingProductId; }) : null;
+
+    productModalTitle.textContent = product ? 'Edit Product' : 'Add Product';
+    productTitleInput.value = product ? (product.title || '') : '';
+    productDescInput.value = product ? (product.description || '') : '';
+    productPriceInput.value = product ? ((product.priceCents || 0) / 100).toFixed(2) : '';
+    productCategoryInput.value = product ? (product.category || '') : '';
+    productSizesInput.value = (product && Array.isArray(product.sizes)) ? product.sizes.join(', ') : '';
+    productActiveInput.checked = !product || product.active !== false;
+    editingProductImages = (product && Array.isArray(product.images)) ? product.images.slice() : [];
+    productDeleteBtn.hidden = !product;
+    productModalStatus.textContent = '';
+    renderPhotosGrid();
+
+    productModalOverlay.hidden = false;
+  }
+
+  function closeProductModal() {
+    productModalOverlay.hidden = true;
+  }
+
+  productPhotosInput.addEventListener('change', function () {
+    var files = Array.prototype.slice.call(productPhotosInput.files || []);
+    productPhotosInput.value = '';
+    if (!files.length) return;
+    if (!storage) {
+      productModalStatus.textContent = 'Photo upload needs Firebase Storage, which failed to load.';
+      return;
+    }
+
+    files.forEach(function (file) {
+      var tileId = 'up-' + Math.random().toString(36).slice(2);
+      productPhotosGrid.insertAdjacentHTML('beforeend', '<div class="photo-upload-tile is-uploading" id="' + tileId + '"><span class="upload-spinner"></span></div>');
+      var path = 'store-products/' + productUploadFolderId + '/' + Date.now() + '-' + file.name;
+      storage.ref(path).put(file).then(function (snapshot) {
+        return snapshot.ref.getDownloadURL();
+      }).then(function (url) {
+        editingProductImages.push(url);
+        renderPhotosGrid();
+      }).catch(function (err) {
+        productModalStatus.textContent = 'Upload failed: ' + err.message;
+        var el = document.getElementById(tileId);
+        if (el) el.remove();
+      });
+    });
+  });
+
+  function parsePriceToCents(text) {
+    var n = parseFloat(String(text).replace(/[^0-9.]/g, ''));
+    if (!isFinite(n) || n < 0) return null;
+    return Math.round(n * 100);
+  }
+
+  productSaveBtn.addEventListener('click', function () {
+    if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
+
+    var title = productTitleInput.value.trim();
+    var priceCents = parsePriceToCents(productPriceInput.value);
+    if (!title) { productModalStatus.textContent = 'Title is required.'; return; }
+    if (priceCents === null) { productModalStatus.textContent = 'Enter a valid price.'; return; }
+
+    var sizes = productSizesInput.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+    var payload = {
+      title: title,
+      description: productDescInput.value.trim(),
+      priceCents: priceCents,
+      category: productCategoryInput.value.trim(),
+      sizes: sizes,
+      images: editingProductImages.slice(),
+      active: productActiveInput.checked,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: auth.currentUser.email || auth.currentUser.uid
+    };
+
+    productSaveBtn.disabled = true;
+    productModalStatus.textContent = 'Saving…';
+
+    var savePromise;
+    if (editingProductId) {
+      savePromise = STORE_PRODUCTS_REF.doc(editingProductId).update(payload);
+    } else {
+      // Every product needs a real sortOrder — Firestore's orderBy simply
+      // omits documents missing the field it's sorting on, so a product
+      // saved without one would silently never show up in the store.
+      payload.sortOrder = storeProducts.length
+        ? Math.max.apply(null, storeProducts.map(function (p) { return p.sortOrder || 0; })) + 1
+        : 0;
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      savePromise = STORE_PRODUCTS_REF.add(payload);
+    }
+
+    savePromise.then(function () {
+      productSaveBtn.disabled = false;
+      closeProductModal();
+      storeProductsLoaded = false; // simplest way to pick up the add/edit: just reload
+      loadStoreTab();
+    }).catch(function (err) {
+      productSaveBtn.disabled = false;
+      productModalStatus.textContent = 'Save failed: ' + err.message;
+    });
+  });
+
+  productDeleteBtn.addEventListener('click', function () {
+    if (!editingProductId) return;
+    if (!confirm('Delete this product? This can’t be undone.')) return;
+    if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
+
+    var imagesToClean = editingProductImages.slice();
+    STORE_PRODUCTS_REF.doc(editingProductId).delete().then(function () {
+      // Best-effort — a photo whose URL isn't actually a Storage file
+      // (someone pasted an external image URL by hand, say) just fails
+      // this quietly; there's nothing there to delete either way.
+      if (storage) {
+        imagesToClean.forEach(function (url) {
+          try { storage.refFromURL(url).delete().catch(function () {}); } catch (err) { /* not a Storage URL */ }
+        });
+      }
+      closeProductModal();
+      storeProductsLoaded = false;
+      loadStoreTab();
+    }).catch(function (err) {
+      productModalStatus.textContent = 'Delete failed: ' + err.message;
+    });
+  });
+
+  document.getElementById('productAddBtn').addEventListener('click', function () { openProductModal(null); });
+  document.getElementById('productModalCloseBtn').addEventListener('click', closeProductModal);
+
+  // ---------- STORE: ORDERS ----------
+  let storeOrders = [];
+  const ordersTableBody = document.getElementById('ordersTableBody');
+  const ordersStatus = document.getElementById('ordersStatus');
+
+  function loadOrders() {
+    STORE_ORDERS_REF.orderBy('createdAt', 'desc').get().then(function (snap) {
+      storeOrders = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      renderOrdersTable();
+    }).catch(function (err) {
+      ordersStatus.textContent = 'Failed to load orders: ' + err.message;
+    });
+  }
+
+  function formatOrderDate(ts) {
+    return (ts && ts.toDate) ? ts.toDate().toLocaleString() : '';
+  }
+
+  function formatOrderAddress(order) {
+    var addr = order.shippingAddress || {};
+    return [addr.line1, addr.line2, [addr.city, addr.state, addr.postalCode].filter(Boolean).join(', '), addr.country]
+      .filter(Boolean).join('\n');
+  }
+
+  function formatOrderItems(order) {
+    return (order.items || []).map(function (it) {
+      return it.title + (it.size ? ' (' + it.size + ')' : '') + ' ×' + it.quantity;
+    }).join('\n');
+  }
+
+  function renderOrdersTable() {
+    if (!storeOrders.length) {
+      ordersTableBody.innerHTML = '<tr><td colspan="8" style="border:0;color:var(--text-dim);">No orders yet.</td></tr>';
+      return;
+    }
+    ordersTableBody.innerHTML = storeOrders.map(function (o) {
+      return '<tr>' +
+        '<td>' + escapeAttr(o.orderNumber || o.id) + '</td>' +
+        '<td>' + escapeAttr(formatOrderDate(o.createdAt)) + '</td>' +
+        '<td>' + escapeAttr(o.customerName) + '</td>' +
+        '<td>' + escapeAttr(o.customerEmail) + (o.customerPhone ? '\n' + escapeAttr(o.customerPhone) : '') + '</td>' +
+        '<td>' + escapeAttr(formatOrderAddress(o)) + '</td>' +
+        '<td>' + escapeAttr(formatOrderItems(o)) + '</td>' +
+        '<td>' + formatCents(o.totalCents) + '</td>' +
+        '<td><select class="fulfillment-select" data-id="' + escapeAttr(o.id) + '">' +
+          '<option value="unfulfilled"' + (o.fulfillmentStatus !== 'shipped' ? ' selected' : '') + '>Unfulfilled</option>' +
+          '<option value="shipped"' + (o.fulfillmentStatus === 'shipped' ? ' selected' : '') + '>Shipped</option>' +
+        '</select></td>' +
+      '</tr>';
+    }).join('');
+
+    Array.prototype.forEach.call(ordersTableBody.querySelectorAll('.fulfillment-select'), function (sel) {
+      sel.addEventListener('change', function () {
+        if (!auth.currentUser) { ordersStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
+        STORE_ORDERS_REF.doc(sel.dataset.id).update({ fulfillmentStatus: sel.value }).then(function () {
+          // Keep the in-memory list (what Export CSV reads from) in sync —
+          // without this, a status change would round-trip to Firestore
+          // fine but a CSV exported right after would still show the old
+          // status until the next full reload of the tab.
+          var order = storeOrders.find(function (o) { return o.id === sel.dataset.id; });
+          if (order) order.fulfillmentStatus = sel.value;
+          ordersStatus.textContent = 'Updated.';
+          setTimeout(function () { ordersStatus.textContent = ''; }, 1500);
+        }).catch(function (err) {
+          ordersStatus.textContent = 'Failed to update: ' + err.message;
+        });
+      });
+    });
+  }
+
+  function csvEscape(value) {
+    var s = String(value == null ? '' : value);
+    // Customer name/email/address come straight off Stripe's own checkout
+    // form (free text, not something this app validates) and land here
+    // unmodified — a cell starting with =, +, -, or @ opens as a formula
+    // in Excel/Sheets instead of plain text ("CSV injection"), which a
+    // shopper could abuse against whoever opens the exported file here.
+    // A leading tab/CR does the same via other spreadsheet quirks. Excel's
+    // own documented fix is a leading apostrophe, which forces text
+    // interpretation without changing what's visibly displayed.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  document.getElementById('ordersExportBtn').addEventListener('click', function () {
+    var header = ['Order #', 'Date', 'Customer', 'Email', 'Phone', 'Address', 'Items', 'Total', 'Status'];
+    var rows = storeOrders.map(function (o) {
+      return [
+        o.orderNumber || o.id,
+        formatOrderDate(o.createdAt),
+        o.customerName,
+        o.customerEmail,
+        o.customerPhone,
+        formatOrderAddress(o).replace(/\n/g, ', '),
+        formatOrderItems(o).replace(/\n/g, '; '),
+        ((o.totalCents || 0) / 100).toFixed(2),
+        o.fulfillmentStatus || 'unfulfilled'
+      ];
+    });
+    var csv = [header].concat(rows).map(function (row) { return row.map(csvEscape).join(','); }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'knobsock-orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
 
   // The actual initial tab activation (see the "TABS" comment near the
   // top of this script for why it has to happen down here, not there).

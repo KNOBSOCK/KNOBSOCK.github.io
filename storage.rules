@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Nothing on this site has used Firebase Storage before now (photos on
+// /photos are pulled straight from this GitHub repo, not Storage) — so
+// unlike firestore.rules, there's likely no existing ruleset this would be
+// clobbering. Still worth a quick look at Firebase console → Storage →
+// Rules before deploying, in case that's changed since this was written.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Product photos uploaded from admin.html's Store tab. Publicly
+    // readable (they need to show on the live store page to anyone), but
+    // only the signed-in admin can upload — matching the same
+    // single-admin-account model firestore.rules' isAdmin() describes.
+    match /store-products/{productId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
