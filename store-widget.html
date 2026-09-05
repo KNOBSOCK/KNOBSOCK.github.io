@@ -9,11 +9,18 @@
      this site (CSS vars, .bg-glow, a frosted card, hover-pop tiles), just
      pink instead of orange/blue/gold/red.
 
-     Products now come straight from Firestore's store_products collection
-     (added/edited from admin.html's Store tab) — see loadProducts() near
-     the bottom of the script. Whenever there are zero active products
-     (nothing added yet, or everything's a draft), this falls back to the
-     "opening soon" category preview instead of an empty grid. */
+     Products normally come straight from Firestore's store_products
+     collection (added/edited from admin.html's Store tab) — see
+     loadProducts() near the bottom of the script. Whenever there are zero
+     active products (nothing added yet, or everything's a draft), this
+     falls back to the "opening soon" category preview instead of an empty
+     grid.
+
+     TEMPORARY: Firebase's store rules aren't deployed yet, so
+     STORE_LOCAL_MODE below reads from the same browser-local copy
+     admin.html's Store tab writes to instead of Firestore — see that
+     file's own comment on its matching flag. Flip both back to false once
+     Firebase's store rules and Storage rules are deployed for real. */
   :root {
     --ink: #4a0a2e;
     --panel-2: rgba(74, 10, 46, 0.8);
@@ -662,6 +669,19 @@
 (function () {
   var CART_KEY = 'knobsock_cart';
 
+  // See the big comment at the top of this file's <style> block — keep
+  // this in sync with admin.html's Store tab flag/key of the same name.
+  var STORE_LOCAL_MODE = true;
+  var STORE_LOCAL_KEY = 'knobsock_store_products_local';
+
+  function localLoadProducts() {
+    try {
+      var raw = localStorage.getItem(STORE_LOCAL_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (err) { return []; }
+  }
+
   // Small hand-drawn stroke icons, same style/viewBox as the magnify and
   // lightbox icons in photos-widget.html — no icon library needed for
   // four simple shapes.
@@ -712,7 +732,7 @@
   function renderProducts(products) {
     PRODUCTS = products;
     heroTitle.textContent = 'KNOBSOCK Store';
-    heroText.textContent = 'Everything below ships out once you order it.';
+    heroText.hidden = true;
     previewSection.hidden = true;
     productGrid.hidden = false;
     cartBtn.classList.add('is-visible');
@@ -742,6 +762,23 @@
   // back to the "opening soon" category preview instead of an empty grid.
   // ====================================================================
   function loadProducts() {
+    if (STORE_LOCAL_MODE) {
+      var local = localLoadProducts()
+        .filter(function (d) { return d.active === true; })
+        .sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); })
+        .map(function (d) {
+          return {
+            id: d.id,
+            title: d.title || 'Untitled',
+            description: d.description || '',
+            priceCents: typeof d.priceCents === 'number' ? d.priceCents : 0,
+            images: Array.isArray(d.images) ? d.images.filter(Boolean) : [],
+            sizes: Array.isArray(d.sizes) ? d.sizes.filter(Boolean) : []
+          };
+        });
+      return Promise.resolve(local);
+    }
+
     if (!STORE_PRODUCTS_REF) return Promise.resolve([]);
     return STORE_PRODUCTS_REF.where('active', '==', true).orderBy('sortOrder').get()
       .then(function (snap) {

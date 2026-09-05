@@ -613,8 +613,12 @@
     overflow: hidden;
     background: var(--panel-2);
     border: 1px solid var(--line);
+    cursor: grab;
+    touch-action: none;
   }
-  .photo-upload-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-upload-tile.dragging { opacity: 0.4; cursor: grabbing; }
+  .photo-upload-tile.is-uploading { cursor: default; }
+  .photo-upload-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .photo-upload-tile .remove-photo-btn {
     position: absolute;
     top: 2px;
@@ -864,6 +868,9 @@
   <div class="tab-panel" id="tab-store" hidden>
     <h2 class="panel-heading">Store</h2>
     <p class="panel-sub">Add and edit what's for sale on the Store page, and see every order that's come in once checkout is actually connected (see functions/README.md) — this is the closest thing to a shipping queue this site has.</p>
+    <div class="note" id="storeLocalModeNote" style="border-color:var(--danger);color:var(--text);">
+      <strong>Local test mode:</strong> Firebase's Store rules aren't deployed yet, so products you add here are saved to this browser only (not Firestore) and the live Store page reads them from this same browser. Great for trying the store out; nothing here is visible to real visitors until it's switched over to Firebase.
+    </div>
 
     <div class="card">
       <div class="card-head">
@@ -944,7 +951,7 @@
     <label class="field-label" for="productSizesInput">Sizes (optional, comma-separated)</label>
     <input type="text" id="productSizesInput" placeholder="S, M, L, XL">
 
-    <label class="field-label">Photos</label>
+    <label class="field-label">Photos <span style="font-weight:400;color:var(--text-dim);">— drag a photo to reorder</span></label>
     <div class="photo-upload-grid" id="productPhotosGrid"></div>
     <input type="file" id="productPhotosInput" accept="image/*" multiple>
 
@@ -1031,6 +1038,59 @@
   // functions/index.js's stripeWebhook (writes store_orders).
   const STORE_PRODUCTS_REF = db.collection('store_products');
   const STORE_ORDERS_REF = db.collection('store_orders');
+
+  // ---------- TEMPORARY: local-only product storage ----------
+  // firestore.rules' store_products/store_orders rules haven't been
+  // deployed yet (see that file's own header comment), so right now a
+  // write to STORE_PRODUCTS_REF would fail with "permission denied" and
+  // photo uploads would fail too (no Storage rules deployed either). Until
+  // that's done, product CRUD below reads/writes a browser-local copy
+  // instead — same shape as the real Firestore docs — so the Store tab and
+  // the live Store page can actually be tried out end-to-end.
+  //
+  // store-widget.html has the exact same flag/key — flip BOTH back to
+  // false once Firebase's store rules and Storage rules are deployed for
+  // real, and everything reverts to reading/writing Firestore as designed.
+  const STORE_LOCAL_MODE = true;
+  const STORE_LOCAL_KEY = 'knobsock_store_products_local';
+
+  function localLoadProducts() {
+    try {
+      var raw = localStorage.getItem(STORE_LOCAL_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (err) { return []; }
+  }
+  function localSaveProducts(arr) {
+    try { localStorage.setItem(STORE_LOCAL_KEY, JSON.stringify(arr)); } catch (err) { /* storage full/blocked */ }
+  }
+
+  // Keeps locally-stored product photos from blowing past localStorage's
+  // ~5-10MB quota after just a couple of real phone photos — downscales to
+  // a sane max dimension and re-encodes as a compressed JPEG data URL
+  // before it ever gets pushed into editingProductImages.
+  function resizeImageFile(file, maxDim, quality) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(reader.error || new Error('could not read file')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('could not decode image')); };
+        img.onload = function () {
+          var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          var w = Math.max(1, Math.round(img.width * scale));
+          var h = Math.max(1, Math.round(img.height * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 </script>
 
 <script>
@@ -1196,6 +1256,51 @@
       try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
       const rows = Array.prototype.slice.call(container.querySelectorAll('[data-draggable]'));
       onReorder(rows.map(function (r) { return parseInt(r.dataset.index, 10); }));
+      dragEl = null;
+      pointerId = null;
+    }
+    container.addEventListener('pointerup', endDrag);
+    container.addEventListener('pointercancel', endDrag);
+  }
+
+  // Same drag-to-reorder idea as makeSortable above, but for a wrapping
+  // grid of same-size tiles (the product photo picker) rather than a
+  // vertical list of rows — there's no separate .grip handle (the whole
+  // tile drags), and "before or after the hovered tile" is decided by
+  // horizontal position within it instead of vertical, since two tiles
+  // being compared are usually side by side in the same row.
+  function makeGridSortable(container, tileSelector, onReorder) {
+    let dragEl = null;
+    let pointerId = null;
+
+    container.addEventListener('pointerdown', function (e) {
+      const tile = e.target.closest(tileSelector);
+      if (!tile || tile.parentNode !== container) return;
+      if (e.target.closest('.remove-photo-btn') || tile.classList.contains('is-uploading')) return;
+      e.preventDefault();
+      dragEl = tile;
+      pointerId = e.pointerId;
+      try { tile.setPointerCapture(pointerId); } catch (err) { /* older browsers, harmless */ }
+      tile.classList.add('dragging');
+    });
+
+    container.addEventListener('pointermove', function (e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const tile = under && under.closest ? under.closest(tileSelector) : null;
+      if (!tile || tile === dragEl || tile.parentNode !== container) return;
+      const rect = tile.getBoundingClientRect();
+      const before = (e.clientX - rect.left) < rect.width / 2;
+      container.insertBefore(dragEl, before ? tile : tile.nextSibling);
+    });
+
+    function endDrag(e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      dragEl.classList.remove('dragging');
+      try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
+      const tiles = Array.prototype.slice.call(container.querySelectorAll(tileSelector + '[data-index]'));
+      onReorder(tiles.map(function (t) { return parseInt(t.dataset.index, 10); }));
       dragEl = null;
       pointerId = null;
     }
@@ -2521,12 +2626,17 @@
   function loadStoreTab() {
     if (!storeProductsLoaded) {
       storeProductsLoaded = true;
-      STORE_PRODUCTS_REF.orderBy('sortOrder').get().then(function (snap) {
-        storeProducts = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      if (STORE_LOCAL_MODE) {
+        storeProducts = localLoadProducts().sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); });
         renderProductsList();
-      }).catch(function (err) {
-        productsList.innerHTML = '<div class="note">Failed to load products: ' + escapeAttr(err.message) + '</div>';
-      });
+      } else {
+        STORE_PRODUCTS_REF.orderBy('sortOrder').get().then(function (snap) {
+          storeProducts = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+          renderProductsList();
+        }).catch(function (err) {
+          productsList.innerHTML = '<div class="note">Failed to load products: ' + escapeAttr(err.message) + '</div>';
+        });
+      }
     }
     if (!storeOrdersLoaded) {
       storeOrdersLoaded = true;
@@ -2562,6 +2672,15 @@
 
     makeSortable(productsList, function (newOrderIndices) {
       storeProducts = newOrderIndices.map(function (i) { return storeProducts[i]; });
+      storeProducts.forEach(function (p, i) { p.sortOrder = i; });
+
+      if (STORE_LOCAL_MODE) {
+        localSaveProducts(storeProducts);
+        productsStatus.textContent = 'Order saved.';
+        setTimeout(function () { productsStatus.textContent = ''; }, 2000);
+        return;
+      }
+
       var batch = db.batch();
       storeProducts.forEach(function (p, i) { batch.update(STORE_PRODUCTS_REF.doc(p.id), { sortOrder: i }); });
       batch.commit().then(function () {
@@ -2575,7 +2694,7 @@
 
   function renderPhotosGrid() {
     productPhotosGrid.innerHTML = editingProductImages.map(function (url, i) {
-      return '<div class="photo-upload-tile"><img src="' + escapeAttr(url) + '"><button type="button" class="remove-photo-btn" data-index="' + i + '" title="Remove">&times;</button></div>';
+      return '<div class="photo-upload-tile" data-index="' + i + '"><img src="' + escapeAttr(url) + '"><button type="button" class="remove-photo-btn" data-index="' + i + '" title="Remove">&times;</button></div>';
     }).join('');
     Array.prototype.forEach.call(productPhotosGrid.querySelectorAll('.remove-photo-btn'), function (btn) {
       btn.addEventListener('click', function () {
@@ -2584,6 +2703,15 @@
       });
     });
   }
+
+  // Drag any photo tile onto another to reorder — see makeGridSortable's
+  // own comment. Bound once to the container (its innerHTML gets replaced
+  // wholesale by renderPhotosGrid, but the listeners here live on
+  // productPhotosGrid itself, not its children, so they survive that).
+  makeGridSortable(productPhotosGrid, '.photo-upload-tile', function (newOrderIndices) {
+    editingProductImages = newOrderIndices.map(function (i) { return editingProductImages[i]; });
+    renderPhotosGrid();
+  });
 
   function openProductModal(productId) {
     editingProductId = productId || null;
@@ -2619,6 +2747,23 @@
     var files = Array.prototype.slice.call(productPhotosInput.files || []);
     productPhotosInput.value = '';
     if (!files.length) return;
+
+    if (STORE_LOCAL_MODE) {
+      files.forEach(function (file) {
+        var tileId = 'up-' + Math.random().toString(36).slice(2);
+        productPhotosGrid.insertAdjacentHTML('beforeend', '<div class="photo-upload-tile is-uploading" id="' + tileId + '"><span class="upload-spinner"></span></div>');
+        resizeImageFile(file, 1000, 0.82).then(function (dataUrl) {
+          editingProductImages.push(dataUrl);
+          renderPhotosGrid();
+        }).catch(function (err) {
+          productModalStatus.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'could not read file');
+          var el = document.getElementById(tileId);
+          if (el) el.remove();
+        });
+      });
+      return;
+    }
+
     if (!storage) {
       productModalStatus.textContent = 'Photo upload needs Firebase Storage, which failed to load.';
       return;
@@ -2648,7 +2793,7 @@
   }
 
   productSaveBtn.addEventListener('click', function () {
-    if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
+    if (!STORE_LOCAL_MODE && !auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
 
     var title = productTitleInput.value.trim();
     var priceCents = parsePriceToCents(productPriceInput.value);
@@ -2664,13 +2809,40 @@
       category: productCategoryInput.value.trim(),
       sizes: sizes,
       images: editingProductImages.slice(),
-      active: productActiveInput.checked,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy: auth.currentUser.email || auth.currentUser.uid
+      active: productActiveInput.checked
     };
 
     productSaveBtn.disabled = true;
     productModalStatus.textContent = 'Saving…';
+
+    if (STORE_LOCAL_MODE) {
+      payload.updatedAt = Date.now();
+      payload.updatedBy = (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)) || 'local';
+
+      if (editingProductId) {
+        var idx = storeProducts.findIndex(function (p) { return p.id === editingProductId; });
+        if (idx !== -1) storeProducts[idx] = Object.assign({}, storeProducts[idx], payload);
+      } else {
+        payload.id = 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        // Every product needs a real sortOrder, same reasoning as the
+        // Firestore path below — see its comment.
+        payload.sortOrder = storeProducts.length
+          ? Math.max.apply(null, storeProducts.map(function (p) { return p.sortOrder || 0; })) + 1
+          : 0;
+        payload.createdAt = Date.now();
+        storeProducts.push(payload);
+      }
+
+      localSaveProducts(storeProducts);
+      productSaveBtn.disabled = false;
+      closeProductModal();
+      storeProductsLoaded = false; // simplest way to pick up the add/edit: just reload
+      loadStoreTab();
+      return;
+    }
+
+    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    payload.updatedBy = auth.currentUser.email || auth.currentUser.uid;
 
     var savePromise;
     if (editingProductId) {
@@ -2700,6 +2872,16 @@
   productDeleteBtn.addEventListener('click', function () {
     if (!editingProductId) return;
     if (!confirm('Delete this product? This can’t be undone.')) return;
+
+    if (STORE_LOCAL_MODE) {
+      storeProducts = storeProducts.filter(function (p) { return p.id !== editingProductId; });
+      localSaveProducts(storeProducts);
+      closeProductModal();
+      storeProductsLoaded = false;
+      loadStoreTab();
+      return;
+    }
+
     if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
 
     var imagesToClean = editingProductImages.slice();
