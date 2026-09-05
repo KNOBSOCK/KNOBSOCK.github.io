@@ -278,15 +278,6 @@
     font-size: clamp(11px, 2.4vw, 13px);
     color: var(--accent-yellow);
   }
-
-  .footnote {
-    margin: clamp(4px, 1vw, 8px) 0 0;
-    text-align: center;
-    font-family: var(--font-body);
-    font-size: clamp(10px, 2.2vw, 12px);
-    color: var(--text-dim);
-    opacity: 0.75;
-  }
 </style>
 </head>
 <body>
@@ -303,7 +294,7 @@
           </svg>
         </span>
         <h2 class="hero-title">The shop isn't open yet</h2>
-        <p class="hero-text">We're setting things up behind the scenes. Once merch goes live, everything for sale will show up right here on its own — no rebuild, no page reload.</p>
+        <p class="hero-text">We're setting things up behind the scenes.</p>
       </div>
 
       <!-- Populated by renderProducts() once PRODUCTS actually has
@@ -314,8 +305,6 @@
         <div class="section-label"><span>What's coming</span><span class="section-line" aria-hidden="true"></span></div>
         <div class="preview-grid" id="previewGrid"></div>
       </div>
-
-      <p class="footnote">New products will appear here automatically the moment the store connects.</p>
     </div>
   </div>
 </div>
