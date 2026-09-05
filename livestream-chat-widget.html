@@ -7,10 +7,19 @@
 <style>
   :root {
     --ink: #3a0a0a;
-    --panel: rgba(58, 10, 10, 0.32);
-    --panel-2: rgba(58, 10, 10, 0.8);
+    /* RGB triplets of --ink/--accent above, kept in lockstep so the
+       handful of rules below that need a non-default alpha (the glow,
+       the VOD-active tint, the watching-bar gradient) can composite
+       off the same live palette via rgba(var(--ink-rgb), X) instead of
+       hardcoding their own copy of the color — which would otherwise
+       silently go stale the moment .is-offline below overrides --ink/
+       --accent but not a hardcoded rgba() duplicate of them. */
+    --ink-rgb: 58, 10, 10;
+    --panel: rgba(var(--ink-rgb), 0.32);
+    --panel-2: rgba(var(--ink-rgb), 0.8);
     --line: rgba(255, 180, 150, 0.6);
     --accent: #cd3232;
+    --accent-rgb: 205, 50, 50;
     --accent-dim: #6e1e1e;
     --text: #ffffff;
     --text-dim: #f5c9c9;
@@ -33,6 +42,26 @@
     --inset-top: clamp(4px, 1vw, 8px);
     --inset-side: clamp(4px, 1vw, 8px);
     --inset-bottom: clamp(16px, 3vw, 32px);
+  }
+
+  /* Offline dark mode — applied to <html> (see applyLiveVideoState's
+     updateOfflineTheme, below) whenever admin.html's Go Offline toggle
+     is set, so the widget doesn't sit there still looking "live" (full
+     red) while there's nothing live. Collapses the palette above down
+     to off-black/dark-grey/near-black-red; --text stays white and
+     --panel/--panel-2/the rgba(var(--ink-rgb)/--accent-rgb)) rules
+     elsewhere in this file follow automatically since they read off
+     --ink-rgb/--accent-rgb rather than duplicating a literal color. */
+  html.is-offline {
+    --ink: #0d0d0d;
+    --ink-rgb: 13, 13, 13;
+    --line: rgba(120, 120, 120, 0.6);
+    --accent: #5a1717;
+    --accent-rgb: 90, 23, 23;
+    --accent-dim: #333333;
+    --text-dim: #aaaaaa;
+    --error: #aaaaaa;
+    --vods-bg: #080808;
   }
 
   * { box-sizing: border-box; }
@@ -64,7 +93,7 @@
     left: var(--inset-side);
     right: var(--inset-side);
     border-radius: clamp(10px, 2.5vw, 28px);
-    background: rgba(205, 50, 50, 0.45);
+    background: rgba(var(--accent-rgb), 0.45);
     backdrop-filter: blur(10px) saturate(150%);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
     z-index: -1;
@@ -329,7 +358,7 @@
     font-family: var(--font-body);
   }
   .vod-row:hover { background: rgba(255, 255, 255, 0.08); }
-  .vod-row.active { border-color: var(--accent); background: rgba(205, 50, 50, 0.25); }
+  .vod-row.active { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.25); }
   .vod-row-thumb {
     flex: none;
     width: 88px;
@@ -411,8 +440,8 @@
       -webkit-tap-highlight-color: transparent;
     }
     .stream-stats:active {
-      background: #341010;
-      box-shadow: inset 0 0 26px rgba(205, 50, 50, 0.5);
+      background: var(--ink);
+      box-shadow: inset 0 0 26px rgba(var(--accent-rgb), 0.5);
     }
     /* Scoped under .stream-stats purely to outrank the base
        "display: none" — that rule lives further DOWN the file than
@@ -736,7 +765,7 @@
     align-items: center;
     gap: clamp(8px, 2cqw, 12px);
     padding: clamp(10px, 2.6cqh, 14px) clamp(10px, 3cqw, 16px);
-    background: linear-gradient(to top, rgba(58, 10, 10, 0.85), rgba(58, 10, 10, 0));
+    background: linear-gradient(to top, rgba(var(--ink-rgb), 0.85), rgba(var(--ink-rgb), 0));
   }
 
   .play-pause-btn {
@@ -1535,6 +1564,20 @@
   }
   updateOfflineCardState();
 
+  // Drives the whole page's dark palette (html.is-offline, CSS above),
+  // not just this widget's own video pane — a viewer's own VOD pick
+  // doesn't affect this (unlike updateOfflineCardState), since the red
+  // palette going dark is about whether anything's live right now, not
+  // about what a given viewer happens to be watching. Also relays the
+  // state to the parent frame (live.html has no Firebase listener of
+  // its own — its background is red/dark only via this postMessage),
+  // same pattern as the tap-in effect's own message to that page.
+  function updateOfflineTheme() {
+    document.documentElement.classList.toggle('is-offline', !configuredIsLive);
+    try { window.parent.postMessage({ type: 'knobsock-live-state', isLive: configuredIsLive }, '*'); } catch (e) {}
+  }
+  updateOfflineTheme();
+
   // Called on every config change, not just page load — admin.html's
   // "Go Offline"/"Go Live" toggle needs to take effect immediately for
   // anyone already sitting on the page, not just on their next visit.
@@ -1543,6 +1586,7 @@
     configuredIsLive = !!isLive;
     updateLiveButtonState();
     updateOfflineCardState();
+    updateOfflineTheme();
     if (watchingVodId) return; // a viewer's own VOD choice isn't interrupted by a config change alone
 
     if (!isLive) {
