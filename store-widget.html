@@ -732,7 +732,7 @@
   function renderProducts(products) {
     PRODUCTS = products;
     heroTitle.textContent = 'KNOBSOCK Store';
-    heroText.textContent = 'Everything below ships out once you order it.';
+    heroText.hidden = true;
     previewSection.hidden = true;
     productGrid.hidden = false;
     cartBtn.classList.add('is-visible');
