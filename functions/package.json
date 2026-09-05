@@ -1,0 +1,17 @@
+{
+  "name": "knobsock-store-functions",
+  "private": true,
+  "description": "Cloud Functions backing the KNOBSOCK store: creates Stripe Checkout Sessions and records paid orders from Stripe's webhook. Nothing else on this site needs a real backend — this is the one exception, because taking a real credit card and verifying a real payment can't be done from static, client-side HTML alone.",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node --check index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.0.1",
+    "stripe": "^17.3.0"
+  }
+}

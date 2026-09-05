@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Confirmed - KNOBSOCK</title>
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/confirmation">
+<meta property="og:title" content="Order Confirmed - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* Standalone page, same reasoning as cart.html (see its own comment) —
+     no widget/iframe split needed for a one-off transactional page. */
+  :root {
+    --ink: #4a0a2e;
+    --panel-2: rgba(74, 10, 46, 0.8);
+    --line: rgba(255, 170, 210, 0.6);
+    --accent: #ff4fa8;
+    --accent-dim: #a3195f;
+    --accent-yellow: #ffdd00;
+    --text: #ffffff;
+    --text-dim: #ffd6ec;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  a { color: inherit; }
+
+  .page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: clamp(16px, 3vw, 32px) clamp(14px, 3vw, 24px) 60px;
+  }
+  .logo-link {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    margin-bottom: clamp(6px, 1.6vw, 14px);
+  }
+  .logo-link img {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 380px;
+    height: auto;
+  }
+
+  .card {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: clamp(18px, 3.6vw, 30px);
+    text-align: center;
+  }
+
+  /* ---------- LOADING (waiting on the webhook) ---------- */
+  .spinner {
+    width: 40px;
+    height: 40px;
+    margin: 4px auto 16px;
+    border-radius: 50%;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- SUCCESS ---------- */
+  .check-badge {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-dim));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+  }
+  .check-badge svg { width: 55%; height: 55%; }
+
+  h1 { margin: 0 0 6px; font-size: clamp(20px, 4vw, 26px); }
+  .order-number {
+    display: inline-block;
+    margin: 0 0 16px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    color: var(--accent-yellow);
+    background: rgba(0, 0, 0, 0.24);
+    border-radius: 999px;
+    padding: 5px 14px;
+  }
+  .lede {
+    margin: 0 0 20px;
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .receipt {
+    text-align: left;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    margin-top: 4px;
+  }
+  .receipt-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 0;
+    font-size: 13px;
+  }
+  .receipt-line .item-name { color: var(--text); }
+  .receipt-line .item-meta { color: var(--text-dim); font-size: 12px; display: block; }
+  .receipt-line .item-price { color: var(--text-dim); flex: 0 0 auto; white-space: nowrap; }
+  .receipt-total {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--line);
+    margin-top: 8px;
+    padding-top: 10px;
+    font-weight: 700;
+  }
+
+  .ship-to {
+    text-align: left;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .ship-to .label {
+    display: block;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .ship-to .name { color: var(--text); font-weight: 700; }
+
+  .back-link {
+    display: inline-block;
+    margin-top: 22px;
+    color: var(--accent-yellow);
+    font-weight: 700;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <a class="logo-link" href="/" target="_top">
+    <img src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
+  </a>
+
+  <div class="card">
+
+    <div id="loadingState">
+      <div class="spinner" aria-hidden="true"></div>
+      <h1>Confirming your order…</h1>
+      <p class="lede">This usually takes just a couple of seconds.</p>
+    </div>
+
+    <div id="successState" hidden>
+      <div class="check-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2a0018" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </div>
+      <h1>Thanks for your order!</h1>
+      <span class="order-number" id="orderNumber"></span>
+      <p class="lede">A receipt from Stripe is on its way to your email. We'll get this packed up and shipped out soon.</p>
+
+      <div class="receipt" id="receiptLines"></div>
+      <div class="receipt-total">
+        <span>Total</span>
+        <span id="receiptTotal"></span>
+      </div>
+
+      <div class="ship-to" id="shipTo" hidden>
+        <span class="label">Shipping to</span>
+        <span class="name" id="shipName"></span>
+        <div id="shipAddress"></div>
+      </div>
+    </div>
+
+    <div id="stillProcessingState" hidden>
+      <h1>Payment received!</h1>
+      <p class="lede">We're still finalizing your order details on our end — that's unusual, but your payment definitely went through, and you'll get a receipt by email from Stripe. Hang onto that in case you need to reach out about this order.</p>
+    </div>
+
+    <div id="noOrderState" hidden>
+      <h1>No order to show here</h1>
+      <p class="lede">This page is only meant to be reached right after checkout. If you're looking for an order you placed, check the receipt email from Stripe.</p>
+    </div>
+
+    <a class="back-link" href="/store" target="_top">← Back to the Store</a>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  let ORDERS_REF = null;
+  if (window.firebase) {
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+      authDomain: "chat-for-website-efee2.firebaseapp.com",
+      projectId: "chat-for-website-efee2",
+      storageBucket: "chat-for-website-efee2.firebasestorage.app",
+      messagingSenderId: "509309222193",
+      appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+    };
+    const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+    ORDERS_REF = firebase.firestore().collection('store_orders');
+  }
+</script>
+
+<script>
+(function () {
+  var CART_KEY = 'knobsock_cart';
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatCents(cents) {
+    return '$' + (Math.max(0, cents | 0) / 100).toFixed(2);
+  }
+
+  function showState(id) {
+    ['loadingState', 'successState', 'stillProcessingState', 'noOrderState'].forEach(function (s) {
+      document.getElementById(s).hidden = (s !== id);
+    });
+  }
+
+  var params = new URLSearchParams(window.location.search);
+  var sessionId = params.get('session_id');
+
+  if (!sessionId) {
+    showState('noOrderState');
+    return;
+  }
+
+  // Reaching this page with a session_id at all means Stripe's own
+  // success_url redirect fired, which only happens after a real payment —
+  // the cart is cleared right away rather than waiting on the order doc
+  // below, which can lag a few seconds behind (it's written by a webhook,
+  // a separate request from this page load entirely).
+  try { localStorage.removeItem(CART_KEY); } catch (err) { /* nothing to clean up either way */ }
+
+  function renderOrder(order) {
+    document.getElementById('orderNumber').textContent = order.orderNumber || sessionId;
+
+    var lines = Array.isArray(order.items) ? order.items : [];
+    document.getElementById('receiptLines').innerHTML = lines.map(function (item) {
+      return '<div class="receipt-line">' +
+        '<span class="item-name">' + escapeHtml(item.title) + (item.quantity > 1 ? ' × ' + item.quantity : '') +
+          (item.size ? '<span class="item-meta">Size: ' + escapeHtml(item.size) + '</span>' : '') +
+        '</span>' +
+        '<span class="item-price">' + formatCents((item.unitPriceCents || 0) * (item.quantity || 1)) + '</span>' +
+      '</div>';
+    }).join('');
+
+    document.getElementById('receiptTotal').textContent = formatCents(order.totalCents || 0);
+
+    var addr = order.shippingAddress || {};
+    if (addr.line1) {
+      document.getElementById('shipTo').hidden = false;
+      document.getElementById('shipName').textContent = order.customerName || '';
+      document.getElementById('shipAddress').innerHTML = [
+        escapeHtml(addr.line1),
+        addr.line2 ? escapeHtml(addr.line2) : '',
+        escapeHtml([addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')),
+        addr.country ? escapeHtml(addr.country) : ''
+      ].filter(Boolean).join('<br>');
+    }
+
+    showState('successState');
+  }
+
+  // The order doc is written by stripeWebhook — a separate request from
+  // Stripe that isn't guaranteed to land before this page does, so this
+  // polls a few times rather than treating "not found yet" as "not
+  // found". If nothing shows up after ~16s, stillProcessingState is
+  // still an honest, non-scary thing to say: the payment really did
+  // succeed (that's the only way to reach this URL at all), it's just
+  // our own record of it that's lagging or, before the backend is fully
+  // connected, possibly never arriving at all.
+  var attempts = 0;
+  var MAX_ATTEMPTS = 8;
+
+  function poll() {
+    if (!ORDERS_REF) { showState('stillProcessingState'); return; }
+
+    ORDERS_REF.doc(sessionId).get().then(function (doc) {
+      if (doc.exists) {
+        renderOrder(doc.data());
+        return;
+      }
+      attempts++;
+      if (attempts >= MAX_ATTEMPTS) showState('stillProcessingState');
+      else setTimeout(poll, 2000);
+    }).catch(function (err) {
+      console.error('Failed to load order', err);
+      showState('stillProcessingState');
+    });
+  }
+
+  poll();
+})();
+</script>
+
+</body>
+</html>

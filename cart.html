@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cart - KNOBSOCK</title>
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/cart">
+<meta property="og:title" content="Cart - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* A standalone page rather than the usual shell+iframe-widget split the
+     rest of this site uses (videos.html/live.html/etc.) — cart and
+     confirmation are one-off transactional pages with no reuse case for
+     the "widget embeddable elsewhere" split those are built for, and
+     checkout is exactly the wrong place to add cross-frame postMessage
+     plumbing just to stay consistent. Same pink palette as
+     store-widget.html and the real logo file store.html uses, so it still
+     reads as the same store, just laid out as one plain page. */
+  :root {
+    --ink: #4a0a2e;
+    --panel-2: rgba(74, 10, 46, 0.8);
+    --line: rgba(255, 170, 210, 0.6);
+    --accent: #ff4fa8;
+    --accent-dim: #a3195f;
+    --accent-yellow: #ffdd00;
+    --text: #ffffff;
+    --text-dim: #ffd6ec;
+    --danger: #ff8080;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  a { color: inherit; }
+
+  .page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: clamp(16px, 3vw, 32px) clamp(14px, 3vw, 24px) 60px;
+  }
+  .logo-link {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    margin-bottom: clamp(6px, 1.6vw, 14px);
+  }
+  .logo-link img {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 380px;
+    height: auto;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .back-link:hover { color: var(--text); }
+
+  .card {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: clamp(16px, 3.4vw, 26px);
+  }
+  h1 { margin: 0 0 18px; font-size: clamp(20px, 4vw, 26px); }
+
+  .cart-line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .cart-line:last-of-type { border-bottom: 0; }
+  .line-thumb {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+  }
+  .line-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .line-thumb svg { width: 44%; height: 44%; }
+  .line-info { flex: 1 1 auto; min-width: 0; }
+  .line-title { font-weight: 700; font-size: 14px; }
+  .line-size { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .line-qty {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .line-qty button {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    background: rgba(0, 0, 0, 0.24);
+    border: 0;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .line-qty button:hover { background: var(--accent-dim); }
+  .line-qty span { display: inline-block; min-width: 26px; text-align: center; font-weight: 700; font-size: 13px; }
+  .line-price {
+    flex: 0 0 auto;
+    text-align: right;
+    font-weight: 700;
+    color: var(--accent-yellow);
+    font-size: 14px;
+    min-width: 60px;
+  }
+  .remove-line {
+    flex: 0 0 auto;
+    -webkit-appearance: none;
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 2px;
+  }
+  .remove-line:hover { color: var(--danger); }
+
+  .totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 16px;
+    margin-top: 4px;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .totals-note {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .checkout-btn {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    border: 0;
+    border-radius: 999px;
+    padding: 14px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 16px;
+    color: #2a0018;
+    background: var(--accent-yellow);
+    transition: transform 0.2s ease;
+  }
+  .checkout-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .checkout-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+
+  .checkout-error {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--danger);
+  }
+  .checkout-error[hidden] { display: none; }
+
+  .empty-state {
+    text-align: center;
+    padding: 36px 10px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  .empty-state[hidden] { display: none; }
+  .empty-state a { color: var(--accent-yellow); font-weight: 700; text-decoration: none; }
+  .empty-state a:hover { text-decoration: underline; }
+
+  #totalsBlock[hidden] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <a class="logo-link" href="/" target="_top">
+    <img src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
+  </a>
+  <a class="back-link" href="/store" target="_top">&larr; Back to Store</a>
+
+  <div class="card">
+    <h1>Your Cart</h1>
+
+    <div id="cartLines"></div>
+
+    <div class="empty-state" id="emptyState" hidden>
+      Your cart is empty. <a href="/store" target="_top">Go find something to buy →</a>
+    </div>
+
+    <div id="totalsBlock" hidden>
+      <div class="totals-row">
+        <span>Subtotal</span>
+        <span id="subtotalValue"></span>
+      </div>
+      <p class="totals-note">Shipping and any tax are calculated at checkout.</p>
+      <button type="button" class="checkout-btn" id="checkoutBtn">Checkout</button>
+      <p class="checkout-error" id="checkoutError" hidden></p>
+    </div>
+  </div>
+</div>
+
+<!-- Only firebase-functions here — cart.html doesn't read Firestore
+     directly at all, it just calls createCheckoutSession (see
+     functions/index.js) once the customer is ready to pay. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-functions-compat.js"></script>
+<script>
+  let createCheckoutSessionFn = null;
+  if (window.firebase) {
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+      authDomain: "chat-for-website-efee2.firebaseapp.com",
+      projectId: "chat-for-website-efee2",
+      storageBucket: "chat-for-website-efee2.firebasestorage.app",
+      messagingSenderId: "509309222193",
+      appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+    };
+    const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+    if (firebase.functions) createCheckoutSessionFn = firebase.functions().httpsCallable('createCheckoutSession');
+  }
+</script>
+
+<script>
+(function () {
+  var CART_KEY = 'knobsock_cart';
+  var FALLBACK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>';
+
+  var cartLines = document.getElementById('cartLines');
+  var emptyState = document.getElementById('emptyState');
+  var totalsBlock = document.getElementById('totalsBlock');
+  var subtotalValue = document.getElementById('subtotalValue');
+  var checkoutBtn = document.getElementById('checkoutBtn');
+  var checkoutError = document.getElementById('checkoutError');
+
+  function getCart() {
+    try {
+      var raw = localStorage.getItem(CART_KEY);
+      var cart = raw ? JSON.parse(raw) : [];
+      return Array.isArray(cart) ? cart : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function saveCart(cart) {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) { /* storage full/blocked */ }
+    render();
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatCents(cents) {
+    return '$' + (Math.max(0, cents | 0) / 100).toFixed(2);
+  }
+
+  function render() {
+    var cart = getCart();
+
+    if (!cart.length) {
+      cartLines.innerHTML = '';
+      emptyState.hidden = false;
+      totalsBlock.hidden = true;
+      return;
+    }
+
+    emptyState.hidden = true;
+    totalsBlock.hidden = false;
+
+    cartLines.innerHTML = cart.map(function (line, i) {
+      var thumb = line.image ? '<img src="' + escapeHtml(line.image) + '" alt="">' : FALLBACK_ICON;
+      return '<div class="cart-line" data-index="' + i + '">' +
+        '<span class="line-thumb">' + thumb + '</span>' +
+        '<span class="line-info">' +
+          '<span class="line-title">' + escapeHtml(line.title) + '</span>' +
+          (line.size ? '<div class="line-size">Size: ' + escapeHtml(line.size) + '</div>' : '') +
+          '<div class="line-qty">' +
+            '<button type="button" class="qty-minus" aria-label="Decrease quantity">&minus;</button>' +
+            '<span>' + line.quantity + '</span>' +
+            '<button type="button" class="qty-plus" aria-label="Increase quantity">+</button>' +
+          '</div>' +
+        '</span>' +
+        '<span class="line-price">' + formatCents(line.priceCents * line.quantity) + '</span>' +
+        '<button type="button" class="remove-line" aria-label="Remove ' + escapeHtml(line.title) + '">&times;</button>' +
+      '</div>';
+    }).join('');
+
+    var subtotal = cart.reduce(function (sum, l) { return sum + l.priceCents * l.quantity; }, 0);
+    subtotalValue.textContent = formatCents(subtotal);
+  }
+
+  // Delegated so a single listener covers every line, including ones
+  // re-rendered after a qty change or removal.
+  cartLines.addEventListener('click', function (e) {
+    var lineEl = e.target.closest('.cart-line');
+    if (!lineEl) return;
+    var index = parseInt(lineEl.dataset.index, 10);
+    var cart = getCart();
+    var line = cart[index];
+    if (!line) return;
+
+    if (e.target.closest('.qty-plus')) {
+      line.quantity = Math.min(20, line.quantity + 1);
+      saveCart(cart);
+    } else if (e.target.closest('.qty-minus')) {
+      if (line.quantity <= 1) cart.splice(index, 1);
+      else line.quantity -= 1;
+      saveCart(cart);
+    } else if (e.target.closest('.remove-line')) {
+      cart.splice(index, 1);
+      saveCart(cart);
+    }
+  });
+
+  checkoutBtn.addEventListener('click', function () {
+    var cart = getCart();
+    if (!cart.length) return;
+
+    checkoutError.hidden = true;
+    checkoutBtn.disabled = true;
+    checkoutBtn.textContent = 'Redirecting…';
+
+    if (!createCheckoutSessionFn) {
+      showCheckoutFailure();
+      return;
+    }
+
+    var items = cart.map(function (l) {
+      return { productId: l.productId, quantity: l.quantity, size: l.size };
+    });
+
+    createCheckoutSessionFn({ items: items }).then(function (result) {
+      if (result.data && result.data.url) {
+        window.location.href = result.data.url;
+      } else {
+        showCheckoutFailure();
+      }
+    }).catch(function (err) {
+      console.error('Checkout failed', err);
+      // invalid-argument is the one code this app throws itself (see
+      // createCheckoutSession in functions/index.js) for a real, specific
+      // reason (empty cart, or every item in it got removed from the
+      // store) — worth showing as-is. Anything else — the function not
+      // being deployed yet, a network hiccup, Stripe not configured —
+      // isn't something a customer can act on, so it gets one generic,
+      // non-alarming message instead of a raw error code.
+      if (err && err.code === 'functions/invalid-argument' && err.message) {
+        showCheckoutFailure(err.message);
+      } else {
+        showCheckoutFailure();
+      }
+    });
+  });
+
+  function showCheckoutFailure(message) {
+    checkoutBtn.disabled = false;
+    checkoutBtn.textContent = 'Checkout';
+    checkoutError.hidden = false;
+    checkoutError.textContent = message || "Checkout isn't connected yet — check back soon!";
+  }
+
+  render();
+})();
+</script>
+
+</body>
+</html>
