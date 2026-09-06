@@ -63,6 +63,14 @@
     flex: none;
   }
 
+  /* Invisible by default (display:contents drops its own box, promoting
+     .burger-stack to be .page's direct flex child, unchanged from before
+     this wrapper existed) — only becomes a real flex box in the landscape
+     query below, where it needs to be a sizing context of its own. */
+  .burger-wrap {
+    display: contents;
+  }
+
   .burger-top,
   .burger-bottom {
     display: block;
@@ -107,6 +115,27 @@
   }
   .back-link:hover { opacity: 1; }
 
+  /* Real-viewport fullscreen fallback for hamburger-news-widget.html's
+     own fullscreen button. That widget lives in an iframe, and on iOS
+     Safari — which has no Fullscreen API at all for non-video elements —
+     it falls back to a CSS position:fixed trick that can only ever cover
+     the IFRAME'S OWN box, not the actual phone screen (position:fixed's
+     containing block is the iframe's own viewport, same constraint
+     live.html's tap-in overlay comment documents). The widget posts a
+     message here instead, and this class — applied to the real iframe
+     element in THIS top-level document — takes over the actual screen;
+     the iframe's own contents (already 100% width/height inside it)
+     grow to fill it right along with it. */
+  .patty-slot.hn-fullscreen iframe {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 9999;
+    border-radius: 0;
+  }
+
   /* On mobile, lock the page itself to exactly one screen instead of
      letting it scroll — same convention as videos.html/music.html/
      live.html, even though the top-of-file comment above originally
@@ -123,15 +152,27 @@
   }
 
   /* Phone rotated to landscape: same one-screen lock as the portrait
-     rule above, but the width-driven sizing on .burger-stack would make
-     it far too tall for an already-short landscape viewport (a phone's
-     width, once sideways, is nowhere near the constraint that matters).
-     Switching to a height-driven size — aspect-ratio matches the whole
-     stack's own combined proportions (2126 wide by 855 + patty-at-16:9
-     + 670 tall, i.e. 2126/2722) so .burger-top/.patty-slot/.burger-
-     bottom's own individual aspect-ratios below still divide up that
-     resolved width exactly as they do at any other size — lets it
-     shrink to fit the available height instead.
+     rule above. An earlier version of this sized .burger-stack purely by
+     HEIGHT, keeping the whole sandwich's own combined proportions (2126
+     wide by 855 + patty-at-16:9 + 670 tall) intact — but that ratio is
+     itself portrait-shaped (taller than wide), so on an actual landscape
+     phone (always wider than it is tall) height was ALWAYS the binding
+     constraint, and preserving that portrait-shaped ratio inside a wide
+     short box left most of the screen's width empty with a narrow little
+     video in the middle — confirmed by rendering it: a 812x375 viewport
+     produced a stack barely 212px wide.
+     Fixed by no longer keeping the buns and the video locked to one
+     fixed combined ratio at all: the buns shrink to a small fixed strip
+     (--bun-h, cropped via object-fit instead of scaling with the video),
+     and .burger-stack's width is solved for directly — the larger of
+     "fill the available width" or "the width that makes the video's own
+     16:9 patty-slot exactly fill whatever height is left after the two
+     bun strips" is capped by whichever is smaller via min(), so it never
+     overflows either axis. That needs .burger-wrap as an explicitly
+     sized (container-type:size) box to measure 100cqw/100cqh against —
+     align-self:stretch gives it a definite height (.page's own align-
+     items:center would otherwise only hug it to its content, which is
+     circular: the content's size is what this is trying to solve for).
      hover:none + pointer:coarse (true only for touchscreens) matter
      here for the same reason as those other pages' identical guard: an
      ordinary desktop window is "landscape" by nature and often under
@@ -148,10 +189,26 @@
       padding: clamp(8px, 2vh, 16px);
       gap: clamp(8px, 2vw, 16px);
     }
+    .burger-wrap {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      container-type: size;
+    }
     .burger-stack {
-      width: auto;
-      height: 100%;
-      aspect-ratio: 2126 / 2722;
+      --bun-h: clamp(8px, 3vh, 24px);
+      width: min(100cqw, calc((100cqh - 2 * var(--bun-h)) * 16 / 9));
+      height: auto;
+    }
+    .burger-top,
+    .burger-bottom {
+      height: var(--bun-h);
+      aspect-ratio: auto;
+      object-fit: cover;
     }
     .back-link { flex: none; }
   }
@@ -162,17 +219,32 @@
 <div class="page">
   <a class="back-link" href="/videos">&larr; Back to Videos</a>
 
-  <div class="burger-stack">
-    <img class="burger-top" src="/BURGER%20TOP.PNG" alt="">
-    <div class="patty-slot">
-      <iframe src="/hamburger-news-widget.html"
-              title="Hamburger News"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowfullscreen></iframe>
+  <div class="burger-wrap">
+    <div class="burger-stack">
+      <img class="burger-top" src="/BURGER%20TOP.PNG" alt="">
+      <div class="patty-slot" id="pattySlot">
+        <iframe src="/hamburger-news-widget.html"
+                title="Hamburger News"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowfullscreen></iframe>
+      </div>
+      <img class="burger-bottom" src="/BURGER%20BOTTOM.PNG" alt="">
     </div>
-    <img class="burger-bottom" src="/BURGER%20BOTTOM.PNG" alt="">
   </div>
 </div>
+
+<script>
+(function () {
+  var pattySlot = document.getElementById('pattySlot');
+  // Relayed from hamburger-news-widget.html's own fullscreen fallback —
+  // see .patty-slot.hn-fullscreen's own comment above for why this has
+  // to happen up here rather than inside that iframe.
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
+    pattySlot.classList.toggle('hn-fullscreen', !!e.data.active);
+  });
+})();
+</script>
 
 </body>
 </html>
