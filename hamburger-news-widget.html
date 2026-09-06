@@ -173,6 +173,17 @@
   }
   .round-btn:hover { background: #e0590f; }
   .round-btn:active { background: #a3390b; }
+  /* Without this, the [hidden] attribute (set via JS on nextBtn and
+     pickerToggleBtn — see renderNowPlaying/updatePickerToggleVisibility)
+     does nothing on a .round-btn: the browser's own [hidden]{display:
+     none} rule lives in the UA stylesheet, and an author-origin rule
+     always wins a tie against UA origin regardless of specificity — so
+     .round-btn's own display:flex above was silently overriding it,
+     leaving a "hidden" button fully visible and clickable the moment
+     anything else (its own opacity fade included) made it look right
+     by coincidence. Matching .round-btn[hidden] specifically overrides
+     that override. */
+  .round-btn[hidden] { display: none; }
 
   .now-playing-title {
     flex: 1 1 auto;
@@ -198,15 +209,17 @@
      Jump straight to any saved video, not just step through them one at
      a time via Next — built right into the stage itself, same as
      everything else here, so it reads as part of the burger rather than
-     a bolted-on page element. Opens by sliding up from the bottom (two
-     layered transitions: the drawer's own max-height opens the room,
-     while it slides up out of that space via transform instead of just
-     growing into it — same technique live.html's tap-in streak bar
-     uses). translateZ(0) plus a forced reflow on close (see the JS)
-     guard against the exact stale-compositor-tile bug that turned up on
-     that same streak bar on mobile Safari — cheap insurance here since
-     this is the same "frequently toggled overlay on a mobile-heavy
-     page" shape of element.
+     a bolted-on page element. Takes over the whole stage when open
+     (inset:0, same as .picker-panel itself) and slides down from the
+     top via a single transform, rather than growing up from the bottom
+     into a capped-height strip like the first version of this did —
+     simpler than that version's layered max-height + translateY combo
+     needed to be, since there's no longer a "partial reveal" height to
+     animate open, just the one property. translateZ(0) plus a forced
+     reflow on close (see the JS) still guard against the exact stale-
+     compositor-tile bug that turned up on live.html's tap-in streak bar
+     on mobile Safari — cheap insurance, same "frequently toggled
+     overlay on a mobile-heavy page" shape of element.
      Horizontal scroll below a rough phone/desktop threshold, vertical
      above it — not just a stylistic flourish: a horizontal strip reads
      as a natural thumb-swipe on a phone, while a vertical list uses a
@@ -220,43 +233,51 @@
     position: absolute;
     inset: 0;
     z-index: 6;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
     pointer-events: none;
   }
   .picker-drawer {
     pointer-events: auto;
-    flex: none;
-    max-height: 0;
-    overflow: hidden;
-    background: rgba(20, 8, 0, 0.92);
-    border-top: 1px solid rgba(255, 210, 130, 0.35);
-    transform: translateZ(0);
-    transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(20, 8, 0, 0.96);
+    transform: translateY(-100%) translateZ(0);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .picker-panel.open .picker-drawer {
-    max-height: clamp(100px, 45%, 190px);
+    transform: translateY(0) translateZ(0);
+  }
+  .picker-drawer-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 10px 6px;
+  }
+  .picker-drawer-title {
+    color: #ffd479;
+    font-weight: 700;
+    font-size: clamp(12px, 3.4cqw, 15px);
   }
   .picker-list {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     gap: 8px;
-    padding: 10px;
-    transform: translateY(16px);
-    opacity: 0;
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-    /* Mobile default: horizontal strip. */
+    padding: 0 10px 10px;
+    /* Mobile default: horizontal strip, vertically centered in the now
+       full-height drawer instead of sitting flush against its top. */
     flex-direction: row;
+    align-items: center;
     overflow-x: auto;
     overflow-y: hidden;
-  }
-  .picker-panel.open .picker-list {
-    transform: translateY(0);
-    opacity: 1;
   }
   @media (min-width: 640px) {
     .picker-list {
       flex-direction: column;
+      align-items: stretch;
       overflow-x: hidden;
       overflow-y: auto;
     }
@@ -301,12 +322,23 @@
     -webkit-box-orient: vertical;
   }
   /* Hamburger-menu glyph doubling as the Hamburger News video picker's
-     own icon — same round-btn shape as mute/play/next beside it, only
-     rendered once there's more than one video (see renderNowPlaying).
-     Flips upside-down while the drawer's open, echoing the chevron-flip
-     idiom the VODs tab elsewhere on this site already uses. */
-  .picker-toggle-label { display: inline-block; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-  .picker-toggle-btn[aria-expanded="true"] .picker-toggle-label { transform: rotate(180deg); }
+     own icon — top-right of the stage now rather than inside the
+     bottom button row, since opening it takes over the whole player
+     instead of sharing space down there. Fades with the same
+     .controls-visible group as everything else (hover on desktop, tap
+     on touch), and is hidden outright (see the JS) while the drawer's
+     actually open — .picker-close-btn inside the drawer itself takes
+     over as the dismiss control at that point, rather than this same
+     button trying to do double duty as both opener and closer. */
+  .picker-toggle-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 7;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .stage.controls-visible .picker-toggle-btn { opacity: 1; }
 </style>
 </head>
 <body>
@@ -319,9 +351,14 @@
   <div class="empty-state" id="emptyState" hidden>No Hamburger News yet — check back soon!</div>
   <div class="picker-panel" id="pickerPanel">
     <div class="picker-drawer" id="pickerDrawer">
+      <div class="picker-drawer-head">
+        <span class="picker-drawer-title">Pick a video</span>
+        <button type="button" class="round-btn" id="pickerCloseBtn" title="Close">&#10005;</button>
+      </div>
       <div class="picker-list" id="pickerList"></div>
     </div>
   </div>
+  <button type="button" class="round-btn picker-toggle-btn" id="pickerToggleBtn" title="Pick a video" hidden><span class="picker-toggle-label">&#9776;</span></button>
   <div class="controls-bar" id="controlsBar" hidden>
     <div class="scrubber" id="scrubber">
       <div class="scrubber-track">
@@ -332,7 +369,6 @@
       <button type="button" class="round-btn" id="muteBtn" title="Unmute"><svg class="mute-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16.5 12c0-1.77-.77-3.29-2-4.31v2.6l2 2c0-.1 0-.19 0-.29zm2.5 0c0 .91-.19 1.77-.51 2.55l1.47 1.47C20.63 14.86 21 13.48 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H4v6h4l5 5v-6.73l4.25 4.25c-.67.53-1.42.94-2.25 1.19v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg></button>
       <button type="button" class="round-btn" id="playBtn" title="Pause">&#10074;&#10074;</button>
       <div class="now-playing-title" id="nowPlayingTitle"></div>
-      <button type="button" class="round-btn picker-toggle-btn" id="pickerToggleBtn" title="Pick a video" aria-expanded="false" hidden><span class="picker-toggle-label">&#9776;</span></button>
       <button type="button" class="round-btn" id="nextBtn" title="Next episode" hidden><span class="next-btn-label">&#9654;&#9654;</span></button>
     </div>
   </div>
@@ -385,6 +421,7 @@
   const pickerDrawerEl = document.getElementById('pickerDrawer');
   const pickerListEl = document.getElementById('pickerList');
   const pickerToggleBtn = document.getElementById('pickerToggleBtn');
+  const pickerCloseBtn = document.getElementById('pickerCloseBtn');
   const scrubberEl = document.getElementById('scrubber');
   const scrubberFillEl = document.getElementById('scrubberFill');
 
@@ -419,7 +456,7 @@
     stageEl.addEventListener('mouseleave', () => hideControlsNow());
   } else {
     stageEl.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.controls-bar, .picker-panel')) { showControls(true); return; }
+      if (e.target.closest('.controls-bar, .picker-panel, .picker-toggle-btn')) { showControls(true); return; }
       if (stageEl.classList.contains('controls-visible')) hideControlsNow();
       else showControls(true);
     }, { passive: true });
@@ -454,10 +491,17 @@
     const v = videos[activeIndex];
     nowPlayingTitleEl.textContent = v ? (v.title || 'Untitled') : '';
     nextBtn.hidden = videos.length < 2;
-    pickerToggleBtn.hidden = videos.length < 2; // nothing to pick between with 0 or 1 video
+    updatePickerToggleVisibility();
     pickerListEl.querySelectorAll('.picker-item').forEach((el) => {
       el.classList.toggle('active', parseInt(el.dataset.index, 10) === activeIndex);
     });
+  }
+
+  // Nothing to pick between with 0 or 1 video, and hidden outright
+  // while the drawer's already open (see togglePicker) — the close
+  // button inside the drawer is the only dismiss control at that point.
+  function updatePickerToggleVisibility() {
+    pickerToggleBtn.hidden = videos.length < 2 || pickerOpen;
   }
 
   // ---------- VIDEO PICKER DRAWER ----------
@@ -473,7 +517,7 @@
   function togglePicker(open) {
     pickerOpen = open;
     pickerPanelEl.classList.toggle('open', open);
-    pickerToggleBtn.setAttribute('aria-expanded', String(open));
+    updatePickerToggleVisibility();
     if (open) {
       showControls(false); // stays up alongside the open drawer, no auto-hide fighting it
     } else {
@@ -487,7 +531,8 @@
     }
   }
 
-  pickerToggleBtn.addEventListener('click', () => togglePicker(!pickerOpen));
+  pickerToggleBtn.addEventListener('click', () => togglePicker(true));
+  pickerCloseBtn.addEventListener('click', () => togglePicker(false));
 
   pickerListEl.addEventListener('click', (e) => {
     const item = e.target.closest('.picker-item');
