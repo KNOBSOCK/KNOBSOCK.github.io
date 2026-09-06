@@ -22,6 +22,17 @@
     background: #3a0a0a;
     font-family: Tahoma, Arial, sans-serif;
     overflow: hidden;
+    /* Belt to overflow:hidden's suspenders — that alone stops the page
+       from having anywhere TO scroll, but doesn't stop scroll CHAINING:
+       once #messages' own scroll hits its top/bottom, the browser's
+       default is to hand the leftover wheel/trackpad momentum up to the
+       next scrollable ancestor, which shows up here as a rubber-band
+       bounce that reads as "the page tried to scroll" even though
+       overflow:hidden snaps it back. overscroll-behavior stops that
+       handoff at the source instead (see #messages' own matching rule
+       below) — this half just makes sure nothing bounces at the very
+       top of the chain either, belt-and-suspenders. */
+    overscroll-behavior: none;
   }
 
   body {
@@ -84,6 +95,12 @@
     gap: 10px;
     padding: 16px;
     overflow-y: auto;
+    /* Stops scroll chaining at this box's own top/bottom edge instead of
+       handing leftover wheel/trackpad momentum up to html/body — see
+       their own matching comment above for why overflow:hidden there
+       alone isn't enough to prevent that handoff from ever being
+       attempted in the first place. */
+    overscroll-behavior: contain;
   }
 
   .msg {
