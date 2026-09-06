@@ -1031,6 +1031,16 @@
     font-size: clamp(7px, 2.4cqmin, 9px);
     font-weight: 700;
   }
+  /* Replaces the old beer emoji glyph — cropped to a circle via
+     object-fit so it reads as a badge inside the round button rather
+     than a square photo pasted on top of it. */
+  .tapin-btn-icon {
+    width: 82%;
+    height: 82%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+  }
 
   /* Auth screen now fills the whole chat card and centers its content,
      since the top tab/header bar has been removed on this screen. */
@@ -2373,7 +2383,7 @@
     return m + ':' + String(s).padStart(2, '0');
   }
 
-  const TAPIN_EMOJI = '\u{1F37A}'; // matches the &#127866; the button starts with in the template above
+  const TAPIN_ICON_HTML = '<img class="tapin-btn-icon" src="/tapin-cheers.png" alt="">'; // matches the img the button starts with in the template above
 
   // "YYYY-MM-DD" in UTC. A fixed reference point every visitor's streak
   // agrees on, rather than each browser's own local midnight — otherwise
@@ -2493,7 +2503,7 @@
       btn.classList.remove('on-cooldown');
       btn.style.removeProperty('--tapin-frac');
       if (label) {
-        label.textContent = TAPIN_EMOJI;
+        label.innerHTML = TAPIN_ICON_HTML;
         label.classList.remove('is-countdown');
       }
     }
@@ -2829,7 +2839,7 @@
           <div class="composer-status">
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
-              <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel">&#127866;</span></button>
+              <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel"><img class="tapin-btn-icon" src="/tapin-cheers.png" alt=""></span></button>
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
             </div>
           </div>
