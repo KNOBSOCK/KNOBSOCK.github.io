@@ -283,11 +283,14 @@
   .vods-tab:hover {
     background: var(--accent-dim);
   }
-  /* Same red as the "N watching" text this is meant to look like an
-     extension of, rather than the plain white used inside the chat. */
+  /* Plain white — the accent red this used to be (matching the "N
+     watching" text it was meant to look like an extension of) reads as
+     low-contrast now that VODS became the longer "Past Streams," a
+     wordier label thin red-on-dark-red text is harder to read at a
+     glance than a short all-caps acronym was. */
   .vods-tab-label,
   .vods-tab-chevron {
-    color: var(--accent);
+    color: var(--text);
   }
   .vods-tab-chevron {
     display: inline-block;
@@ -458,7 +461,9 @@
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.08em;
-      color: var(--accent);
+      /* Plain white — see .vods-tab-label's own comment on why this
+         moved off --accent now that the label reads "Past Streams". */
+      color: var(--text);
     }
     .layout.vods-open .stream-stats-chevron { transform: rotate(180deg); }
     .vods-tab { display: none; }
@@ -1176,10 +1181,24 @@
     flex: none;
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    /* visibility is the belt to max-height's suspenders: collapsing
+       purely via max-height:0 + overflow:hidden is enough on its own by
+       spec, but some mobile browsers (Safari especially) can leave a
+       stale painted sliver of the collapsed bar's own border on screen
+       — its geometry is genuinely 0-height, this is a compositor paint
+       bug, not a layout one. Delaying visibility's own transition until
+       AFTER max-height finishes collapsing (see .is-visible below) means
+       it only ever switches to hidden once nothing is left animating,
+       which forces exactly the repaint that clears the stale pixels —
+       while switching to visible immediately (0 delay) the instant
+       .is-visible is added, so it never holds up the reveal. */
+    visibility: hidden;
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
   }
   .streak-bar-wrap.is-visible {
     max-height: 140px;
+    visibility: visible;
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
   }
   .streak-bar {
     display: flex;
