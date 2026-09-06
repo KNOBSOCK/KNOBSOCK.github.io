@@ -315,8 +315,13 @@
   .vods-panel.open .vods-drawer {
     max-height: min(70cqh, 460px);
   }
-  /* Desktop doesn't need this — the tab itself is labelled there. The
-     mobile nub has no room for a label, so the heading carries it. */
+  /* Unused on both breakpoints now — desktop's own .vods-tab is already
+     labelled, and mobile's handle (.stream-stats-vods, the "Past
+     Streams ▼" bar the video's watching-count bar became) is too, so a
+     second "Past Streams" repeated immediately below it once the drawer
+     opens is just noise. Kept in the DOM/CSS rather than deleted since
+     display:none costs nothing and this could still earn its keep again
+     if the handle ever goes back to being unlabeled. */
   .vods-heading {
     display: none;
     flex: none;
@@ -509,7 +514,6 @@
     }
     .vods-tab-chevron { font-size: 10px; }
     .vods-tab-label { display: none; }
-    .vods-heading { display: block; }
     /* Covers essentially the whole chat pane when open, like the mock-up */
     .vods-panel.open .vods-drawer {
       max-height: min(88cqh, 560px);
