@@ -81,24 +81,178 @@
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* ---------- LOGIN ----------
+     Gates this whole page behind the same Firebase Authentication used
+     by admin.html — this now writes (the live/offline toggle below), not
+     just reads, so it needs the same admin-only check the deployed
+     Firestore rules already put on chat_config writes. Recolored to this
+     page's own maroon instead of admin.html's dark-blue theme so it
+     still reads as part of this widget rather than a copy-pasted admin
+     panel, but otherwise the same structure/behavior. */
+  .login-wrap {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-wrap[hidden] { display: none; }
+  .login-card {
+    width: 100%;
+    max-width: 320px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 180, 150, 0.35);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .login-card h1 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    color: #fff;
+  }
+  .login-card p.sub {
+    margin: 0 0 18px;
+    color: #f5c9c9;
+    font-size: 12px;
+  }
+  .field-label {
+    display: block;
+    font-size: 11px;
+    color: #f5c9c9;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 12px 0 6px;
+  }
+  .field-label:first-of-type { margin-top: 0; }
+  input[type="email"], input[type="password"], input[type="text"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 180, 150, 0.35);
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  input[type="email"]:focus, input[type="password"]:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: #cd3232;
+  }
+  .btn {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 1px solid rgba(255, 180, 150, 0.35);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: #cd3232; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn-primary { background: #cd3232; border-color: #cd3232; }
+  .btn-primary:hover { background: #e04747; }
+  .login-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
+  .error-text { color: #ffb3b3; font-size: 12px; margin-top: 10px; min-height: 14px; }
+
+  /* ---------- LIVE STATUS BAR ----------
+     Same Go Live/Go Offline control as admin.html's Live tab, just here
+     too so whoever's actually watching this OBS reference view doesn't
+     have to alt-tab to admin.html to flip it the moment a stream ends. */
+  #statusBar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px 0;
+  }
+  #liveStatusLabel {
+    flex: 1 1 auto;
+    font-weight: 700;
+    font-size: 15px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+  #signOutBtn {
+    background: none;
+    border: none;
+    color: #f5c9c9;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px 0;
+  }
+  #signOutBtn:hover { color: #fff; }
+
+  /* Same "paste the YouTube live link" control as admin.html's Live tab,
+     next to the Go Live/Offline button above it for the same reason —
+     no alt-tabbing to admin.html mid-stream just to swap the link. */
+  #liveVideoRow {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px 0;
+  }
+  #liveVideoStatus {
+    flex: 0 0 auto;
+    padding: 4px 16px 0;
+    font-size: 12px;
+    min-height: 16px;
+    color: #f5c9c9;
+  }
 </style>
 </head>
 <body>
 
-<div id="viewerBar">
-  <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-  <span id="viewerCount">0</span>&nbsp;watching
+<!-- ---------- LOGIN ---------- -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <h1>KNOBSOCK Chat Monitor</h1>
+    <p class="sub">Sign in with the same admin account used across the site.</p>
+    <label class="field-label" for="loginEmail">Email</label>
+    <input type="email" id="loginEmail" autocomplete="username">
+    <label class="field-label" for="loginPass">Password</label>
+    <input type="password" id="loginPass" autocomplete="current-password">
+    <div class="login-actions">
+      <button type="button" class="btn btn-primary" id="loginSubmit">Sign In</button>
+    </div>
+    <div class="error-text" id="loginError"></div>
+  </div>
 </div>
-<div id="messages"></div>
+
+<!-- ---------- APP ---------- -->
+<div id="app" hidden>
+  <div id="statusBar">
+    <div id="liveStatusLabel"></div>
+    <button type="button" class="btn" id="liveStatusToggleBtn">…</button>
+    <button type="button" id="signOutBtn">Sign Out</button>
+  </div>
+  <div id="liveVideoRow">
+    <input type="text" id="liveVideoUrlInput" placeholder="Paste the YouTube live link">
+    <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
+  </div>
+  <div id="liveVideoStatus"></div>
+  <div id="viewerBar">
+    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+    <span id="viewerCount">0</span>&nbsp;watching
+  </div>
+  <div id="messages"></div>
+</div>
 
 <!-- Firebase SDK (compat build, no build tools needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 (function () {
-  // Same public project/config livestream-chat-widget.html uses — this
-  // page only ever reads, same as that widget does with no auth step.
+  // Same public project/config livestream-chat-widget.html uses, plus
+  // the auth step admin.html signs into — this page now writes too (the
+  // live/offline toggle below), gated the same way as everything else
+  // admin-only on this site.
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
     authDomain: "chat-for-website-efee2.firebaseapp.com",
@@ -110,165 +264,303 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  const auth = firebase.auth();
   const messagesRef = db.collection('chat_messages');
   const usernamesRef = db.collection('chat_usernames');
   const configRef = db.collection('chat_config');
+  // Same doc admin.html's Live tab reads/writes — see its own comments
+  // on chat_config/liveVideo for the schema (missing/true isLive = live,
+  // explicit false = offline).
+  const CHAT_LIVE_VIDEO_REF = configRef.doc('liveVideo');
 
-  const MAX_VISIBLE = 50;     // how many recent messages stay scrollable — higher than the on-stream
-                               // overlay's since this is a private view meant to actually be read
-  const FETCH_LIMIT = 120;    // overfetch so filtering out join-events doesn't starve MAX_VISIBLE
+  // ---------- LOGIN ----------
+  // Same Firebase Auth project/account as admin.html, wired up the same
+  // way: loginWrap/app visibility is driven entirely by
+  // onAuthStateChanged, and nothing below that actually reads or writes
+  // Firestore (startMonitor) runs until it fires with a signed-in user.
+  // Firestore rules, not this check, are the real enforcement — same as
+  // everywhere else on this site — but this page has no reason to even
+  // attempt those reads before someone's actually signed in.
+  const loginWrap = document.getElementById('loginWrap');
+  const appEl = document.getElementById('app');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPass = document.getElementById('loginPass');
+  const loginSubmit = document.getElementById('loginSubmit');
+  const loginError = document.getElementById('loginError');
 
-  // ---------- censorship (mirrors livestream-chat-widget.html) ----------
-  const DEFAULT_CENSORED_WORDS = [
-    'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
-    'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
-    'towelhead', 'raghead', 'cunt'
-  ];
-  function buildCensorRegex(word) {
-    const subs = {
-      a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
-      s: '[s$5]', g: '[g9]', t: '[t7]'
-    };
-    const pattern = word.split('').map(ch => subs[ch] || ch).join('[\\W_]*');
-    return new RegExp('\\b' + pattern + '\\b', 'gi');
-  }
-  let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
-  configRef.doc('censoredWords').onSnapshot((doc) => {
-    const data = doc.exists ? doc.data() : null;
-    const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
-    CENSOR_REGEXES = words.map(buildCensorRegex);
-  }, () => {}); // offline/blocked read just keeps whatever list is already loaded
-  function censorText(text) {
-    let result = text;
-    CENSOR_REGEXES.forEach(re => {
-      result = result.replace(re, match => '*'.repeat(match.length));
-    });
-    return result;
-  }
-
-  function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
-
-  // ---------- username colors (same hash-based scheme as the live chat) ----------
-  function hashHue(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-    return hash % 360;
-  }
-  function hslToHex(h, s, l) {
-    s /= 100; l /= 100;
-    const k = n => (n + h / 30) % 12;
-    const a = s * Math.min(l, 1 - l);
-    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-    const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
-    return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
-  }
-  function defaultColorFor(username) {
-    return hslToHex(hashHue(username.toLowerCase()), 70, 72);
-  }
-  const usernameColorCache = {};
-  function colorForUsername(username, onResolved) {
-    const key = username.toLowerCase();
-    if (usernameColorCache[key] && usernameColorCache[key] !== 'pending') {
-      return usernameColorCache[key];
+  async function handleLogin() {
+    const email = loginEmail.value.trim();
+    const pass = loginPass.value;
+    if (!email || !pass) {
+      loginError.textContent = 'Enter an email and password.';
+      return;
     }
-    if (!usernameColorCache[key]) {
-      usernameColorCache[key] = 'pending';
-      usernamesRef.doc(key).get().then((doc) => {
-        const data = doc.exists ? doc.data() : null;
-        usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
-        if (onResolved) onResolved();
-      }).catch(() => {
-        usernameColorCache[key] = defaultColorFor(username);
-        if (onResolved) onResolved();
+    loginSubmit.disabled = true;
+    loginSubmit.textContent = 'Checking…';
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } catch (err) {
+      loginError.textContent = 'Sign-in failed: ' + (err && err.message ? err.message : 'unknown error');
+    } finally {
+      loginSubmit.disabled = false;
+      loginSubmit.textContent = 'Sign In';
+    }
+  }
+  loginSubmit.addEventListener('click', handleLogin);
+  loginPass.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleLogin(); });
+
+  document.getElementById('signOutBtn').addEventListener('click', function () {
+    auth.signOut();
+  });
+
+  let monitorStarted = false;
+  auth.onAuthStateChanged(function (user) {
+    if (user) {
+      loginWrap.hidden = true;
+      appEl.hidden = false;
+      loginError.textContent = '';
+      loginPass.value = '';
+      if (!monitorStarted) {
+        monitorStarted = true;
+        startMonitor();
+      }
+    } else {
+      loginWrap.hidden = false;
+      appEl.hidden = true;
+    }
+  });
+
+  function startMonitor() {
+    const MAX_VISIBLE = 50;     // how many recent messages stay scrollable — higher than the on-stream
+                                 // overlay's since this is a private view meant to actually be read
+    const FETCH_LIMIT = 120;    // overfetch so filtering out join-events doesn't starve MAX_VISIBLE
+
+    // ---------- censorship (mirrors livestream-chat-widget.html) ----------
+    const DEFAULT_CENSORED_WORDS = [
+      'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
+      'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
+      'towelhead', 'raghead', 'cunt'
+    ];
+    function buildCensorRegex(word) {
+      const subs = {
+        a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
+        s: '[s$5]', g: '[g9]', t: '[t7]'
+      };
+      const pattern = word.split('').map(ch => subs[ch] || ch).join('[\\W_]*');
+      return new RegExp('\\b' + pattern + '\\b', 'gi');
+    }
+    let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+    configRef.doc('censoredWords').onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
+      CENSOR_REGEXES = words.map(buildCensorRegex);
+    }, () => {}); // offline/blocked read just keeps whatever list is already loaded
+    function censorText(text) {
+      let result = text;
+      CENSOR_REGEXES.forEach(re => {
+        result = result.replace(re, match => '*'.repeat(match.length));
       });
+      return result;
     }
-    return defaultColorFor(username); // shown immediately; onResolved repaints if a custom pick exists
-  }
 
-  // ---------- render ----------
-  const container = document.getElementById('messages');
-  let lastMsgs = [];
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
 
-  function render(msgs) {
-    lastMsgs = msgs;
-    // Only auto-follow to the newest message if you were already at (or
-    // very near) the bottom — otherwise a new message arriving while
-    // you're scrolled up reading history would keep yanking you back
-    // down to the live edge.
-    const wasNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 40;
-    container.innerHTML = msgs.map(m => {
-      const color = colorForUsername(m.username, () => render(lastMsgs));
-      return '<div class="msg">' +
-        '<span class="msg-name" style="color:' + color + '">' + escapeHtml(m.username) + ':</span> ' +
-        '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
-        '</div>';
-    }).join('');
-    if (wasNearBottom) container.scrollTop = container.scrollHeight;
-  }
+    // ---------- username colors (same hash-based scheme as the live chat) ----------
+    function hashHue(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+      return hash % 360;
+    }
+    function hslToHex(h, s, l) {
+      s /= 100; l /= 100;
+      const k = n => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+      return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+    }
+    function defaultColorFor(username) {
+      return hslToHex(hashHue(username.toLowerCase()), 70, 72);
+    }
+    const usernameColorCache = {};
+    function colorForUsername(username, onResolved) {
+      const key = username.toLowerCase();
+      if (usernameColorCache[key] && usernameColorCache[key] !== 'pending') {
+        return usernameColorCache[key];
+      }
+      if (!usernameColorCache[key]) {
+        usernameColorCache[key] = 'pending';
+        usernamesRef.doc(key).get().then((doc) => {
+          const data = doc.exists ? doc.data() : null;
+          usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
+          if (onResolved) onResolved();
+        }).catch(() => {
+          usernameColorCache[key] = defaultColorFor(username);
+          if (onResolved) onResolved();
+        });
+      }
+      return defaultColorFor(username); // shown immediately; onResolved repaints if a custom pick exists
+    }
 
-  // ---------- live query (mirrors chat_config/clear cutoff) ----------
-  let clearedAt = 0;
-  let unsubscribeMessages = null;
+    // ---------- render ----------
+    const container = document.getElementById('messages');
+    let lastMsgs = [];
 
-  function subscribeToMessages() {
-    if (unsubscribeMessages) unsubscribeMessages();
-    let query = messagesRef.orderBy('ts', 'asc');
-    if (clearedAt) query = query.where('ts', '>', clearedAt);
-    unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
-      (snapshot) => {
-        const msgs = snapshot.docs.map(doc => doc.data())
-          .filter(m => m.type !== 'join')
-          .slice(-MAX_VISIBLE);
-        render(msgs);
-      },
-      // This is a private reference view, not something the audience
-      // sees — still shouldn't flash an error banner in place of chat,
-      // just log it and leave whatever was last showing in place.
-      (err) => console.error(err)
-    );
-  }
+    function render(msgs) {
+      lastMsgs = msgs;
+      // Only auto-follow to the newest message if you were already at (or
+      // very near) the bottom — otherwise a new message arriving while
+      // you're scrolled up reading history would keep yanking you back
+      // down to the live edge.
+      const wasNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 40;
+      container.innerHTML = msgs.map(m => {
+        const color = colorForUsername(m.username, () => render(lastMsgs));
+        return '<div class="msg">' +
+          '<span class="msg-name" style="color:' + color + '">' + escapeHtml(m.username) + ':</span> ' +
+          '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
+          '</div>';
+      }).join('');
+      if (wasNearBottom) container.scrollTop = container.scrollHeight;
+    }
 
-  configRef.doc('clear').onSnapshot((doc) => {
-    const data = doc.exists ? doc.data() : null;
-    clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
-    subscribeToMessages();
-  }, () => subscribeToMessages());
+    // ---------- live query (mirrors chat_config/clear cutoff) ----------
+    let clearedAt = 0;
+    let unsubscribeMessages = null;
 
-  // ---------- VIEWER COUNT (read-only) ----------
-  // Same presence system livestream-chat-widget.html's on-page "watching
-  // now" badge uses (chat_presence docs, each a heartbeat from one open
-  // tab), just never writing a heartbeat of its own here — this page is
-  // your own private OBS reference view, not a real viewer, so counting
-  // itself would inflate the number by one for as long as it stays open.
-  // recomputeActiveCount also runs on a timer, not just on new snapshots,
-  // since a doc can go stale purely from time passing with no new write.
-  const ACTIVE_WINDOW_MS = 40000; // matches livestream-chat-widget.html's presence window
-  let presenceById = {};
+    function subscribeToMessages() {
+      if (unsubscribeMessages) unsubscribeMessages();
+      let query = messagesRef.orderBy('ts', 'asc');
+      if (clearedAt) query = query.where('ts', '>', clearedAt);
+      unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
+        (snapshot) => {
+          const msgs = snapshot.docs.map(doc => doc.data())
+            .filter(m => m.type !== 'join')
+            .slice(-MAX_VISIBLE);
+          render(msgs);
+        },
+        // This is a private reference view, not something the audience
+        // sees — still shouldn't flash an error banner in place of chat,
+        // just log it and leave whatever was last showing in place.
+        (err) => console.error(err)
+      );
+    }
 
-  function recomputeActiveCount() {
-    const now = Date.now();
-    let count = 0;
-    Object.keys(presenceById).forEach((id) => {
-      if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
+    configRef.doc('clear').onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+      subscribeToMessages();
+    }, () => subscribeToMessages());
+
+    // ---------- VIEWER COUNT (read-only) ----------
+    // Same presence system livestream-chat-widget.html's on-page "watching
+    // now" badge uses (chat_presence docs, each a heartbeat from one open
+    // tab), just never writing a heartbeat of its own here — this page is
+    // your own private OBS reference view, not a real viewer, so counting
+    // itself would inflate the number by one for as long as it stays open.
+    // recomputeActiveCount also runs on a timer, not just on new snapshots,
+    // since a doc can go stale purely from time passing with no new write.
+    const ACTIVE_WINDOW_MS = 40000; // matches livestream-chat-widget.html's presence window
+    let presenceById = {};
+
+    function recomputeActiveCount() {
+      const now = Date.now();
+      let count = 0;
+      Object.keys(presenceById).forEach((id) => {
+        if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
+      });
+      document.getElementById('viewerCount').textContent = count;
+    }
+
+    db.collection('chat_presence').onSnapshot((snapshot) => {
+      const next = {};
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        next[doc.id] = (data && typeof data.lastSeen === 'number') ? data.lastSeen : 0;
+      });
+      presenceById = next;
+      recomputeActiveCount();
+    }, (err) => console.error(err));
+
+    setInterval(recomputeActiveCount, 5000);
+
+    // ---------- LIVE STATUS TOGGLE + YOUTUBE LINK ----------
+    // Same doc/logic as admin.html's Live tab (see CHAT_LIVE_VIDEO_REF
+    // above) — reading and writing the exact same chat_config/liveVideo
+    // doc, so toggling/saving here is indistinguishable from doing it
+    // there; whichever page did it last wins, same as two tabs of
+    // admin.html itself would behave.
+    function extractVideoId(input) {
+      if (!input) return null;
+      const trimmed = input.trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+      const m = trimmed.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    let currentLiveStatus = true; // corrected by the listener below before it matters
+
+    function renderLiveStatusToggle() {
+      const label = document.getElementById('liveStatusLabel');
+      const btn = document.getElementById('liveStatusToggleBtn');
+      if (!label || !btn) return;
+      label.textContent = currentLiveStatus ? 'Status: Live' : 'Status: Offline';
+      label.style.color = currentLiveStatus ? '#fff' : '#f5c9c9';
+      btn.textContent = currentLiveStatus ? 'Go Offline' : 'Go Live';
+      btn.classList.toggle('btn-primary', !currentLiveStatus);
+    }
+
+    // Only ever prefilled from the *first* snapshot — same reasoning as
+    // admin.html's own liveVideoUrlPrefilled flag: live-updating this
+    // field on every snapshot would risk overwriting whatever's mid-edit
+    // in the input the instant anything else about this doc changes
+    // (the status toggle included).
+    let liveVideoUrlPrefilled = false;
+
+    CHAT_LIVE_VIDEO_REF.onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      currentLiveStatus = !(data && data.isLive === false); // missing/true = live
+      renderLiveStatusToggle();
+
+      if (!liveVideoUrlPrefilled) {
+        liveVideoUrlPrefilled = true;
+        const input = document.getElementById('liveVideoUrlInput');
+        if (input && data && data.videoId) {
+          input.value = 'https://www.youtube.com/watch?v=' + data.videoId;
+        }
+      }
+    }, () => {});
+
+    document.getElementById('liveStatusToggleBtn').addEventListener('click', () => {
+      CHAT_LIVE_VIDEO_REF.set({ isLive: !currentLiveStatus }, { merge: true })
+        .catch((err) => alert('Failed to update live status: ' + err.message));
     });
-    document.getElementById('viewerCount').textContent = count;
-  }
 
-  db.collection('chat_presence').onSnapshot((snapshot) => {
-    const next = {};
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      next[doc.id] = (data && typeof data.lastSeen === 'number') ? data.lastSeen : 0;
+    document.getElementById('saveLiveVideoBtn').addEventListener('click', () => {
+      const input = document.getElementById('liveVideoUrlInput');
+      const statusEl = document.getElementById('liveVideoStatus');
+      const id = extractVideoId(input.value);
+      if (!id) {
+        statusEl.textContent = "That doesn't look like a valid YouTube link.";
+        statusEl.style.color = '#ffb3b3';
+        return;
+      }
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = '#f5c9c9';
+      CHAT_LIVE_VIDEO_REF.set({ videoId: id }, { merge: true }).then(() => {
+        input.value = 'https://www.youtube.com/watch?v=' + id;
+        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes live.html.';
+        statusEl.style.color = '#fff';
+      }).catch((err) => {
+        statusEl.textContent = 'Save failed: ' + err.message;
+        statusEl.style.color = '#ffb3b3';
+      });
     });
-    presenceById = next;
-    recomputeActiveCount();
-  }, (err) => console.error(err));
 
-  setInterval(recomputeActiveCount, 5000);
+  }
 })();
 </script>
 
