@@ -716,7 +716,7 @@
         <div class="card-head">
           <h2>Video List</h2>
           <div class="footer-actions">
-            <button type="button" class="btn" id="videosSortDateBtn">Sort by Date Added</button>
+            <button type="button" class="btn" id="videosSortDateBtn">Sort by Upload Date</button>
             <button type="button" class="btn" id="videosAddBtn">+ Add Video</button>
           </div>
         </div>
@@ -744,7 +744,7 @@
         <div class="card-head">
           <h2>Track List</h2>
           <div class="footer-actions">
-            <button type="button" class="btn" id="musicSortDateBtn">Sort by Date Added</button>
+            <button type="button" class="btn" id="musicSortDateBtn">Sort by Upload Date</button>
             <button type="button" class="btn" id="musicAddBtn">+ Add Track</button>
           </div>
         </div>
@@ -1015,6 +1015,16 @@
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const MUSIC_DOC_REF = db.collection('playlist').doc('music');
   const PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
+
+  // Used by createPlaylistEditor's fetchAllPublishedDates below to look
+  // up each video's REAL YouTube upload date (videos.list?part=snippet),
+  // since oEmbed — everything else here uses that instead, no key
+  // needed — doesn't expose it at all. Only ever called from this
+  // admin-only, signed-in page, never from a public-facing widget, so
+  // usage stays low; still, this key should be restricted in Google
+  // Cloud Console to this site's origin and to the YouTube Data API v3
+  // specifically, the same way any client-side API key should be.
+  const YOUTUBE_API_KEY = 'AIzaSyCJr6Ho2v6Cgjnm2WQMXgwrHqtDKPZNSlk';
 
   // Same collections livestream-chat-widget.html itself reads/writes —
   // see that file's own comments for the full schema. This page only
@@ -1437,6 +1447,51 @@
       draftList.forEach(function (v) { if (!v.author) fetchAuthorFor(v); });
     }
 
+    // Batches every item still missing a publishedAt into as few
+    // videos.list calls as the API allows (up to 50 ids each) rather
+    // than one request per video — costs the same 1 quota unit per
+    // call regardless of how many ids ride along, so this is the
+    // difference between (say) 3 calls and 120 for a full reload.
+    // Keyed by video id (not list index) so a duplicate id anywhere in
+    // the list, or a row whose url changed between the request going
+    // out and coming back, still lands on every matching row.
+    function fetchPublishedDatesFor(items) {
+      const idToItems = new Map();
+      items.forEach(function (item) {
+        const id = extractVideoId(item.url);
+        if (!id) return;
+        if (!idToItems.has(id)) idToItems.set(id, []);
+        idToItems.get(id).push(item);
+      });
+      const ids = Array.from(idToItems.keys());
+      if (!ids.length) return;
+
+      const batches = [];
+      for (let i = 0; i < ids.length; i += 50) batches.push(ids.slice(i, i + 50));
+
+      batches.forEach(function (batchIds) {
+        const url = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' +
+          batchIds.join(',') + '&key=' + YOUTUBE_API_KEY;
+        fetch(url)
+          .then(function (res) { if (!res.ok) throw new Error('YouTube API HTTP ' + res.status); return res.json(); })
+          .then(function (data) {
+            (data.items || []).forEach(function (video) {
+              const publishedAt = video.snippet && video.snippet.publishedAt
+                ? Date.parse(video.snippet.publishedAt) : 0;
+              (idToItems.get(video.id) || []).forEach(function (item) {
+                item.publishedAt = publishedAt || 0;
+              });
+            });
+            renderList();
+          })
+          .catch(function (err) { console.error('Fetching YouTube upload dates failed:', err); });
+      });
+    }
+
+    function fetchAllPublishedDates() {
+      fetchPublishedDatesFor(draftList.filter(function (v) { return !v.publishedAt; }));
+    }
+
     function renderList() {
       if (!draftList.length) {
         opts.listRoot.innerHTML = '<div class="empty-state">No ' + opts.plural + ' yet. Add one below.</div>';
@@ -1475,7 +1530,9 @@
             if (id && id !== item._lastFetchedId) {
               item._lastFetchedId = id;
               item.author = null;
+              item.publishedAt = 0;
               fetchAuthorFor(item);
+              fetchPublishedDatesFor([item]);
             }
           }, 400);
         });
@@ -1569,19 +1626,23 @@
     }
 
     opts.addBtn.addEventListener('click', function () {
-      draftList.unshift({ url: '', title: '', addedAt: Date.now(), author: null, album: '' });
+      draftList.unshift({ url: '', title: '', addedAt: Date.now(), publishedAt: 0, author: null, album: '' });
       renderList();
     });
 
+    // Unresolved (still-fetching, or a blank/invalid row) publishedAt is
+    // 0 either way, so those naturally sort last rather than needing
+    // their own branch — same treatment "Unknown" author gets elsewhere.
     opts.sortDateBtn.addEventListener('click', function () {
-      draftList.sort(function (a, b) { return (b.addedAt || 0) - (a.addedAt || 0); });
+      draftList.sort(function (a, b) { return (b.publishedAt || 0) - (a.publishedAt || 0); });
       renderList();
     });
 
     opts.resetBtn.addEventListener('click', function () {
-      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, author: null, album: '' }; });
+      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, publishedAt: 0, author: null, album: '' }; });
       renderList();
       fetchAllAuthors();
+      fetchAllPublishedDates();
       if (opts.albumsRoot) {
         draftAlbums = buildDraftAlbums();
         renderAlbums();
@@ -1593,7 +1654,7 @@
     opts.saveBtn.addEventListener('click', function () {
       const cleaned = draftList
         .map(function (v) {
-          const item = { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now() };
+          const item = { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now(), publishedAt: v.publishedAt || 0 };
           if (opts.showAlbums) item.album = (v.album || '').trim();
           return item;
         })
@@ -1648,7 +1709,7 @@
         const data = doc.data();
         const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : opts.defaultList;
         draftList = list.map(function (v) {
-          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, author: null, album: v.album || '' };
+          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, publishedAt: v.publishedAt || 0, author: null, album: v.album || '' };
         });
         creatorAliases = (data && data.creatorAliases) || {};
         creatorOrder = (data && data.creatorOrder) || [];
@@ -1657,6 +1718,7 @@
         renderList();
         renderCreators();
         fetchAllAuthors();
+        fetchAllPublishedDates();
         if (opts.albumsRoot) {
           albumOrder = (data && data.albumOrder) || [];
           draftAlbums = buildDraftAlbums();

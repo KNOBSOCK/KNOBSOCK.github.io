@@ -752,7 +752,14 @@ function buildPlaylist(list, previousPlaylist) {
       return {
         id,
         title: manualTitle || (prev ? prev.title : null),
-        author: prev ? prev.author : null
+        author: prev ? prev.author : null,
+        // Admin-fetched (see admin.html's fetchPublishedDatesFor) real
+        // YouTube upload date, not when this entry was added to the
+        // list — orderVisibleForAll below sorts "All" by this. Read
+        // straight off the stored doc, unlike title/author: this is
+        // static per video, so there's nothing for the widget itself to
+        // resolve or keep fresh here.
+        publishedAt: v.publishedAt || 0
       };
     })
     .filter(Boolean);
@@ -897,12 +904,20 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   }
 
   // Groups "All" itself by creator instead of leaving it flat — every
-  // video from one creator becomes one contiguous run, ordered by the
-  // same admin-set creatorOrder the chin's own chips already use (see
-  // music-playlist-widget.html's identical orderVisibleForAll for the
-  // full reasoning). An unresolved author (still being fetched) always
-  // sorts last, same treatment "Unknown" gets. Within a group, videos
-  // keep their original "All" order — this only re-clusters them.
+  // video from one creator becomes one contiguous run — but which
+  // creator's run comes first is now whoever has the single most
+  // recently uploaded video (real YouTube upload date, see buildPlaylist
+  // above), not admin's manual creatorOrder (that's still what orders
+  // the chin's own chips, just no longer this). Previously the reorder-
+  // by-hand creatorOrder list was doing double duty as both "chip order"
+  // and "All order," which read as backwards the moment a creator who
+  // happened to sit first in that list uploaded something old — they'd
+  // still lead "All" over someone who'd posted five minutes ago. An
+  // unresolved author (still being fetched) always sorts last, same
+  // treatment "Unknown" gets — matches music-playlist-widget.html's own
+  // still-creatorOrder-based version of this function, which this no
+  // longer shares logic with. Within a group, videos keep their
+  // original "All" order — this only re-clusters and re-orders groups.
   function orderVisibleForAll(visible) {
     const groups = [];
     const byAuthor = new Map();
@@ -910,25 +925,23 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       const display = entry.v.author ? resolveAuthorDisplay(entry.v.author) : null;
       let g = byAuthor.get(display);
       if (!g) {
-        g = { display: display, items: [] };
+        g = { display: display, items: [], newest: 0 };
         byAuthor.set(display, g);
         groups.push(g);
       }
       g.items.push(entry);
+      g.newest = Math.max(g.newest, entry.v.publishedAt || 0);
     });
     groups.sort((a, b) => {
       if (a.display === null || b.display === null) {
         if (a.display === b.display) return 0;
         return a.display === null ? 1 : -1;
       }
-      const ia = creatorOrder.indexOf(a.display);
-      const ib = creatorOrder.indexOf(b.display);
-      if (ia !== -1 && ib !== -1) return ia - ib;
-      if (ia !== -1) return -1;
-      if (ib !== -1) return 1;
-      if (a.display === 'Unknown') return 1;
-      if (b.display === 'Unknown') return -1;
-      return a.display.localeCompare(b.display, undefined, { sensitivity: 'base' });
+      if (a.display === 'Unknown' || b.display === 'Unknown') {
+        if (a.display === b.display) return 0;
+        return a.display === 'Unknown' ? 1 : -1;
+      }
+      return b.newest - a.newest;
     });
     return groups.reduce((all, g) => all.concat(g.items), []);
   }
