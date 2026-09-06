@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hamburger News Player</title>
+<style>
+  /* Sits inside the "patty slot" cut into videos/hamburgernews.html's
+     own burger-stack — that page sizes this iframe's box to exactly
+     16:9 and sandwiches it directly between BURGER TOP.PNG and BURGER
+     BOTTOM.PNG (zero gap on either side — both images were exported
+     with their bun art touching that exact edge of their own canvas,
+     confirmed by inspecting each PNG's alpha channel), so nothing here
+     needs to know about the buns at all — it only ever fills its own
+     rectangular box, same contract as every other embedded widget on
+     this site. Mustard/ketchup accent instead of this site's usual
+     per-page palette (blue Videos, gold Music, red Live) — this page
+     earns its own condiment-colored identity. */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: Tahoma, Arial, sans-serif;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+  }
+
+  .stage iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    /* Blocks clicks reaching the embed itself — same reasoning as
+       video-mini-player-widget.html's identical rule: with no way to
+       interact with the raw player, YouTube's own center play/pause
+       flash and hover branding never get a click to react to, so they
+       never appear. Every real control here is a separate element on
+       top, unaffected by this. */
+    pointer-events: none;
+  }
+
+  /* Covers the stage before the first video is ready and again while
+     switching episodes, so a stale frame never shows mid-switch — same
+     pattern as every other player on this site. */
+  .stage-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: #000;
+  }
+  .stage-loading[hidden] { display: none; }
+  .gif-loader { width: min(70px, 25%); height: auto; opacity: 0.4; }
+
+  /* Empty state — no videos saved yet in admin.html's Hamburger News
+     list. Reuses the same dark stage rather than trying to draw its
+     own placeholder patty; the real bun art around this box already
+     carries the theming. */
+  .empty-state {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    color: #ffd479;
+    font-weight: 700;
+    font-size: clamp(13px, 4cqw, 18px);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  }
+  .empty-state[hidden] { display: none; }
+
+  /* Bottom overlay bar — mute/play/next, all in one row. Fades in on
+     hover (desktop) or tap (touch), same auto-hide idiom used by
+     video-mini-player-widget.html and livestream-chat-widget.html's
+     own video controls, so a control never sits permanently over the
+     video once you've stopped interacting with it. */
+  .controls-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: linear-gradient(to top, rgba(20, 8, 0, 0.85), rgba(20, 8, 0, 0));
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .stage.controls-visible .controls-bar { opacity: 1; }
+
+  .round-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    width: clamp(28px, 9cqw, 36px);
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 210, 130, 0.6);
+    background: #c1440e;
+    color: #fff;
+    font-size: clamp(12px, 4cqw, 15px);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .round-btn:hover { background: #e0590f; }
+  .round-btn:active { background: #a3390b; }
+
+  .now-playing-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #ffd479;
+    font-weight: 700;
+    font-size: clamp(11px, 3.2cqw, 14px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Only rendered at all once there's more than one video (see
+     renderControls) — a Next button with nothing to advance to would
+     just be a dead button. */
+  .next-btn-label {
+    font-size: clamp(9px, 2.6cqw, 11px);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div id="ytPlayer"></div>
+  <div class="stage-loading" id="stageLoading">
+    <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
+  </div>
+  <div class="empty-state" id="emptyState" hidden>No Hamburger News yet — check back soon!</div>
+  <div class="controls-bar" id="controlsBar" hidden>
+    <button type="button" class="round-btn" id="muteBtn" title="Unmute">&#128263;</button>
+    <button type="button" class="round-btn" id="playBtn" title="Pause">&#10074;&#10074;</button>
+    <div class="now-playing-title" id="nowPlayingTitle"></div>
+    <button type="button" class="round-btn" id="nextBtn" title="Next episode" hidden><span class="next-btn-label">&#9654;&#9654;</span></button>
+  </div>
+</div>
+
+<!-- ============================================================
+     FIREBASE — same project as every other widget on this site.
+     Read-only: whatever's saved through admin.html's Hamburger News
+     section (its own playlist/hamburgerNews doc, separate from the
+     main Video List's playlist/main) shows up here live.
+     ============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const HAMBURGER_NEWS_DOC_REF = db.collection('playlist').doc('hamburgerNews');
+
+  function extractVideoId(input) {
+    if (!input) return null;
+    const trimmed = input.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    const m = trimmed.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  const stageEl = document.getElementById('stage');
+  const stageLoadingEl = document.getElementById('stageLoading');
+  const emptyStateEl = document.getElementById('emptyState');
+  const controlsBarEl = document.getElementById('controlsBar');
+  const muteBtn = document.getElementById('muteBtn');
+  const playBtn = document.getElementById('playBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const nowPlayingTitleEl = document.getElementById('nowPlayingTitle');
+
+  let videos = [];       // [{id, title}]
+  let activeIndex = 0;
+  let hasLoadedInitialVideo = false;
+
+  function showLoading() { stageLoadingEl.hidden = false; }
+  function hideLoading() { stageLoadingEl.hidden = true; }
+
+  // ---------- Auto-hiding controls (same idiom as video-mini-player-
+  // widget.html/livestream-chat-widget.html: hover keeps them up on a
+  // real mouse, a tap reveals them on touch and auto-hides again, and a
+  // second tap anywhere else on the stage dismisses them early). ----------
+  const CONTROLS_AUTO_HIDE_MS = 3000;
+  const supportsHover = window.matchMedia('(hover: hover)').matches;
+  let hideTimer = null;
+  function showControls(autoHide) {
+    if (!videos.length) return; // nothing to control in the empty state
+    controlsBarEl.hidden = false;
+    stageEl.classList.add('controls-visible');
+    clearTimeout(hideTimer);
+    if (autoHide) hideTimer = setTimeout(() => stageEl.classList.remove('controls-visible'), CONTROLS_AUTO_HIDE_MS);
+  }
+  function hideControlsNow() {
+    clearTimeout(hideTimer);
+    stageEl.classList.remove('controls-visible');
+  }
+  if (supportsHover) {
+    stageEl.addEventListener('mouseenter', () => showControls(false));
+    stageEl.addEventListener('mouseleave', () => hideControlsNow());
+  } else {
+    stageEl.addEventListener('touchstart', (e) => {
+      if (e.target.closest('.controls-bar')) { showControls(true); return; }
+      if (stageEl.classList.contains('controls-visible')) hideControlsNow();
+      else showControls(true);
+    }, { passive: true });
+  }
+
+  // ---------- YouTube IFrame Player API ----------
+  let ytPlayer = null;
+  let ytApiReady = false;
+  let playerReady = false;
+  let pendingVideoId = null;
+
+  function updateMuteBtn() {
+    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
+    const muted = ytPlayer.isMuted();
+    muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+    muteBtn.title = muted ? 'Unmute' : 'Mute';
+  }
+  function updatePlayBtn(isPlaying) {
+    playBtn.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9654;';
+    playBtn.title = isPlaying ? 'Pause' : 'Play';
+  }
+
+  function renderNowPlaying() {
+    const v = videos[activeIndex];
+    nowPlayingTitleEl.textContent = v ? (v.title || 'Untitled') : '';
+    nextBtn.hidden = videos.length < 2;
+  }
+
+  function playIndex(index) {
+    if (!videos.length) return;
+    activeIndex = ((index % videos.length) + videos.length) % videos.length;
+    renderNowPlaying();
+    const id = videos[activeIndex].id;
+    if (ytPlayer && playerReady) {
+      showLoading();
+      ytPlayer.loadVideoById(id);
+    } else if (ytApiReady && !ytPlayer) {
+      createPlayer(id);
+    } else {
+      pendingVideoId = id;
+    }
+  }
+
+  function createPlayer(id) {
+    ytPlayer = new YT.Player('ytPlayer', {
+      videoId: id,
+      playerVars: {
+        autoplay: 1,
+        mute: 1,
+        controls: 0,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1,
+        enablejsapi: 1,
+        iv_load_policy: 3,
+        cc_load_policy: 0
+      },
+      events: {
+        onReady: function () {
+          playerReady = true;
+          updateMuteBtn();
+          updatePlayBtn(true);
+          showControls(true);
+          if (pendingVideoId) {
+            showLoading();
+            ytPlayer.loadVideoById(pendingVideoId);
+            pendingVideoId = null;
+          }
+        },
+        onStateChange: function (e) {
+          if (e.data === YT.PlayerState.PLAYING) { hideLoading(); updatePlayBtn(true); }
+          else if (e.data === YT.PlayerState.BUFFERING) { showLoading(); }
+          else if (e.data === YT.PlayerState.PAUSED) { updatePlayBtn(false); }
+          // Advances to the next episode instead of sitting on YouTube's
+          // own "more videos" end screen — if there's only one video,
+          // this just loops it, matching every other autoplay embed on
+          // this site.
+          if (e.data === YT.PlayerState.ENDED) playIndex(activeIndex + 1);
+        }
+      }
+    });
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    ytApiReady = true;
+    if (pendingVideoId && !ytPlayer) {
+      const id = pendingVideoId;
+      pendingVideoId = null;
+      createPlayer(id);
+    }
+  };
+
+  muteBtn.addEventListener('click', () => {
+    showControls(true);
+    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
+    if (ytPlayer.isMuted()) { ytPlayer.unMute(); ytPlayer.setVolume(100); }
+    else { ytPlayer.mute(); }
+    updateMuteBtn();
+  });
+  playBtn.addEventListener('click', () => {
+    showControls(true);
+    if (!ytPlayer || !playerReady || typeof ytPlayer.getPlayerState !== 'function') return;
+    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
+  });
+  nextBtn.addEventListener('click', () => {
+    showControls(true);
+    playIndex(activeIndex + 1);
+  });
+
+  // ---------- LIVE SYNC FROM FIRESTORE ----------
+  HAMBURGER_NEWS_DOC_REF.onSnapshot(function (doc) {
+    const data = doc.exists ? doc.data() : null;
+    const rawList = (data && Array.isArray(data.videos)) ? data.videos : [];
+    videos = rawList
+      .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled' }))
+      .filter(v => v.id);
+
+    if (!videos.length) {
+      emptyStateEl.hidden = false;
+      controlsBarEl.hidden = true;
+      hideLoading();
+      return;
+    }
+    emptyStateEl.hidden = true;
+
+    // Only auto-load on the very first snapshot — a later edit from
+    // admin.html (reordering, adding a video) shouldn't interrupt
+    // whatever's already playing here.
+    if (!hasLoadedInitialVideo) {
+      hasLoadedInitialVideo = true;
+      showLoading();
+      playIndex(0);
+    } else {
+      renderNowPlaying();
+    }
+  }, function (err) {
+    console.error('Hamburger News playlist sync error:', err);
+    emptyStateEl.hidden = false;
+    emptyStateEl.textContent = 'Could not load videos.';
+  });
+})();
+</script>
+
+<!-- YouTube IFrame Player API — required for controls:0 plus custom
+     mute/play/next controls to work together. -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+</body>
+</html>
