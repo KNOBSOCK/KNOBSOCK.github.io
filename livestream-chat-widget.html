@@ -1196,17 +1196,16 @@
     flex: none;
     max-height: 0;
     overflow: hidden;
-    /* visibility is the belt to max-height's suspenders: collapsing
-       purely via max-height:0 + overflow:hidden is enough on its own by
-       spec, but some mobile browsers (Safari especially) can leave a
-       stale painted sliver of the collapsed bar's own border on screen
-       — its geometry is genuinely 0-height, this is a compositor paint
-       bug, not a layout one. Delaying visibility's own transition until
-       AFTER max-height finishes collapsing (see .is-visible below) means
-       it only ever switches to hidden once nothing is left animating,
-       which forces exactly the repaint that clears the stale pixels —
-       while switching to visible immediately (0 delay) the instant
-       .is-visible is added, so it never holds up the reveal. */
+    /* Same stale-compositor-tile bug as .messages' own translateZ(0)
+       above (see its comment) — not the max-height/visibility choreography
+       this used to blame it on: a delayed visibility switch was still
+       just describing a 0-height, hidden box to the browser, on the
+       assumption that alone would force a clean repaint. It doesn't,
+       reliably, on mobile Safari — the leftover sliver just persisted
+       (confirmed by a follow-up report after that fix shipped). Its own
+       compositing layer is the actual fix; visibility is kept as a
+       harmless second line of defense, not the load-bearing part. */
+    transform: translateZ(0);
     visibility: hidden;
     transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
   }
@@ -2446,7 +2445,15 @@
     clearTimeout(streakBarHideTimer);
     bar.innerHTML = `<span class="streak-bar-mine">\u{1F525} ${streak}-day streak</span>`;
     wrap.classList.add('is-visible');
-    streakBarHideTimer = setTimeout(() => wrap.classList.remove('is-visible'), STREAK_BAR_VISIBLE_MS);
+    streakBarHideTimer = setTimeout(() => {
+      wrap.classList.remove('is-visible');
+      // Forces a synchronous repaint right as the collapse kicks off —
+      // same fix, same reasoning, as renderMessages' own forced-reflow
+      // line (see .messages/.streak-bar-wrap's own comments): mobile
+      // Safari can otherwise leave a stale painted sliver of the bar's
+      // border on screen even once its real geometry is back to 0.
+      void wrap.offsetHeight;
+    }, STREAK_BAR_VISIBLE_MS);
 
     fetchTopStreaks().then((top) => {
       // Stale by the time this resolves — a newer tap-in already replaced
