@@ -302,6 +302,30 @@
     white-space: nowrap;
   }
   .creator-row input[type="text"] { margin-top: 6px; }
+  /* Videos-only (see opts.showCreatorLinks in renderCreators) — a small
+     round preview of whatever's already saved, plus the file picker to
+     replace it. */
+  .creator-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .creator-photo-preview {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  .creator-photo-row input[type="file"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
   .checkbox-label {
     display: flex;
     align-items: center;
@@ -1357,6 +1381,20 @@
     let creatorAliases = {};
     let creatorOrder = [];
     let hiddenCreators = [];
+    // Only meaningful when opts.showCreatorLinks is set (Videos only) —
+    // keyed by displayAs (not raw), same as creatorOrder itself, so the
+    // videos.html picker that reads this back can match a name straight
+    // out of creatorOrder without needing a separate raw-name lookup.
+    let creatorLinks = {};
+    // Same keying/gating as creatorLinks above — a small (resizeImageFile
+    // caps it at 160px on its longest side) JPEG data URL per creator,
+    // stored directly in this doc rather than Firebase Storage. Storage's
+    // own rules aren't deployed yet (see resizeImageFile's own comment
+    // and the Store tab's STORE_LOCAL_MODE flag for the same situation
+    // there), and unlike a shopping cart's product photos, a handful of
+    // small creator thumbnails comfortably fits Firestore's 1MiB document
+    // limit without needing Storage at all.
+    let creatorPhotos = {};
     let draftAlbums = [];
     let albumOrder = [];
     // Only Music passes opts.showAlbums — an id unique to this editor
@@ -1428,7 +1466,14 @@
 
     function buildDraftCreators() {
       const rows = collectRawAuthors().map(function (raw) {
-        return { raw: raw, displayAs: creatorAliases[raw] || raw, hidden: hiddenCreators.indexOf(raw) !== -1 };
+        const displayAs = creatorAliases[raw] || raw;
+        return {
+          raw: raw,
+          displayAs: displayAs,
+          hidden: hiddenCreators.indexOf(raw) !== -1,
+          link: creatorLinks[displayAs] || '',
+          photo: creatorPhotos[displayAs] || ''
+        };
       });
       rows.sort(function (a, b) {
         const ia = creatorOrder.indexOf(a.displayAs);
@@ -1600,12 +1645,27 @@
         return;
       }
       opts.creatorsRoot.innerHTML = draftCreators.map(function (row, i) {
+        // Videos-only (see opts.showCreatorLinks) — where the picker on
+        // videos.html sends someone who taps this creator's button, and
+        // the small round photo shown on that same button.
+        const linkFieldHtml = opts.showCreatorLinks
+          ? '<input type="text" class="link-input" placeholder="Link (where this creator\'s picker button goes)" value="' + escapeAttr(row.link || '') + '">'
+          : '';
+        const photoRowHtml = opts.showCreatorLinks
+          ? '<div class="creator-photo-row">' +
+              '<img class="creator-photo-preview" src="' + escapeAttr(row.photo || '') + '" style="' + (row.photo ? '' : 'display:none;') + '">' +
+              '<input type="file" class="photo-input" accept="image/*">' +
+              (row.photo ? '<button type="button" class="btn-link remove-photo-btn">Remove</button>' : '') +
+            '</div>'
+          : '';
         return '<div class="row creator-row" data-draggable data-index="' + i + '">' +
           '<div class="creator-row-top">' +
             '<span class="grip" title="Drag to reorder">&#10303;</span>' +
             '<span class="raw-name">' + escapeAttr(row.raw) + '</span>' +
           '</div>' +
           '<input type="text" class="displayas-input" value="' + escapeAttr(row.displayAs) + '">' +
+          linkFieldHtml +
+          photoRowHtml +
           '<label class="checkbox-label"><input type="checkbox" class="hide-input"' + (row.hidden ? ' checked' : '') + '> Hide this creator</label>' +
         '</div>';
       }).join('');
@@ -1618,6 +1678,37 @@
         row.querySelector('.hide-input').addEventListener('change', function (e) {
           draftCreators[idx].hidden = e.target.checked;
         });
+        const linkInput = row.querySelector('.link-input');
+        if (linkInput) {
+          linkInput.addEventListener('input', function (e) {
+            draftCreators[idx].link = e.target.value;
+          });
+        }
+        const photoInput = row.querySelector('.photo-input');
+        if (photoInput) {
+          photoInput.addEventListener('change', function (e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            // Capped at 160px on the longest side — plenty for a small
+            // round avatar, and keeps this doc (every creator's photo
+            // lives in the SAME Firestore document as videos/creator
+            // order) well under Firestore's 1MiB document limit even
+            // with a full roster of creators.
+            resizeImageFile(file, 160, 0.82).then(function (dataUrl) {
+              draftCreators[idx].photo = dataUrl;
+              renderCreators();
+            }).catch(function (err) {
+              setStatus('Could not read that image: ' + (err && err.message ? err.message : 'unknown error'), true);
+            });
+          });
+        }
+        const removePhotoBtn = row.querySelector('.remove-photo-btn');
+        if (removePhotoBtn) {
+          removePhotoBtn.addEventListener('click', function () {
+            draftCreators[idx].photo = '';
+            renderCreators();
+          });
+        }
       });
     }
 
@@ -1701,6 +1792,8 @@
       const creatorAliasesToSave = {};
       const creatorOrderToSave = [];
       const hiddenCreatorsToSave = [];
+      const creatorLinksToSave = {};
+      const creatorPhotosToSave = {};
       draftCreators.forEach(function (row) {
         const display = (row.displayAs || '').trim() || row.raw;
         if (display !== row.raw) creatorAliasesToSave[row.raw] = display;
@@ -1708,6 +1801,12 @@
           hiddenCreatorsToSave.push(row.raw);
         } else if (creatorOrderToSave.indexOf(display) === -1) {
           creatorOrderToSave.push(display);
+        }
+        if (opts.showCreatorLinks && (row.link || '').trim()) {
+          creatorLinksToSave[display] = row.link.trim();
+        }
+        if (opts.showCreatorLinks && row.photo) {
+          creatorPhotosToSave[display] = row.photo;
         }
       });
 
@@ -1720,6 +1819,10 @@
         updatedBy: auth.currentUser.email || auth.currentUser.uid
       };
       if (opts.albumsRoot) payload.albumOrder = draftAlbums.slice();
+      if (opts.showCreatorLinks) {
+        payload.creatorLinks = creatorLinksToSave;
+        payload.creatorPhotos = creatorPhotosToSave;
+      }
 
       opts.saveBtn.disabled = true;
       setStatus('Saving…');
@@ -1742,6 +1845,8 @@
         creatorAliases = (data && data.creatorAliases) || {};
         creatorOrder = (data && data.creatorOrder) || [];
         hiddenCreators = (data && data.hiddenCreators) || [];
+        creatorLinks = (data && data.creatorLinks) || {};
+        creatorPhotos = (data && data.creatorPhotos) || {};
         draftCreators = buildDraftCreators();
         renderList();
         renderCreators();
@@ -1958,7 +2063,12 @@
       defaultList: DEFAULT_VIDEO_LIST,
       urlPlaceholder: 'Paste a YouTube link',
       singular: 'Video',
-      plural: 'videos'
+      plural: 'videos',
+      // The only editor instance whose Creators list feeds a picker of
+      // its own (the button grid on videos.html) rather than just
+      // ordering/hiding chips inside a playlist widget — Music and
+      // Hamburger News' Creators lists have no equivalent to link to.
+      showCreatorLinks: true
     }).load();
 
     createPlaylistEditor({

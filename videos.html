@@ -21,16 +21,26 @@
      main/index.html: a real hosted page instead of the Universe static
      export that used to live here.
 
-     The old export was broken for two reasons — every image pointed at
-     /_assets/... paths that only exist on Universe's own servers (which
-     is why the header logo showed as a broken-image icon), and the
-     video widget itself never rendered at all because Universe stores
-     custom-HTML blocks inside its __NEXT_DATA__ JSON and hydrates them
-     with its own React runtime, which the export doesn't ship.
+     No embedded video player anymore — this used to iframe in
+     video-playlist-widget.html (the same admin-managed Video List
+     index.html's own player still reads, untouched by this change).
+     In its place: a grid of one button per creator from that same
+     admin list's Creators section, each one linking wherever
+     admin.html's new per-creator Link field points it — its own
+     destination, not necessarily anything on this site. Reads
+     creatorOrder/creatorLinks straight off playlist/main, live, same
+     Firestore doc and same project every other widget here already
+     uses. */
 
-     So: the logo is now a real file committed to this repo, and the
-     player is the same /video-playlist-widget.html iframe pattern the
-     other pages here already use. */
+  :root {
+    --ink: #0a2a4a;
+    --panel-2: rgba(10, 42, 74, 0.8);
+    --line: rgba(150, 200, 255, 0.6);
+    --accent-dim: #1c4e8a;
+    --accent-yellow: #ffdd00;
+    --text: #ffffff;
+    --text-dim: #c9dcf5;
+  }
 
   * { box-sizing: border-box; }
 
@@ -38,11 +48,7 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    /* Matches the video widget's own blue palette (its --ink) instead of
-       the tiled GeoCities GIF every other non-widget page here uses, so
-       the page the widget sits in reads as part of the same color
-       scheme instead of a mismatched backdrop behind it. */
-    background: #0a2a4a;
+    background: var(--ink);
     font-family: Arial, Helvetica, sans-serif;
   }
 
@@ -57,7 +63,7 @@
   }
 
   /* Header logo — capped by width AND by a share of the viewport height
-     so it can't eat the player's room on a short/landscape screen. */
+     so it can't eat the picker's room on a short/landscape screen. */
   .logo-link {
     flex: 0 0 auto;
     display: block;
@@ -74,69 +80,128 @@
     object-fit: contain;
   }
 
-  /* The player fills whatever's left, same as live.html's player-wrap —
-     the widget draws its own frosted blue panel and scales its own
-     layout to whatever box it's given, so it's meant to stretch on a
-     tall/4K/8K window rather than being capped to a "natural" height.
-     min-height keeps it usable on very short screens, where the page
-     then scrolls instead of squashing. */
-  .player-wrap {
+  /* Fills whatever's left below the logo, same flex slot the old
+     .player-wrap occupied — scrolls internally (rather than growing the
+     whole page) if enough creators are added to overflow the box on a
+     short screen. */
+  .picker-wrap {
     flex: 1 1 auto;
     min-height: min(560px, 68vh);
     display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(12px, 3vw, 28px);
+    overflow-y: auto;
   }
-  /* height:auto (not 100%) on purpose — a percentage height can't
-     resolve against a flex container whose own height comes from
-     flex-grow, so the iframe was collapsing to its default 150px.
-     Letting the parent's default align-items:stretch size it instead
-     makes it fill the row properly. */
-  .player-wrap iframe {
-    display: block;
-    flex: 1 1 auto;
+
+  .picker-grid {
     width: 100%;
-    height: auto;
-    min-height: 0;
-    border: 0;
-    background: transparent;
+    max-width: 900px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2.5vw, 18px);
+  }
+
+  /* Rounded, prominent tap targets — same visual language (--panel-2/
+     --line/rounded corners) video-playlist-widget.html's own creator
+     chips use, just sized up into real buttons instead of small pills,
+     since picking one is the whole point of this page now rather than
+     a filter alongside a player. */
+  .picker-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    text-decoration: none;
+    font-family: inherit;
+    font-weight: 700;
+    text-align: center;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: clamp(16px, 3.4vw, 26px) clamp(20px, 4vw, 34px);
+    font-size: clamp(15px, 2.6vw, 20px);
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .picker-btn:hover {
+    background: var(--accent-dim);
+    transform: translateY(-2px);
+  }
+  /* Only present when admin.html's own per-creator photo upload has
+     something saved — a button with no photo just stays text-only
+     rather than reserving empty space for one, same as any avatar list
+     where not everyone's set a picture yet. */
+  .picker-btn.has-photo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .picker-avatar {
+    width: clamp(48px, 9vw, 64px);
+    height: clamp(48px, 9vw, 64px);
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--line);
+  }
+  /* The "pop" — a quick overshoot-then-settle scale, triggered from JS
+     right as a click is about to navigate away (see the script below),
+     so there's something to actually see before the page unloads.
+     A CSS :active alone would be gone the instant the click registers;
+     animating it explicitly and delaying navigation a beat is what
+     makes it read as a deliberate "pop out at you" rather than nothing
+     at all. */
+  .picker-btn.is-popping {
+    animation: pickerPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pickerPop {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.16); }
+    100% { transform: scale(1); }
+  }
+  /* A creator with no link saved yet (admin.html's own new field) —
+     shown rather than hidden, so an admin who forgot to fill one in
+     can tell at a glance from the live page, but visibly inert. */
+  .picker-btn.no-link {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .picker-btn.no-link:hover {
+    background: var(--panel-2);
+    transform: none;
+  }
+
+  .picker-empty {
+    color: var(--text-dim);
+    text-align: center;
+    font-size: clamp(13px, 2.4vw, 16px);
+    padding: 20px;
   }
 
   /* On mobile, lock the page itself to exactly one screen instead of
-     letting it grow/scroll — the widget's own playlist list already has
-     its own internal overflow-y:auto (see video-playlist-widget.html),
-     so scrolling stays inside the widget instead of moving the logo
-     off-screen. min-height:0 (replacing the desktop floor above) lets
-     .player-wrap shrink to whatever's actually left below the logo on a
-     very short phone, letterboxing the widget slightly rather than
-     overflowing the locked page. */
+     letting it grow/scroll — the picker grid's own overflow-y:auto
+     already handles more creators than fit, same reasoning as the
+     other pages here locking around a widget's own internal scroll. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
     .page {
       height: 100vh;
       height: 100dvh;
     }
-    .player-wrap {
+    .picker-wrap {
       min-height: 0;
     }
   }
 
   /* Phone rotated to landscape: same one-screen lock as the portrait
-     rule above (checked on max-height here since that's the dimension
-     a phone's short side ends up on once rotated — its width can be
-     well over 860px lying sideways), plus the logo and its padding/gap
-     go away entirely so the player gets the whole screen instead of
-     losing a chunk of an already-short viewport to a header. The
-     widget itself still needs telling to give up the fixed-height
-     video-on-top-of-list stack it uses at this same width on a
-     portrait phone — see video-playlist-widget.html's own matching
-     landscape query.
-     hover:none + pointer:coarse (true only for touchscreens) are load-
-     bearing, not belt-and-suspenders: a perfectly ordinary desktop
-     browser window is "landscape" by nature and very often under
-     860px tall too (a laptop screen minus its own chrome), so
-     max-height + orientation alone was hiding the logo on regular
-     desktop visits — confirmed by testing an actual 1400x900 window,
-     not just guessing. The touch check is what actually scopes this to
-     phones/tablets. */
+     rule above, plus the logo goes away so the grid gets the whole
+     screen instead of losing a chunk of an already-short viewport to a
+     header — see videos/hamburgernews.html or live.html for the fuller
+     version of this same comment (hover:none + pointer:coarse scope
+     this to touchscreens specifically, not just any short window). */
   @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; }
     .page {
@@ -146,7 +211,7 @@
       gap: 0;
     }
     .logo-link { display: none; }
-    .player-wrap { min-height: 0; }
+    .picker-wrap { min-height: 0; }
   }
 </style>
 </head>
@@ -157,13 +222,88 @@
     <img src="/knobsock-videos-logo.png" alt="KNOBSOCK VIDEOS">
   </a>
 
-  <div class="player-wrap">
-    <iframe src="/video-playlist-widget.html"
-            title="KNOBSOCK Videos"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowfullscreen></iframe>
+  <div class="picker-wrap">
+    <div class="picker-grid" id="pickerGrid">
+      <div class="picker-empty">Loading creators…</div>
+    </div>
   </div>
 </div>
+
+<!-- ============================================================
+     FIREBASE — same project/doc video-playlist-widget.html itself
+     reads (playlist/main). Read-only: creatorOrder (who shows up, and
+     in what order) and creatorLinks (where their button goes) are both
+     set from admin.html's Videos tab, live.
+     ============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const VIDEO_DOC_REF = db.collection('playlist').doc('main');
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  const gridEl = document.getElementById('pickerGrid');
+
+  function renderGrid(creatorOrder, creatorLinks, creatorPhotos) {
+    if (!creatorOrder.length) {
+      gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
+      return;
+    }
+    gridEl.innerHTML = creatorOrder.map(function (name) {
+      const link = (creatorLinks[name] || '').trim();
+      const photo = creatorPhotos[name] || '';
+      const innerHtml = (photo ? '<img class="picker-avatar" src="' + escapeHtml(photo) + '" alt="">' : '') +
+        '<span class="picker-btn-label">' + escapeHtml(name) + '</span>';
+      const photoClass = photo ? ' has-photo' : '';
+      if (!link) {
+        return '<span class="picker-btn no-link' + photoClass + '" title="No link set yet">' + innerHtml + '</span>';
+      }
+      return '<a class="picker-btn' + photoClass + '" href="' + escapeHtml(link) + '">' + innerHtml + '</a>';
+    }).join('');
+
+    gridEl.querySelectorAll('a.picker-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        // A modified click (new tab/window, or a non-primary mouse
+        // button) is left completely alone — only a plain left-click
+        // gets the pop-then-navigate treatment, so ctrl/cmd-click and
+        // middle-click both still open a new tab exactly as any other
+        // link would.
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        const href = btn.getAttribute('href');
+        btn.classList.add('is-popping');
+        setTimeout(function () { window.location.href = href; }, 220);
+      });
+    });
+  }
+
+  VIDEO_DOC_REF.onSnapshot(function (doc) {
+    const data = doc.exists ? doc.data() : null;
+    const creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
+    const creatorLinks = (data && data.creatorLinks) || {};
+    const creatorPhotos = (data && data.creatorPhotos) || {};
+    renderGrid(creatorOrder, creatorLinks, creatorPhotos);
+  }, function (err) {
+    console.error('Could not load creators:', err);
+    gridEl.innerHTML = '<div class="picker-empty">Could not load creators.</div>';
+  });
+})();
+</script>
 
 </body>
 </html>
