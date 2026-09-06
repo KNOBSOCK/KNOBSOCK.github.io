@@ -99,11 +99,11 @@
   }
   .empty-state[hidden] { display: none; }
 
-  /* Bottom overlay bar — mute/play/next, all in one row. Fades in on
-     hover (desktop) or tap (touch), same auto-hide idiom used by
-     video-mini-player-widget.html and livestream-chat-widget.html's
-     own video controls, so a control never sits permanently over the
-     video once you've stopped interacting with it. */
+  /* Bottom overlay bar — a scrub bar over a row of mute/play/next
+     buttons. Fades in on hover (desktop) or tap (touch), same auto-hide
+     idiom used by video-mini-player-widget.html and livestream-chat-
+     widget.html's own video controls, so a control never sits
+     permanently over the video once you've stopped interacting with it. */
   .controls-bar {
     position: absolute;
     left: 0;
@@ -111,14 +111,47 @@
     bottom: 0;
     z-index: 5;
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 4px;
     padding: 8px 10px;
     background: linear-gradient(to top, rgba(20, 8, 0, 0.85), rgba(20, 8, 0, 0));
     opacity: 0;
     transition: opacity 0.25s ease;
   }
   .stage.controls-visible .controls-bar { opacity: 1; }
+
+  .buttons-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Polls playback position rather than relying on a player event — the
+     YouTube IFrame API has no "time update" event, just onStateChange
+     (see updateScrubber in the JS). A generous invisible hit area
+     (this whole 14px-tall element) wraps the thin visible track below
+     it, so it's easy to tap accurately on a phone without the bar
+     itself looking oversized — same idiom video-mini-player-
+     widget.html's own scrubber uses. */
+  .scrubber {
+    flex: none;
+    display: flex;
+    align-items: center;
+    height: 14px;
+    cursor: pointer;
+  }
+  .scrubber-track {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.25);
+    overflow: hidden;
+  }
+  .scrubber-fill {
+    width: 0%;
+    height: 100%;
+    background: #ffb400;
+  }
 
   .round-btn {
     -webkit-appearance: none;
@@ -290,11 +323,18 @@
     </div>
   </div>
   <div class="controls-bar" id="controlsBar" hidden>
-    <button type="button" class="round-btn" id="muteBtn" title="Unmute"><svg class="mute-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16.5 12c0-1.77-.77-3.29-2-4.31v2.6l2 2c0-.1 0-.19 0-.29zm2.5 0c0 .91-.19 1.77-.51 2.55l1.47 1.47C20.63 14.86 21 13.48 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H4v6h4l5 5v-6.73l4.25 4.25c-.67.53-1.42.94-2.25 1.19v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg></button>
-    <button type="button" class="round-btn" id="playBtn" title="Pause">&#10074;&#10074;</button>
-    <div class="now-playing-title" id="nowPlayingTitle"></div>
-    <button type="button" class="round-btn picker-toggle-btn" id="pickerToggleBtn" title="Pick a video" aria-expanded="false" hidden><span class="picker-toggle-label">&#9776;</span></button>
-    <button type="button" class="round-btn" id="nextBtn" title="Next episode" hidden><span class="next-btn-label">&#9654;&#9654;</span></button>
+    <div class="scrubber" id="scrubber">
+      <div class="scrubber-track">
+        <div class="scrubber-fill" id="scrubberFill"></div>
+      </div>
+    </div>
+    <div class="buttons-row">
+      <button type="button" class="round-btn" id="muteBtn" title="Unmute"><svg class="mute-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16.5 12c0-1.77-.77-3.29-2-4.31v2.6l2 2c0-.1 0-.19 0-.29zm2.5 0c0 .91-.19 1.77-.51 2.55l1.47 1.47C20.63 14.86 21 13.48 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H4v6h4l5 5v-6.73l4.25 4.25c-.67.53-1.42.94-2.25 1.19v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg></button>
+      <button type="button" class="round-btn" id="playBtn" title="Pause">&#10074;&#10074;</button>
+      <div class="now-playing-title" id="nowPlayingTitle"></div>
+      <button type="button" class="round-btn picker-toggle-btn" id="pickerToggleBtn" title="Pick a video" aria-expanded="false" hidden><span class="picker-toggle-label">&#9776;</span></button>
+      <button type="button" class="round-btn" id="nextBtn" title="Next episode" hidden><span class="next-btn-label">&#9654;&#9654;</span></button>
+    </div>
   </div>
 </div>
 
@@ -345,6 +385,8 @@
   const pickerDrawerEl = document.getElementById('pickerDrawer');
   const pickerListEl = document.getElementById('pickerList');
   const pickerToggleBtn = document.getElementById('pickerToggleBtn');
+  const scrubberEl = document.getElementById('scrubber');
+  const scrubberFillEl = document.getElementById('scrubberFill');
 
   let videos = [];       // [{id, title}]
   let activeIndex = 0;
@@ -454,10 +496,35 @@
     togglePicker(false);
   });
 
+  // ---------- SCRUBBER ----------
+  // Polls playback position rather than relying on a player event — the
+  // IFrame API has no "time update" event, just onStateChange (used
+  // elsewhere here for loading/play-pause, not for this).
+  function updateScrubber() {
+    if (!ytPlayer || !playerReady || typeof ytPlayer.getDuration !== 'function') return;
+    const duration = ytPlayer.getDuration();
+    if (!duration) return;
+    const pct = Math.min(100, Math.max(0, (ytPlayer.getCurrentTime() / duration) * 100));
+    scrubberFillEl.style.width = pct + '%';
+  }
+  setInterval(updateScrubber, 250);
+
+  scrubberEl.addEventListener('click', (e) => {
+    showControls(true);
+    if (!ytPlayer || !playerReady || typeof ytPlayer.getDuration !== 'function') return;
+    const duration = ytPlayer.getDuration();
+    if (!duration) return;
+    const rect = scrubberEl.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    ytPlayer.seekTo(fraction * duration, true);
+    scrubberFillEl.style.width = (fraction * 100) + '%';
+  });
+
   function playIndex(index) {
     if (!videos.length) return;
     activeIndex = ((index % videos.length) + videos.length) % videos.length;
     renderNowPlaying();
+    scrubberFillEl.style.width = '0%'; // reset immediately — the poll above would otherwise still show the PREVIOUS video's position for a moment
     const id = videos[activeIndex].id;
     if (ytPlayer && playerReady) {
       showLoading();
