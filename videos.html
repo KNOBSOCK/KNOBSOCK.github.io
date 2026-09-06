@@ -26,11 +26,19 @@
      index.html's own player still reads, untouched by this change).
      In its place: a grid of one button per creator from that same
      admin list's Creators section, each one linking wherever
-     admin.html's new per-creator Link field points it — its own
+     admin.html's per-creator Link field points it — its own
      destination, not necessarily anything on this site. Reads
-     creatorOrder/creatorLinks straight off playlist/main, live, same
-     Firestore doc and same project every other widget here already
-     uses. */
+     creatorOrder/creatorLinks/creatorPhotos/creatorSounds straight off
+     playlist/main, live, same Firestore doc and same project every
+     other widget here already uses.
+
+     Every button IS a creator's own uploaded image now — no text, no
+     button chrome, nothing rendered at all for a creator that hasn't
+     had one uploaded in admin.html yet (see renderGrid below). An
+     optional per-creator sound (also admin-uploaded) plays on click;
+     when a button has both a sound and a link, the sound gets a moment
+     to actually be heard before navigating away, rather than being cut
+     off instantly by the page unload. */
 
   :root {
     --ink: #0a2a4a;
@@ -104,65 +112,38 @@
     gap: clamp(10px, 2.5vw, 18px);
   }
 
-  /* A real Windows 98 button graphic (raised bevel, light-gray fill)
-     as the background instead of a flat rounded panel — stretched to
-     fill whatever size a given creator's name needs (the source image
-     is soft/blurred rather than crisp pixel art to begin with, so a
-     9-slice border-image wouldn't preserve genuinely sharp edges here
-     anyway; a plain stretch reads the same). Sharp rectangular corners
-     throughout — a real Win98 button was never rounded. Text is black,
-     not this page's usual white, since it's now sitting on a light
-     gray button instead of a dark blue panel; Tahoma is the same
-     "looks like an old OS" font already used elsewhere on this site
-     for exactly this reason (livestream-chat-widget.html,
-     chat-monitor-widget.html) rather than a made-up substitute. */
+  /* No button chrome at all anymore — no background, no border, no
+     text. The creator's own uploaded image (admin.html's per-creator
+     "Button image") is the entire visible button; a creator with no
+     image uploaded yet renders nothing here (see renderGrid in the
+     script below) rather than a placeholder, per the ask: "without my
+     image it would otherwise be invisible." */
   .picker-btn {
-    -webkit-appearance: none;
-    appearance: none;
     display: block;
-    text-decoration: none;
-    font-family: Tahoma, "MS Sans Serif", Arial, sans-serif;
-    font-weight: 700;
-    text-align: center;
-    color: #000;
-    background-image: url('/SIX_7C253015-38BC-4F38-A780-1A55020546D2.png');
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
+    padding: 0;
     border: none;
-    border-radius: 0;
-    padding: clamp(16px, 3.4vw, 26px) clamp(20px, 4vw, 34px);
-    font-size: clamp(15px, 2.6vw, 20px);
+    background: none;
+    line-height: 0;
     cursor: pointer;
   }
+  /* A plain <img>, no wrapper element, for a creator with an image but
+     neither a link nor a sound — nothing to click for, so it's not
+     interactive at all (see renderGrid). */
+  .picker-btn-image {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(46vw, 260px);
+    max-height: 34vh;
+  }
   /* Darkens on hover (mouse) or tap (touch, via :active) — no lift, no
-     pop, just the one plain feedback state per the ask. */
-  .picker-btn:not(.no-link):hover,
-  .picker-btn:not(.no-link):active {
+     pop, just the one plain feedback state, same as the old Win98
+     button had. Only applies to an actually-clickable button (an
+     image-only, non-interactive creator has no .picker-btn wrapper to
+     match this selector at all). */
+  .picker-btn:hover .picker-btn-image,
+  .picker-btn:active .picker-btn-image {
     filter: brightness(0.82);
-  }
-  /* Only present when admin.html's own per-creator photo upload has
-     something saved — a button with no photo just stays text-only
-     rather than reserving empty space for one, same as any avatar list
-     where not everyone's set a picture yet. */
-  .picker-btn.has-photo {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-  .picker-avatar {
-    width: clamp(48px, 9vw, 64px);
-    height: clamp(48px, 9vw, 64px);
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid var(--line);
-  }
-  /* A creator with no link saved yet (admin.html's own new field) —
-     shown rather than hidden, so an admin who forgot to fill one in
-     can tell at a glance from the live page, but visibly inert. */
-  .picker-btn.no-link {
-    opacity: 0.45;
-    cursor: default;
   }
 
   .picker-empty {
@@ -223,8 +204,10 @@
 <!-- ============================================================
      FIREBASE — same project/doc video-playlist-widget.html itself
      reads (playlist/main). Read-only: creatorOrder (who shows up, and
-     in what order) and creatorLinks (where their button goes) are both
-     set from admin.html's Videos tab, live.
+     in what order), creatorLinks (where their button goes),
+     creatorPhotos (the button image itself), and creatorSounds (an
+     optional click sound) are all set from admin.html's Videos tab,
+     live.
      ============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -250,34 +233,85 @@
 
   const gridEl = document.getElementById('pickerGrid');
 
-  function renderGrid(creatorOrder, creatorLinks, creatorPhotos) {
+  // A sound is given a real chance to be heard before navigating away —
+  // otherwise same-tab navigation would tear down the audio context
+  // almost instantly, defeating the whole point of it. Capped at 1.8s
+  // so an unusually long clip (or one that never fires 'ended', e.g.
+  // blocked autoplay) can't stall the click indefinitely.
+  function playThenNavigate(soundSrc, href) {
+    const audio = new Audio(soundSrc);
+    let navigated = false;
+    function go() {
+      if (navigated) return;
+      navigated = true;
+      window.location.href = href;
+    }
+    audio.addEventListener('ended', go);
+    setTimeout(go, 1800);
+    audio.play().catch(go);
+  }
+
+  function renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds) {
     if (!creatorOrder.length) {
       gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
       return;
     }
-    gridEl.innerHTML = creatorOrder.map(function (name) {
+    // A creator with no button image uploaded in admin.html renders
+    // nothing at all here — no placeholder, no text — per the ask:
+    // "without my image it would otherwise be invisible."
+    const withPhoto = creatorOrder.filter(function (name) { return (creatorPhotos[name] || ''); });
+    if (!withPhoto.length) {
+      gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
+      return;
+    }
+    gridEl.innerHTML = withPhoto.map(function (name) {
+      const photo = creatorPhotos[name];
+      const imgHtml = '<img class="picker-btn-image" src="' + escapeHtml(photo) + '" alt="">';
       const link = (creatorLinks[name] || '').trim();
-      const photo = creatorPhotos[name] || '';
-      const innerHtml = (photo ? '<img class="picker-avatar" src="' + escapeHtml(photo) + '" alt="">' : '') +
-        '<span class="picker-btn-label">' + escapeHtml(name) + '</span>';
-      const photoClass = photo ? ' has-photo' : '';
-      if (!link) {
-        return '<span class="picker-btn no-link' + photoClass + '" title="No link set yet">' + innerHtml + '</span>';
+      const sound = creatorSounds[name] || '';
+      if (!link && !sound) {
+        // Nothing to click for — a plain, non-interactive image.
+        return imgHtml;
       }
-      // A plain <a href> — no animation to wait for anymore, so no
-      // click handler needed either; the browser's own default
-      // navigation (including ctrl/cmd-click opening a new tab) just
-      // works unmodified.
-      return '<a class="picker-btn' + photoClass + '" href="' + escapeHtml(link) + '">' + innerHtml + '</a>';
+      if (link && !sound) {
+        // A plain <a href> — no JS needed, native navigation (including
+        // ctrl/cmd-click opening a new tab) just works unmodified.
+        return '<a class="picker-btn" href="' + escapeHtml(link) + '">' + imgHtml + '</a>';
+      }
+      if (sound && !link) {
+        // Nowhere to navigate — just plays the sound.
+        return '<button type="button" class="picker-btn" data-sound="' + escapeHtml(sound) + '">' + imgHtml + '</button>';
+      }
+      // Both set: a real <a href> (kept for accessibility/right-click/
+      // hover-preview), but a click plays the sound first and delays
+      // navigation just long enough for it to be heard.
+      return '<a class="picker-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '">' + imgHtml + '</a>';
     }).join('');
+
+    gridEl.querySelectorAll('.picker-btn[data-sound]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        // A modifier/middle click means "open in a new tab" — leave that
+        // to the browser's own default handling rather than hijacking it
+        // for the sound delay.
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const href = el.getAttribute('href');
+        if (href) {
+          e.preventDefault();
+          playThenNavigate(el.dataset.sound, href);
+        } else {
+          new Audio(el.dataset.sound).play().catch(function () {});
+        }
+      });
+    });
   }
 
   VIDEO_DOC_REF.onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
     const creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
     const creatorLinks = (data && data.creatorLinks) || {};
+    const creatorSounds = (data && data.creatorSounds) || {};
     const creatorPhotos = (data && data.creatorPhotos) || {};
-    renderGrid(creatorOrder, creatorLinks, creatorPhotos);
+    renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds);
   }, function (err) {
     console.error('Could not load creators:', err);
     gridEl.innerHTML = '<div class="picker-empty">Could not load creators.</div>';
