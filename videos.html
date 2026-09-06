@@ -104,31 +104,41 @@
     gap: clamp(10px, 2.5vw, 18px);
   }
 
-  /* Rounded, prominent tap targets — same visual language (--panel-2/
-     --line/rounded corners) video-playlist-widget.html's own creator
-     chips use, just sized up into real buttons instead of small pills,
-     since picking one is the whole point of this page now rather than
-     a filter alongside a player. */
+  /* A real Windows 98 button graphic (raised bevel, light-gray fill)
+     as the background instead of a flat rounded panel — stretched to
+     fill whatever size a given creator's name needs (the source image
+     is soft/blurred rather than crisp pixel art to begin with, so a
+     9-slice border-image wouldn't preserve genuinely sharp edges here
+     anyway; a plain stretch reads the same). Sharp rectangular corners
+     throughout — a real Win98 button was never rounded. Text is black,
+     not this page's usual white, since it's now sitting on a light
+     gray button instead of a dark blue panel; Tahoma is the same
+     "looks like an old OS" font already used elsewhere on this site
+     for exactly this reason (livestream-chat-widget.html,
+     chat-monitor-widget.html) rather than a made-up substitute. */
   .picker-btn {
     -webkit-appearance: none;
     appearance: none;
     display: block;
     text-decoration: none;
-    font-family: inherit;
+    font-family: Tahoma, "MS Sans Serif", Arial, sans-serif;
     font-weight: 700;
     text-align: center;
-    color: var(--text);
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 18px;
+    color: #000;
+    background-image: url('/SIX_7C253015-38BC-4F38-A780-1A55020546D2.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border: none;
+    border-radius: 0;
     padding: clamp(16px, 3.4vw, 26px) clamp(20px, 4vw, 34px);
     font-size: clamp(15px, 2.6vw, 20px);
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.15s ease;
   }
-  .picker-btn:hover {
-    background: var(--accent-dim);
-    transform: translateY(-2px);
+  /* Darkens on hover (mouse) or tap (touch, via :active) — no lift, no
+     pop, just the one plain feedback state per the ask. */
+  .picker-btn:not(.no-link):hover,
+  .picker-btn:not(.no-link):active {
+    filter: brightness(0.82);
   }
   /* Only present when admin.html's own per-creator photo upload has
      something saved — a button with no photo just stays text-only
@@ -147,31 +157,12 @@
     object-fit: cover;
     border: 2px solid var(--line);
   }
-  /* The "pop" — a quick overshoot-then-settle scale, triggered from JS
-     right as a click is about to navigate away (see the script below),
-     so there's something to actually see before the page unloads.
-     A CSS :active alone would be gone the instant the click registers;
-     animating it explicitly and delaying navigation a beat is what
-     makes it read as a deliberate "pop out at you" rather than nothing
-     at all. */
-  .picker-btn.is-popping {
-    animation: pickerPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  @keyframes pickerPop {
-    0% { transform: scale(1); }
-    45% { transform: scale(1.16); }
-    100% { transform: scale(1); }
-  }
   /* A creator with no link saved yet (admin.html's own new field) —
      shown rather than hidden, so an admin who forgot to fill one in
      can tell at a glance from the live page, but visibly inert. */
   .picker-btn.no-link {
     opacity: 0.45;
     cursor: default;
-  }
-  .picker-btn.no-link:hover {
-    background: var(--panel-2);
-    transform: none;
   }
 
   .picker-empty {
@@ -273,23 +264,12 @@
       if (!link) {
         return '<span class="picker-btn no-link' + photoClass + '" title="No link set yet">' + innerHtml + '</span>';
       }
+      // A plain <a href> — no animation to wait for anymore, so no
+      // click handler needed either; the browser's own default
+      // navigation (including ctrl/cmd-click opening a new tab) just
+      // works unmodified.
       return '<a class="picker-btn' + photoClass + '" href="' + escapeHtml(link) + '">' + innerHtml + '</a>';
     }).join('');
-
-    gridEl.querySelectorAll('a.picker-btn').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        // A modified click (new tab/window, or a non-primary mouse
-        // button) is left completely alone — only a plain left-click
-        // gets the pop-then-navigate treatment, so ctrl/cmd-click and
-        // middle-click both still open a new tab exactly as any other
-        // link would.
-        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        const href = btn.getAttribute('href');
-        btn.classList.add('is-popping');
-        setTimeout(function () { window.location.href = href; }, 220);
-      });
-    });
   }
 
   VIDEO_DOC_REF.onSnapshot(function (doc) {
