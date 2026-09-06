@@ -1095,6 +1095,17 @@
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 2.4cqh, 12px);
+    /* renderMessages() below fully replaces this list's content on every
+       single new message (up to 200 of them) rather than appending just
+       the new one — on mobile Safari specifically, repeatedly replacing
+       the content of a scrolled overflow:auto box like that can leave a
+       stale, ghosted strip of a PREVIOUS render still painted on screen
+       (with a visible seam where it doesn't quite line up with the new
+       content), because the browser reuses an old compositor tile
+       instead of fully repainting. Forcing this onto its own layer up
+       front heads that off — see renderMessages' own forced-reflow line
+       for the other half of this fix. */
+    transform: translateZ(0);
   }
   /* flat, thin scrollbar */
   .messages::-webkit-scrollbar { width: 8px; }
@@ -2807,8 +2818,8 @@
           <div class="composer-status">
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
-              <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
               <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel">&#127866;</span></button>
+              <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
             </div>
           </div>
           <div class="composer">
@@ -2871,6 +2882,15 @@
         </div>
       `;
     }).join('');
+
+    // Forces a synchronous layout/paint right after the wholesale
+    // replace above, rather than letting the browser coalesce it with
+    // whatever comes next (the scrollTop write included) — see
+    // .messages' own comment on why a skipped repaint here is what
+    // leaves stale ghosted content on mobile Safari. Reading a layout
+    // property is the standard way to force this; the value itself is
+    // never used for anything.
+    void container.offsetHeight;
 
     container.scrollTop = container.scrollHeight;
   }
