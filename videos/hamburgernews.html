@@ -20,131 +20,55 @@
   /* Standalone page, same rebuild approach as videos.html/music.html/
      live.html, but with its own condiment palette (mustard/ketchup)
      instead of reusing the plain Videos page's blue — this is a themed
-     one-off, not another entry in the main Video List. The scene photos
-     (hamburger-news-bg-desktop.jpg / -mobile.jpg — floral wallpaper,
-     diner booth or bare wall, wood table, an empty plate) already have
-     BURGER TOP.PNG/BOTTOM.PNG's own burger baked into a reference render
-     each was designed against, which is how .burger-stack's exact
-     width/bottom percentages below were derived: measuring the burger's
-     footprint in that reference render against the SAME spot's empty
-     plate in the real (burger-free) photo used here. See .scene and
-     .burger-stack's own comments for how that stays aligned at any size.
-     BURGER TOP.PNG and BURGER BOTTOM.PNG still sandwich hamburger-news-
-     widget.html's iframe directly with zero gap on either seam — both
-     PNGs were exported with their bun art touching that exact edge of
-     their own canvas (verified by inspecting each file's alpha channel),
-     so plain edge-to-edge stacking still reads as one continuous burger
-     cross-section. */
+     one-off, not another entry in the main Video List. The whole point
+     of the page is the burger-stack below: BURGER TOP.PNG and BURGER
+     BOTTOM.PNG sandwich hamburger-news-widget.html's iframe directly,
+     with ZERO gap on either seam — both PNGs were exported with their
+     bun art touching that exact edge of their own canvas (verified by
+     inspecting each file's alpha channel: the top image's content runs
+     all the way to its own bottom edge, the bottom image's content runs
+     all the way to its own top edge), so simple edge-to-edge stacking
+     is enough on its own to read as one continuous burger cross-
+     section — no manual negative-margin tuning needed. */
   * { box-sizing: border-box; }
 
   html, body {
     margin: 0;
     padding: 0;
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
+    background: #2b1204;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* Full-viewport stand-in for whatever sliver of the scene photo
-     .scene (below) doesn't cover — .scene is locked to the photo's own
-     aspect ratio so the burger stays exactly on the plate (see its
-     comment), which means it letterboxes rather than crops on a
-     viewport shaped differently than the photo. A blurred, cover-
-     cropped copy of that same photo behind it turns that letterbox
-     margin into a deliberate-looking soft-focus surround instead of a
-     bare color bar — position:fixed so it never has to negotiate size
-     with .scene's own box, just fill the real screen behind it. */
-  .scene-fill {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    background-image: url(/hamburger-news-bg-desktop.jpg);
-    background-size: cover;
-    background-position: center;
-    filter: blur(36px) brightness(0.85);
-    transform: scale(1.15); /* pushes the blur's own soft edge past the viewport edge */
-  }
-
-  /* container-type:size (needed by .scene's width formula below) implies
-     layout containment, which incidentally makes .page itself the
-     containing block for the position:fixed elements inside it
-     (.scene-fill, .back-link, and hamburger-news-widget.html's own
-     fullscreen relay) instead of the real viewport — harmless here only
-     because .page is deliberately sized to exactly match the viewport
-     (100dvh/100%) already, so "relative to .page" and "relative to the
-     viewport" resolve to the same box either way. */
   .page {
     position: relative;
-    z-index: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    container-type: size;
+    min-height: 100vh;
+    min-height: 100dvh;
+    gap: clamp(10px, 2.5vw, 20px);
+    padding: clamp(14px, 3vw, 28px) clamp(10px, 3vw, 24px) clamp(24px, 5vw, 48px);
   }
 
-  .back-link {
-    position: fixed;
-    top: clamp(10px, 2vw, 20px);
-    left: clamp(10px, 3vw, 24px);
-    z-index: 5;
-    color: #ffd479;
-    font-size: clamp(11px, 2.2vw, 13px);
-    font-weight: 700;
-    text-decoration: underline;
-    opacity: 0.85;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  }
-  .back-link:hover { opacity: 1; }
-
-  /* The set this whole page performs on. Locked to the background
-     photo's OWN aspect ratio (1:1 for the desktop photo, overridden to
-     the mobile photo's own 1206:2622 below) via the same "fit within
-     both axes, whichever binds" formula .burger-stack's landscape
-     sizing further down uses — width shrinks to match the SHORTER of
-     "fill available width" or "the width that exactly fills available
-     height at this ratio" via min(), so it always renders at that
-     exact ratio no matter the viewport's own shape, with zero cropping
-     to disturb the plate's position inside it. That's what lets
-     .burger-stack below sit on the plate using plain percentages: since
-     this box is ALWAYS the photo scaled uniformly with nothing cropped
-     off, a percentage of it is always the same point in the photo. */
-  .scene {
-    position: relative;
-    width: min(100cqw, 100cqh);
-    height: auto;
-    aspect-ratio: 1 / 1;
-    background-image: url(/hamburger-news-bg-desktop.jpg);
-    background-size: 100% 100%;
-    box-shadow: 0 0 80px rgba(0, 0, 0, 0.5);
-  }
-
-  /* Burger + video, positioned as a straight percentage of .scene.
-     width/bottom were measured directly off the actual background
-     photo: how wide the burger sits relative to the empty plate's own
-     photographed width, and how far up from the very bottom of the
-     photo its underside rests — left+translateX keeps it centered
-     regardless. Height is left to the real asset's own aspect ratio
-     (2126:2722, same PNGs as ever) rather than also pinned to a
-     measured height, since matching the OTHER two axes (width, and
-     where it sits) is what makes it read as "on the plate" — forcing a
-     third, independently-measured ratio on top would only fight the
-     asset's real proportions for no visible benefit. */
+  /* The whole sandwich, sized by width alone by default (each piece's
+     own height follows from its own aspect-ratio below) — fine on
+     desktop and on a normal portrait phone, where this width already
+     resolves to something short enough to fit one screen tall. The
+     landscape media query further down swaps this to a height-driven
+     size instead, for the case (a phone rotated sideways) where it
+     wouldn't. */
   .burger-stack {
-    position: absolute;
-    /* Centered via a plain left percentage (50% - width/2), NOT
-       transform:translateX(-50%) — a transform here would make
-       .burger-stack a containing block for its own fixed-position
-       descendants, which breaks .patty-slot.hn-fullscreen's iframe
-       above: instead of covering the real viewport, "fixed" would
-       resolve relative to THIS box instead (confirmed by testing —
-       the fullscreened iframe landed offset by exactly .burger-stack's
-       own position instead of at the screen's real top-left corner). */
-    left: 29.7%;
-    width: 40.6%;
-    bottom: 38.5%;
+    width: min(92vw, 780px);
+    flex: none;
+  }
+
+  /* Invisible by default (display:contents drops its own box, promoting
+     .burger-stack to be .page's direct flex child, unchanged from before
+     this wrapper existed) — only becomes a real flex box in the landscape
+     query below, where it needs to be a sizing context of its own. */
+  .burger-wrap {
+    display: contents;
   }
 
   .burger-top,
@@ -182,6 +106,15 @@
     border: 0;
   }
 
+  .back-link {
+    color: #ffd479;
+    font-size: clamp(11px, 2.2vw, 13px);
+    font-weight: 700;
+    text-decoration: underline;
+    opacity: 0.85;
+  }
+  .back-link:hover { opacity: 1; }
+
   /* Real-viewport fullscreen fallback for hamburger-news-widget.html's
      own fullscreen button. That widget lives in an iframe, and on iOS
      Safari — which has no Fullscreen API at all for non-video elements —
@@ -203,84 +136,70 @@
     border-radius: 0;
   }
 
-  /* Real phone held upright: swap in the taller mobile photo — same
-     burger-on-plate relationship, measured the same way off ITS OWN
-     empty-plate render, just a different width/bottom pair since the
-     mobile photo's plate sits at a different spot/scale than the
-     desktop one's. hover:none+pointer:coarse scope this to actual
-     touchscreens (same guard the landscape query below uses) so a
-     plain narrow desktop window doesn't get mistaken for a phone; the
-     explicit orientation:portrait keeps a phone rotated sideways out of
-     this block too — that case has its own rules below instead. */
-  @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
-    .scene-fill,
-    .scene {
-      background-image: url(/hamburger-news-bg-mobile.jpg);
-    }
-    /* Real phones cluster tightly around this photo's own ~0.46 aspect
-       ratio (roughly 0.45-0.46 across current iPhones/Android phones),
-       so unlike desktop — where a freely resizable window can be ANY
-       shape, which is why THAT gets letterboxed via .scene's contain-fit
-       instead — mobile can just cover-fill edge to edge. That turned out
-       to matter in practice: Safari's own address/tab bars shrink the
-       *visible* viewport height without changing its width, nudging the
-       effective ratio just wide enough that contain-fit's letterboxing
-       showed as a visible gray bar down both sides. Cover crops instead
-       of letterboxing, so any such nudge just trims a sliver of
-       wallpaper off the top (background-position anchors the bottom, so
-       the table/plate/burger stay put) rather than showing a bar. */
-    .scene {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      aspect-ratio: unset;
-      background-size: cover;
-      background-position: center bottom;
-      box-shadow: none;
-    }
-    .burger-stack {
-      left: 3.9%;
-      width: 92.2%;
-      bottom: 37%;
-    }
+  /* On mobile, lock the page itself to exactly one screen instead of
+     letting it scroll — same convention as videos.html/music.html/
+     live.html, even though the top-of-file comment above originally
+     argued scrolling here was harmless (true in isolation, but
+     inconsistent with every other page on this site never scrolling on
+     phone, which is the more important bar to match). A typical
+     portrait phone already fits the width-driven .burger-stack below
+     within one screen without any changes here — this mainly matters
+     for the landscape case just below, where a short viewport needs
+     the stack resized by HEIGHT instead of width to keep fitting. */
+  @media (max-width: 860px) {
+    html, body { overflow: hidden; }
+    .page { height: 100vh; height: 100dvh; }
   }
 
-  /* Phone rotated to landscape: the plate/burger photo above is
-     portrait-shaped art — forcing it and its precise burger-on-plate
-     alignment into a wide, short landscape screen would shrink the
-     video back down to a sliver, the exact problem already fixed once
-     on this page (see this file's git history). Simplest fix: landscape
-     drops the photo/plate idea entirely and reuses that earlier fix's
-     own layout untouched — .scene stops being an aspect-locked photo
-     frame and goes back to a plain flex box that .burger-stack fills by
-     solving for the video's own 16:9 directly, buns shrunk to a thin
-     cropped strip either side of it. container-type:size moves from
-     .page (still needed there for the non-landscape .scene formula
-     above) onto .scene too, since .burger-stack's cqw/cqh units here
-     need to measure against THIS box, not the whole page. */
+  /* Phone rotated to landscape: same one-screen lock as the portrait
+     rule above. An earlier version of this sized .burger-stack purely by
+     HEIGHT, keeping the whole sandwich's own combined proportions (2126
+     wide by 855 + patty-at-16:9 + 670 tall) intact — but that ratio is
+     itself portrait-shaped (taller than wide), so on an actual landscape
+     phone (always wider than it is tall) height was ALWAYS the binding
+     constraint, and preserving that portrait-shaped ratio inside a wide
+     short box left most of the screen's width empty with a narrow little
+     video in the middle — confirmed by rendering it: a 812x375 viewport
+     produced a stack barely 212px wide.
+     Fixed by no longer keeping the buns and the video locked to one
+     fixed combined ratio at all: the buns shrink to a small fixed strip
+     (--bun-h, cropped via object-fit instead of scaling with the video),
+     and .burger-stack's width is solved for directly — the larger of
+     "fill the available width" or "the width that makes the video's own
+     16:9 patty-slot exactly fill whatever height is left after the two
+     bun strips" is capped by whichever is smaller via min(), so it never
+     overflows either axis. That needs .burger-wrap as an explicitly
+     sized (container-type:size) box to measure 100cqw/100cqh against —
+     align-self:stretch gives it a definite height (.page's own align-
+     items:center would otherwise only hug it to its content, which is
+     circular: the content's size is what this is trying to solve for).
+     hover:none + pointer:coarse (true only for touchscreens) matter
+     here for the same reason as those other pages' identical guard: an
+     ordinary desktop window is "landscape" by nature and often under
+     860px tall too (a laptop screen minus its own chrome), so
+     max-height + orientation alone would also catch a normal desktop
+     visit. */
   @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
+    html, body { overflow: hidden; }
     .page {
+      height: 100vh;
+      height: 100dvh;
       flex-direction: row;
+      justify-content: center;
       padding: clamp(8px, 2vh, 16px);
       gap: clamp(8px, 2vw, 16px);
     }
-    .scene {
-      position: static;
-      width: 100%;
-      height: 100%;
-      aspect-ratio: unset;
-      background-image: none;
-      box-shadow: none;
+    .burger-wrap {
       display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
       align-items: center;
       justify-content: center;
+      align-self: stretch;
       container-type: size;
     }
     .burger-stack {
-      position: static;
-      left: auto;
-      bottom: auto;
       --bun-h: clamp(8px, 3vh, 24px);
       width: min(100cqw, calc((100cqh - 2 * var(--bun-h)) * 16 / 9));
       height: auto;
@@ -291,17 +210,16 @@
       aspect-ratio: auto;
       object-fit: cover;
     }
+    .back-link { flex: none; }
   }
 </style>
 </head>
 <body>
 
-<div class="scene-fill"></div>
-
 <div class="page">
   <a class="back-link" href="/videos">&larr; Back to Videos</a>
 
-  <div class="scene">
+  <div class="burger-wrap">
     <div class="burger-stack">
       <img class="burger-top" src="/BURGER%20TOP.PNG" alt="">
       <div class="patty-slot" id="pattySlot">
