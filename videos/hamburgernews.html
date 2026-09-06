@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hamburger News - KNOBSOCK</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://knobsock.net/videos/hamburgernews">
+<meta property="og:title" content="Hamburger News - KNOBSOCK">
+<meta property="og:site_name" content="KNOBSOCK">
+<meta property="og:description" content="Official Website for Knobsock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Hamburger News - KNOBSOCK">
+<meta name="twitter:description" content="Official Website for Knobsock">
+<meta name="description" content="Official Website for Knobsock">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<style>
+  /* Standalone page, same rebuild approach as videos.html/music.html/
+     live.html, but with its own condiment palette (mustard/ketchup)
+     instead of reusing the plain Videos page's blue — this is a themed
+     one-off, not another entry in the main Video List. The whole point
+     of the page is the burger-stack below: BURGER TOP.PNG and BURGER
+     BOTTOM.PNG sandwich hamburger-news-widget.html's iframe directly,
+     with ZERO gap on either seam — both PNGs were exported with their
+     bun art touching that exact edge of their own canvas (verified by
+     inspecting each file's alpha channel: the top image's content runs
+     all the way to its own bottom edge, the bottom image's content runs
+     all the way to its own top edge), so simple edge-to-edge stacking
+     is enough on its own to read as one continuous burger cross-
+     section — no manual negative-margin tuning needed. */
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: #2b1204;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    gap: clamp(10px, 2.5vw, 20px);
+    padding: clamp(14px, 3vw, 28px) clamp(10px, 3vw, 24px) clamp(24px, 5vw, 48px);
+  }
+
+  .logo-link {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+  }
+  /* No dedicated "Hamburger News" logo asset — a bold condiment-colored
+     wordmark instead, same oversized/playful spirit as the rest of this
+     site's branding without needing a matching image made for it. */
+  .hn-heading {
+    margin: 0;
+    font-family: Arial Black, Arial, sans-serif;
+    font-weight: 900;
+    font-size: clamp(28px, 6.5vw, 56px);
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: #ffb400;
+    text-shadow:
+      -3px -3px 0 #7a2b0a, 3px -3px 0 #7a2b0a,
+      -3px 3px 0 #7a2b0a, 3px 3px 0 #7a2b0a,
+      0 6px 14px rgba(0, 0, 0, 0.5);
+  }
+  .hn-sub {
+    margin: 4px 0 0;
+    color: #ffd479;
+    font-weight: 700;
+    font-size: clamp(11px, 2.2vw, 15px);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* The whole sandwich, sized by width alone (each piece's own height
+     follows from its own aspect-ratio below) — on a very short screen
+     this can run past one viewport, and the page just scrolls, same as
+     any other normal page. Unlike videos.html/music.html/live.html
+     there's no secondary interactive region (chat, a controls strip
+     outside the video) competing for space below the fold here, so
+     there's nothing that locking to one screen would actually protect. */
+  .burger-stack {
+    width: min(92vw, 780px);
+    flex: none;
+  }
+
+  .burger-top,
+  .burger-bottom {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  /* Intrinsic aspect-ratio of the source PNGs — reserves the right
+     amount of vertical space before the image itself has loaded, so
+     nothing jumps into place after the fact. */
+  .burger-top { aspect-ratio: 2126 / 855; }
+  .burger-bottom { aspect-ratio: 2126 / 670; }
+
+  /* The "patty" — a true 16:9 embed sandwiched directly between the two
+     bun images with no gap on either edge (see the top-of-file comment
+     for why that's safe to do edge-to-edge). A soft border-radius
+     rounds off what would otherwise be hard rectangular corners poking
+     out from under the buns' own organic silhouette — enough to blend
+     in at a glance, not enough to look like a rounded video player
+     sitting on top of a burger photo. */
+  .patty-slot {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: clamp(6px, 1.6vw, 14px);
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+  .patty-slot iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .back-link {
+    color: #ffd479;
+    font-size: clamp(11px, 2.2vw, 13px);
+    font-weight: 700;
+    text-decoration: underline;
+    opacity: 0.85;
+  }
+  .back-link:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <a class="logo-link" href="/videos">
+    <h1 class="hn-heading">🍔 HAMBURGER NEWS</h1>
+    <p class="hn-sub">a KNOBSOCK production</p>
+  </a>
+
+  <div class="burger-stack">
+    <img class="burger-top" src="/BURGER%20TOP.PNG" alt="">
+    <div class="patty-slot">
+      <iframe src="/hamburger-news-widget.html"
+              title="Hamburger News"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowfullscreen></iframe>
+    </div>
+    <img class="burger-bottom" src="/BURGER%20BOTTOM.PNG" alt="">
+  </div>
+
+  <a class="back-link" href="/videos">&larr; Back to Videos</a>
+</div>
+
+</body>
+</html>

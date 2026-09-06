@@ -732,6 +732,29 @@
         <div class="list-scroll" id="videosCreators"></div>
       </div>
     </div>
+
+    <div class="note">Feeds the burger-themed player at /videos/hamburgernews.html — a separate list from the main Video List above, its own player, its own creators.</div>
+    <div class="editor-grid">
+      <div class="card">
+        <div class="card-head">
+          <h2>Hamburger News List</h2>
+          <div class="footer-actions">
+            <button type="button" class="btn" id="hamburgerNewsSortDateBtn">Sort by Upload Date</button>
+            <button type="button" class="btn" id="hamburgerNewsAddBtn">+ Add Video</button>
+          </div>
+        </div>
+        <div class="list-scroll" id="hamburgerNewsList"></div>
+        <div class="footer-actions">
+          <button type="button" class="btn btn-primary" id="hamburgerNewsSaveBtn">Save Changes</button>
+          <button type="button" class="btn-link" id="hamburgerNewsResetBtn">Reset to default list</button>
+        </div>
+        <div class="save-status" id="hamburgerNewsStatus"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Creators</h2></div>
+        <div class="list-scroll" id="hamburgerNewsCreators"></div>
+      </div>
+    </div>
   </div>
 
   <!-- ===== MUSIC ===== -->
@@ -1015,6 +1038,11 @@
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const MUSIC_DOC_REF = db.collection('playlist').doc('music');
   const PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
+  // Its own doc, own list, own creators — completely separate from the
+  // main Video List above. Read by hamburger-news-widget.html on
+  // /videos/hamburgernews.html, the same way VIDEO_DOC_REF is read by
+  // video-playlist-widget.html.
+  const HAMBURGER_NEWS_DOC_REF = db.collection('playlist').doc('hamburgerNews');
 
   // Used by createPlaylistEditor's fetchAllPublishedDates below to look
   // up each video's REAL YouTube upload date (videos.list?part=snippet),
@@ -1742,6 +1770,11 @@
     { url: 'https://youtube.com/watch?v=VuivQyVyKDM', title: 'Track Two' },
     { url: 'https://youtube.com/watch?v=Jc9Eay0tedo', title: 'Track Three' }
   ];
+  // Empty on purpose — a brand-new feed with no back catalog yet, unlike
+  // Videos/Music above (which fall back to real placeholder videos so
+  // the pages they feed never launch looking broken/empty). "Reset to
+  // default list" here just clears it back to nothing.
+  const DEFAULT_HAMBURGER_NEWS_LIST = [];
 
   // ---------- PHOTOS TAB ----------
   const OWNER = 'KNOBSOCK';
@@ -1943,6 +1976,21 @@
       singular: 'Track',
       plural: 'tracks',
       showAlbums: true
+    }).load();
+
+    createPlaylistEditor({
+      docRef: HAMBURGER_NEWS_DOC_REF,
+      listRoot: document.getElementById('hamburgerNewsList'),
+      creatorsRoot: document.getElementById('hamburgerNewsCreators'),
+      addBtn: document.getElementById('hamburgerNewsAddBtn'),
+      sortDateBtn: document.getElementById('hamburgerNewsSortDateBtn'),
+      saveBtn: document.getElementById('hamburgerNewsSaveBtn'),
+      resetBtn: document.getElementById('hamburgerNewsResetBtn'),
+      statusEl: document.getElementById('hamburgerNewsStatus'),
+      defaultList: DEFAULT_HAMBURGER_NEWS_LIST,
+      urlPlaceholder: 'Paste a YouTube link',
+      singular: 'Video',
+      plural: 'videos'
     }).load();
   }
 
