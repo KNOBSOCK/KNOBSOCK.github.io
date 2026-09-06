@@ -189,7 +189,14 @@
      Fullscreen API on non-video elements — simulate it with CSS, same
      pattern as live.html's own fullscreen button (there, the analogous
      element is livestream-chat-widget.html's .video-pane; here it's
-     this whole .stage, since the stage IS the entire player). */
+     this whole .stage, since the stage IS the entire player).
+     This class alone only ever covers THIS document's own viewport —
+     which, since this page always lives inside videos/hamburgernews.
+     html's iframe, is just the iframe's own box, not the real phone
+     screen. The postMessage alongside it (see enterPseudoFullscreen/
+     exitPseudoFullscreen below) is what actually gets the real screen:
+     it asks that parent page to resize the iframe ELEMENT itself, which
+     this class's 100%-sized .stage then naturally fills too. */
   .stage.pseudo-fullscreen {
     position: fixed;
     top: 0;
@@ -722,11 +729,19 @@
     if (e.key === 'Escape' || e.key === 'Esc') exitPseudoFullscreen();
   }
 
+  function notifyParentFullscreen(active) {
+    // Lets videos/hamburgernews.html resize the actual iframe element to
+    // cover the real screen — see this file's .stage.pseudo-fullscreen
+    // comment for why that has to happen up there instead of down here.
+    try { window.parent.postMessage({ type: 'knobsock-hamburger-fullscreen', active: active }, '*'); } catch (e) {}
+  }
+
   function enterPseudoFullscreen() {
     stageEl.classList.add('pseudo-fullscreen');
     usingPseudoFullscreen = true;
     document.addEventListener('keydown', handleFsEscKey);
     updateFullscreenIcon();
+    notifyParentFullscreen(true);
   }
 
   function exitPseudoFullscreen() {
@@ -734,6 +749,7 @@
     usingPseudoFullscreen = false;
     document.removeEventListener('keydown', handleFsEscKey);
     updateFullscreenIcon();
+    notifyParentFullscreen(false);
   }
 
   function updateFullscreenIcon() {
