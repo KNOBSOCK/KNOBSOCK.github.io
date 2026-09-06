@@ -217,9 +217,27 @@
     .scene {
       background-image: url(/hamburger-news-bg-mobile.jpg);
     }
+    /* Real phones cluster tightly around this photo's own ~0.46 aspect
+       ratio (roughly 0.45-0.46 across current iPhones/Android phones),
+       so unlike desktop — where a freely resizable window can be ANY
+       shape, which is why THAT gets letterboxed via .scene's contain-fit
+       instead — mobile can just cover-fill edge to edge. That turned out
+       to matter in practice: Safari's own address/tab bars shrink the
+       *visible* viewport height without changing its width, nudging the
+       effective ratio just wide enough that contain-fit's letterboxing
+       showed as a visible gray bar down both sides. Cover crops instead
+       of letterboxing, so any such nudge just trims a sliver of
+       wallpaper off the top (background-position anchors the bottom, so
+       the table/plate/burger stay put) rather than showing a bar. */
     .scene {
-      width: min(100cqw, calc(100cqh * 1206 / 2622));
-      aspect-ratio: 1206 / 2622;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: unset;
+      background-size: cover;
+      background-position: center bottom;
+      box-shadow: none;
     }
     .burger-stack {
       left: 3.9%;
