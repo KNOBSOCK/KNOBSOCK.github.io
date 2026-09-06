@@ -51,43 +51,13 @@
     padding: clamp(14px, 3vw, 28px) clamp(10px, 3vw, 24px) clamp(24px, 5vw, 48px);
   }
 
-  .logo-link {
-    display: block;
-    text-align: center;
-    text-decoration: none;
-  }
-  /* No dedicated "Hamburger News" logo asset — a bold condiment-colored
-     wordmark instead, same oversized/playful spirit as the rest of this
-     site's branding without needing a matching image made for it. */
-  .hn-heading {
-    margin: 0;
-    font-family: Arial Black, Arial, sans-serif;
-    font-weight: 900;
-    font-size: clamp(28px, 6.5vw, 56px);
-    line-height: 1;
-    letter-spacing: 0.01em;
-    color: #ffb400;
-    text-shadow:
-      -3px -3px 0 #7a2b0a, 3px -3px 0 #7a2b0a,
-      -3px 3px 0 #7a2b0a, 3px 3px 0 #7a2b0a,
-      0 6px 14px rgba(0, 0, 0, 0.5);
-  }
-  .hn-sub {
-    margin: 4px 0 0;
-    color: #ffd479;
-    font-weight: 700;
-    font-size: clamp(11px, 2.2vw, 15px);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  /* The whole sandwich, sized by width alone (each piece's own height
-     follows from its own aspect-ratio below) — on a very short screen
-     this can run past one viewport, and the page just scrolls, same as
-     any other normal page. Unlike videos.html/music.html/live.html
-     there's no secondary interactive region (chat, a controls strip
-     outside the video) competing for space below the fold here, so
-     there's nothing that locking to one screen would actually protect. */
+  /* The whole sandwich, sized by width alone by default (each piece's
+     own height follows from its own aspect-ratio below) — fine on
+     desktop and on a normal portrait phone, where this width already
+     resolves to something short enough to fit one screen tall. The
+     landscape media query further down swaps this to a height-driven
+     size instead, for the case (a phone rotated sideways) where it
+     wouldn't. */
   .burger-stack {
     width: min(92vw, 780px);
     flex: none;
@@ -136,16 +106,60 @@
     opacity: 0.85;
   }
   .back-link:hover { opacity: 1; }
+
+  /* On mobile, lock the page itself to exactly one screen instead of
+     letting it scroll — same convention as videos.html/music.html/
+     live.html, even though the top-of-file comment above originally
+     argued scrolling here was harmless (true in isolation, but
+     inconsistent with every other page on this site never scrolling on
+     phone, which is the more important bar to match). A typical
+     portrait phone already fits the width-driven .burger-stack below
+     within one screen without any changes here — this mainly matters
+     for the landscape case just below, where a short viewport needs
+     the stack resized by HEIGHT instead of width to keep fitting. */
+  @media (max-width: 860px) {
+    html, body { overflow: hidden; }
+    .page { height: 100vh; height: 100dvh; }
+  }
+
+  /* Phone rotated to landscape: same one-screen lock as the portrait
+     rule above, but the width-driven sizing on .burger-stack would make
+     it far too tall for an already-short landscape viewport (a phone's
+     width, once sideways, is nowhere near the constraint that matters).
+     Switching to a height-driven size — aspect-ratio matches the whole
+     stack's own combined proportions (2126 wide by 855 + patty-at-16:9
+     + 670 tall, i.e. 2126/2722) so .burger-top/.patty-slot/.burger-
+     bottom's own individual aspect-ratios below still divide up that
+     resolved width exactly as they do at any other size — lets it
+     shrink to fit the available height instead.
+     hover:none + pointer:coarse (true only for touchscreens) matter
+     here for the same reason as those other pages' identical guard: an
+     ordinary desktop window is "landscape" by nature and often under
+     860px tall too (a laptop screen minus its own chrome), so
+     max-height + orientation alone would also catch a normal desktop
+     visit. */
+  @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
+    html, body { overflow: hidden; }
+    .page {
+      height: 100vh;
+      height: 100dvh;
+      flex-direction: row;
+      justify-content: center;
+      padding: clamp(8px, 2vh, 16px);
+      gap: clamp(8px, 2vw, 16px);
+    }
+    .burger-stack {
+      width: auto;
+      height: 100%;
+      aspect-ratio: 2126 / 2722;
+    }
+    .back-link { flex: none; }
+  }
 </style>
 </head>
 <body>
 
 <div class="page">
-  <a class="logo-link" href="/videos">
-    <h1 class="hn-heading">🍔 HAMBURGER NEWS</h1>
-    <p class="hn-sub">a KNOBSOCK production</p>
-  </a>
-
   <div class="burger-stack">
     <img class="burger-top" src="/BURGER%20TOP.PNG" alt="">
     <div class="patty-slot">

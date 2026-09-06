@@ -30,13 +30,29 @@
     width: 100%;
     height: 100%;
     background: #000;
+    /* Crops the iframe's own oversized edges below — see that rule's
+       own comment for why. */
+    overflow: hidden;
   }
 
   .stage iframe {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Oversized 10% past the stage's own edges on all sides (a plain
+       CSS overscan, not video-mini-player-widget.html's JS-driven
+       sizePlayerToCover — that one has to handle an ARBITRARY box shape
+       on mobile; this box is always exactly 16:9, guaranteed by
+       videos/hamburgernews.html's own .patty-slot, so scaling both
+       dimensions by the same factor never distorts the video, it just
+       pushes a uniform margin of the iframe's own edges — where YouTube
+       anchors its own hover chrome (the title bar up top, the "more
+       videos" tray/logo at bottom-right) — out past .stage's
+       overflow:hidden. Confirmed needed: without this, that chrome
+       visibly showed through on hover despite controls:0. */
+    width: 110%;
+    height: 110%;
     border: 0;
     /* Blocks clicks reaching the embed itself — same reasoning as
        video-mini-player-widget.html's identical rule: with no way to
@@ -144,6 +160,120 @@
     font-size: clamp(9px, 2.6cqw, 11px);
     font-weight: 700;
   }
+
+  /* ---------- VIDEO PICKER DRAWER ----------
+     Jump straight to any saved video, not just step through them one at
+     a time via Next — built right into the stage itself, same as
+     everything else here, so it reads as part of the burger rather than
+     a bolted-on page element. Opens by sliding up from the bottom (two
+     layered transitions: the drawer's own max-height opens the room,
+     while it slides up out of that space via transform instead of just
+     growing into it — same technique live.html's tap-in streak bar
+     uses). translateZ(0) plus a forced reflow on close (see the JS)
+     guard against the exact stale-compositor-tile bug that turned up on
+     that same streak bar on mobile Safari — cheap insurance here since
+     this is the same "frequently toggled overlay on a mobile-heavy
+     page" shape of element.
+     Horizontal scroll below a rough phone/desktop threshold, vertical
+     above it — not just a stylistic flourish: a horizontal strip reads
+     as a natural thumb-swipe on a phone, while a vertical list uses a
+     wide desktop window's own taller-than-wide video area better. The
+     threshold is checked against THIS IFRAME's own rendered width (set
+     by videos/hamburgernews.html's .burger-stack, capped at 780px), not
+     the phone's raw screen width — which already lines up correctly:
+     a phone's ~92vw-wide burger-stack keeps this well under the
+     threshold, a desktop's 780px-capped one clears it. */
+  .picker-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+  .picker-drawer {
+    pointer-events: auto;
+    flex: none;
+    max-height: 0;
+    overflow: hidden;
+    background: rgba(20, 8, 0, 0.92);
+    border-top: 1px solid rgba(255, 210, 130, 0.35);
+    transform: translateZ(0);
+    transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .picker-panel.open .picker-drawer {
+    max-height: clamp(100px, 45%, 190px);
+  }
+  .picker-list {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    transform: translateY(16px);
+    opacity: 0;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    /* Mobile default: horizontal strip. */
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .picker-panel.open .picker-list {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  @media (min-width: 640px) {
+    .picker-list {
+      flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+  }
+  .picker-item {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: clamp(140px, 40cqw, 180px);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 6px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+  }
+  @media (min-width: 640px) {
+    .picker-item { width: 100%; }
+  }
+  .picker-item:hover { background: rgba(255, 255, 255, 0.12); }
+  .picker-item.active { border-color: #ffb400; background: rgba(255, 180, 0, 0.18); }
+  .picker-thumb {
+    flex: none;
+    width: 64px;
+    aspect-ratio: 16 / 9;
+    border-radius: 4px;
+    object-fit: cover;
+    background: #000;
+  }
+  .picker-title {
+    min-width: 0;
+    color: #ffd479;
+    font-size: 12px;
+    line-height: 1.3;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  /* Hamburger-menu glyph doubling as the Hamburger News video picker's
+     own icon — same round-btn shape as mute/play/next beside it, only
+     rendered once there's more than one video (see renderNowPlaying).
+     Flips upside-down while the drawer's open, echoing the chevron-flip
+     idiom the VODs tab elsewhere on this site already uses. */
+  .picker-toggle-label { display: inline-block; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  .picker-toggle-btn[aria-expanded="true"] .picker-toggle-label { transform: rotate(180deg); }
 </style>
 </head>
 <body>
@@ -154,10 +284,16 @@
     <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
   </div>
   <div class="empty-state" id="emptyState" hidden>No Hamburger News yet — check back soon!</div>
+  <div class="picker-panel" id="pickerPanel">
+    <div class="picker-drawer" id="pickerDrawer">
+      <div class="picker-list" id="pickerList"></div>
+    </div>
+  </div>
   <div class="controls-bar" id="controlsBar" hidden>
-    <button type="button" class="round-btn" id="muteBtn" title="Unmute">&#128263;</button>
+    <button type="button" class="round-btn" id="muteBtn" title="Unmute"><svg class="mute-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16.5 12c0-1.77-.77-3.29-2-4.31v2.6l2 2c0-.1 0-.19 0-.29zm2.5 0c0 .91-.19 1.77-.51 2.55l1.47 1.47C20.63 14.86 21 13.48 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H4v6h4l5 5v-6.73l4.25 4.25c-.67.53-1.42.94-2.25 1.19v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg></button>
     <button type="button" class="round-btn" id="playBtn" title="Pause">&#10074;&#10074;</button>
     <div class="now-playing-title" id="nowPlayingTitle"></div>
+    <button type="button" class="round-btn picker-toggle-btn" id="pickerToggleBtn" title="Pick a video" aria-expanded="false" hidden><span class="picker-toggle-label">&#9776;</span></button>
     <button type="button" class="round-btn" id="nextBtn" title="Next episode" hidden><span class="next-btn-label">&#9654;&#9654;</span></button>
   </div>
 </div>
@@ -205,10 +341,15 @@
   const playBtn = document.getElementById('playBtn');
   const nextBtn = document.getElementById('nextBtn');
   const nowPlayingTitleEl = document.getElementById('nowPlayingTitle');
+  const pickerPanelEl = document.getElementById('pickerPanel');
+  const pickerDrawerEl = document.getElementById('pickerDrawer');
+  const pickerListEl = document.getElementById('pickerList');
+  const pickerToggleBtn = document.getElementById('pickerToggleBtn');
 
   let videos = [];       // [{id, title}]
   let activeIndex = 0;
   let hasLoadedInitialVideo = false;
+  let pickerOpen = false;
 
   function showLoading() { stageLoadingEl.hidden = false; }
   function hideLoading() { stageLoadingEl.hidden = true; }
@@ -236,7 +377,7 @@
     stageEl.addEventListener('mouseleave', () => hideControlsNow());
   } else {
     stageEl.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.controls-bar')) { showControls(true); return; }
+      if (e.target.closest('.controls-bar, .picker-panel')) { showControls(true); return; }
       if (stageEl.classList.contains('controls-visible')) hideControlsNow();
       else showControls(true);
     }, { passive: true });
@@ -248,10 +389,18 @@
   let playerReady = false;
   let pendingVideoId = null;
 
+  // Plain SVG glyphs (not emoji — a system emoji font renders wildly
+  // differently across platforms/browsers, whereas this always draws
+  // exactly the same way, in the button's own currentColor). Same
+  // "volume" icon shape most players use: unmuted draws the speaker
+  // with sound waves, muted draws it with an X instead.
+  const MUTE_ICON_UNMUTED = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M4 9v6h4l5 5V4L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34zM14 4.45v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>';
+  const MUTE_ICON_MUTED = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M16.5 12c0-1.77-.77-3.29-2-4.31v2.6l2 2c0-.1 0-.19 0-.29zm2.5 0c0 .91-.19 1.77-.51 2.55l1.47 1.47C20.63 14.86 21 13.48 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H4v6h4l5 5v-6.73l4.25 4.25c-.67.53-1.42.94-2.25 1.19v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>';
+
   function updateMuteBtn() {
     if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
     const muted = ytPlayer.isMuted();
-    muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+    muteBtn.innerHTML = muted ? MUTE_ICON_MUTED : MUTE_ICON_UNMUTED;
     muteBtn.title = muted ? 'Unmute' : 'Mute';
   }
   function updatePlayBtn(isPlaying) {
@@ -263,7 +412,47 @@
     const v = videos[activeIndex];
     nowPlayingTitleEl.textContent = v ? (v.title || 'Untitled') : '';
     nextBtn.hidden = videos.length < 2;
+    pickerToggleBtn.hidden = videos.length < 2; // nothing to pick between with 0 or 1 video
+    pickerListEl.querySelectorAll('.picker-item').forEach((el) => {
+      el.classList.toggle('active', parseInt(el.dataset.index, 10) === activeIndex);
+    });
   }
+
+  // ---------- VIDEO PICKER DRAWER ----------
+  function renderPickerList() {
+    pickerListEl.innerHTML = videos.map((v, i) => `
+      <button type="button" class="picker-item${i === activeIndex ? ' active' : ''}" data-index="${i}">
+        <img class="picker-thumb" src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy">
+        <span class="picker-title">${escapeHtml(v.title)}</span>
+      </button>
+    `).join('');
+  }
+
+  function togglePicker(open) {
+    pickerOpen = open;
+    pickerPanelEl.classList.toggle('open', open);
+    pickerToggleBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      showControls(false); // stays up alongside the open drawer, no auto-hide fighting it
+    } else {
+      // Forces a synchronous repaint right as the drawer starts closing
+      // — same fix, same reasoning, as live.html's tap-in streak bar
+      // (see .picker-drawer's own comment): mobile Safari can otherwise
+      // leave a stale painted sliver of the drawer's own border on
+      // screen even once its real geometry is back to 0.
+      void pickerDrawerEl.offsetHeight;
+      showControls(true);
+    }
+  }
+
+  pickerToggleBtn.addEventListener('click', () => togglePicker(!pickerOpen));
+
+  pickerListEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.picker-item');
+    if (!item) return;
+    playIndex(parseInt(item.dataset.index, 10));
+    togglePicker(false);
+  });
 
   function playIndex(index) {
     if (!videos.length) return;
@@ -354,10 +543,12 @@
     videos = rawList
       .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled' }))
       .filter(v => v.id);
+    renderPickerList();
 
     if (!videos.length) {
       emptyStateEl.hidden = false;
       controlsBarEl.hidden = true;
+      togglePicker(false);
       hideLoading();
       return;
     }
