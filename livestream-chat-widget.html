@@ -2858,7 +2858,36 @@
 
   // ---------- INIT ----------
   let currentlyBanned = false;
-  bansRef.doc(CLIENT_ID).onSnapshot((doc) => {
+  let banExpiryTimer = null;
+
+  function clearBanExpiryTimer() {
+    if (banExpiryTimer) { clearTimeout(banExpiryTimer); banExpiryTimer = null; }
+  }
+
+  // onSnapshot only re-fires on an actual WRITE to this doc — it has no
+  // way to notice that a timeout's own expiresAt has quietly slipped into
+  // the past just because time went by. Without this, someone auto-timed-
+  // out for spamming stayed stuck on the banned screen well past their 10
+  // minutes — not actually re-banned, just never re-checked — until some
+  // unrelated write happened to touch this same doc (another spam
+  // timeout, an admin action) or they reloaded the tab. This arms a
+  // same-tab recheck for the exact moment the current ban is due to
+  // lapse; handleBanDoc (below) rearms it every time the doc actually
+  // changes, so it's always set for whatever expiresAt is current.
+  function scheduleBanExpiryRecheck(ban) {
+    clearBanExpiryTimer();
+    if (!ban || !ban.expiresAt) return; // permanent ban, or nothing active to recheck
+    const msUntilExpiry = ban.expiresAt - Date.now();
+    if (msUntilExpiry <= 0) return; // already lapsed — handleBanDoc deals with that synchronously
+    banExpiryTimer = setTimeout(() => {
+      // A plain get() (not a new listener) — this only needs to fire once,
+      // and re-reads rather than trusting local state in case an admin
+      // action landed in the same window.
+      bansRef.doc(CLIENT_ID).get().then(handleBanDoc).catch(() => {});
+    }, msUntilExpiry + 250); // small pad past the exact boundary, never before it
+  }
+
+  function handleBanDoc(doc) {
     const ban = doc.exists ? doc.data() : null;
     const active = isBanActive(ban);
     if (active) {
@@ -2866,7 +2895,22 @@
       session = null;
       if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
       renderBanned(ban);
-    } else if (currentlyBanned) {
+      scheduleBanExpiryRecheck(ban);
+      return;
+    }
+    clearBanExpiryTimer();
+    // A lapsed TIMEOUT (unlike a permanent ban, which has no expiresAt to
+    // lapse) otherwise sits in Firestore forever once expiresAt passes —
+    // nothing here ever deleted it on its own. Cleaning it up the moment
+    // any client notices, the same "whoever notices first" pattern the
+    // spam filter above already relies on, matches exactly what
+    // admin.html's own Unban button does (a plain .delete()) and rules
+    // out anything downstream ever mistaking "a ban doc still exists for
+    // this device" for "still banned".
+    if (ban && ban.expiresAt) {
+      bansRef.doc(CLIENT_ID).delete().catch(() => {});
+    }
+    if (currentlyBanned) {
       // The ban was lifted, or a timeout expired, while this tab was
       // already sitting on the banned screen.
       currentlyBanned = false;
@@ -2874,7 +2918,9 @@
     } else if (!session) {
       enterAuthOrRestore();
     }
-  }, () => {
+  }
+
+  bansRef.doc(CLIENT_ID).onSnapshot(handleBanDoc, () => {
     // Can't confirm ban status (offline, rules not yet deployed, etc.) —
     // fails open to the normal join screen (or a remembered session)
     // rather than locking everyone out over a read error.
