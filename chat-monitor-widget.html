@@ -29,6 +29,25 @@
     flex-direction: column;
   }
 
+  /* #app wraps everything below the login gate (#statusBar, the two new
+     live-video rows, #viewerBar, #messages) but never had its own flex
+     context — without it, #messages' own flex:1 1 auto/min-height:0
+     (below) has nothing to take effect against, since flex properties
+     only mean anything on a flex item whose PARENT is a flex container.
+     #app just grew to fit every message stacked in normal block flow
+     instead, with nothing below the fold reachable at all once that
+     overflowed the (overflow:hidden) page — this is what broke
+     scrolling the moment sign-in started actually revealing #app with
+     real messages in it. flex:1 1 auto + min-height:0 here mirror
+     #messages' own reasoning: fill the rest of body's column, but stay
+     shrinkable so #messages (not #app itself) is what ends up scrolling. */
+  #app {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
   /* "N watching" readout — same presence system and same person-icon
      glyph as livestream-chat-widget.html's on-page viewer badge, just
      read-only here (see the script at the bottom): this is your own
