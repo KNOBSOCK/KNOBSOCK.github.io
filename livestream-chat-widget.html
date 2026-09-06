@@ -1033,10 +1033,15 @@
   }
   /* Replaces the old beer emoji glyph — cropped to a circle via
      object-fit so it reads as a badge inside the round button rather
-     than a square photo pasted on top of it. */
+     than a square photo pasted on top of it. Sized off the same
+     clamp()/cqmin scale as .tapin-btn itself (82% of it) rather than a
+     percentage of .tapin-btn-label: that label is a plain inline span,
+     which doesn't give a percentage width/height on an img anything
+     reliable to resolve against, and left the icon undersized and
+     drifted toward one corner instead of centered in the button. */
   .tapin-btn-icon {
-    width: 82%;
-    height: 82%;
+    width: clamp(18px, 5.7cqmin, 23px);
+    height: clamp(18px, 5.7cqmin, 23px);
     object-fit: cover;
     border-radius: 50%;
     display: block;
