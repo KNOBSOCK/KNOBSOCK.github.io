@@ -1158,6 +1158,76 @@
     font-size: clamp(10px, 2.4cqw, 12px);
   }
 
+  /* ---------- TAP-IN STREAK BAR ----------
+     A small translucent readout that rises up out of the composer bar
+     for a few seconds after a successful tap-in: your own current daily
+     streak, plus how the top 3 currently-alive streaks compare (see the
+     TAP IN section's showStreakBar/fetchTopStreaks below for the data
+     side). --panel-2/--line/--text/--text-dim throughout, same as the
+     rest of this widget, so it re-tints itself along with everything
+     else when html.is-offline swaps the whole palette to grey — nothing
+     here is a hardcoded color.
+     The "rises up" motion is two layered transitions: the wrap's own
+     max-height opens up the room (same trick as .vods-drawer above),
+     while the bar inside it slides up out of that newly-opened space
+     instead of just fading into it, so it reads as climbing up from the
+     bottom of the chat rather than growing down from the composer. */
+  .streak-bar-wrap {
+    flex: none;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .streak-bar-wrap.is-visible {
+    max-height: 140px;
+  }
+  .streak-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(4px, 1.5cqmin, 8px) clamp(10px, 3cqmin, 16px);
+    margin: clamp(6px, 1.8cqmin, 10px) clamp(10px, 3cqmin, 14px) 0;
+    padding: clamp(6px, 1.8cqmin, 10px) clamp(10px, 3cqmin, 14px);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: clamp(8px, 2.5cqw, 14px);
+    font-family: var(--font-body);
+    transform: translateY(16px);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  }
+  .streak-bar-wrap.is-visible .streak-bar {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .streak-bar-mine {
+    font-weight: 700;
+    color: var(--text);
+    font-size: clamp(11px, 3cqmin, 13px);
+    white-space: nowrap;
+  }
+  /* Divider only shows once there's a leaderboard segment to separate
+     from — see the template in showStreakBar, which omits both this and
+     .streak-bar-lb entirely while that fetch is still in flight/failed. */
+  .streak-bar-divider {
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+  .streak-bar-lb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(3px, 1cqmin, 6px) clamp(8px, 2cqmin, 12px);
+    color: var(--text-dim);
+    font-size: clamp(10px, 2.6cqmin, 12px);
+  }
+  /* The current device's own entry, when it actually places top 3 —
+     matches .who b's treatment of your own name elsewhere in this bar. */
+  .streak-bar-lb-entry.is-you {
+    color: var(--text);
+    font-weight: 700;
+  }
+
   .composer-bar {
     flex: 0 0 auto;
     border-top: 1px solid var(--line);
@@ -1293,7 +1363,7 @@
          separate nub below. Desktop keeps its own .vods-tab and this
          bar stays a plain readout. -->
     <div class="stream-stats" id="streamStats">
-      <span class="stream-stats-vods" aria-hidden="true">VODS<span class="stream-stats-chevron">&#9660;</span></span>
+      <span class="stream-stats-vods" aria-hidden="true">Past Streams<span class="stream-stats-chevron">&#9660;</span></span>
     </div>
   </div>
 
@@ -1305,13 +1375,13 @@
          the bottom of the list. See the VODs DRAWER CSS above. -->
     <div class="vods-panel" id="vodsPanel">
       <div class="vods-drawer" id="vodsDrawer">
-        <div class="vods-heading">VODS</div>
+        <div class="vods-heading">Past Streams</div>
         <div class="vods-list" id="vodsList">
           <div class="vods-empty">No past streams yet.</div>
         </div>
       </div>
       <button type="button" class="vods-tab" id="vodsTab" title="Past streams">
-        <span class="vods-tab-label">VODS</span>
+        <span class="vods-tab-label">Past Streams</span>
         <span class="vods-tab-chevron" aria-hidden="true">&#9660;</span>
       </button>
     </div>
@@ -2092,6 +2162,12 @@
     lastTapInAt = (data && data.lastTapInAt) || 0;
     refreshTapInButtonState();
 
+    // Mirrors lastTapInAt just above — kept in memory from this same live
+    // listener so sendTapIn() (see TAP IN below) always has this device's
+    // latest known streak/day on hand without a separate read of its own.
+    myStreak = (data && data.streak) || 0;
+    myStreakDay = (data && data.streakDay) || null;
+
     // A ban screen takes priority over this — never stomp it — and only
     // an already-open session that just lost the exact lock it was
     // resumed from needs kicking; a lock that was never there to begin
@@ -2238,6 +2314,14 @@
   let lastTapInAt = 0;
   let tapinCooldownTimer = null;
 
+  // This device's current daily tap-in streak, kept live from the same
+  // chat_devices/<CLIENT_ID> listener that already tracks lastTapInAt
+  // (see DEVICE LOCK above) — streak is how many days in a row (see
+  // utcDayKey below) include at least one tap-in from this device;
+  // streakDay is the UTC day key of the last day that counted toward it.
+  let myStreak = 0;
+  let myStreakDay = null;
+
   // ts values of tap-in messages THIS TAB is actively in the middle of
   // writing right now — lets subscribeToMessages() recognize "this is
   // my brand new write" precisely during its own settling window (see
@@ -2257,6 +2341,93 @@
   }
 
   const TAPIN_EMOJI = '\u{1F37A}'; // matches the &#127866; the button starts with in the template above
+
+  // "YYYY-MM-DD" in UTC. A fixed reference point every visitor's streak
+  // agrees on, rather than each browser's own local midnight — otherwise
+  // the exact same broadcast schedule would count as a different number
+  // of "days" depending on which timezone happened to be watching.
+  function utcDayKey(ts) {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+
+  // Pure function of this device's current in-memory streak state (see
+  // myStreak/myStreakDay above) plus a tap-in timestamp — never touches
+  // Firestore itself, so sendTapIn can call it before writing anything.
+  // Same day as last time: streak is unchanged (the cooldown above makes
+  // this the common case for a second tap-in today). The day right
+  // before: extends it by one. Anything else — a gap, or no prior
+  // tap-in at all — restarts it at 1.
+  function nextStreakAfterTapIn(ts) {
+    const todayKey = utcDayKey(ts);
+    if (myStreakDay === todayKey) return { streak: myStreak, day: todayKey };
+    const yesterdayKey = utcDayKey(ts - 24 * 60 * 60 * 1000);
+    return { streak: myStreakDay === yesterdayKey ? myStreak + 1 : 1, day: todayKey };
+  }
+
+  // Reads the top currently-alive streaks — "alive" meaning a tap-in
+  // landed today or yesterday, not just whatever the raw streak number
+  // says — rather than trusting stored streak values alone, since
+  // nothing ever resets a device's streak back to 0 once its owner stops
+  // tapping in; a device that streaked for a month once and never came
+  // back would otherwise sit at the top of this list forever. A one-off
+  // get() (not a live listener), since this only needs to be current as
+  // of the tap-in that triggered it, not kept in sync afterward.
+  //
+  // Depends on chat_devices allowing a collection query (list), not just
+  // a get-by-own-id — that collection's rules live only in the Firebase
+  // console (see firestore.rules' own top-of-file warning), not in this
+  // repo, so if this silently never shows a leaderboard, that's the
+  // first thing to check there. Failing closed (empty array) either way
+  // is deliberate: the tap-in itself, and this device's own streak
+  // shown alongside it, must never depend on this succeeding.
+  function fetchTopStreaks() {
+    return devicesRef.orderBy('streak', 'desc').limit(15).get().then((snap) => {
+      const todayKey = utcDayKey(Date.now());
+      const yesterdayKey = utcDayKey(Date.now() - 24 * 60 * 60 * 1000);
+      const alive = [];
+      snap.forEach((doc) => {
+        const data = doc.data();
+        if (!data.streak || (data.streakDay !== todayKey && data.streakDay !== yesterdayKey)) return;
+        alive.push({ username: data.username || '?', streak: data.streak, isYou: doc.id === CLIENT_ID });
+      });
+      return alive.slice(0, 3);
+    }).catch(() => []);
+  }
+
+  const STREAK_BAR_VISIBLE_MS = 8000;
+  let streakBarHideTimer = null;
+  let streakBarToken = 0; // lets a slow/late leaderboard fetch recognize it's been superseded — see the check inside showStreakBar
+
+  // Renders your own streak immediately (no network wait — it's already
+  // in memory), then fills in the top-3 comparison once fetchTopStreaks
+  // resolves. Re-triggering (a second tap-in before this one's timer or
+  // fetch finished) just restarts the whole thing cleanly via the token
+  // check below and a fresh clearTimeout/setTimeout pair.
+  function showStreakBar(streak) {
+    const wrap = $('streakBarWrap');
+    const bar = $('streakBar');
+    if (!wrap || !bar) return;
+    const token = ++streakBarToken;
+
+    clearTimeout(streakBarHideTimer);
+    bar.innerHTML = `<span class="streak-bar-mine">\u{1F525} ${streak}-day streak</span>`;
+    wrap.classList.add('is-visible');
+    streakBarHideTimer = setTimeout(() => wrap.classList.remove('is-visible'), STREAK_BAR_VISIBLE_MS);
+
+    fetchTopStreaks().then((top) => {
+      // Stale by the time this resolves — a newer tap-in already replaced
+      // this content, or the bar already auto-hid — so appending now
+      // would look like a glitch rather than a comparison for THIS tap-in.
+      if (token !== streakBarToken || !wrap.classList.contains('is-visible') || !top.length) return;
+      const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+      const entries = top.map((row, i) =>
+        `<span class="streak-bar-lb-entry${row.isYou ? ' is-you' : ''}">${medals[i]} ${escapeHtml(row.username)} ${row.streak}</span>`
+      ).join('');
+      bar.insertAdjacentHTML('beforeend',
+        `<span class="streak-bar-divider">·</span><span class="streak-bar-lb">${entries}</span>`
+      );
+    });
+  }
 
   function refreshTapInButtonState() {
     const btn = $('tapinBtn');
@@ -2293,8 +2464,22 @@
     refreshTapInButtonState();
     const ts = Date.now();
     pendingOwnTapinTimestamps.add(ts);
+
+    // Computed and shown immediately, before the write below even lands —
+    // it's derived from this device's own already-in-memory state (see
+    // nextStreakAfterTapIn), so there's no reason to make the streak bar
+    // wait on a round trip the same way the chat message below has to.
+    const next = nextStreakAfterTapIn(ts);
+    myStreak = next.streak;
+    myStreakDay = next.day;
+    showStreakBar(myStreak);
+
     try {
-      await devicesRef.doc(CLIENT_ID).set({ lastTapInAt: lastTapInAt }, { merge: true });
+      await devicesRef.doc(CLIENT_ID).set({
+        lastTapInAt: lastTapInAt,
+        streak: myStreak,
+        streakDay: myStreakDay
+      }, { merge: true });
       await messagesRef.add({
         type: 'tapin',
         username: session.username,
@@ -2597,6 +2782,9 @@
           <div class="empty-state">Loading messages…</div>
         </div>
         <div class="composer-bar">
+          <div class="streak-bar-wrap" id="streakBarWrap">
+            <div class="streak-bar" id="streakBar"></div>
+          </div>
           <div class="composer-status">
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
