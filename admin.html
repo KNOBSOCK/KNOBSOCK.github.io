@@ -2360,6 +2360,16 @@
       if (root) root.innerHTML = '<div class="empty-state">Could not load bans: ' + escapeAttr(err.message) + '</div>';
     });
 
+    // onSnapshot above only re-fires on an actual WRITE to chat_bans — it
+    // has no way to notice a timeout's own expiresAt quietly slipping
+    // into the past just because time went by, so without this a spam
+    // timeout would sit in "Currently Banned" looking still-active for
+    // however long it takes some unrelated write (another timeout, a
+    // manual unban elsewhere) to touch the collection again. Re-running
+    // the same isBanRowActive filter on a plain timer, independent of
+    // any Firestore event, keeps the list honest against the clock.
+    setInterval(renderBannedList, 15000);
+
     CHAT_CENSORED_WORDS_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
       liveCensorWords = (data && Array.isArray(data.words)) ? data.words : [];
