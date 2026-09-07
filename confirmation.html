@@ -15,23 +15,22 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
   /* Standalone page, same reasoning as cart.html (see its own comment) —
-     no widget/iframe split needed for a one-off transactional page. */
+     no widget/iframe split needed for a one-off transactional page.
+     Re-themed alongside cart.html to match store.html's white/black/
+     yellow/pink comic look instead of the store's old pink/dark palette. */
   :root {
-    --ink: #4a0a2e;
-    --panel-2: rgba(74, 10, 46, 0.8);
-    --line: rgba(255, 170, 210, 0.6);
-    --accent: #ff4fa8;
-    --accent-dim: #a3195f;
-    --accent-yellow: #ffdd00;
-    --text: #ffffff;
-    --text-dim: #ffd6ec;
+    --ks-pink: #ff4fa8;
+    --ks-yellow: #f5e94a;
+    --ks-ink: #1a1a1a;
+    --line: #e6e6e6;
+    --text-dim: #767676;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     min-height: 100%;
-    background: var(--ink);
-    color: var(--text);
+    background: #ffffff;
+    color: var(--ks-ink);
     font-family: Arial, Helvetica, sans-serif;
   }
   a { color: inherit; }
@@ -41,24 +40,23 @@
     margin: 0 auto;
     padding: clamp(16px, 3vw, 32px) clamp(14px, 3vw, 24px) 60px;
   }
-  .logo-link {
+  .header-logo-link {
     display: block;
-    text-align: center;
-    text-decoration: none;
-    margin-bottom: clamp(6px, 1.6vw, 14px);
+    width: min(46%, 260px);
+    margin: 0 auto clamp(10px, 2vw, 18px);
   }
-  .logo-link img {
+  .header-logo-link img {
     display: block;
-    margin: 0 auto;
     width: 100%;
-    max-width: 380px;
     height: auto;
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
   .card {
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    background: #fff;
+    border: 3px solid #000;
+    border-radius: 16px;
     padding: clamp(18px, 3.6vw, 30px);
     text-align: center;
   }
@@ -70,7 +68,7 @@
     margin: 4px auto 16px;
     border-radius: 50%;
     border: 3px solid var(--line);
-    border-top-color: var(--accent);
+    border-top-color: var(--ks-pink);
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -81,11 +79,11 @@
     height: 60px;
     margin: 0 auto 14px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-dim));
+    background: var(--ks-yellow);
+    border: 3px solid #000;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
   }
   .check-badge svg { width: 55%; height: 55%; }
 
@@ -93,11 +91,12 @@
   .order-number {
     display: inline-block;
     margin: 0 0 16px;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 13px;
     letter-spacing: 0.03em;
-    color: var(--accent-yellow);
-    background: rgba(0, 0, 0, 0.24);
+    color: #000;
+    background: var(--ks-yellow);
+    border: 2px solid #000;
     border-radius: 999px;
     padding: 5px 14px;
   }
@@ -121,7 +120,7 @@
     padding: 6px 0;
     font-size: 13px;
   }
-  .receipt-line .item-name { color: var(--text); }
+  .receipt-line .item-name { color: var(--ks-ink); }
   .receipt-line .item-meta { color: var(--text-dim); font-size: 12px; display: block; }
   .receipt-line .item-price { color: var(--text-dim); flex: 0 0 auto; white-space: nowrap; }
   .receipt-total {
@@ -130,7 +129,7 @@
     border-top: 1px solid var(--line);
     margin-top: 8px;
     padding-top: 10px;
-    font-weight: 700;
+    font-weight: 800;
   }
 
   .ship-to {
@@ -141,20 +140,20 @@
   }
   .ship-to .label {
     display: block;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-size: 11px;
     color: var(--text-dim);
     margin-bottom: 4px;
   }
-  .ship-to .name { color: var(--text); font-weight: 700; }
+  .ship-to .name { color: var(--ks-ink); font-weight: 800; }
 
   .back-link {
     display: inline-block;
     margin-top: 22px;
-    color: var(--accent-yellow);
-    font-weight: 700;
+    color: var(--ks-pink);
+    font-weight: 800;
     font-size: 13px;
     text-decoration: none;
   }
@@ -166,8 +165,8 @@
 <body>
 
 <div class="page">
-  <a class="logo-link" href="/" target="_top">
-    <img src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
+  <a class="header-logo-link" href="/" aria-label="KNOBSOCK home">
+    <img src="/store-header.webp" alt="KNOBSOCK STORE">
   </a>
 
   <div class="card">
@@ -180,7 +179,7 @@
 
     <div id="successState" hidden>
       <div class="check-badge" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2a0018" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
       </div>
       <h1>Thanks for your order!</h1>
       <span class="order-number" id="orderNumber"></span>

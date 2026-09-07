@@ -21,28 +21,23 @@
      checkout is exactly the wrong place to add cross-frame postMessage
      plumbing just to stay consistent.
 
-     NOTE: this still carries the store's older pink/dark palette —
-     store.html itself was since rebuilt as a plain white page (see its
-     own top-of-file comment) and no longer shares this theme. Left as-is
-     here since re-theming checkout wasn't part of that rebuild; worth
-     revisiting so cart/checkout reads as the same store again. */
+     Re-themed to match store.html's white/black/yellow/pink comic look
+     (see that file's own top-of-file comment) — same header-logo asset,
+     same --ks-* palette, same sticker-style bordered buttons. */
   :root {
-    --ink: #4a0a2e;
-    --panel-2: rgba(74, 10, 46, 0.8);
-    --line: rgba(255, 170, 210, 0.6);
-    --accent: #ff4fa8;
-    --accent-dim: #a3195f;
-    --accent-yellow: #ffdd00;
-    --text: #ffffff;
-    --text-dim: #ffd6ec;
-    --danger: #ff8080;
+    --ks-pink: #ff4fa8;
+    --ks-yellow: #f5e94a;
+    --ks-ink: #1a1a1a;
+    --line: #e6e6e6;
+    --text-dim: #767676;
+    --danger: #d6284a;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     min-height: 100%;
-    background: var(--ink);
-    color: var(--text);
+    background: #ffffff;
+    color: var(--ks-ink);
     font-family: Arial, Helvetica, sans-serif;
   }
   a { color: inherit; }
@@ -52,35 +47,34 @@
     margin: 0 auto;
     padding: clamp(16px, 3vw, 32px) clamp(14px, 3vw, 24px) 60px;
   }
-  .logo-link {
+  .header-logo-link {
     display: block;
-    text-align: center;
-    text-decoration: none;
-    margin-bottom: clamp(6px, 1.6vw, 14px);
+    width: min(46%, 260px);
+    margin: 0 auto clamp(10px, 2vw, 18px);
   }
-  .logo-link img {
+  .header-logo-link img {
     display: block;
-    margin: 0 auto;
     width: 100%;
-    max-width: 380px;
     height: auto;
+    -webkit-user-drag: none;
+    user-select: none;
   }
   .back-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     text-decoration: none;
-    color: var(--text-dim);
+    color: var(--ks-pink);
+    font-weight: 800;
     font-size: 13px;
-    font-weight: 700;
     margin-bottom: 16px;
   }
-  .back-link:hover { color: var(--text); }
+  .back-link:hover { text-decoration: underline; }
 
   .card {
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    background: #fff;
+    border: 3px solid #000;
+    border-radius: 16px;
     padding: clamp(16px, 3.4vw, 26px);
   }
   h1 { margin: 0 0 18px; font-size: clamp(20px, 4vw, 26px); }
@@ -98,22 +92,23 @@
     width: 64px;
     height: 64px;
     border-radius: 10px;
+    border: 2px solid #000;
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.28);
+    background: #fafafa;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-dim);
   }
-  .line-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .line-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .line-thumb svg { width: 44%; height: 44%; }
   .line-info { flex: 1 1 auto; min-width: 0; }
-  .line-title { font-weight: 700; font-size: 14px; }
-  .line-size { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .line-title { font-weight: 800; font-size: 14px; }
+  .line-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
   .line-qty {
     display: inline-flex;
     align-items: center;
-    border: 1px solid var(--line);
+    border: 2px solid #000;
     border-radius: 999px;
     margin-top: 8px;
     overflow: hidden;
@@ -123,20 +118,20 @@
     appearance: none;
     width: 26px;
     height: 26px;
-    background: rgba(0, 0, 0, 0.24);
+    background: var(--ks-yellow);
     border: 0;
-    color: var(--text);
+    color: #000;
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 800;
     cursor: pointer;
   }
-  .line-qty button:hover { background: var(--accent-dim); }
-  .line-qty span { display: inline-block; min-width: 26px; text-align: center; font-weight: 700; font-size: 13px; }
+  .line-qty button:hover { filter: brightness(0.95); }
+  .line-qty span { display: inline-block; min-width: 26px; text-align: center; font-weight: 800; font-size: 13px; }
   .line-price {
     flex: 0 0 auto;
     text-align: right;
-    font-weight: 700;
-    color: var(--accent-yellow);
+    font-weight: 800;
+    color: var(--ks-pink);
     font-size: 14px;
     min-width: 60px;
   }
@@ -160,7 +155,7 @@
     align-items: baseline;
     padding-top: 16px;
     margin-top: 4px;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 16px;
   }
   .totals-note {
@@ -177,17 +172,20 @@
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
-    border: 0;
+    border: 3px solid #000;
     border-radius: 999px;
     padding: 14px;
     font-family: inherit;
-    font-weight: 700;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     font-size: 16px;
-    color: #2a0018;
-    background: var(--accent-yellow);
-    transition: transform 0.2s ease;
+    color: #000;
+    background: var(--ks-yellow);
+    transition: transform 0.15s ease;
   }
-  .checkout-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .checkout-btn:hover:not(:disabled) { transform: scale(1.03); }
+  .checkout-btn:active:not(:disabled) { transform: scale(0.97); }
   .checkout-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
 
   .checkout-error {
@@ -205,7 +203,7 @@
     font-size: 14px;
   }
   .empty-state[hidden] { display: none; }
-  .empty-state a { color: var(--accent-yellow); font-weight: 700; text-decoration: none; }
+  .empty-state a { color: var(--ks-pink); font-weight: 800; text-decoration: none; }
   .empty-state a:hover { text-decoration: underline; }
 
   #totalsBlock[hidden] { display: none; }
@@ -214,8 +212,8 @@
 <body>
 
 <div class="page">
-  <a class="logo-link" href="/" target="_top">
-    <img src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
+  <a class="header-logo-link" href="/" aria-label="KNOBSOCK home">
+    <img src="/store-header.webp" alt="KNOBSOCK STORE">
   </a>
   <a class="back-link" href="/store" target="_top">&larr; Back to Store</a>
 
@@ -298,6 +296,17 @@
     return '$' + (Math.max(0, cents | 0) / 100).toFixed(2);
   }
 
+  // A line's "meta" row (size/color) — store.html only ever writes
+  // `color` today (see its Add to Cart handler); `size` is kept here too
+  // since admin.html already has a per-product Sizes field that isn't
+  // wired into store.html's UI yet.
+  function lineMeta(line) {
+    var parts = [];
+    if (line.color) parts.push('Color: ' + escapeHtml(line.color));
+    if (line.size) parts.push('Size: ' + escapeHtml(line.size));
+    return parts.join(' &middot; ');
+  }
+
   function render() {
     var cart = getCart();
 
@@ -313,11 +322,12 @@
 
     cartLines.innerHTML = cart.map(function (line, i) {
       var thumb = line.image ? '<img src="' + escapeHtml(line.image) + '" alt="">' : FALLBACK_ICON;
+      var meta = lineMeta(line);
       return '<div class="cart-line" data-index="' + i + '">' +
         '<span class="line-thumb">' + thumb + '</span>' +
         '<span class="line-info">' +
           '<span class="line-title">' + escapeHtml(line.title) + '</span>' +
-          (line.size ? '<div class="line-size">Size: ' + escapeHtml(line.size) + '</div>' : '') +
+          (meta ? '<div class="line-meta">' + meta + '</div>' : '') +
           '<div class="line-qty">' +
             '<button type="button" class="qty-minus" aria-label="Decrease quantity">&minus;</button>' +
             '<span>' + line.quantity + '</span>' +

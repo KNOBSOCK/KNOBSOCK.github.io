@@ -1070,6 +1070,10 @@
         <label class="field-label" for="productCategoryInput">Category</label>
         <input type="text" id="productCategoryInput" placeholder="Apparel">
       </div>
+      <div style="flex:1 1 140px;">
+        <label class="field-label" for="productMaterialInput">Material</label>
+        <input type="text" id="productMaterialInput" placeholder="100% Cotton">
+      </div>
     </div>
 
     <label class="field-label" for="productSizesInput">Sizes (optional, comma-separated)</label>
@@ -1222,8 +1226,10 @@
 
   // Keeps locally-stored product photos from blowing past localStorage's
   // ~5-10MB quota after just a couple of real phone photos — downscales to
-  // a sane max dimension and re-encodes as a compressed JPEG data URL
-  // before it ever gets pushed into editingProductImages.
+  // a sane max dimension and re-encodes as a data URL before it ever gets
+  // pushed into editingProductImages. PNG (not JPEG) for product photos
+  // specifically, since these are transparent cutout product art, not
+  // opaque photos — see the format param note below.
   function resizeImageFile(file, maxDim, quality, format) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -3126,6 +3132,7 @@
   const productDescInput = document.getElementById('productDescInput');
   const productPriceInput = document.getElementById('productPriceInput');
   const productCategoryInput = document.getElementById('productCategoryInput');
+  const productMaterialInput = document.getElementById('productMaterialInput');
   const productSizesInput = document.getElementById('productSizesInput');
   const productActiveInput = document.getElementById('productActiveInput');
   const productPhotosGrid = document.getElementById('productPhotosGrid');
@@ -3284,6 +3291,7 @@
     productDescInput.value = product ? (product.description || '') : '';
     productPriceInput.value = product ? ((product.priceCents || 0) / 100).toFixed(2) : '';
     productCategoryInput.value = product ? (product.category || '') : '';
+    productMaterialInput.value = product ? (product.material || '') : '';
     productSizesInput.value = (product && Array.isArray(product.sizes)) ? product.sizes.join(', ') : '';
     productActiveInput.checked = !product || product.active !== false;
     editingProductImages = (product && Array.isArray(product.images)) ? product.images.slice() : [];
@@ -3311,7 +3319,7 @@
       files.forEach(function (file) {
         var tileId = 'up-' + Math.random().toString(36).slice(2);
         productPhotosGrid.insertAdjacentHTML('beforeend', '<div class="photo-upload-tile is-uploading" id="' + tileId + '"><span class="upload-spinner"></span></div>');
-        resizeImageFile(file, 1000, 0.82).then(function (dataUrl) {
+        resizeImageFile(file, 1000, 0.82, 'image/png').then(function (dataUrl) {
           editingProductImages.push(dataUrl);
           renderPhotosGrid();
         }).catch(function (err) {
@@ -3366,6 +3374,7 @@
       description: productDescInput.value.trim(),
       priceCents: priceCents,
       category: productCategoryInput.value.trim(),
+      material: productMaterialInput.value.trim(),
       sizes: sizes,
       images: editingProductImages.slice(),
       colors: editingProductColors.slice(),
