@@ -696,6 +696,44 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ---------- STORE: product color chips ---------- */
+  .color-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .color-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 4px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .color-chip .swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    flex: none;
+  }
+  .color-chip .remove-color-btn {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    flex: none;
+  }
+
   /* ---------- STORE: orders "spreadsheet" ---------- */
   .table-scroll { overflow-x: auto; }
   .orders-table {
@@ -1041,6 +1079,14 @@
     <div class="photo-upload-grid" id="productPhotosGrid"></div>
     <input type="file" id="productPhotosInput" accept="image/*" multiple>
 
+    <label class="field-label">Colors <span style="font-weight:400;color:var(--text-dim);">— shown as swatches on the Store page's color picker, in this order</span></label>
+    <div class="color-chip-list" id="productColorsList"></div>
+    <div class="add-row">
+      <input type="text" id="productColorNameInput" class="search-input" placeholder="Color name (e.g. White)" style="flex:1 1 auto;">
+      <input type="color" id="productColorHexInput" value="#ffffff" title="Pick the exact color">
+      <button type="button" class="btn" id="productColorAddBtn">+ Add</button>
+    </div>
+
     <label style="display:flex;align-items:center;gap:8px;margin-top:16px;font-size:13px;color:var(--text-dim);">
       <input type="checkbox" id="productActiveInput" checked style="width:auto;">
       Active (visible on the live Store page)
@@ -1143,7 +1189,7 @@
   // ships without anyone having to hand-edit rules there too.
   const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
 
-  // Store tab — see store-widget.html (reads store_products) and
+  // Store tab — see store.html (reads store_products) and
   // functions/index.js's stripeWebhook (writes store_orders).
   const STORE_PRODUCTS_REF = db.collection('store_products');
   const STORE_ORDERS_REF = db.collection('store_orders');
@@ -1157,9 +1203,9 @@
   // instead — same shape as the real Firestore docs — so the Store tab and
   // the live Store page can actually be tried out end-to-end.
   //
-  // store-widget.html has the exact same flag/key — flip BOTH back to
-  // false once Firebase's store rules and Storage rules are deployed for
-  // real, and everything reverts to reading/writing Firestore as designed.
+  // store.html has the exact same flag/key — flip BOTH back to false
+  // once Firebase's store rules and Storage rules are deployed for real,
+  // and everything reverts to reading/writing Firestore as designed.
   const STORE_LOCAL_MODE = true;
   const STORE_LOCAL_KEY = 'knobsock_store_products_local';
 
@@ -3069,6 +3115,7 @@
   let storeOrdersLoaded = false;
   let editingProductId = null;   // null while the modal is adding a new product
   let editingProductImages = []; // urls, live-edited while the modal's open
+  let editingProductColors = []; // [{name, hex}], live-edited while the modal's open — see renderColorsList
   let productUploadFolderId = null; // shared by every photo uploaded in one modal session — see openProductModal
 
   const productsList = document.getElementById('productsList');
@@ -3083,6 +3130,10 @@
   const productActiveInput = document.getElementById('productActiveInput');
   const productPhotosGrid = document.getElementById('productPhotosGrid');
   const productPhotosInput = document.getElementById('productPhotosInput');
+  const productColorsList = document.getElementById('productColorsList');
+  const productColorNameInput = document.getElementById('productColorNameInput');
+  const productColorHexInput = document.getElementById('productColorHexInput');
+  const productColorAddBtn = document.getElementById('productColorAddBtn');
   const productSaveBtn = document.getElementById('productSaveBtn');
   const productDeleteBtn = document.getElementById('productDeleteBtn');
   const productModalStatus = document.getElementById('productModalStatus');
@@ -3181,6 +3232,42 @@
     renderPhotosGrid();
   });
 
+  // Renders as an ordered list of chips, same left-to-right = display-
+  // order convention as everything else editable here — no drag-to-
+  // reorder like the photos grid gets since color pickers are small
+  // enough in practice that "remove and re-add" covers reordering fine.
+  function renderColorsList() {
+    if (!editingProductColors.length) {
+      productColorsList.innerHTML = '<div class="note" style="margin:0;">No colors added — the Store page hides the color picker entirely until at least one exists.</div>';
+      return;
+    }
+    productColorsList.innerHTML = editingProductColors.map(function (c, i) {
+      return '<span class="color-chip">' +
+        '<span class="swatch" style="background:' + escapeAttr(c.hex) + ';"></span>' +
+        escapeAttr(c.name || c.hex) +
+        '<button type="button" class="remove-color-btn" data-index="' + i + '" title="Remove">&times;</button>' +
+        '</span>';
+    }).join('');
+    Array.prototype.forEach.call(productColorsList.querySelectorAll('.remove-color-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        editingProductColors.splice(parseInt(btn.dataset.index, 10), 1);
+        renderColorsList();
+      });
+    });
+  }
+
+  productColorAddBtn.addEventListener('click', function () {
+    var name = productColorNameInput.value.trim();
+    var hex = productColorHexInput.value || '#ffffff';
+    editingProductColors.push({ name: name, hex: hex });
+    productColorNameInput.value = '';
+    renderColorsList();
+    productColorNameInput.focus();
+  });
+  productColorNameInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); productColorAddBtn.click(); }
+  });
+
   function openProductModal(productId) {
     editingProductId = productId || null;
     // Shared by every photo uploaded during this one modal session (even
@@ -3200,9 +3287,13 @@
     productSizesInput.value = (product && Array.isArray(product.sizes)) ? product.sizes.join(', ') : '';
     productActiveInput.checked = !product || product.active !== false;
     editingProductImages = (product && Array.isArray(product.images)) ? product.images.slice() : [];
+    editingProductColors = (product && Array.isArray(product.colors)) ? product.colors.slice() : [];
     productDeleteBtn.hidden = !product;
     productModalStatus.textContent = '';
+    productColorNameInput.value = '';
+    productColorHexInput.value = '#ffffff';
     renderPhotosGrid();
+    renderColorsList();
 
     productModalOverlay.hidden = false;
   }
@@ -3277,6 +3368,7 @@
       category: productCategoryInput.value.trim(),
       sizes: sizes,
       images: editingProductImages.slice(),
+      colors: editingProductColors.slice(),
       active: productActiveInput.checked
     };
 

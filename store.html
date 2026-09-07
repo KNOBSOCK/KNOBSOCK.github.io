@@ -17,106 +17,422 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone shell in the same style as photos.html/music.html/videos.html/
-     live.html — store-widget.html draws the actual page; this is just the
-     logo + iframe scaffold, with a background matched to the widget's own
-     pink palette (its --ink), same as every other page here matches its
-     own widget's ink color instead of the tiled GeoCities GIF the rest of
-     the site uses. */
+  /* Full rebuild per the provided desktop/mobile mockups — one big
+     product image (whatever's next/prev/current in store_products,
+     same admin.html-authored source every other page reads), flanked by
+     prev/next arrows, a "next merch item" arrow below, and a color-swatch
+     picker bottom-right. White page background throughout (not this
+     site's usual dark-panel widget look) — the product art itself is
+     the whole page, not content living inside a themed card.
+
+     Desktop: prev/next arrows are absolutely positioned over the sides
+     of the product image itself. Mobile: per the mockup, they instead
+     sit in normal flow in their own row BELOW the product (still side by
+     side), and render at reduced opacity — both switches happen at this
+     site's usual 860px mobile breakpoint (videos.html/music.html/
+     live.html's own `@media (max-width: 860px)`). See .nav-row's own
+     comment for how one set of DOM buttons serves both layouts without
+     duplicating markup.
+
+     No cart/checkout UI in this pass — the mockups this was built from
+     don't show any (no price, no add-to-cart), so none was invented;
+     cart.html and the Stripe functions are untouched and still there to
+     wire back in whenever that's actually wanted. */
   * { box-sizing: border-box; }
 
   html, body {
     margin: 0;
     padding: 0;
     height: 100%;
-    background: #4a0a2e;
+    overflow: hidden;
+    background: #ffffff;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  html { overflow-x: hidden; }
-
-  .page {
+  .stage {
     position: relative;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
-    gap: 2px;
-    padding: clamp(8px, 2vw, 20px) 0 0;
+    align-items: center;
   }
 
-  /* Header logo — capped by width AND by a share of the viewport height
-     so it can't eat the content area's room on a short/landscape screen.
-     Same treatment as videos.html/live.html/music.html/photos.html's own
-     logo-link. */
-  .logo-link {
+  .header-logo {
     flex: 0 0 auto;
     display: block;
-    text-align: center;
-    padding: 0 clamp(10px, 3vw, 24px);
-    text-decoration: none;
-  }
-  .logo-link img {
-    display: block;
-    margin: 0 auto;
-    width: 100%;
-    max-width: 760px;
-    max-height: 18vh;
+    width: min(42vw, 640px);
     height: auto;
-    object-fit: contain;
+    margin: clamp(8px, 2.4vh, 26px) 0 0;
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
-  /* The widget fills whatever room it's given (it's built at 100% width/
-     height with its own frosted panel), same as photos.html's content-wrap
-     — meant to stretch on a tall/4K/8K window rather than being capped to
-     a "natural" height. min-height keeps it usable on very short screens,
-     where the page then scrolls instead of squashing. */
-  .content-wrap {
+  /* ---------- PRODUCT + PREV/NEXT ---------- */
+  .product-stage {
+    position: relative;
     flex: 1 1 auto;
-    min-height: min(560px, 68vh);
-    display: flex;
-  }
-  .content-wrap iframe {
-    display: block;
-    flex: 1 1 auto;
-    width: 100%;
-    height: auto;
     min-height: 0;
-    border: 0;
-    background: transparent;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  /* On mobile, lock the page itself to exactly one screen instead of
-     letting it grow/scroll — the widget's own content already has its own
-     internal overflow-y:auto (see store-widget.html), so scrolling stays
-     inside the widget instead of moving the logo off-screen. min-height:0
-     (replacing the desktop floor above) lets .content-wrap shrink to
-     whatever's actually left below the logo on a very short phone. */
+  .product-viewport {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  /* Both the outgoing and incoming image during a slide, and the single
+     resting image the rest of the time — always centered, translateX is
+     layered on top of that same centering transform by JS (see
+     showProduct()) rather than replacing it. object-fit:contain (via
+     max-width/max-height, since these are plain <img> tags, not a fixed
+     box) rather than cropping — "take up the whole page" means dominant
+     within the space actually left after the header/footer rows, not
+     cropped to fill it. */
+  .product-img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    max-width: 82%;
+    max-height: 94%;
+    width: auto;
+    height: auto;
+    transform: translate(-50%, -50%);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
+  /* One wrapper per side, holding one button each — display:contents on
+     desktop makes the wrapper's own box disappear so .nav-btn positions
+     itself absolutely against .product-stage (the nearest positioned
+     ancestor) as if it were a direct child; the mobile media query below
+     turns the SAME wrapper into a real flex row instead, so the exact
+     same DOM serves both the "flanking the sides" desktop layout and the
+     "own row below the product" mobile one with no duplicated markup. */
+  .nav-row {
+    display: contents;
+  }
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    width: clamp(52px, 7vw, 120px);
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .nav-btn:hover { transform: translateY(-50%) scale(1.06); }
+  .nav-btn:active { transform: translateY(-50%) scale(0.94); }
+  .nav-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; }
+  .nav-prev { left: clamp(6px, 3vw, 48px); }
+  .nav-next { right: clamp(6px, 3vw, 48px); }
+
+  /* ---------- FOOTER: NEXT ITEM + COLOR PICKER ---------- */
+  .footer-row {
+    position: relative;
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 clamp(10px, 3vw, 32px) clamp(10px, 2.4vh, 26px);
+  }
+  .next-item-btn {
+    width: clamp(60px, 8vw, 140px);
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: transform 0.15s ease;
+  }
+  .next-item-btn:hover { transform: scale(1.06); }
+  .next-item-btn:active { transform: scale(0.94); }
+  .next-item-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; }
+
+  .color-picker {
+    position: absolute;
+    right: clamp(10px, 3vw, 32px);
+    bottom: clamp(10px, 2.4vh, 26px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: clamp(4px, 1vw, 8px);
+  }
+  .color-picker[hidden] { display: none; }
+  .color-picker-heading {
+    display: block;
+    width: clamp(90px, 12vw, 170px);
+    height: auto;
+  }
+  .color-swatches {
+    display: flex;
+    gap: clamp(3px, 0.8vw, 6px);
+  }
+  .color-swatch {
+    width: clamp(22px, 3.2vw, 40px);
+    height: clamp(22px, 3.2vw, 40px);
+    padding: 0;
+    cursor: pointer;
+    border: 2px solid #000;
+    box-shadow: 0 0 0 2px transparent;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .color-swatch:hover { transform: translateY(-2px); }
+  .color-swatch.is-selected { box-shadow: 0 0 0 2px #ff4fa8; }
+
+  /* ---------- MOBILE ----------
+     Arrows drop out of .product-stage's absolute positioning and become
+     a real row of their own, in flow, below the product — same .nav-row
+     wrapper and .nav-btn buttons as desktop, see .nav-row's own comment
+     above. Also where "transparent buttons" from the mockup comes in:
+     the prev/next arrows specifically render at reduced opacity on
+     mobile — the next-item arrow and color picker stay fully opaque in
+     both mockups, so this only touches .nav-btn. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
-    .page {
-      height: 100vh;
-      height: 100dvh;
+    .stage { height: 100vh; height: 100dvh; }
+
+    .product-stage { flex-direction: column; }
+    .product-viewport { flex: 1 1 auto; }
+
+    .nav-row {
+      display: flex;
+      flex: 0 0 auto;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+      padding: clamp(6px, 2vw, 14px) clamp(14px, 5vw, 32px);
+      gap: clamp(10px, 4vw, 24px);
     }
-    .content-wrap {
-      min-height: 0;
+    .nav-btn {
+      position: static;
+      transform: none;
+      width: clamp(70px, 26vw, 150px);
+      opacity: 0.62;
     }
+    .nav-btn:hover, .nav-btn:active { transform: none; }
   }
 </style>
 </head>
 <body>
 
-<div class="page">
-  <a class="logo-link" href="/" target="_top">
-    <img src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
-  </a>
+<div class="stage">
+  <img class="header-logo" src="/store-header.webp" alt="KNOBSOCK STORE">
 
-  <div class="content-wrap">
-    <iframe src="/store-widget.html"
-            title="KNOBSOCK Store"
-            loading="lazy"></iframe>
+  <div class="product-stage">
+    <div class="product-viewport" id="productViewport"></div>
+    <div class="nav-row">
+      <button type="button" class="nav-btn nav-prev" id="prevBtn" aria-label="Previous design">
+        <img src="/store-btn-prev.webp" alt="">
+      </button>
+      <button type="button" class="nav-btn nav-next" id="nextBtn" aria-label="Next design">
+        <img src="/store-btn-next.webp" alt="">
+      </button>
+    </div>
+  </div>
+
+  <div class="footer-row">
+    <button type="button" class="next-item-btn" id="nextItemBtn" aria-label="Next merch item">
+      <img src="/store-btn-nextitem.webp" alt="">
+    </button>
+    <div class="color-picker" id="colorPicker" hidden>
+      <img class="color-picker-heading" src="/store-colorpicker-heading.webp" alt="Color Picker">
+      <div class="color-swatches" id="colorSwatches"></div>
+    </div>
   </div>
 </div>
+
+<!-- ============================================================
+     FIREBASE — same project as every other page, read-only here: this
+     page only ever reads published products, never writes them (that
+     happens from admin.html's Store tab). Guarded the same way the rest
+     of the site guards a Firebase read — a blocked/failed load just
+     means the local/seed product shows instead of a broken page. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+  let STORE_PRODUCTS_REF = null;
+  if (window.firebase) {
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+      authDomain: "chat-for-website-efee2.firebaseapp.com",
+      projectId: "chat-for-website-efee2",
+      storageBucket: "chat-for-website-efee2.firebasestorage.app",
+      messagingSenderId: "509309222193",
+      appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+    };
+    const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    STORE_PRODUCTS_REF = db.collection('store_products');
+  }
+</script>
+
+<script>
+(function () {
+  // See the big comment at the top of this file's <style> block — keep
+  // this in sync with admin.html's Store tab flag/key of the same name,
+  // and with the (now-simplified) shape store-widget.html used to read.
+  var STORE_LOCAL_MODE = true;
+  var STORE_LOCAL_KEY = 'knobsock_store_products_local';
+
+  function localLoadProducts() {
+    try {
+      var raw = localStorage.getItem(STORE_LOCAL_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (err) { return []; }
+  }
+
+  function normalizeProduct(d, id) {
+    return {
+      id: id,
+      title: d.title || 'Untitled',
+      image: (Array.isArray(d.images) && d.images[0]) ? d.images[0] : '',
+      colors: Array.isArray(d.colors) ? d.colors.filter(function (c) { return c && c.hex; }) : []
+    };
+  }
+
+  // Only shown when there's genuinely nothing else to show — real
+  // products (even just one) always win. Points at store-test-product
+  // .webp, the actual asset supplied specifically "to help with
+  // scaling" — so this page never looks broken/empty before the first
+  // real product gets added from admin.html.
+  var SEED_PRODUCT = {
+    id: 'seed-test-product',
+    title: 'Test Product',
+    image: '/store-test-product.webp',
+    colors: [{ name: 'White', hex: '#ffffff' }, { name: 'Black', hex: '#000000' }]
+  };
+
+  function loadProducts() {
+    if (STORE_LOCAL_MODE) {
+      var local = localLoadProducts()
+        .filter(function (d) { return d.active === true; })
+        .sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); })
+        .map(function (d) { return normalizeProduct(d, d.id); });
+      return Promise.resolve(local.length ? local : [SEED_PRODUCT]);
+    }
+
+    if (!STORE_PRODUCTS_REF) return Promise.resolve([SEED_PRODUCT]);
+    return STORE_PRODUCTS_REF.where('active', '==', true).orderBy('sortOrder').get()
+      .then(function (snap) {
+        var products = snap.docs.map(function (doc) { return normalizeProduct(doc.data(), doc.id); });
+        return products.length ? products : [SEED_PRODUCT];
+      })
+      .catch(function (err) {
+        console.error('Failed to load store products', err);
+        return [SEED_PRODUCT];
+      });
+  }
+
+  // ====================================================================
+  // CAROUSEL — one <img> at rest at any given time; showProduct() adds a
+  // second (the incoming one), animates both simultaneously via CSS
+  // transition on transform, then drops the old one once it's finished.
+  // dir is +1 for next (old slides out left, new comes in from the
+  // right) or -1 for prev (mirrored) — the "should slide off your
+  // browser's screen" part comes for free from 100vw translateX combined
+  // with html/body's own overflow:hidden clipping anything past the
+  // actual edge, no extra clipping container needed.
+  // ====================================================================
+  var viewport = document.getElementById('productViewport');
+  var colorPicker = document.getElementById('colorPicker');
+  var colorSwatches = document.getElementById('colorSwatches');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var nextItemBtn = document.getElementById('nextItemBtn');
+
+  var PRODUCTS = [];
+  var activeIndex = 0;
+  var currentImg = null;
+  var animating = false;
+  var SLIDE_MS = 500;
+
+  function escapeAttr(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderColorSwatches(product) {
+    var colors = product.colors || [];
+    colorPicker.hidden = colors.length === 0;
+    colorSwatches.innerHTML = colors.map(function (c, i) {
+      return '<button type="button" class="color-swatch' + (i === 0 ? ' is-selected' : '') + '" ' +
+        'style="background:' + escapeAttr(c.hex) + ';" data-index="' + i + '" ' +
+        'aria-label="' + escapeAttr(c.name || c.hex) + '" title="' + escapeAttr(c.name || c.hex) + '"></button>';
+    }).join('');
+    Array.prototype.forEach.call(colorSwatches.querySelectorAll('.color-swatch'), function (btn) {
+      btn.addEventListener('click', function () {
+        Array.prototype.forEach.call(colorSwatches.querySelectorAll('.color-swatch'), function (b) {
+          b.classList.toggle('is-selected', b === btn);
+        });
+        // Swapping the actual product photo per color isn't wired up yet
+        // — every product here has exactly one photo (see normalizeProduct
+        // above) — this just tracks which swatch is selected for now.
+      });
+    });
+  }
+
+  function showProduct(index, dir) {
+    if (animating || !PRODUCTS.length) return;
+    activeIndex = ((index % PRODUCTS.length) + PRODUCTS.length) % PRODUCTS.length;
+    var product = PRODUCTS[activeIndex];
+
+    var incoming = document.createElement('img');
+    incoming.className = 'product-img';
+    incoming.alt = product.title || '';
+    incoming.src = product.image;
+    incoming.style.transform = 'translate(-50%, -50%) translateX(' + (dir * 100) + 'vw)';
+    viewport.appendChild(incoming);
+    void incoming.offsetWidth; // force layout so the transition below actually animates from the line above
+
+    animating = true;
+    incoming.style.transform = 'translate(-50%, -50%) translateX(0)';
+    if (currentImg) currentImg.style.transform = 'translate(-50%, -50%) translateX(' + (-dir * 100) + 'vw)';
+
+    var outgoing = currentImg;
+    currentImg = incoming;
+    setTimeout(function () {
+      if (outgoing) outgoing.remove();
+      animating = false;
+    }, SLIDE_MS + 40);
+
+    renderColorSwatches(product);
+  }
+
+  prevBtn.addEventListener('click', function () { showProduct(activeIndex - 1, -1); });
+  nextBtn.addEventListener('click', function () { showProduct(activeIndex + 1, 1); });
+  // Cycles the same product list for now — this button's job is to jump
+  // between distinct MERCH ITEMS once there's more than one kind (shirts
+  // vs. hats vs. stickers, say); until admin.html has a way to group
+  // products into those kinds, "next item" and "next design" are the
+  // same action.
+  nextItemBtn.addEventListener('click', function () { showProduct(activeIndex + 1, 1); });
+
+  loadProducts().then(function (products) {
+    PRODUCTS = products;
+    showProduct(0, 1);
+  });
+})();
+</script>
 
 </body>
 </html>
