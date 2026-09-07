@@ -324,7 +324,8 @@
     align-items: center;
     gap: 8px;
   }
-  .creator-photo-preview {
+  .creator-photo-preview,
+  .creator-photo2-preview {
     flex: none;
     width: 40px;
     height: 40px;
@@ -333,7 +334,16 @@
     background: var(--panel);
     border: 1px solid var(--line);
   }
+  /* Same row shape as .creator-photo-row, just pushed below it — the
+     optional second/"after" image (see creatorPhotos2 below). */
+  .creator-photo2-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
   .creator-photo-row input[type="file"],
+  .creator-photo2-row input[type="file"],
   .creator-sound-row input[type="file"] {
     flex: 1 1 auto;
     min-width: 0;
@@ -1594,6 +1604,13 @@
     // entire button on videos.html now, so a creator with nothing set
     // here just doesn't get a button at all (see that file).
     let creatorPhotos = {};
+    // Optional second image, same data-URL-in-Firestore approach as
+    // creatorPhotos above — swapped in on the videos.html picker button
+    // the instant it's clicked (e.g. a "bite taken out" version of a
+    // burger logo), then shown for a beat before navigating away. Falls
+    // straight back to creatorPhotos (no swap at all) when this is unset,
+    // so uploading it per creator is optional, not required.
+    let creatorPhotos2 = {};
     // Optional sound that plays when this creator's button is clicked —
     // same data-URL-in-Firestore approach as creatorPhotos, but audio
     // can't be meaningfully recompressed in-browser the way a canvas
@@ -1678,6 +1695,7 @@
           hidden: hiddenCreators.indexOf(raw) !== -1,
           link: creatorLinks[displayAs] || '',
           photo: creatorPhotos[displayAs] || '',
+          photo2: creatorPhotos2[displayAs] || '',
           sound: creatorSounds[displayAs] || ''
         };
       });
@@ -1865,6 +1883,12 @@
               '<img class="creator-photo-preview" src="' + escapeAttr(row.photo || '') + '" style="' + (row.photo ? '' : 'display:none;') + '">' +
               '<input type="file" class="photo-input" accept="image/*">' +
               (row.photo ? '<button type="button" class="btn-link remove-photo-btn">Remove</button>' : '') +
+            '</div>' +
+            '<label class="creator-field-label">Second image (optional — swaps in the instant this button is clicked, e.g. a "bite taken out" version; falls back to the image above if not set)</label>' +
+            '<div class="creator-photo2-row">' +
+              '<img class="creator-photo2-preview" src="' + escapeAttr(row.photo2 || '') + '" style="' + (row.photo2 ? '' : 'display:none;') + '">' +
+              '<input type="file" class="photo2-input" accept="image/*">' +
+              (row.photo2 ? '<button type="button" class="btn-link remove-photo2-btn">Remove</button>' : '') +
             '</div>'
           : '';
         const soundRowHtml = opts.showCreatorLinks
@@ -1923,6 +1947,26 @@
         if (removePhotoBtn) {
           removePhotoBtn.addEventListener('click', function () {
             draftCreators[idx].photo = '';
+            renderCreators();
+          });
+        }
+        const photo2Input = row.querySelector('.photo2-input');
+        if (photo2Input) {
+          photo2Input.addEventListener('change', function (e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            resizeImageFile(file, 300, undefined, 'image/png').then(function (dataUrl) {
+              draftCreators[idx].photo2 = dataUrl;
+              renderCreators();
+            }).catch(function (err) {
+              setStatus('Could not read that image: ' + (err && err.message ? err.message : 'unknown error'), true);
+            });
+          });
+        }
+        const removePhoto2Btn = row.querySelector('.remove-photo2-btn');
+        if (removePhoto2Btn) {
+          removePhoto2Btn.addEventListener('click', function () {
+            draftCreators[idx].photo2 = '';
             renderCreators();
           });
         }
@@ -2031,6 +2075,7 @@
       const hiddenCreatorsToSave = [];
       const creatorLinksToSave = {};
       const creatorPhotosToSave = {};
+      const creatorPhotos2ToSave = {};
       const creatorSoundsToSave = {};
       draftCreators.forEach(function (row) {
         const display = (row.displayAs || '').trim() || row.raw;
@@ -2045,6 +2090,9 @@
         }
         if (opts.showCreatorLinks && row.photo) {
           creatorPhotosToSave[display] = row.photo;
+        }
+        if (opts.showCreatorLinks && row.photo2) {
+          creatorPhotos2ToSave[display] = row.photo2;
         }
         if (opts.showCreatorLinks && row.sound) {
           creatorSoundsToSave[display] = row.sound;
@@ -2063,6 +2111,7 @@
       if (opts.showCreatorLinks) {
         payload.creatorLinks = creatorLinksToSave;
         payload.creatorPhotos = creatorPhotosToSave;
+        payload.creatorPhotos2 = creatorPhotos2ToSave;
         payload.creatorSounds = creatorSoundsToSave;
       }
 
@@ -2089,6 +2138,7 @@
         hiddenCreators = (data && data.hiddenCreators) || [];
         creatorLinks = (data && data.creatorLinks) || {};
         creatorPhotos = (data && data.creatorPhotos) || {};
+        creatorPhotos2 = (data && data.creatorPhotos2) || {};
         creatorSounds = (data && data.creatorSounds) || {};
         draftCreators = buildDraftCreators();
         renderList();

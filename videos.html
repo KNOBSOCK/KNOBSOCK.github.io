@@ -28,9 +28,9 @@
      admin list's Creators section, each one linking wherever
      admin.html's per-creator Link field points it — its own
      destination, not necessarily anything on this site. Reads
-     creatorOrder/creatorLinks/creatorPhotos/creatorSounds straight off
-     playlist/main, live, same Firestore doc and same project every
-     other widget here already uses.
+     creatorOrder/creatorLinks/creatorPhotos/creatorPhotos2/creatorSounds
+     straight off playlist/main, live, same Firestore doc and same
+     project every other widget here already uses.
 
      Every button IS a creator's own uploaded image now — no text, no
      button chrome, nothing rendered at all for a creator that hasn't
@@ -251,7 +251,7 @@
     audio.play().catch(go);
   }
 
-  function renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds) {
+  function renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds, creatorPhotos2) {
     if (!creatorOrder.length) {
       gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
       return;
@@ -269,37 +269,60 @@
       const imgHtml = '<img class="picker-btn-image" src="' + escapeHtml(photo) + '" alt="">';
       const link = (creatorLinks[name] || '').trim();
       const sound = creatorSounds[name] || '';
+      // Optional — a creator with nothing uploaded here just keeps
+      // showing the one photo above, no swap, exactly as before this
+      // feature existed (see the ask: "fall back to the photo 1").
+      const photo2 = (creatorPhotos2[name] || '').trim();
+      const photo2Attr = photo2 ? ' data-photo2="' + escapeHtml(photo2) + '"' : '';
       if (!link && !sound) {
         // Nothing to click for — a plain, non-interactive image.
         return imgHtml;
       }
       if (link && !sound) {
-        // A plain <a href> — no JS needed, native navigation (including
-        // ctrl/cmd-click opening a new tab) just works unmodified.
-        return '<a class="picker-btn" href="' + escapeHtml(link) + '">' + imgHtml + '</a>';
+        if (!photo2) {
+          // A plain <a href> — no JS needed, native navigation (including
+          // ctrl/cmd-click opening a new tab) just works unmodified.
+          return '<a class="picker-btn" href="' + escapeHtml(link) + '">' + imgHtml + '</a>';
+        }
+        // Still needs JS: the second image has to actually be seen for a
+        // moment before navigating away.
+        return '<a class="picker-btn" href="' + escapeHtml(link) + '"' + photo2Attr + '>' + imgHtml + '</a>';
       }
       if (sound && !link) {
-        // Nowhere to navigate — just plays the sound.
-        return '<button type="button" class="picker-btn" data-sound="' + escapeHtml(sound) + '">' + imgHtml + '</button>';
+        // Nowhere to navigate — just plays the sound (and swaps the
+        // image, if a second one's set).
+        return '<button type="button" class="picker-btn" data-sound="' + escapeHtml(sound) + '"' + photo2Attr + '>' + imgHtml + '</button>';
       }
       // Both set: a real <a href> (kept for accessibility/right-click/
       // hover-preview), but a click plays the sound first and delays
       // navigation just long enough for it to be heard.
-      return '<a class="picker-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '">' + imgHtml + '</a>';
+      return '<a class="picker-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '"' + photo2Attr + '>' + imgHtml + '</a>';
     }).join('');
 
-    gridEl.querySelectorAll('.picker-btn[data-sound]').forEach(function (el) {
+    gridEl.querySelectorAll('.picker-btn[data-sound], .picker-btn[data-photo2]').forEach(function (el) {
       el.addEventListener('click', function (e) {
         // A modifier/middle click means "open in a new tab" — leave that
         // to the browser's own default handling rather than hijacking it
-        // for the sound delay.
+        // for the sound/image delay.
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const photo2 = el.dataset.photo2;
+        if (photo2) {
+          const img = el.querySelector('img');
+          if (img) img.src = photo2;
+        }
         const href = el.getAttribute('href');
+        const soundSrc = el.dataset.sound;
         if (href) {
           e.preventDefault();
-          playThenNavigate(el.dataset.sound, href);
-        } else {
-          new Audio(el.dataset.sound).play().catch(function () {});
+          if (soundSrc) {
+            playThenNavigate(soundSrc, href);
+          } else {
+            // No sound to time the delay off of, but the swapped image
+            // still needs a beat on screen before the page navigates away.
+            setTimeout(function () { window.location.href = href; }, 400);
+          }
+        } else if (soundSrc) {
+          new Audio(soundSrc).play().catch(function () {});
         }
       });
     });
@@ -311,7 +334,8 @@
     const creatorLinks = (data && data.creatorLinks) || {};
     const creatorSounds = (data && data.creatorSounds) || {};
     const creatorPhotos = (data && data.creatorPhotos) || {};
-    renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds);
+    const creatorPhotos2 = (data && data.creatorPhotos2) || {};
+    renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds, creatorPhotos2);
   }, function (err) {
     console.error('Could not load creators:', err);
     gridEl.innerHTML = '<div class="picker-empty">Could not load creators.</div>';
