@@ -18,25 +18,28 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
   /* Standalone page, same rebuild approach as videos.html/music.html/
-     live.html, but with its own drawn-scene background instead of a
-     plain color: hamburger-news-bg.webp is the full illustrated room
-     (door, window, floor, spotlight, burger) with a rectangular hole
-     punched through it where the video goes — see hamburger-news-lettuce
-     .png/-condiment.png below for what fills that hole back in.
+     live.html, but with a drawn-scene background: hamburger-news-bg.webp
+     is the full illustrated room (door, window, floor, spotlight,
+     burger) with the video's rectangular slot already cut transparent
+     by the artist — including the lettuce fringe's own scalloped dip
+     into that slot, preserved as partial/antialiased transparency
+     rather than a hard rectangle, so it blends with the video
+     underneath instead of needing a separate overlay sprite.
 
-     The three pieces are positioned every resize by replicating, in JS,
-     the exact same math the CSS `object-fit: cover` on #stageBg already
-     uses natively to scale/crop the background image itself — so the
-     video "hole" and its two overlay strips always land in the same
-     spot relative to the artwork, at any viewport size/aspect ratio,
-     cropping together with it instead of drifting apart. See layout()
-     at the bottom of this file for that math, and its comment for why
-     this needs JS at all rather than being pure CSS.
+     #stageBg renders with object-fit:contain — the whole scene is
+     ALWAYS fully visible, scaled to fit the viewport and letterboxed
+     (not cropped) on whichever axis doesn't match its own aspect ratio.
+     #pattySlot (the video) is repositioned to match on every resize by
+     a small JS layout() that replicates that same contain-fit math —
+     see its own comment below for why that needs JS at all rather than
+     being pure CSS.
 
-     Source art is 4096x3276 (saved scaled to 2200x1760, same aspect
-     ratio) — IMG_W/IMG_H and the *_RECT constants in layout() are all
-     expressed in that original pixel space so they're easy to re-derive
-     from the source file if the art ever changes. */
+     IMG_W/IMG_H and HOLE_RECT in layout() are expressed in the source
+     art's own original pixel space (4096x3276, before it was scaled
+     down for the saved hamburger-news-bg.webp) — easiest to re-derive
+     from the source file directly if the art ever changes; the saved
+     image being smaller doesn't matter since contain-fit only cares
+     about aspect ratio. */
   * { box-sizing: border-box; }
 
   html, body {
@@ -44,73 +47,50 @@
     padding: 0;
     height: 100%;
     overflow: hidden;
-    /* Sampled from the art's own floor color. Safari's elastic overscroll
-       bounce briefly reveals whatever's behind the fixed-position layers
-       below — without this it's the browser's default white, which reads
-       as a jarring flash against a dark illustrated scene. */
+    /* Sampled from the art's own floor color — shows in the contain-fit
+       letterbox bars, and stops Safari's elastic overscroll bounce from
+       flashing white against the illustrated scene. */
     background: #1e1e1e;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* The room + burger, cropped/centered to always fully cover the
-     viewport at any size or aspect ratio — same "scale up, crop the
-     overflow" behavior on desktop and mobile alike, just more
-     pronounced on a narrow phone screen. Native object-fit:cover, so
-     the browser handles the scaling itself; layout() below only has to
-     replicate its math for the three pieces layered on top of it. */
+  /* The room + burger, always shown in full (object-fit:contain, never
+     cover) — same behavior at every viewport size/aspect ratio, just
+     more or less letterboxed depending on how far off-ratio the window
+     is. pointer-events:none since this sits ABOVE #pattySlot in
+     z-index (its own transparent video-slot needs the opaque lettuce
+     fringe around the edges to visually overlap the video without
+     ever intercepting clicks meant for it — same trick used site-wide
+     for decorative art layered over interactive elements). */
   .stage-bg {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    height: 100dvh;
+    object-fit: contain;
     object-position: center;
-    z-index: 0;
+    z-index: 2;
     pointer-events: none;
   }
 
-  /* The video's actual footprint is smaller than this box — see
-     .patty-frame below — this outer box spans the full hole PLUS the
-     lettuce/condiment strips above and below it, painted solid black so
-     those two overlay images' own transparent gaps (the scalloped
-     lettuce valleys, the gaps beside the condiment wave) show black
-     underneath, same as the hand-drawn rectangle they're standing in
-     for, instead of showing whatever's behind this whole stage. */
-  .patty-band {
+  /* The video itself, sized/positioned every resize to land exactly in
+     the transparent slot cut into #stage-bg above it. Solid black so
+     the slot's own antialiased/partially-transparent edges (the
+     lettuce scallops dipping into it) blend against a plausible
+     "video screen" color rather than whatever would otherwise be
+     behind this stage. */
+  .patty-slot {
     position: fixed;
     z-index: 1;
     background: #000;
     overflow: hidden;
   }
-  /* Inset from .patty-band by plain CSS percentages, not JS — once the
-     band itself is correctly sized/positioned (layout()'s job), this
-     inner frame's position within it never changes relative to the
-     band, so it doesn't need its own resize-driven math. */
-  .patty-frame {
-    position: absolute;
-    left: 0;
-    width: 100%;
-    top: 14.895833%;
-    height: 79.479167%;
-  }
-  .patty-frame iframe {
+  .patty-slot iframe {
     display: block;
     width: 100%;
     height: 100%;
     border: 0;
-  }
-
-  /* The lettuce fringe and the condiment wave — cut from the same
-     source art, sitting in front of the video (z-index above
-     .patty-band) with pointer-events:none so they're purely decorative:
-     the video underneath stays fully clickable/scrubbable right through
-     them, same as the mockup's lettuce overlapping the player without
-     blocking it. */
-  .stage-lettuce,
-  .stage-condiment {
-    position: fixed;
-    z-index: 2;
-    pointer-events: none;
   }
 
   .back-link {
@@ -124,25 +104,27 @@
     text-decoration: underline;
     opacity: 0.85;
     /* The page behind this link is illustrated art, not a flat color —
-       unlike the plain-background version this replaces, contrast here
-       isn't guaranteed (light bun art can sit right under it), so this
-       needs its own legibility net. */
+       contrast isn't guaranteed (light bun art can sit right under it),
+       so this needs its own legibility net. */
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
   }
   .back-link:hover { opacity: 1; }
 
   /* Real-viewport fullscreen fallback for hamburger-news-widget.html's
-     own fullscreen button — unchanged from before this page's background
-     was reworked. That widget lives in an iframe, and on iOS Safari —
-     which has no Fullscreen API at all for non-video elements — it
-     falls back to a CSS position:fixed trick that can only ever cover
-     the IFRAME'S OWN box, not the actual phone screen (position:fixed's
-     containing block is the iframe's own viewport). The widget posts a
-     message here instead, and this class — applied to the real iframe
-     element in THIS top-level document — takes over the actual screen;
-     the iframe's own contents (already 100% width/height inside it)
-     grow to fill it right along with it. */
-  .patty-frame.hn-fullscreen iframe {
+     own fullscreen button — unchanged from before this page's
+     background was reworked. That widget lives in an iframe, and on
+     iOS Safari — which has no Fullscreen API at all for non-video
+     elements — it falls back to a CSS position:fixed trick that can
+     only ever cover the IFRAME'S OWN box, not the actual phone screen
+     (position:fixed's containing block is the iframe's own viewport).
+     The widget posts a message here instead, and this class — applied
+     to the real iframe element in THIS top-level document — takes over
+     the actual screen; the iframe's own contents (already 100%
+     width/height inside it) grow to fill it right along with it. Needs
+     its own z-index above .stage-bg's 2, or the illustrated art (still
+     covering the full viewport in its own letterboxed layout) would
+     paint over the fullscreen video. */
+  .patty-slot.hn-fullscreen iframe {
     position: fixed;
     inset: 0;
     width: 100vw;
@@ -156,85 +138,66 @@
 
 <a class="back-link" href="/videos">&larr; Back to Videos</a>
 
-<img class="stage-bg" id="stageBg" src="/hamburger-news-bg.webp" alt="">
-
-<div class="patty-band" id="pattyBand">
-  <div class="patty-frame" id="pattyFrame">
-    <iframe src="/hamburger-news-widget.html"
-            title="Hamburger News"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowfullscreen></iframe>
-  </div>
+<div class="patty-slot" id="pattySlot">
+  <iframe src="/hamburger-news-widget.html"
+          title="Hamburger News"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowfullscreen></iframe>
 </div>
 
-<img class="stage-lettuce" id="stageLettuce" src="/hamburger-news-lettuce.png" alt="">
-<img class="stage-condiment" id="stageCondiment" src="/hamburger-news-condiment.png" alt="">
+<img class="stage-bg" id="stageBg" src="/hamburger-news-bg.webp" alt="">
 
 <script>
 (function () {
-  var pattyBand = document.getElementById('pattyBand');
-  var pattyFrame = document.getElementById('pattyFrame');
+  var pattySlot = document.getElementById('pattySlot');
   // Relayed from hamburger-news-widget.html's own fullscreen fallback —
-  // see .patty-frame.hn-fullscreen's own comment above for why this has
+  // see .patty-slot.hn-fullscreen's own comment above for why this has
   // to happen up here rather than inside that iframe.
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
-    pattyFrame.classList.toggle('hn-fullscreen', !!e.data.active);
+    pattySlot.classList.toggle('hn-fullscreen', !!e.data.active);
   });
 
   // ---------- STAGE LAYOUT ----------
-  // #stageBg covers the viewport with native object-fit:cover, which the
-  // browser scales/crops on its own with no way to ask it "where did the
+  // #stageBg is shown with native object-fit:contain, which the browser
+  // scales/letterboxes on its own with no way to ask it "where did the
   // pixel that used to be at (x, y) in the source image end up on
-  // screen?" — nothing else here can line up with it without doing that
-  // same cover-fit math by hand and applying it to the video band and
-  // the two overlay images every time the viewport changes. A pure-CSS
-  // version of this (sizing a real box, not just an img/video, to
-  // "cover" its container while preserving a child's own coordinates
+  // screen?" — #pattySlot can't land in the artwork's transparent video
+  // slot without doing that same contain-fit math by hand and applying
+  // it every time the viewport changes. A pure-CSS version of this
+  // (sizing a real box, not just an img/video, to "contain" itself
+  // within its container while preserving a child's own coordinates
   // inside it) isn't reliably solvable with aspect-ratio/min-width
   // tricks across browsers, so this is plain JS instead.
-  //
-  // All the *_RECT constants below are in the ORIGINAL source art's own
-  // pixel space (4096x3276, before it was scaled down for the saved
-  // hamburger-news-bg.webp) — easiest to re-derive from the source file
-  // directly if the art ever changes, and it doesn't matter that the
-  // saved image is smaller: cover-fit only cares about aspect ratio.
   var IMG_W = 4096, IMG_H = 3276;
+  // The video's transparent slot in the source art, with a small margin
+  // added on every side so #pattySlot's solid black fully backs even
+  // the outermost antialiased pixels of the cut edge.
+  var HOLE_RECT = { x: 1246, y: 1000, w: 1587, h: 865 };
 
-  // The video's own black backdrop band: spans the hole PLUS the
-  // lettuce/condiment strips above and below it (see .patty-band's own
-  // comment for why). .patty-frame's inset within this is fixed CSS
-  // percentages, not part of this math.
-  var BAND_RECT = { x: 1251, y: 945, w: 1551, h: 960 };
-  // The lettuce fringe strip, and the condiment-wave strip — each
-  // positioned independently so they land exactly back where they were
-  // cut from, in front of the video band.
-  var LETTUCE_RECT = { x: 1251, y: 945, w: 1551, h: 147 };
-  var COND_RECT = { x: 1251, y: 1830, w: 1551, h: 75 };
-
-  var pattyBandEl = pattyBand;
-  var lettuceEl = document.getElementById('stageLettuce');
-  var condEl = document.getElementById('stageCondiment');
-
-  function place(el, rect, scale, offX, offY) {
-    el.style.left = (offX + rect.x * scale) + 'px';
-    el.style.top = (offY + rect.y * scale) + 'px';
-    el.style.width = (rect.w * scale) + 'px';
-    el.style.height = (rect.h * scale) + 'px';
+  // window.innerWidth/innerHeight lag behind on iOS Safari while the
+  // address bar is animating in/out of view — visualViewport tracks the
+  // actual visible area live and fires its own resize event when that
+  // chrome changes, which plain 'resize' doesn't always do reliably.
+  // Falls back to window sizing on browsers without the API.
+  function viewportSize() {
+    var vv = window.visualViewport;
+    return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
   }
 
   function layout() {
-    var vw = window.innerWidth, vh = window.innerHeight;
-    // Same formula object-fit:cover uses internally: scale up by
-    // whichever axis needs it more, so the image fully covers the
-    // viewport on both axes, then center and let the larger axis
-    // overflow (get cropped).
-    var scale = Math.max(vw / IMG_W, vh / IMG_H);
-    var offX = (vw - IMG_W * scale) / 2;
-    var offY = (vh - IMG_H * scale) / 2;
-    place(pattyBandEl, BAND_RECT, scale, offX, offY);
-    place(lettuceEl, LETTUCE_RECT, scale, offX, offY);
-    place(condEl, COND_RECT, scale, offX, offY);
+    var vp = viewportSize();
+    // Same formula object-fit:contain uses internally: scale down by
+    // whichever axis needs it more, so the whole image fits inside the
+    // viewport on both axes with no cropping, then center it —
+    // Math.min instead of cover's Math.max is the only difference.
+    var scale = Math.min(vp.w / IMG_W, vp.h / IMG_H);
+    var offX = (vp.w - IMG_W * scale) / 2;
+    var offY = (vp.h - IMG_H * scale) / 2;
+    pattySlot.style.left = (offX + HOLE_RECT.x * scale) + 'px';
+    pattySlot.style.top = (offY + HOLE_RECT.y * scale) + 'px';
+    pattySlot.style.width = (HOLE_RECT.w * scale) + 'px';
+    pattySlot.style.height = (HOLE_RECT.h * scale) + 'px';
   }
 
   var rafPending = false;
@@ -250,6 +213,10 @@
   layout();
   window.addEventListener('resize', scheduleLayout);
   window.addEventListener('orientationchange', scheduleLayout);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleLayout);
+    window.visualViewport.addEventListener('scroll', scheduleLayout);
+  }
 })();
 </script>
 
