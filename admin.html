@@ -973,10 +973,11 @@
 
     <div class="card">
       <div class="card-head"><h2>Photo Uploads</h2></div>
-      <div class="note">Product photos upload straight to this GitHub repo (no Firebase Storage/Blaze needed) — paste a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained GitHub token</a> scoped to just this repo, with Contents set to Read and write. Stored only in this browser tab (sessionStorage) — cleared the moment you close it, never saved anywhere else.</div>
+      <div class="note">Product photos upload straight to this GitHub repo (no Firebase Storage/Blaze needed) — paste a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained GitHub token</a> scoped to just this repo, with Contents set to Read and write. Saved on this device only (never sent anywhere but GitHub) — paste it once, or hit Forget below if you ever want it gone from here.</div>
       <div class="add-row">
         <input type="password" class="search-input" id="githubTokenInput" placeholder="github_pat_…" autocomplete="off">
         <button type="button" class="btn" id="githubTokenSaveBtn">Save</button>
+        <button type="button" class="btn-link" id="githubTokenForgetBtn">Forget</button>
       </div>
       <div class="save-status" id="githubTokenStatus"></div>
     </div>
@@ -1201,15 +1202,18 @@
   var GITHUB_BRANCH = 'main';
   var GITHUB_TOKEN_KEY = 'knobsock_admin_github_token';
 
-  // sessionStorage, not localStorage — the token only needs to survive
-  // this one browser tab's session (cleared on close), not persist on
-  // disk indefinitely. Never written into this file itself; only ever
-  // exists wherever an admin pastes it in at runtime.
+  // localStorage, not sessionStorage — persists on this device/browser
+  // until explicitly cleared, so it only needs pasting in once rather
+  // than every fresh tab. Never written into this file itself; only ever
+  // exists wherever an admin pastes it in at runtime. Use a
+  // fine-grained token (scoped to just this repo's Contents) precisely
+  // because it sits here indefinitely — narrow blast radius, and it's
+  // revocable/regeneratable anytime from GitHub's own token settings.
   function getGithubToken() {
-    try { return sessionStorage.getItem(GITHUB_TOKEN_KEY) || ''; } catch (err) { return ''; }
+    try { return localStorage.getItem(GITHUB_TOKEN_KEY) || ''; } catch (err) { return ''; }
   }
   function setGithubToken(token) {
-    try { sessionStorage.setItem(GITHUB_TOKEN_KEY, token); } catch (err) { /* storage full/blocked */ }
+    try { localStorage.setItem(GITHUB_TOKEN_KEY, token); } catch (err) { /* storage full/blocked */ }
   }
 
   // Commits a resized photo (already a data URL from resizeImageFile)
@@ -2987,13 +2991,14 @@
   const productsStatus = document.getElementById('productsStatus');
   const githubTokenInput = document.getElementById('githubTokenInput');
   const githubTokenSaveBtn = document.getElementById('githubTokenSaveBtn');
+  const githubTokenForgetBtn = document.getElementById('githubTokenForgetBtn');
   const githubTokenStatus = document.getElementById('githubTokenStatus');
 
   // Left blank even when a token's already saved (rather than re-filling
   // the password field with it) — one less place the value sits in the
   // DOM after the initial save.
   function renderGithubTokenStatus() {
-    githubTokenStatus.textContent = getGithubToken() ? 'Token saved for this session ✓' : '';
+    githubTokenStatus.textContent = getGithubToken() ? 'Token saved on this device ✓' : '';
   }
   renderGithubTokenStatus();
   githubTokenSaveBtn.addEventListener('click', function () {
@@ -3001,6 +3006,10 @@
     if (!token) return;
     setGithubToken(token);
     githubTokenInput.value = '';
+    renderGithubTokenStatus();
+  });
+  githubTokenForgetBtn.addEventListener('click', function () {
+    setGithubToken('');
     renderGithubTokenStatus();
   });
   const productModalOverlay = document.getElementById('productModalOverlay');
