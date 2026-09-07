@@ -394,64 +394,6 @@
     margin-bottom: 16px;
   }
 
-  /* ---------- PHOTOS TAB ---------- */
-  .photo-cat-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 16px;
-  }
-  .photo-cat-tab {
-    -webkit-appearance: none;
-    appearance: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    color: var(--text-dim);
-    border-radius: 999px;
-    padding: 7px 14px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .photo-cat-tab .grip { font-size: 13px; }
-  .photo-cat-tab.active { color: var(--accent); border-color: var(--accent); }
-  .photo-cat-tab.dragging { opacity: 0.35; }
-
-  .photo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
-  }
-  .photo-tile {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    cursor: grab;
-    background: var(--panel-2);
-  }
-  .photo-tile.dragging { opacity: 0.35; }
-  .photo-tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    pointer-events: none;
-  }
-  .photo-tile .grip {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.55);
-    border-radius: 4px;
-    padding: 1px 4px;
-    color: #fff;
-  }
-
   /* ---------- LIVE TAB ---------- */
   .live-grid {
     display: grid;
@@ -832,7 +774,6 @@
     <div class="tabs">
       <button type="button" class="nav-tab active" data-tab="videos">Videos</button>
       <button type="button" class="nav-tab" data-tab="music">Music</button>
-      <button type="button" class="nav-tab" data-tab="photos">Photos</button>
       <button type="button" class="nav-tab" data-tab="live">Live</button>
       <button type="button" class="nav-tab" data-tab="store">Store</button>
     </div>
@@ -933,21 +874,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ===== PHOTOS ===== -->
-  <div class="tab-panel" id="tab-photos" hidden>
-    <h2 class="panel-heading">Photos</h2>
-    <p class="panel-sub">Drag a category pill to reorder the tabs on the Photos page. Pick a category below to drag its photos into a new order.</p>
-    <div class="card">
-      <div class="card-head">
-        <h2>Categories</h2>
-        <button type="button" class="btn btn-primary" id="photosSaveBtn">Save Changes</button>
-      </div>
-      <div class="photo-cat-tabs" id="photoCatTabs"></div>
-      <div class="photo-grid" id="photoGrid"></div>
-      <div class="save-status" id="photosStatus"></div>
     </div>
   </div>
 
@@ -1188,13 +1114,12 @@
   // photo upload won't work, not that the whole admin page breaks).
   const storage = firebase.storage ? firebase.storage() : null;
 
-  // Same three Firestore documents the widgets themselves read from —
-  // saving here is exactly what saving from a widget's own hidden admin
-  // panel already did, just from one consolidated page instead of three
-  // separate hidden triggers.
+  // Same Firestore documents the widgets themselves read from — saving
+  // here is exactly what saving from a widget's own hidden admin panel
+  // already did, just from one consolidated page instead of separate
+  // hidden triggers.
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const MUSIC_DOC_REF = db.collection('playlist').doc('music');
-  const PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
   // Its own doc, own list, own creators — completely separate from the
   // main Video List above. Read by hamburger-news-widget.html on
   // /videos/hamburgernews.html, the same way VIDEO_DOC_REF is read by
@@ -1451,7 +1376,6 @@
     navTabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabName); });
     document.querySelectorAll('.tab-panel').forEach(function (p) { p.hidden = true; });
     document.getElementById('tab-' + tabName).hidden = false;
-    if (tabName === 'photos') loadPhotosTab();
     if (tabName === 'live') startLiveModerationIfNeeded();
     if (tabName === 'store') loadStoreTab();
     if (updateUrl !== false) history.replaceState(null, '', '#' + tabName);
@@ -2134,178 +2058,6 @@
   // the pages they feed never launch looking broken/empty). "Reset to
   // default list" here just clears it back to nothing.
   const DEFAULT_HAMBURGER_NEWS_LIST = [];
-
-  // ---------- PHOTOS TAB ----------
-  const OWNER = 'KNOBSOCK';
-  const REPO = 'KNOBSOCK.github.io';
-  const BRANCH = 'main';
-  const TREE_API = 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1';
-  const RAW_BASE = 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/refs/heads/' + BRANCH + '/';
-  const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif)$/i;
-  const THUMB_PX = 160;
-
-  function rawUrl(path) { return RAW_BASE + path.split('/').map(encodeURIComponent).join('/'); }
-  function thumbUrl(path) {
-    return 'https://wsrv.nl/?url=' + encodeURIComponent(rawUrl(path)) + '&w=' + THUMB_PX + '&h=' + THUMB_PX + '&fit=cover&output=webp&q=75';
-  }
-  function naturalCompare(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); }
-
-  // Reads categories straight from the /photos folder tree on GitHub —
-  // this tab manages photo-category ordering, though the public Photos
-  // page/button that once read that ordering has since been removed
-  // (see the KNOBSOCK-side commit removing photos.html/photos-widget.html
-  // and repointing the home button to /store); left in place here rather
-  // than ripped out, since that's a bigger removal than was asked for.
-  function buildCategoriesFromTree(tree) {
-    const byCategory = new Map();
-    tree.forEach(function (entry) {
-      if (entry.type !== 'blob') return;
-      if (entry.path.indexOf('photos/') !== 0) return;
-      if (!IMAGE_EXT.test(entry.path)) return;
-      const parts = entry.path.split('/');
-      const category = parts.length > 2 ? parts[1] : 'Uncategorized';
-      const filename = parts[parts.length - 1];
-      if (filename.indexOf('.') === 0) return;
-      if (!byCategory.has(category)) byCategory.set(category, []);
-      byCategory.get(category).push({ path: entry.path, filename: filename });
-    });
-    return Array.from(byCategory.entries())
-      .map(function ([name, photos]) {
-        return { name: name, photos: photos.sort(function (a, b) { return naturalCompare(a.filename, b.filename); }) };
-      })
-      .sort(function (a, b) { return naturalCompare(a.name, b.name); });
-  }
-
-  let allPhotoCategories = [];
-  let categoryOrderDraft = [];
-  let photoOrderDraft = {};
-  let activePhotoCategory = null;
-  let photosLoadStarted = false;
-
-  const photoCatTabsEl = document.getElementById('photoCatTabs');
-  const photoGridEl = document.getElementById('photoGrid');
-  const photosStatusEl = document.getElementById('photosStatus');
-  const photosSaveBtn = document.getElementById('photosSaveBtn');
-
-  function setPhotosStatus(text, isError) {
-    photosStatusEl.textContent = text;
-    photosStatusEl.style.color = isError ? 'var(--danger)' : 'var(--accent)';
-  }
-
-  function renderPhotoCategoryTabs() {
-    photoCatTabsEl.innerHTML = categoryOrderDraft.map(function (name, i) {
-      const count = (photoOrderDraft[name] || []).length;
-      return '<button type="button" class="photo-cat-tab' + (name === activePhotoCategory ? ' active' : '') + '" data-draggable data-index="' + i + '">' +
-        '<span class="grip">&#10303;</span>' + escapeAttr(name) + ' (' + count + ')' +
-      '</button>';
-    }).join('');
-    photoCatTabsEl.querySelectorAll('.photo-cat-tab').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        activePhotoCategory = categoryOrderDraft[parseInt(btn.dataset.index, 10)];
-        renderPhotoCategoryTabs();
-        renderPhotoGrid();
-      });
-    });
-  }
-
-  function renderPhotoGrid() {
-    const filenames = photoOrderDraft[activePhotoCategory] || [];
-    const cat = allPhotoCategories.find(function (c) { return c.name === activePhotoCategory; });
-    const byFilename = new Map((cat ? cat.photos : []).map(function (p) { return [p.filename, p]; }));
-    photoGridEl.innerHTML = filenames.map(function (fn, i) {
-      const photo = byFilename.get(fn);
-      if (!photo) return '';
-      return '<div class="photo-tile" data-draggable data-index="' + i + '" title="' + escapeAttr(fn) + '">' +
-        '<img src="' + thumbUrl(photo.path) + '" alt="' + escapeAttr(fn) + '" loading="lazy">' +
-        '<span class="grip">&#10303;</span>' +
-      '</div>';
-    }).join('');
-  }
-
-  makeSortable(photoCatTabsEl, function (order) {
-    categoryOrderDraft = order.map(function (i) { return categoryOrderDraft[i]; });
-    renderPhotoCategoryTabs();
-  });
-  makeSortable(photoGridEl, function (order) {
-    const current = photoOrderDraft[activePhotoCategory] || [];
-    photoOrderDraft[activePhotoCategory] = order.map(function (i) { return current[i]; });
-    renderPhotoGrid();
-  });
-
-  function loadPhotosTab() {
-    if (photosLoadStarted) return;
-    photosLoadStarted = true;
-    setPhotosStatus('Loading photos from GitHub…');
-    fetch(TREE_API)
-      .then(function (res) { if (!res.ok) throw new Error('GitHub API returned ' + res.status); return res.json(); })
-      .then(function (data) {
-        allPhotoCategories = buildCategoriesFromTree(data.tree || []);
-        setPhotosStatus('');
-        PHOTO_ORDER_DOC_REF.onSnapshot(function (doc) {
-          const saved = doc.exists ? doc.data() : {};
-          const savedCatOrder = Array.isArray(saved.categoryOrder) ? saved.categoryOrder : [];
-          const savedPhotoOrder = (saved.photoOrder && typeof saved.photoOrder === 'object') ? saved.photoOrder : {};
-
-          categoryOrderDraft = allPhotoCategories.map(function (c) { return c.name; }).sort(function (a, b) {
-            const ia = savedCatOrder.indexOf(a);
-            const ib = savedCatOrder.indexOf(b);
-            if (ia !== -1 && ib !== -1) return ia - ib;
-            if (ia !== -1) return -1;
-            if (ib !== -1) return 1;
-            return 0;
-          });
-
-          photoOrderDraft = {};
-          allPhotoCategories.forEach(function (cat) {
-            const filenames = cat.photos.map(function (p) { return p.filename; });
-            const saved2 = savedPhotoOrder[cat.name];
-            if (Array.isArray(saved2) && saved2.length) {
-              filenames.sort(function (a, b) {
-                const ia = saved2.indexOf(a);
-                const ib = saved2.indexOf(b);
-                if (ia !== -1 && ib !== -1) return ia - ib;
-                if (ia !== -1) return -1;
-                if (ib !== -1) return 1;
-                return 0;
-              });
-            }
-            photoOrderDraft[cat.name] = filenames;
-          });
-
-          if (!activePhotoCategory || categoryOrderDraft.indexOf(activePhotoCategory) === -1) {
-            activePhotoCategory = categoryOrderDraft[0] || null;
-          }
-          renderPhotoCategoryTabs();
-          renderPhotoGrid();
-        }, function (err) {
-          setPhotosStatus('Could not load saved order: ' + err.message, true);
-        });
-      })
-      .catch(function (err) {
-        setPhotosStatus("Couldn't load photos from GitHub: " + err.message, true);
-      });
-  }
-
-  photosSaveBtn.addEventListener('click', function () {
-    if (!auth.currentUser) {
-      setPhotosStatus('You’ve been signed out — please sign in again.', true);
-      return;
-    }
-    photosSaveBtn.disabled = true;
-    setPhotosStatus('Saving…');
-    PHOTO_ORDER_DOC_REF.set({
-      categoryOrder: categoryOrderDraft,
-      photoOrder: photoOrderDraft,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy: auth.currentUser.email || auth.currentUser.uid
-    }).then(function () {
-      setPhotosStatus('Saved — everyone will see the update.');
-    }).catch(function (err) {
-      setPhotosStatus('Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).', true);
-    }).finally(function () {
-      photosSaveBtn.disabled = false;
-    });
-  });
 
   // ---------- STARTUP ----------
   function startEditors() {
