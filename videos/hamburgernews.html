@@ -139,13 +139,14 @@
   // ---------- STAGE LAYOUT ----------
   // #stageBg and #pattySlot are positioned by hand rather than via CSS
   // object-fit:cover, for two reasons: cover's own scale formula has no
-  // notion of "never smaller than X" (see MIN_VIDEO_FRAC below), and the
-  // two elements have to move in exact lockstep — if the background used
-  // object-fit:cover while the video used a floored scale, they'd zoom at
-  // different rates and drift apart. A pure-CSS version of "cover this
-  // box, but never go below a minimum size, while keeping a sibling
-  // element's own coordinates locked to it" isn't reliably solvable with
-  // aspect-ratio/min-width tricks across browsers, so this is plain JS.
+  // notion of "never smaller than X" (see MIN_VIDEO_FRAC_DESKTOP/MOBILE
+  // below), and the two elements have to move in exact lockstep — if the
+  // background used object-fit:cover while the video used a floored
+  // scale, they'd zoom at different rates and drift apart. A pure-CSS
+  // version of "cover this box, but never go below a minimum size, while
+  // keeping a sibling element's own coordinates locked to it" isn't
+  // reliably solvable with aspect-ratio/min-width tricks across
+  // browsers, so this is plain JS.
   //
   // IMG_W/IMG_H and HOLE_RECT are in the source art's own pixel space
   // (8000x8000) — easiest to re-derive from the source file directly if
@@ -156,14 +157,24 @@
   // Plain cover-fit scale alone renders the video too small to read on
   // an ordinary desktop window once the background canvas is this much
   // bigger than the video slot cut into it — this floors the video's own
-  // size at 34% of the viewport on whichever axis binds, even if that
-  // means scaling past cover-fit (and cropping further into the huge
-  // margin the art already has to spare for exactly this). 0.34 was
-  // picked to match a specific mobile mockup (burger filling nearly the
-  // whole screen, spotlight cropped at the bottom rather than tapering
-  // off into empty space) — checked directly against a real ~380x720
-  // viewport, not guessed.
-  var MIN_VIDEO_FRAC = 0.34;
+  // size at a fraction of the viewport on whichever axis binds, even if
+  // that means scaling past cover-fit (and cropping further into the
+  // huge margin the art already has to spare for exactly this).
+  //
+  // Two different fractions, not one shared constant: a mobile-specific
+  // request (burger filling nearly the whole screen, spotlight cropped
+  // at the bottom rather than tapering into empty space) previously got
+  // implemented by raising this one number, which — being unconditional —
+  // changed desktop too, along with overshooting on the actual phone it
+  // was meant for (checked against a ~380x720 desktop-browser viewport
+  // standing in for a phone, which isn't the same thing as one). 860px
+  // is this site's own existing mobile breakpoint (see videos.html/
+  // music.html/live.html's identical `@media (max-width: 860px)`), reused
+  // here for the same "narrow enough to count as a phone" cutoff rather
+  // than inventing a new one.
+  var MIN_VIDEO_FRAC_DESKTOP = 0.25;
+  var MIN_VIDEO_FRAC_MOBILE = 0.28;
+  var MOBILE_MAX_WIDTH = 860;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -177,9 +188,10 @@
 
   function layout() {
     var vp = viewportSize();
+    var minVideoFrac = vp.w <= MOBILE_MAX_WIDTH ? MIN_VIDEO_FRAC_MOBILE : MIN_VIDEO_FRAC_DESKTOP;
     var scale = Math.max(
       vp.w / IMG_W, vp.h / IMG_H,
-      MIN_VIDEO_FRAC * vp.w / HOLE_RECT.w, MIN_VIDEO_FRAC * vp.h / HOLE_RECT.h
+      minVideoFrac * vp.w / HOLE_RECT.w, minVideoFrac * vp.h / HOLE_RECT.h
     );
     var offX = (vp.w - IMG_W * scale) / 2;
     var offY = (vp.h - IMG_H * scale) / 2;
