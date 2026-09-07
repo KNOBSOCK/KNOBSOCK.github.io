@@ -1169,11 +1169,13 @@
   <!-- ---------- "NOW PLAYING" PANEL ----------
        A second playhead for whatever's actually playing, video or
        SoundCloud alike. The invisible iframe below is the real
-       SoundCloud engine (same profile as the homepage's standalone
-       Listen widget), used only for SoundCloud-only songs — a song
-       that also has a video just plays that video instead. See
-       buildMergedList()/playMergedKey() in the script block near the
-       bottom of this file. -->
+       SoundCloud engine (same linked profile as the homepage's
+       standalone Listen widget — see admin.html's Music tab), used only
+       for SoundCloud-only songs — a song that also has a video just
+       plays that video instead. See buildMergedList()/playMergedKey()
+       in the script block near the bottom of this file. No src here:
+       it's set by JS, once the linked profile loads — see the
+       SOUNDCLOUD "NOW PLAYING" ENGINE script near the bottom. -->
   <div class="sc-section">
     <div class="sc-card">
       <iframe
@@ -1182,8 +1184,7 @@
         title="SoundCloud audio engine"
         scrolling="no"
         frameborder="no"
-        allow="autoplay"
-        src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fbobbywyckoffnyc&auto_play=false&show_artwork=false">
+        allow="autoplay">
       </iframe>
       <div class="sc-header">
         <span class="sc-title-label">Now Playing</span>
@@ -2301,7 +2302,13 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   const scProgressTrackEl = document.getElementById('scProgressTrack');
   const scProgressFillEl = document.getElementById('scProgressFill');
 
-  const scWidget = SC.Widget(scFrame);
+  // Not created until the linked SoundCloud profile loads (see
+  // SOUNDCLOUD_REF.get() near the bottom of this IIFE) — every place
+  // below that calls scWidget.* only ever does so once a SoundCloud-only
+  // entry is active in the merged list, which itself can't happen until
+  // scSoundsList is populated by the READY handler this triggers, so
+  // there's no ordering hazard from leaving it null until then.
+  let scWidget = null;
   let scDuration = 0; // seconds — always seconds here, converted to ms only at the scWidget.seekTo() call sites
   // Last play state this widget itself reported, kept even while a video
   // is active so scPlayBtn has something sane to fall back on.
@@ -2400,39 +2407,41 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     updateScPlayIcon(isPlaying);
   };
 
-  scWidget.bind(SC.Widget.Events.READY, function () {
-    scPlayBtn.disabled = false;
-    scWidget.getSounds(function (sounds) {
-      scSoundsList = sounds || [];
-      refreshMergedPlaylist();
+  function bindScWidgetEvents() {
+    scWidget.bind(SC.Widget.Events.READY, function () {
+      scPlayBtn.disabled = false;
+      scWidget.getSounds(function (sounds) {
+        scSoundsList = sounds || [];
+        refreshMergedPlaylist();
+      });
     });
-  });
 
-  // These only ever fire as a direct result of our own playScByIndex/
-  // pauseSc/resumeSc calls above — the widget itself is invisible and has
-  // no controls of its own for a visitor to trigger PLAY/PAUSE with.
-  scWidget.bind(SC.Widget.Events.PLAY, function () {
-    scIsPlaying = true;
-    if (isScKey(activeKey)) updateScPlayIcon(true);
-  });
-  scWidget.bind(SC.Widget.Events.PAUSE, function () {
-    scIsPlaying = false;
-    if (isScKey(activeKey)) updateScPlayIcon(false);
-  });
+    // These only ever fire as a direct result of our own playScByIndex/
+    // pauseSc/resumeSc calls above — the widget itself is invisible and has
+    // no controls of its own for a visitor to trigger PLAY/PAUSE with.
+    scWidget.bind(SC.Widget.Events.PLAY, function () {
+      scIsPlaying = true;
+      if (isScKey(activeKey)) updateScPlayIcon(true);
+    });
+    scWidget.bind(SC.Widget.Events.PAUSE, function () {
+      scIsPlaying = false;
+      if (isScKey(activeKey)) updateScPlayIcon(false);
+    });
 
-  scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
-    if (!isScKey(activeKey) || !scDuration) return;
-    scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
-    // Lets the video pane's own scrub bar/time label track this
-    // SoundCloud track's playhead too (see notifyScProgress in the video
-    // IIFE) — both sides agree scDuration/current are always seconds.
-    notifyScProgress(data.relativePosition * scDuration, scDuration);
-  });
+    scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
+      if (!isScKey(activeKey) || !scDuration) return;
+      scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
+      // Lets the video pane's own scrub bar/time label track this
+      // SoundCloud track's playhead too (see notifyScProgress in the video
+      // IIFE) — both sides agree scDuration/current are always seconds.
+      notifyScProgress(data.relativePosition * scDuration, scDuration);
+    });
 
-  scWidget.bind(SC.Widget.Events.FINISH, function () {
-    scProgressFillEl.style.width = '0%';
-    if (isScKey(activeKey)) advanceToNextInMergedList();
-  });
+    scWidget.bind(SC.Widget.Events.FINISH, function () {
+      scProgressFillEl.style.width = '0%';
+      if (isScKey(activeKey)) advanceToNextInMergedList();
+    });
+  }
 
   // Explicit play()/pause() based on our own tracked scIsPlaying, rather
   // than the widget's toggle() — toggle() is unreliable on the very
@@ -2478,6 +2487,23 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }
     scProgressFillEl.style.width = (fraction * 100) + '%';
   });
+
+  // ---------- LINKED ACCOUNT ----------
+  // Same admin.html "SoundCloud Account" card (Music tab) and the same
+  // chat_config/soundcloud doc the homepage's standalone Listen widget
+  // reads — one saved link feeds both places, so renaming/switching
+  // SoundCloud accounts only ever needs that one paste-and-save. `db` is
+  // this file's own top-level Firestore instance, set up above in the
+  // FIREBASE script block. A one-time read is enough — same
+  // "takes effect on load/refresh" model as everywhere else this site
+  // reads admin-set config.
+  db.collection('chat_config').doc('soundcloud').get().then(function (doc) {
+    const data = doc.exists ? doc.data() : null;
+    if (!data || !data.profileUrl) return; // unconfigured — scSoundsList stays empty, no SoundCloud-only entries merged in
+    scFrame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(data.profileUrl) + '&auto_play=false&show_artwork=false';
+    scWidget = SC.Widget(scFrame);
+    bindScWidgetEvents();
+  }).catch(function () {});
 })();
 </script>
 
