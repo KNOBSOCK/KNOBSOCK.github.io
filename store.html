@@ -66,8 +66,12 @@
     overflow: hidden;
     /* Tiled repeating background, same old-GeoCities-style approach as
        index.html's own body background (see that file's own comment) —
-       a plain CSS repeat, no scroll/animation. */
-    background: #ffffff url('/store-clouds-bg.gif') repeat;
+       a plain CSS repeat, no scroll/animation. The underlying color
+       (shows through on iOS Safari's rubber-band overscroll above/below
+       the page, even with overflow:hidden here) is the sky blue from
+       the cloud gif itself, not white, so an overscroll bounce reads as
+       "more sky" rather than a stark white flash. */
+    background: #A5C6DE url('/store-clouds-bg.gif') repeat;
     font-family: Arial, Helvetica, sans-serif;
   }
 
@@ -299,6 +303,51 @@
     align-items: flex-end;
     gap: clamp(6px, 1.4vh, 12px);
   }
+  /* Sizes come from the same per-product Sizes field admin.html already
+     had (comma-separated, e.g. "S, M, L, XL") — hidden entirely (like
+     .color-picker) when a product has none set. Plain live text, same
+     yellow-fill/black-outline technique as .cart-badge, rather than
+     baked-into-an-image like PREV/NEXT/etc., since the actual size list
+     is dynamic per product. */
+  .size-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: clamp(2px, 0.6vh, 6px);
+  }
+  .size-selector[hidden] { display: none; }
+  .size-label {
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    font-size: clamp(12px, 1.4vw, 16px);
+    letter-spacing: 0.04em;
+    color: var(--ks-pink);
+    -webkit-text-stroke: 1px #000;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
+  .size-options {
+    display: flex;
+    gap: clamp(8px, 1.4vw, 16px);
+  }
+  .size-option {
+    -webkit-appearance: none;
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 2px;
+    margin: 0;
+    cursor: pointer;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    font-size: clamp(16px, 2.1vw, 23px);
+    line-height: 1;
+    color: var(--ks-yellow);
+    -webkit-text-stroke: 1.3px #000;
+    text-shadow: -1.3px -1.3px 0 #000, 1.3px -1.3px 0 #000, -1.3px 1.3px 0 #000, 1.3px 1.3px 0 #000;
+    transition: transform 0.15s ease;
+  }
+  .size-option:hover { transform: scale(1.25); }
+  .size-option.is-selected { color: var(--ks-pink); transform: scale(1.2); }
+  .size-option.is-selected:hover { transform: scale(1.32); }
+
   /* Two swapped button-art images (add/added), not CSS-styled text —
      see the JS side's addToCartBtn click handler. */
   .add-to-cart-btn {
@@ -371,7 +420,7 @@
     .stage {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
-      grid-template-rows: auto 1fr auto auto auto auto;
+      grid-template-rows: auto 1fr auto auto auto auto auto;
       row-gap: clamp(6px, 1.4vh, 14px);
       align-items: center;
       height: 100vh;
@@ -382,7 +431,7 @@
 
     .product-stage { display: contents; }
     /* align-self:stretch overrides .stage's own align-items:center
-       (needed so the shorter items in row 4 — add-to-cart-btn next to
+       (needed so the shorter items in row 5 — add-to-cart-btn next to
        the taller prev/next triangles — center instead of stretching
        oddly) specifically for this one item. Without it, .product-
        viewport has no intrinsic content height of its own (.product-img
@@ -392,10 +441,11 @@
        (430px), the item just wasn't stretched into it. */
     .product-viewport { grid-column: 1 / -1; grid-row: 2; position: relative; inset: auto; align-self: stretch; }
 
-    .color-picker { grid-column: 1 / -1; grid-row: 3; justify-self: center; align-items: center; }
+    .size-selector { grid-column: 1 / -1; grid-row: 3; justify-self: center; align-items: center; }
+    .color-picker { grid-column: 1 / -1; grid-row: 4; justify-self: center; align-items: center; }
 
     .nav-btn {
-      grid-row: 4;
+      grid-row: 5;
       position: static;
       transform: none;
       width: clamp(56px, 18vw, 120px);
@@ -405,11 +455,11 @@
     .nav-next { grid-column: 3; justify-self: end; }
 
     .footer-row { display: contents; }
-    .product-info { grid-column: 1 / -1; grid-row: 5; text-align: center; }
-    .next-item-btn { grid-column: 1 / -1; grid-row: 6; justify-self: center; }
+    .product-info { grid-column: 1 / -1; grid-row: 6; text-align: center; }
+    .next-item-btn { grid-column: 1 / -1; grid-row: 7; justify-self: center; }
 
     .footer-right { display: contents; }
-    .add-to-cart-btn { grid-column: 2; grid-row: 4; justify-self: center; }
+    .add-to-cart-btn { grid-column: 2; grid-row: 5; justify-self: center; }
 
     /* Tap feedback — a quick scale-up-then-settle "pop" on every button,
        triggered by JS toggling .is-popping (see popOnClick) rather than
@@ -423,7 +473,8 @@
     .next-item-btn.is-popping,
     .add-to-cart-btn.is-popping,
     .color-swatch.is-popping,
-    .cart-btn.is-popping {
+    .cart-btn.is-popping,
+    .size-option.is-popping {
       animation: btn-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
   }
@@ -471,6 +522,10 @@
     </button>
 
     <div class="footer-right">
+      <div class="size-selector" id="sizeSelector" hidden>
+        <span class="size-label">Size:</span>
+        <div class="size-options" id="sizeOptions"></div>
+      </div>
       <button type="button" class="add-to-cart-btn" id="addToCartBtn" aria-label="Add to cart">
         <img id="addToCartImg" src="/store-btn-addtocart.webp" alt="Add to Cart">
       </button>
@@ -531,7 +586,8 @@
       priceCents: d.priceCents || 0,
       material: d.material || '',
       category: d.category || '',
-      colors: Array.isArray(d.colors) ? d.colors.filter(function (c) { return c && c.hex; }) : []
+      colors: Array.isArray(d.colors) ? d.colors.filter(function (c) { return c && c.hex; }) : [],
+      sizes: Array.isArray(d.sizes) ? d.sizes.filter(Boolean) : []
     };
   }
 
@@ -550,7 +606,8 @@
     image: '/store-test-product.webp',
     priceCents: 2800,
     material: '100% Cotton',
-    colors: [{ name: 'White', hex: '#ffffff' }, { name: 'Black', hex: '#000000' }]
+    colors: [{ name: 'White', hex: '#ffffff' }, { name: 'Black', hex: '#000000' }],
+    sizes: ['S', 'M', 'L', 'XL']
   };
 
   function loadProducts() {
@@ -587,6 +644,8 @@
   var viewport = document.getElementById('productViewport');
   var colorPicker = document.getElementById('colorPicker');
   var colorSwatches = document.getElementById('colorSwatches');
+  var sizeSelector = document.getElementById('sizeSelector');
+  var sizeOptions = document.getElementById('sizeOptions');
   var prevBtn = document.getElementById('prevBtn');
   var nextBtn = document.getElementById('nextBtn');
   var nextItemBtn = document.getElementById('nextItemBtn');
@@ -601,6 +660,7 @@
   var PRODUCTS = [];
   var activeIndex = 0;
   var selectedColorIndex = 0;
+  var selectedSize = '';
   var currentImg = null;
   var animating = false;
   var SLIDE_MS = 500;
@@ -655,6 +715,24 @@
     });
   }
 
+  function renderSizeOptions(product) {
+    var sizes = product.sizes || [];
+    selectedSize = '';
+    sizeSelector.hidden = sizes.length === 0;
+    sizeOptions.innerHTML = sizes.map(function (s) {
+      return '<button type="button" class="size-option" data-size="' + escapeAttr(s) + '">' + escapeAttr(s) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(sizeOptions.querySelectorAll('.size-option'), function (btn) {
+      popOnClick(btn);
+      btn.addEventListener('click', function () {
+        selectedSize = btn.dataset.size;
+        Array.prototype.forEach.call(sizeOptions.querySelectorAll('.size-option'), function (b) {
+          b.classList.toggle('is-selected', b === btn);
+        });
+      });
+    });
+  }
+
   function renderProductInfo(product) {
     infoTitle.textContent = product.title || '';
     infoPrice.textContent = product.priceCents ? formatCents(product.priceCents) : '';
@@ -699,6 +777,7 @@
     }, SLIDE_MS + 40);
 
     renderColorSwatches(product);
+    renderSizeOptions(product);
     renderProductInfo(product);
   }
 
@@ -796,7 +875,7 @@
 
     var cart = getCart();
     var existing = cart.find(function (l) {
-      return l.productId === product.id && (l.color || '') === (color ? color.name : '');
+      return l.productId === product.id && (l.color || '') === (color ? color.name : '') && (l.size || '') === selectedSize;
     });
     if (existing) {
       existing.quantity = Math.min(20, existing.quantity + 1);
@@ -806,6 +885,7 @@
         title: product.title,
         image: product.image,
         color: color ? color.name : '',
+        size: selectedSize,
         quantity: 1,
         priceCents: product.priceCents || 0
       });
