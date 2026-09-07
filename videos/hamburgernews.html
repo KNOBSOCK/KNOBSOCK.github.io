@@ -156,10 +156,14 @@
   // Plain cover-fit scale alone renders the video too small to read on
   // an ordinary desktop window once the background canvas is this much
   // bigger than the video slot cut into it — this floors the video's own
-  // size at 25% of the viewport on whichever axis binds, even if that
+  // size at 34% of the viewport on whichever axis binds, even if that
   // means scaling past cover-fit (and cropping further into the huge
-  // margin the art already has to spare for exactly this).
-  var MIN_VIDEO_FRAC = 0.25;
+  // margin the art already has to spare for exactly this). 0.34 was
+  // picked to match a specific mobile mockup (burger filling nearly the
+  // whole screen, spotlight cropped at the bottom rather than tapering
+  // off into empty space) — checked directly against a real ~380x720
+  // viewport, not guessed.
+  var MIN_VIDEO_FRAC = 0.34;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
