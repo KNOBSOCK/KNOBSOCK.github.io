@@ -1054,7 +1054,8 @@
       </div>
       <div style="flex:1 1 140px;">
         <label class="field-label" for="productCategoryInput">Category</label>
-        <input type="text" id="productCategoryInput" placeholder="Apparel">
+        <input type="text" id="productCategoryInput" placeholder="Apparel" list="productCategoryOptions" autocomplete="off">
+        <datalist id="productCategoryOptions"></datalist>
       </div>
       <div style="flex:1 1 140px;">
         <label class="field-label" for="productMaterialInput">Material</label>
@@ -3018,6 +3019,7 @@
   const productDescInput = document.getElementById('productDescInput');
   const productPriceInput = document.getElementById('productPriceInput');
   const productCategoryInput = document.getElementById('productCategoryInput');
+  const productCategoryOptions = document.getElementById('productCategoryOptions');
   const productMaterialInput = document.getElementById('productMaterialInput');
   const productSizesInput = document.getElementById('productSizesInput');
   const productActiveInput = document.getElementById('productActiveInput');
@@ -3051,7 +3053,29 @@
     }
   }
 
+  // Same <datalist> combo-box pattern the Music tab's Album field already
+  // uses — free-text still works (store.html's category matching also
+  // trims/lowercases now, so minor typos aren't fatal), but seeing what's
+  // already in use makes it easy to pick the exact existing spelling
+  // instead of accidentally typing a near-duplicate ("T-Shirt" vs
+  // "T-shirts" — see the KNOBSOCK-side fix for that exact live mixup).
+  // Exact-string dedup only, same as collectAlbumNames() — doesn't try to
+  // merge near-duplicates itself, since deciding which spelling is
+  // "correct" isn't this code's call to make.
+  function renderProductCategoryOptions() {
+    var seen = {};
+    var categories = [];
+    storeProducts.forEach(function (p) {
+      var cat = (p.category || '').trim();
+      if (cat && !seen[cat]) { seen[cat] = true; categories.push(cat); }
+    });
+    productCategoryOptions.innerHTML = categories.map(function (c) {
+      return '<option value="' + escapeAttr(c) + '"></option>';
+    }).join('');
+  }
+
   function renderProductsList() {
+    renderProductCategoryOptions();
     if (!storeProducts.length) {
       productsList.innerHTML = '<div class="note">No products yet — use + Add Product to create the first one.</div>';
       return;
