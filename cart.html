@@ -36,7 +36,10 @@
   html, body {
     margin: 0;
     min-height: 100%;
-    background: #ffffff;
+    /* Same tiled cloud background as store.html (see that file's own
+       comment) — the underlying color is the cloud gif's own sky blue,
+       not white, for the same iOS Safari overscroll reason. */
+    background: #A5C6DE url('/store-clouds-bg.gif') repeat;
     color: var(--ks-ink);
     font-family: Arial, Helvetica, sans-serif;
   }

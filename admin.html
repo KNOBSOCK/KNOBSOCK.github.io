@@ -1096,7 +1096,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
@@ -1109,10 +1108,6 @@
   const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const auth = firebase.auth();
-  // Used only by the Store tab's product-photo uploads — guarded the same
-  // way as everything else here (a blocked/failed script load just means
-  // photo upload won't work, not that the whole admin page breaks).
-  const storage = firebase.storage ? firebase.storage() : null;
 
   // Same Firestore documents the widgets themselves read from — saving
   // here is exactly what saving from a widget's own hidden admin panel
@@ -1167,38 +1162,29 @@
   const STORE_PRODUCTS_REF = db.collection('store_products');
   const STORE_ORDERS_REF = db.collection('store_orders');
 
-  // ---------- TEMPORARY: local-only product storage ----------
-  // firestore.rules' store_products/store_orders rules haven't been
-  // deployed yet (see that file's own header comment), so right now a
-  // write to STORE_PRODUCTS_REF would fail with "permission denied" and
-  // photo uploads would fail too (no Storage rules deployed either). Until
-  // that's done, product CRUD below reads/writes a browser-local copy
-  // instead — same shape as the real Firestore docs — so the Store tab and
-  // the live Store page can actually be tried out end-to-end.
-  //
-  // store.html has the exact same flag/key — flip BOTH back to false
-  // once Firebase's store rules and Storage rules are deployed for real,
-  // and everything reverts to reading/writing Firestore as designed.
-  const STORE_LOCAL_MODE = true;
-  const STORE_LOCAL_KEY = 'knobsock_store_products_local';
+  // ---------- Product photos: embedded data URLs, not Storage ----------
+  // Cloud Storage needs the project on Firebase's Blaze (pay-as-you-go)
+  // plan, which isn't set up — so rather than block the whole Store tab
+  // on that, product photos are resized client-side and embedded as data
+  // URLs directly in the Firestore document (same trick this used while
+  // it was still browser-local-only, just now the document itself lives
+  // in Firestore instead of localStorage). The real ceiling this runs
+  // into is Firestore's 1MiB-per-document limit, not localStorage's
+  // quota — see the size check in productSaveBtn's click handler, and
+  // MAX_PHOTO_DIM/PHOTO_QUALITY below. Once Blaze is on, swap these data
+  // URLs for real storage.ref(...).put(file) uploads (see git history
+  // for the last version that did this) to drop the size ceiling.
+  var MAX_PHOTO_DIM = 900;
+  var PHOTO_QUALITY = 0.82;
 
-  function localLoadProducts() {
-    try {
-      var raw = localStorage.getItem(STORE_LOCAL_KEY);
-      var arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch (err) { return []; }
-  }
-  function localSaveProducts(arr) {
-    try { localStorage.setItem(STORE_LOCAL_KEY, JSON.stringify(arr)); } catch (err) { /* storage full/blocked */ }
-  }
-
-  // Keeps locally-stored product photos from blowing past localStorage's
-  // ~5-10MB quota after just a couple of real phone photos — downscales to
-  // a sane max dimension and re-encodes as a data URL before it ever gets
-  // pushed into editingProductImages. PNG (not JPEG) for product photos
-  // specifically, since these are transparent cutout product art, not
-  // opaque photos — see the format param note below.
+  // Downscales to a sane max dimension and re-encodes as a data URL
+  // before it ever gets pushed into editingProductImages/colors. WebP
+  // (not JPEG or PNG) for product photos specifically: these are
+  // transparent cutout product art, so they need real alpha support like
+  // PNG, but WebP's actual lossy compression (PNG's "quality" argument is
+  // simply ignored by browsers — PNG is always lossless) keeps each
+  // photo small enough that several still fit under Firestore's document
+  // limit — see the format param note below.
   function resizeImageFile(file, maxDim, quality, format) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -1520,11 +1506,11 @@
     // caps it at 300px on its longest side, alpha preserved so a custom
     // button shape doesn't get flattened onto an opaque background) data
     // URL per creator, stored directly in this doc rather than Firebase
-    // Storage. Storage's own rules aren't deployed yet (see
-    // resizeImageFile's own comment and the Store tab's STORE_LOCAL_MODE
-    // flag for the same situation there), and unlike a shopping cart's
-    // product photos, a handful of these comfortably fits Firestore's
-    // 1MiB document limit without needing Storage at all. This is no
+    // Storage (which needs the project on Firebase's Blaze plan — see
+    // resizeImageFile's own comment for the Store tab's version of this
+    // same situation), and unlike a shopping cart's product photos, a
+    // handful of these comfortably fits Firestore's 1MiB document limit
+    // without needing Storage at all. This is no
     // longer a small round avatar next to a text button — it IS the
     // entire button on videos.html now, so a creator with nothing set
     // here just doesn't get a button at all (see that file).
@@ -2922,7 +2908,6 @@
   let editingProductId = null;   // null while the modal is adding a new product
   let editingProductImages = []; // urls, live-edited while the modal's open
   let editingProductColors = []; // [{name, hex, image?}], live-edited while the modal's open — see renderColorsList
-  let productUploadFolderId = null; // shared by every photo uploaded in one modal session — see openProductModal
 
   const productsList = document.getElementById('productsList');
   const productsStatus = document.getElementById('productsStatus');
@@ -2952,17 +2937,12 @@
   function loadStoreTab() {
     if (!storeProductsLoaded) {
       storeProductsLoaded = true;
-      if (STORE_LOCAL_MODE) {
-        storeProducts = localLoadProducts().sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); });
+      STORE_PRODUCTS_REF.orderBy('sortOrder').get().then(function (snap) {
+        storeProducts = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
         renderProductsList();
-      } else {
-        STORE_PRODUCTS_REF.orderBy('sortOrder').get().then(function (snap) {
-          storeProducts = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
-          renderProductsList();
-        }).catch(function (err) {
-          productsList.innerHTML = '<div class="note">Failed to load products: ' + escapeAttr(err.message) + '</div>';
-        });
-      }
+      }).catch(function (err) {
+        productsList.innerHTML = '<div class="note">Failed to load products: ' + escapeAttr(err.message) + '</div>';
+      });
     }
     if (!storeOrdersLoaded) {
       storeOrdersLoaded = true;
@@ -2999,13 +2979,6 @@
     makeSortable(productsList, function (newOrderIndices) {
       storeProducts = newOrderIndices.map(function (i) { return storeProducts[i]; });
       storeProducts.forEach(function (p, i) { p.sortOrder = i; });
-
-      if (STORE_LOCAL_MODE) {
-        localSaveProducts(storeProducts);
-        productsStatus.textContent = 'Order saved.';
-        setTimeout(function () { productsStatus.textContent = ''; }, 2000);
-        return;
-      }
 
       var batch = db.batch();
       storeProducts.forEach(function (p, i) { batch.update(STORE_PRODUCTS_REF.doc(p.id), { sortOrder: i }); });
@@ -3108,19 +3081,7 @@
       renderColorsList();
     }
 
-    if (STORE_LOCAL_MODE) {
-      resizeImageFile(file, 1000, 0.82, 'image/png').then(onUploaded).catch(onFailed);
-      return;
-    }
-    if (!storage) {
-      productModalStatus.textContent = 'Photo upload needs Firebase Storage, which failed to load.';
-      renderColorsList();
-      return;
-    }
-    var path = 'store-products/' + productUploadFolderId + '/color-' + Date.now() + '-' + file.name;
-    storage.ref(path).put(file).then(function (snapshot) {
-      return snapshot.ref.getDownloadURL();
-    }).then(onUploaded).catch(onFailed);
+    resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(onUploaded).catch(onFailed);
   });
 
   productColorAddBtn.addEventListener('click', function () {
@@ -3137,12 +3098,6 @@
 
   function openProductModal(productId) {
     editingProductId = productId || null;
-    // Shared by every photo uploaded during this one modal session (even
-    // across several separate file-picker uses) so they all land in the
-    // same Storage folder — an existing product just uses its own id;
-    // a still-unsaved new one gets a throwaway id good enough to group
-    // its uploads under until Save actually creates the real doc.
-    productUploadFolderId = editingProductId || ('draft-' + Date.now());
 
     var product = editingProductId ? storeProducts.find(function (p) { return p.id === editingProductId; }) : null;
 
@@ -3175,38 +3130,14 @@
     productPhotosInput.value = '';
     if (!files.length) return;
 
-    if (STORE_LOCAL_MODE) {
-      files.forEach(function (file) {
-        var tileId = 'up-' + Math.random().toString(36).slice(2);
-        productPhotosGrid.insertAdjacentHTML('beforeend', '<div class="photo-upload-tile is-uploading" id="' + tileId + '"><span class="upload-spinner"></span></div>');
-        resizeImageFile(file, 1000, 0.82, 'image/png').then(function (dataUrl) {
-          editingProductImages.push(dataUrl);
-          renderPhotosGrid();
-        }).catch(function (err) {
-          productModalStatus.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'could not read file');
-          var el = document.getElementById(tileId);
-          if (el) el.remove();
-        });
-      });
-      return;
-    }
-
-    if (!storage) {
-      productModalStatus.textContent = 'Photo upload needs Firebase Storage, which failed to load.';
-      return;
-    }
-
     files.forEach(function (file) {
       var tileId = 'up-' + Math.random().toString(36).slice(2);
       productPhotosGrid.insertAdjacentHTML('beforeend', '<div class="photo-upload-tile is-uploading" id="' + tileId + '"><span class="upload-spinner"></span></div>');
-      var path = 'store-products/' + productUploadFolderId + '/' + Date.now() + '-' + file.name;
-      storage.ref(path).put(file).then(function (snapshot) {
-        return snapshot.ref.getDownloadURL();
-      }).then(function (url) {
-        editingProductImages.push(url);
+      resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(function (dataUrl) {
+        editingProductImages.push(dataUrl);
         renderPhotosGrid();
       }).catch(function (err) {
-        productModalStatus.textContent = 'Upload failed: ' + err.message;
+        productModalStatus.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'could not read file');
         var el = document.getElementById(tileId);
         if (el) el.remove();
       });
@@ -3219,8 +3150,14 @@
     return Math.round(n * 100);
   }
 
+  // Firestore's real per-document ceiling is 1,048,576 bytes; this stays
+  // well under it (payload also carries title/description/etc., and
+  // JSON.stringify's UTF-16 length is a close-enough stand-in for byte
+  // count when the bulk of the payload is base64, which is ASCII-only).
+  var MAX_PAYLOAD_BYTES = 900 * 1024;
+
   productSaveBtn.addEventListener('click', function () {
-    if (!STORE_LOCAL_MODE && !auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
+    if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
 
     var title = productTitleInput.value.trim();
     var priceCents = parsePriceToCents(productPriceInput.value);
@@ -3241,34 +3178,14 @@
       active: productActiveInput.checked
     };
 
-    productSaveBtn.disabled = true;
-    productModalStatus.textContent = 'Saving…';
-
-    if (STORE_LOCAL_MODE) {
-      payload.updatedAt = Date.now();
-      payload.updatedBy = (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)) || 'local';
-
-      if (editingProductId) {
-        var idx = storeProducts.findIndex(function (p) { return p.id === editingProductId; });
-        if (idx !== -1) storeProducts[idx] = Object.assign({}, storeProducts[idx], payload);
-      } else {
-        payload.id = 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        // Every product needs a real sortOrder, same reasoning as the
-        // Firestore path below — see its comment.
-        payload.sortOrder = storeProducts.length
-          ? Math.max.apply(null, storeProducts.map(function (p) { return p.sortOrder || 0; })) + 1
-          : 0;
-        payload.createdAt = Date.now();
-        storeProducts.push(payload);
-      }
-
-      localSaveProducts(storeProducts);
-      productSaveBtn.disabled = false;
-      closeProductModal();
-      storeProductsLoaded = false; // simplest way to pick up the add/edit: just reload
-      loadStoreTab();
+    var payloadBytes = JSON.stringify(payload).length;
+    if (payloadBytes > MAX_PAYLOAD_BYTES) {
+      productModalStatus.textContent = 'Too many/large photos (' + Math.round(payloadBytes / 1024) + 'KB, limit ~' + Math.round(MAX_PAYLOAD_BYTES / 1024) + 'KB) — remove a photo and try again.';
       return;
     }
+
+    productSaveBtn.disabled = true;
+    productModalStatus.textContent = 'Saving…';
 
     payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     payload.updatedBy = auth.currentUser.email || auth.currentUser.uid;
@@ -3301,28 +3218,9 @@
   productDeleteBtn.addEventListener('click', function () {
     if (!editingProductId) return;
     if (!confirm('Delete this product? This can’t be undone.')) return;
-
-    if (STORE_LOCAL_MODE) {
-      storeProducts = storeProducts.filter(function (p) { return p.id !== editingProductId; });
-      localSaveProducts(storeProducts);
-      closeProductModal();
-      storeProductsLoaded = false;
-      loadStoreTab();
-      return;
-    }
-
     if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
 
-    var imagesToClean = editingProductImages.slice();
     STORE_PRODUCTS_REF.doc(editingProductId).delete().then(function () {
-      // Best-effort — a photo whose URL isn't actually a Storage file
-      // (someone pasted an external image URL by hand, say) just fails
-      // this quietly; there's nothing there to delete either way.
-      if (storage) {
-        imagesToClean.forEach(function (url) {
-          try { storage.refFromURL(url).delete().catch(function () {}); } catch (err) { /* not a Storage URL */ }
-        });
-      }
       closeProductModal();
       storeProductsLoaded = false;
       loadStoreTab();
