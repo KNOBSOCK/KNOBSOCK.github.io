@@ -696,32 +696,75 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ---------- STORE: product color chips ---------- */
-  .color-chip-list {
+  /* ---------- STORE: product color rows ----------
+     One row per color: swatch + name, a photo tile (that color's own
+     product shot, shown on the Store page's product image when this
+     swatch is selected — see store.html's renderColorSwatches), and
+     remove. Was a compact pill before the per-color photo was added;
+     needed the extra width for the photo tile. */
+  .color-row-list {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
     margin: 6px 0;
   }
-  .color-chip {
+  .color-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 6px 4px 4px;
+    gap: 10px;
+    padding: 6px 8px;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: 10px;
     font-size: 12px;
     color: var(--text);
   }
-  .color-chip .swatch {
+  .color-row .swatch {
     width: 18px;
     height: 18px;
     border-radius: 50%;
     border: 1px solid var(--line);
     flex: none;
   }
-  .color-chip .remove-color-btn {
+  .color-row .color-name {
+    flex: 1 1 auto;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .color-photo-tile {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px dashed var(--line);
+    cursor: pointer;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .color-photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .color-photo-tile .photo-plus { font-size: 18px; color: var(--text-dim); pointer-events: none; }
+  .color-photo-tile.is-uploading { cursor: default; }
+  .color-photo-tile .remove-color-photo-btn {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .color-row .remove-color-btn {
     width: 16px;
     height: 16px;
     border-radius: 50%;
@@ -1083,8 +1126,9 @@
     <div class="photo-upload-grid" id="productPhotosGrid"></div>
     <input type="file" id="productPhotosInput" accept="image/*" multiple>
 
-    <label class="field-label">Colors <span style="font-weight:400;color:var(--text-dim);">— shown as swatches on the Store page's color picker, in this order</span></label>
-    <div class="color-chip-list" id="productColorsList"></div>
+    <label class="field-label">Colors <span style="font-weight:400;color:var(--text-dim);">— shown as swatches on the Store page's color picker, in this order. Click a color's photo tile to upload the shirt photo shown when a customer picks that color.</span></label>
+    <div class="color-row-list" id="productColorsList"></div>
+    <input type="file" id="productColorPhotoInput" accept="image/*" hidden>
     <div class="add-row">
       <input type="text" id="productColorNameInput" class="search-input" placeholder="Color name (e.g. White)" style="flex:1 1 auto;">
       <input type="color" id="productColorHexInput" value="#ffffff" title="Pick the exact color">
@@ -2106,8 +2150,12 @@
   }
   function naturalCompare(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); }
 
-  // Same discovery approach as photos-widget.html, minus the synthetic
-  // "All" category — admin only ever reorders real folder categories.
+  // Reads categories straight from the /photos folder tree on GitHub —
+  // this tab manages photo-category ordering, though the public Photos
+  // page/button that once read that ordering has since been removed
+  // (see the KNOBSOCK-side commit removing photos.html/photos-widget.html
+  // and repointing the home button to /store); left in place here rather
+  // than ripped out, since that's a bigger removal than was asked for.
   function buildCategoriesFromTree(tree) {
     const byCategory = new Map();
     tree.forEach(function (entry) {
@@ -3121,7 +3169,7 @@
   let storeOrdersLoaded = false;
   let editingProductId = null;   // null while the modal is adding a new product
   let editingProductImages = []; // urls, live-edited while the modal's open
-  let editingProductColors = []; // [{name, hex}], live-edited while the modal's open — see renderColorsList
+  let editingProductColors = []; // [{name, hex, image?}], live-edited while the modal's open — see renderColorsList
   let productUploadFolderId = null; // shared by every photo uploaded in one modal session — see openProductModal
 
   const productsList = document.getElementById('productsList');
@@ -3239,20 +3287,27 @@
     renderPhotosGrid();
   });
 
-  // Renders as an ordered list of chips, same left-to-right = display-
+  // Renders as an ordered list of rows, same top-to-bottom = display-
   // order convention as everything else editable here — no drag-to-
-  // reorder like the photos grid gets since color pickers are small
+  // reorder like the photos grid gets since color pickers are short
   // enough in practice that "remove and re-add" covers reordering fine.
+  // Each row's photo tile is that color's own product shot — shown on
+  // the Store page in place of the default photo when a customer picks
+  // this swatch (see store.html's showProduct/renderColorSwatches).
   function renderColorsList() {
     if (!editingProductColors.length) {
       productColorsList.innerHTML = '<div class="note" style="margin:0;">No colors added — the Store page hides the color picker entirely until at least one exists.</div>';
       return;
     }
     productColorsList.innerHTML = editingProductColors.map(function (c, i) {
-      return '<span class="color-chip">' +
+      var photoInner = c.image
+        ? '<img src="' + escapeAttr(c.image) + '"><button type="button" class="remove-color-photo-btn" data-index="' + i + '" title="Remove photo">&times;</button>'
+        : '<span class="photo-plus">+</span>';
+      return '<span class="color-row">' +
         '<span class="swatch" style="background:' + escapeAttr(c.hex) + ';"></span>' +
-        escapeAttr(c.name || c.hex) +
-        '<button type="button" class="remove-color-btn" data-index="' + i + '" title="Remove">&times;</button>' +
+        '<span class="color-name">' + escapeAttr(c.name || c.hex) + '</span>' +
+        '<span class="color-photo-tile" data-index="' + i + '" title="' + (c.image ? 'Change photo' : 'Upload photo') + '">' + photoInner + '</span>' +
+        '<button type="button" class="remove-color-btn" data-index="' + i + '" title="Remove color">&times;</button>' +
         '</span>';
     }).join('');
     Array.prototype.forEach.call(productColorsList.querySelectorAll('.remove-color-btn'), function (btn) {
@@ -3261,7 +3316,60 @@
         renderColorsList();
       });
     });
+    Array.prototype.forEach.call(productColorsList.querySelectorAll('.color-photo-tile'), function (tile) {
+      tile.addEventListener('click', function (e) {
+        if (e.target.closest('.remove-color-photo-btn')) return;
+        colorPhotoEditIndex = parseInt(tile.dataset.index, 10);
+        productColorPhotoInput.click();
+      });
+    });
+    Array.prototype.forEach.call(productColorsList.querySelectorAll('.remove-color-photo-btn'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        delete editingProductColors[parseInt(btn.dataset.index, 10)].image;
+        renderColorsList();
+      });
+    });
   }
+
+  // Shared by every color row rather than one file input each — simpler
+  // than juggling dynamically-created inputs, and only one upload can be
+  // in flight from this list at a time anyway. colorPhotoEditIndex tracks
+  // which row a click on its photo tile was for.
+  const productColorPhotoInput = document.getElementById('productColorPhotoInput');
+  let colorPhotoEditIndex = -1;
+  productColorPhotoInput.addEventListener('change', function () {
+    var file = (productColorPhotoInput.files || [])[0];
+    productColorPhotoInput.value = '';
+    var idx = colorPhotoEditIndex;
+    if (!file || idx < 0 || !editingProductColors[idx]) return;
+
+    var tile = productColorsList.querySelector('.color-photo-tile[data-index="' + idx + '"]');
+    if (tile) { tile.classList.add('is-uploading'); tile.innerHTML = '<span class="upload-spinner"></span>'; }
+
+    function onUploaded(url) {
+      editingProductColors[idx].image = url;
+      renderColorsList();
+    }
+    function onFailed(err) {
+      productModalStatus.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'could not read file');
+      renderColorsList();
+    }
+
+    if (STORE_LOCAL_MODE) {
+      resizeImageFile(file, 1000, 0.82, 'image/png').then(onUploaded).catch(onFailed);
+      return;
+    }
+    if (!storage) {
+      productModalStatus.textContent = 'Photo upload needs Firebase Storage, which failed to load.';
+      renderColorsList();
+      return;
+    }
+    var path = 'store-products/' + productUploadFolderId + '/color-' + Date.now() + '-' + file.name;
+    storage.ref(path).put(file).then(function (snapshot) {
+      return snapshot.ref.getDownloadURL();
+    }).then(onUploaded).catch(onFailed);
+  });
 
   productColorAddBtn.addEventListener('click', function () {
     var name = productColorNameInput.value.trim();

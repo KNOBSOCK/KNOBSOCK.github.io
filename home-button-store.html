@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Photos Button</title>
+<title>Store Button</title>
 <style>
   /* Custom cursor matching index.html's — the only page this embeds
      on. An iframe is a separate document, so index.html's own cursor
@@ -102,15 +102,21 @@
 </head>
 <body>
 
-  <!-- EDIT: href is the page this button should link to; the second img's
-       src is the animated gif/icon that sits on top of the blob. -->
-  <a class="button-item" href="/photos" target="_top">
+  <!-- Same button-blob + icon-overlay pattern as the other three home
+       buttons (see home-button-videos.html etc.) — replaces the old
+       Photos button in this same iframe slot on index.html. No icon
+       overlay yet (the reference gif for it, IMG_1327.gif, hasn't
+       actually landed in the repo) — .btn-icon-wrap is ready to
+       uncomment once that file exists at the repo root. -->
+  <a class="button-item" href="/store" target="_top">
     <div class="button-float">
       <div class="button-pop">
-        <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_DD40FE14-A89B-461D-A545-D25D2C068EF0.PNG" width="982" height="1408" alt="Photos">
+        <img class="btn-base" src="/home-button-store-blob.webp" alt="Store">
+        <!--
         <div class="btn-icon-wrap">
-          <img class="btn-icon" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/camera3d.gif" alt="">
+          <img class="btn-icon" src="/IMG_1327.gif" alt="">
         </div>
+        -->
       </div>
     </div>
   </a>
