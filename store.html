@@ -351,6 +351,7 @@
   /* Two swapped button-art images (add/added), not CSS-styled text —
      see the JS side's addToCartBtn click handler. */
   .add-to-cart-btn {
+    position: relative;
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
@@ -361,14 +362,36 @@
     width: clamp(110px, 13vw, 190px);
     transition: transform 0.15s ease;
   }
-  .add-to-cart-btn:hover { transform: scale(1.06); }
-  .add-to-cart-btn:active { transform: scale(0.94); }
+  .add-to-cart-btn:not(:disabled):hover { transform: scale(1.06); }
+  .add-to-cart-btn:not(:disabled):active { transform: scale(0.94); }
   .add-to-cart-btn img {
     display: block;
     width: 100%;
     height: auto;
     -webkit-user-drag: none;
     user-select: none;
+  }
+  /* Checkout isn't wired up yet — this banner sits over the button
+     (small enough that the yellow/black button art still shows around
+     it) rather than replacing it, and the native `disabled` attribute
+     (see the HTML) blocks clicks/hover without any JS changes, since
+     the existing click handler and popOnClick() just never fire. */
+  .add-to-cart-btn:disabled { cursor: not-allowed; }
+  /* .add-to-cart-btn .add-to-cart-construction (two classes) rather than
+     just .add-to-cart-construction — needs to out-specificity the
+     .add-to-cart-btn img rule above (one class + one element still beats
+     a lone class), which would otherwise win and stretch this to 100%
+     width like the main button art. */
+  .add-to-cart-btn .add-to-cart-construction {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 78%;
+    max-height: 78%;
+    width: auto;
+    height: auto;
+    pointer-events: none;
   }
 
   .color-picker {
@@ -526,8 +549,9 @@
         <span class="size-label">Size:</span>
         <div class="size-options" id="sizeOptions"></div>
       </div>
-      <button type="button" class="add-to-cart-btn" id="addToCartBtn" aria-label="Add to cart">
+      <button type="button" class="add-to-cart-btn" id="addToCartBtn" aria-label="Add to cart — checkout coming soon" disabled>
         <img id="addToCartImg" src="/store-btn-addtocart.webp" alt="Add to Cart">
+        <img class="add-to-cart-construction" src="/store-under-construction.gif" alt="">
       </button>
       <div class="color-picker" id="colorPicker" hidden>
         <img class="color-picker-heading" src="/store-colorpicker-heading.webp" alt="Color Picker">
@@ -564,20 +588,6 @@
 
 <script>
 (function () {
-  // See the big comment at the top of this file's <style> block — keep
-  // this in sync with admin.html's Store tab flag/key of the same name,
-  // and with the (now-simplified) shape store-widget.html used to read.
-  var STORE_LOCAL_MODE = true;
-  var STORE_LOCAL_KEY = 'knobsock_store_products_local';
-
-  function localLoadProducts() {
-    try {
-      var raw = localStorage.getItem(STORE_LOCAL_KEY);
-      var arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch (err) { return []; }
-  }
-
   function normalizeProduct(d, id) {
     return {
       id: id,
@@ -611,14 +621,6 @@
   };
 
   function loadProducts() {
-    if (STORE_LOCAL_MODE) {
-      var local = localLoadProducts()
-        .filter(function (d) { return d.active === true; })
-        .sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); })
-        .map(function (d) { return normalizeProduct(d, d.id); });
-      return Promise.resolve(local.length ? local : [SEED_PRODUCT]);
-    }
-
     if (!STORE_PRODUCTS_REF) return Promise.resolve([SEED_PRODUCT]);
     return STORE_PRODUCTS_REF.where('active', '==', true).orderBy('sortOrder').get()
       .then(function (snap) {
