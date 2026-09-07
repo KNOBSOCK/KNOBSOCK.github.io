@@ -68,6 +68,13 @@
     -webkit-user-drag: none;
     user-select: none;
   }
+  /* Desktop only (mobile's own size above already read fine live) — the
+     logo doesn't need to compete with the product for attention the way
+     the mobile mockup's own tighter vertical space made it naturally do
+     on a phone. */
+  @media (min-width: 861px) {
+    .header-logo { width: min(11vw, 170px); }
+  }
 
   /* ---------- PRODUCT + PREV/NEXT ---------- */
   .product-stage {
@@ -75,17 +82,20 @@
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
+  /* position:absolute + inset:0 rather than a flex-item percentage
+     height — this used to be `flex:1 1 auto; height:100%` inside a
+     row-direction flex .product-stage, which (confirmed live) resolved
+     to a height noticeably SHORTER than .product-stage's own actual
+     height, silently shrinking the product image along with it (a
+     flex-item cross-axis percentage-height quirk, not something
+     max-height on the image itself could fix). inset:0 against
+     .product-stage's own position:relative has no such ambiguity — it's
+     just "fill the positioned ancestor exactly," always. */
   .product-viewport {
-    position: relative;
-    flex: 1 1 auto;
-    min-height: 0;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    inset: 0;
     overflow: hidden;
   }
   /* Both the outgoing and incoming image during a slide, and the single
@@ -209,8 +219,14 @@
     html, body { overflow: hidden; }
     .stage { height: 100vh; height: 100dvh; }
 
-    .product-stage { flex-direction: column; }
-    .product-viewport { flex: 1 1 auto; }
+    .product-stage { display: flex; flex-direction: column; }
+    /* Back to a real (column-direction) flex-grow item here instead of
+       desktop's position:absolute;inset:0 — column-direction flex-grow
+       with min-height:0 doesn't share row-direction's cross-axis
+       percentage-height quirk (see the base .product-viewport comment),
+       and this is the sizing mobile already had before that desktop fix,
+       which read fine live. */
+    .product-viewport { position: relative; inset: auto; flex: 1 1 auto; min-height: 0; }
 
     .nav-row {
       display: flex;
