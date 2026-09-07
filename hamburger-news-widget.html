@@ -630,6 +630,18 @@
             showLoading();
             ytPlayer.loadVideoById(pendingVideoId);
             pendingVideoId = null;
+          } else {
+            // hideLoading() otherwise only fires from PLAYING below, which
+            // depends on autoplay actually reaching that state — a
+            // browser autoplay-policy quirk, a stalled first buffer, or
+            // anything else that keeps it from firing leaves this spinner
+            // covering the stage forever with no way out (confirmed: this
+            // is what a visitor sees as "the video player doesn't even
+            // show up"). Once the player itself is ready, whatever it's
+            // actually showing — playing, or paused on its first frame
+            // with the custom play button available to nudge it — is
+            // better than a stuck black overlay.
+            hideLoading();
           }
         },
         onStateChange: function (e) {
@@ -641,7 +653,17 @@
           // this just loops it, matching every other autoplay embed on
           // this site.
           if (e.data === YT.PlayerState.ENDED) playIndex(activeIndex + 1);
-        }
+        },
+        // No official embed error otherwise reaches onStateChange at all,
+        // so an unplayable video (removed, region-locked, embedding
+        // disabled by its owner) used to leave the loading spinner up
+        // forever with no way for a visitor to know or recover. Doesn't
+        // auto-advance to the next video the way ENDED does — with only
+        // one video configured (this widget's actual current state),
+        // that would just reload the same broken one and error again,
+        // looping showLoading()/hideLoading() forever instead of merely
+        // hanging once.
+        onError: function () { hideLoading(); }
       }
     });
   }
