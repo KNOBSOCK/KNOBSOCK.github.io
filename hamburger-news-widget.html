@@ -5,17 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hamburger News Player</title>
 <style>
-  /* Sits inside the "patty slot" cut into videos/hamburgernews.html's
-     own burger-stack — that page sizes this iframe's box to exactly
-     16:9 and sandwiches it directly between BURGER TOP.PNG and BURGER
-     BOTTOM.PNG (zero gap on either side — both images were exported
-     with their bun art touching that exact edge of their own canvas,
-     confirmed by inspecting each PNG's alpha channel), so nothing here
-     needs to know about the buns at all — it only ever fills its own
-     rectangular box, same contract as every other embedded widget on
-     this site. Mustard/ketchup accent instead of this site's usual
-     per-page palette (blue Videos, gold Music, red Live) — this page
-     earns its own condiment-colored identity. */
+  /* Sits inside the "patty frame" cut into videos/hamburgernews.html's
+     illustrated background (hamburger-news-bg.webp) — that page sizes
+     and positions this iframe's box to land exactly in the hole drawn
+     into that artwork, cropping/scaling together with it on resize, so
+     nothing here needs to know about the surrounding burger art at all —
+     it only ever fills its own rectangular box, same contract as every
+     other embedded widget on this site. Mustard/ketchup accent instead
+     of this site's usual per-page palette (blue Videos, gold Music, red
+     Live) — this page earns its own condiment-colored identity. */
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
