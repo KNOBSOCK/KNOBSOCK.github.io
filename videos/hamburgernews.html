@@ -139,8 +139,7 @@
   // ---------- STAGE LAYOUT ----------
   // #stageBg and #pattySlot are positioned by hand rather than via CSS
   // object-fit:cover, for two reasons: cover's own scale formula has no
-  // notion of "never smaller than X" (see MIN_VIDEO_FRAC_DESKTOP/MOBILE
-  // below), and the two elements have to move in exact lockstep — if the
+  // notion of "never smaller than X" (see MIN_VIDEO_FRAC below), and the
   // background used object-fit:cover while the video used a floored
   // scale, they'd zoom at different rates and drift apart. A pure-CSS
   // version of "cover this box, but never go below a minimum size, while
@@ -161,20 +160,13 @@
   // that means scaling past cover-fit (and cropping further into the
   // huge margin the art already has to spare for exactly this).
   //
-  // Two different fractions, not one shared constant: a mobile-specific
-  // request (burger filling nearly the whole screen, spotlight cropped
-  // at the bottom rather than tapering into empty space) previously got
-  // implemented by raising this one number, which — being unconditional —
-  // changed desktop too, along with overshooting on the actual phone it
-  // was meant for (checked against a ~380x720 desktop-browser viewport
-  // standing in for a phone, which isn't the same thing as one). 860px
-  // is this site's own existing mobile breakpoint (see videos.html/
-  // music.html/live.html's identical `@media (max-width: 860px)`), reused
-  // here for the same "narrow enough to count as a phone" cutoff rather
-  // than inventing a new one.
-  var MIN_VIDEO_FRAC_DESKTOP = 0.25;
-  var MIN_VIDEO_FRAC_MOBILE = 0.28;
-  var MOBILE_MAX_WIDTH = 860;
+  // One shared value for every viewport, deliberately — a mobile-only
+  // floor was tried (0.28 vs 0.25 on desktop) to chase a mobile-specific
+  // mockup, but it left mobile and desktop looking noticeably different
+  // from each other and still didn't land right on mobile, so this goes
+  // back to a single number that behaves the same everywhere rather than
+  // layering on more special-casing to chase an exact match.
+  var MIN_VIDEO_FRAC = 0.25;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -188,10 +180,9 @@
 
   function layout() {
     var vp = viewportSize();
-    var minVideoFrac = vp.w <= MOBILE_MAX_WIDTH ? MIN_VIDEO_FRAC_MOBILE : MIN_VIDEO_FRAC_DESKTOP;
     var scale = Math.max(
       vp.w / IMG_W, vp.h / IMG_H,
-      minVideoFrac * vp.w / HOLE_RECT.w, minVideoFrac * vp.h / HOLE_RECT.h
+      MIN_VIDEO_FRAC * vp.w / HOLE_RECT.w, MIN_VIDEO_FRAC * vp.h / HOLE_RECT.h
     );
     var offX = (vp.w - IMG_W * scale) / 2;
     var offY = (vp.h - IMG_H * scale) / 2;
