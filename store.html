@@ -21,9 +21,10 @@
      product image (whatever's next/prev/current in store_products,
      same admin.html-authored source every other page reads), flanked by
      prev/next arrows, a "next merch item" arrow below, and a color-swatch
-     picker bottom-right. White page background throughout (not this
-     site's usual dark-panel widget look) — the product art itself is
-     the whole page, not content living inside a themed card.
+     picker bottom-right. Tiled cloud-gif page background (see html,body's
+     own comment) rather than this site's usual dark-panel widget look —
+     the product art itself is the whole page, not content living inside
+     a themed card.
 
      Desktop: prev/next arrows are absolutely positioned over the sides
      of the product image itself. Mobile: per the approved mobile mockup,
@@ -63,7 +64,10 @@
     padding: 0;
     height: 100%;
     overflow: hidden;
-    background: #ffffff;
+    /* Tiled repeating background, same old-GeoCities-style approach as
+       index.html's own body background (see that file's own comment) —
+       a plain CSS repeat, no scroll/animation. */
+    background: #ffffff url('/store-clouds-bg.gif') repeat;
     font-family: Arial, Helvetica, sans-serif;
   }
 
@@ -251,12 +255,14 @@
     text-align: left;
   }
   .info-title {
+    font-family: 'Gratis Neue', Arial, sans-serif;
     font-weight: 800;
     font-size: clamp(13px, 1.7vw, 18px);
     color: var(--ks-ink);
     overflow-wrap: break-word;
   }
   .info-price {
+    font-family: 'Gratis Neue', Arial, sans-serif;
     font-weight: 800;
     font-size: clamp(13px, 1.7vw, 18px);
     color: var(--ks-pink);
@@ -524,6 +530,7 @@
       image: (Array.isArray(d.images) && d.images[0]) ? d.images[0] : '',
       priceCents: d.priceCents || 0,
       material: d.material || '',
+      category: d.category || '',
       colors: Array.isArray(d.colors) ? d.colors.filter(function (c) { return c && c.hex; }) : []
     };
   }
@@ -637,9 +644,13 @@
         Array.prototype.forEach.call(colorSwatches.querySelectorAll('.color-swatch'), function (b) {
           b.classList.toggle('is-selected', b === btn);
         });
-        // Swapping the actual product photo per color isn't wired up yet
-        // — every product here has exactly one photo (see normalizeProduct
-        // above) — this just tracks which swatch is selected for now.
+        // Swap in that color's own photo (admin.html's per-color photo
+        // upload) if it has one; otherwise fall back to the product's
+        // default photo — an in-place src swap, not a prev/next slide,
+        // since this is the same design/product, just a different shot
+        // of it.
+        var color = colors[selectedColorIndex];
+        if (currentImg) currentImg.src = (color && color.image) ? color.image : product.image;
       });
     });
   }
@@ -691,14 +702,44 @@
     renderProductInfo(product);
   }
 
-  prevBtn.addEventListener('click', function () { showProduct(activeIndex - 1, -1); });
-  nextBtn.addEventListener('click', function () { showProduct(activeIndex + 1, 1); });
-  // Cycles the same product list for now — this button's job is to jump
-  // between distinct MERCH ITEMS once there's more than one kind (shirts
-  // vs. hats vs. stickers, say); until admin.html has a way to group
-  // products into those kinds, "next item" and "next design" are the
-  // same action.
-  nextItemBtn.addEventListener('click', function () { showProduct(activeIndex + 1, 1); });
+  // ---- Category-aware navigation ----
+  // Prev/next (and swipe) cycle within the CURRENT product's category
+  // (admin.html's Category field — same bucket as "Uncategorized"/''
+  // for anything left blank). Next Item instead jumps to the first
+  // product of the next category in the list, cycling back around —
+  // "next design" vs. "next kind of merch," per the original mockup
+  // spec (shirts vs. hats vs. stickers, say).
+  function categoryIndices(category) {
+    var result = [];
+    for (var i = 0; i < PRODUCTS.length; i++) {
+      if ((PRODUCTS[i].category || '') === (category || '')) result.push(i);
+    }
+    return result;
+  }
+  function showRelativeInCategory(dir) {
+    if (!PRODUCTS.length) return;
+    var list = categoryIndices(PRODUCTS[activeIndex].category);
+    var pos = list.indexOf(activeIndex);
+    if (pos === -1) pos = 0;
+    var newPos = ((pos + dir) % list.length + list.length) % list.length;
+    showProduct(list[newPos], dir);
+  }
+  function showNextCategory() {
+    if (!PRODUCTS.length) return;
+    var categories = [];
+    PRODUCTS.forEach(function (p) {
+      var cat = p.category || '';
+      if (categories.indexOf(cat) === -1) categories.push(cat);
+    });
+    var curPos = categories.indexOf(PRODUCTS[activeIndex].category || '');
+    var nextCat = categories[(curPos + 1) % categories.length];
+    var firstIndex = PRODUCTS.findIndex(function (p) { return (p.category || '') === nextCat; });
+    showProduct(firstIndex, 1);
+  }
+
+  prevBtn.addEventListener('click', function () { showRelativeInCategory(-1); });
+  nextBtn.addEventListener('click', function () { showRelativeInCategory(1); });
+  nextItemBtn.addEventListener('click', showNextCategory);
   popOnClick(prevBtn);
   popOnClick(nextBtn);
   popOnClick(nextItemBtn);
@@ -725,8 +766,7 @@
     var dy = e.changedTouches[0].clientY - touchStartY;
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
     suppressNextClick = true;
-    if (dx < 0) showProduct(activeIndex + 1, 1);
-    else showProduct(activeIndex - 1, -1);
+    showRelativeInCategory(dx < 0 ? 1 : -1);
   }, { passive: true });
 
   // ---- Add to Cart / cart badge ----

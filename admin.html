@@ -394,64 +394,6 @@
     margin-bottom: 16px;
   }
 
-  /* ---------- PHOTOS TAB ---------- */
-  .photo-cat-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 16px;
-  }
-  .photo-cat-tab {
-    -webkit-appearance: none;
-    appearance: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    color: var(--text-dim);
-    border-radius: 999px;
-    padding: 7px 14px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .photo-cat-tab .grip { font-size: 13px; }
-  .photo-cat-tab.active { color: var(--accent); border-color: var(--accent); }
-  .photo-cat-tab.dragging { opacity: 0.35; }
-
-  .photo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
-  }
-  .photo-tile {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    cursor: grab;
-    background: var(--panel-2);
-  }
-  .photo-tile.dragging { opacity: 0.35; }
-  .photo-tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    pointer-events: none;
-  }
-  .photo-tile .grip {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.55);
-    border-radius: 4px;
-    padding: 1px 4px;
-    color: #fff;
-  }
-
   /* ---------- LIVE TAB ---------- */
   .live-grid {
     display: grid;
@@ -696,32 +638,75 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ---------- STORE: product color chips ---------- */
-  .color-chip-list {
+  /* ---------- STORE: product color rows ----------
+     One row per color: swatch + name, a photo tile (that color's own
+     product shot, shown on the Store page's product image when this
+     swatch is selected — see store.html's renderColorSwatches), and
+     remove. Was a compact pill before the per-color photo was added;
+     needed the extra width for the photo tile. */
+  .color-row-list {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
     margin: 6px 0;
   }
-  .color-chip {
+  .color-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 6px 4px 4px;
+    gap: 10px;
+    padding: 6px 8px;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: 10px;
     font-size: 12px;
     color: var(--text);
   }
-  .color-chip .swatch {
+  .color-row .swatch {
     width: 18px;
     height: 18px;
     border-radius: 50%;
     border: 1px solid var(--line);
     flex: none;
   }
-  .color-chip .remove-color-btn {
+  .color-row .color-name {
+    flex: 1 1 auto;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .color-photo-tile {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px dashed var(--line);
+    cursor: pointer;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .color-photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .color-photo-tile .photo-plus { font-size: 18px; color: var(--text-dim); pointer-events: none; }
+  .color-photo-tile.is-uploading { cursor: default; }
+  .color-photo-tile .remove-color-photo-btn {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .color-row .remove-color-btn {
     width: 16px;
     height: 16px;
     border-radius: 50%;
@@ -789,7 +774,6 @@
     <div class="tabs">
       <button type="button" class="nav-tab active" data-tab="videos">Videos</button>
       <button type="button" class="nav-tab" data-tab="music">Music</button>
-      <button type="button" class="nav-tab" data-tab="photos">Photos</button>
       <button type="button" class="nav-tab" data-tab="live">Live</button>
       <button type="button" class="nav-tab" data-tab="store">Store</button>
     </div>
@@ -890,21 +874,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ===== PHOTOS ===== -->
-  <div class="tab-panel" id="tab-photos" hidden>
-    <h2 class="panel-heading">Photos</h2>
-    <p class="panel-sub">Drag a category pill to reorder the tabs on the Photos page. Pick a category below to drag its photos into a new order.</p>
-    <div class="card">
-      <div class="card-head">
-        <h2>Categories</h2>
-        <button type="button" class="btn btn-primary" id="photosSaveBtn">Save Changes</button>
-      </div>
-      <div class="photo-cat-tabs" id="photoCatTabs"></div>
-      <div class="photo-grid" id="photoGrid"></div>
-      <div class="save-status" id="photosStatus"></div>
     </div>
   </div>
 
@@ -1083,8 +1052,9 @@
     <div class="photo-upload-grid" id="productPhotosGrid"></div>
     <input type="file" id="productPhotosInput" accept="image/*" multiple>
 
-    <label class="field-label">Colors <span style="font-weight:400;color:var(--text-dim);">— shown as swatches on the Store page's color picker, in this order</span></label>
-    <div class="color-chip-list" id="productColorsList"></div>
+    <label class="field-label">Colors <span style="font-weight:400;color:var(--text-dim);">— shown as swatches on the Store page's color picker, in this order. Click a color's photo tile to upload the shirt photo shown when a customer picks that color.</span></label>
+    <div class="color-row-list" id="productColorsList"></div>
+    <input type="file" id="productColorPhotoInput" accept="image/*" hidden>
     <div class="add-row">
       <input type="text" id="productColorNameInput" class="search-input" placeholder="Color name (e.g. White)" style="flex:1 1 auto;">
       <input type="color" id="productColorHexInput" value="#ffffff" title="Pick the exact color">
@@ -1144,13 +1114,12 @@
   // photo upload won't work, not that the whole admin page breaks).
   const storage = firebase.storage ? firebase.storage() : null;
 
-  // Same three Firestore documents the widgets themselves read from —
-  // saving here is exactly what saving from a widget's own hidden admin
-  // panel already did, just from one consolidated page instead of three
-  // separate hidden triggers.
+  // Same Firestore documents the widgets themselves read from — saving
+  // here is exactly what saving from a widget's own hidden admin panel
+  // already did, just from one consolidated page instead of separate
+  // hidden triggers.
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const MUSIC_DOC_REF = db.collection('playlist').doc('music');
-  const PHOTO_ORDER_DOC_REF = db.collection('playlist').doc('photos');
   // Its own doc, own list, own creators — completely separate from the
   // main Video List above. Read by hamburger-news-widget.html on
   // /videos/hamburgernews.html, the same way VIDEO_DOC_REF is read by
@@ -1407,7 +1376,6 @@
     navTabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabName); });
     document.querySelectorAll('.tab-panel').forEach(function (p) { p.hidden = true; });
     document.getElementById('tab-' + tabName).hidden = false;
-    if (tabName === 'photos') loadPhotosTab();
     if (tabName === 'live') startLiveModerationIfNeeded();
     if (tabName === 'store') loadStoreTab();
     if (updateUrl !== false) history.replaceState(null, '', '#' + tabName);
@@ -2090,174 +2058,6 @@
   // the pages they feed never launch looking broken/empty). "Reset to
   // default list" here just clears it back to nothing.
   const DEFAULT_HAMBURGER_NEWS_LIST = [];
-
-  // ---------- PHOTOS TAB ----------
-  const OWNER = 'KNOBSOCK';
-  const REPO = 'KNOBSOCK.github.io';
-  const BRANCH = 'main';
-  const TREE_API = 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1';
-  const RAW_BASE = 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/refs/heads/' + BRANCH + '/';
-  const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif)$/i;
-  const THUMB_PX = 160;
-
-  function rawUrl(path) { return RAW_BASE + path.split('/').map(encodeURIComponent).join('/'); }
-  function thumbUrl(path) {
-    return 'https://wsrv.nl/?url=' + encodeURIComponent(rawUrl(path)) + '&w=' + THUMB_PX + '&h=' + THUMB_PX + '&fit=cover&output=webp&q=75';
-  }
-  function naturalCompare(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); }
-
-  // Same discovery approach as photos-widget.html, minus the synthetic
-  // "All" category — admin only ever reorders real folder categories.
-  function buildCategoriesFromTree(tree) {
-    const byCategory = new Map();
-    tree.forEach(function (entry) {
-      if (entry.type !== 'blob') return;
-      if (entry.path.indexOf('photos/') !== 0) return;
-      if (!IMAGE_EXT.test(entry.path)) return;
-      const parts = entry.path.split('/');
-      const category = parts.length > 2 ? parts[1] : 'Uncategorized';
-      const filename = parts[parts.length - 1];
-      if (filename.indexOf('.') === 0) return;
-      if (!byCategory.has(category)) byCategory.set(category, []);
-      byCategory.get(category).push({ path: entry.path, filename: filename });
-    });
-    return Array.from(byCategory.entries())
-      .map(function ([name, photos]) {
-        return { name: name, photos: photos.sort(function (a, b) { return naturalCompare(a.filename, b.filename); }) };
-      })
-      .sort(function (a, b) { return naturalCompare(a.name, b.name); });
-  }
-
-  let allPhotoCategories = [];
-  let categoryOrderDraft = [];
-  let photoOrderDraft = {};
-  let activePhotoCategory = null;
-  let photosLoadStarted = false;
-
-  const photoCatTabsEl = document.getElementById('photoCatTabs');
-  const photoGridEl = document.getElementById('photoGrid');
-  const photosStatusEl = document.getElementById('photosStatus');
-  const photosSaveBtn = document.getElementById('photosSaveBtn');
-
-  function setPhotosStatus(text, isError) {
-    photosStatusEl.textContent = text;
-    photosStatusEl.style.color = isError ? 'var(--danger)' : 'var(--accent)';
-  }
-
-  function renderPhotoCategoryTabs() {
-    photoCatTabsEl.innerHTML = categoryOrderDraft.map(function (name, i) {
-      const count = (photoOrderDraft[name] || []).length;
-      return '<button type="button" class="photo-cat-tab' + (name === activePhotoCategory ? ' active' : '') + '" data-draggable data-index="' + i + '">' +
-        '<span class="grip">&#10303;</span>' + escapeAttr(name) + ' (' + count + ')' +
-      '</button>';
-    }).join('');
-    photoCatTabsEl.querySelectorAll('.photo-cat-tab').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        activePhotoCategory = categoryOrderDraft[parseInt(btn.dataset.index, 10)];
-        renderPhotoCategoryTabs();
-        renderPhotoGrid();
-      });
-    });
-  }
-
-  function renderPhotoGrid() {
-    const filenames = photoOrderDraft[activePhotoCategory] || [];
-    const cat = allPhotoCategories.find(function (c) { return c.name === activePhotoCategory; });
-    const byFilename = new Map((cat ? cat.photos : []).map(function (p) { return [p.filename, p]; }));
-    photoGridEl.innerHTML = filenames.map(function (fn, i) {
-      const photo = byFilename.get(fn);
-      if (!photo) return '';
-      return '<div class="photo-tile" data-draggable data-index="' + i + '" title="' + escapeAttr(fn) + '">' +
-        '<img src="' + thumbUrl(photo.path) + '" alt="' + escapeAttr(fn) + '" loading="lazy">' +
-        '<span class="grip">&#10303;</span>' +
-      '</div>';
-    }).join('');
-  }
-
-  makeSortable(photoCatTabsEl, function (order) {
-    categoryOrderDraft = order.map(function (i) { return categoryOrderDraft[i]; });
-    renderPhotoCategoryTabs();
-  });
-  makeSortable(photoGridEl, function (order) {
-    const current = photoOrderDraft[activePhotoCategory] || [];
-    photoOrderDraft[activePhotoCategory] = order.map(function (i) { return current[i]; });
-    renderPhotoGrid();
-  });
-
-  function loadPhotosTab() {
-    if (photosLoadStarted) return;
-    photosLoadStarted = true;
-    setPhotosStatus('Loading photos from GitHub…');
-    fetch(TREE_API)
-      .then(function (res) { if (!res.ok) throw new Error('GitHub API returned ' + res.status); return res.json(); })
-      .then(function (data) {
-        allPhotoCategories = buildCategoriesFromTree(data.tree || []);
-        setPhotosStatus('');
-        PHOTO_ORDER_DOC_REF.onSnapshot(function (doc) {
-          const saved = doc.exists ? doc.data() : {};
-          const savedCatOrder = Array.isArray(saved.categoryOrder) ? saved.categoryOrder : [];
-          const savedPhotoOrder = (saved.photoOrder && typeof saved.photoOrder === 'object') ? saved.photoOrder : {};
-
-          categoryOrderDraft = allPhotoCategories.map(function (c) { return c.name; }).sort(function (a, b) {
-            const ia = savedCatOrder.indexOf(a);
-            const ib = savedCatOrder.indexOf(b);
-            if (ia !== -1 && ib !== -1) return ia - ib;
-            if (ia !== -1) return -1;
-            if (ib !== -1) return 1;
-            return 0;
-          });
-
-          photoOrderDraft = {};
-          allPhotoCategories.forEach(function (cat) {
-            const filenames = cat.photos.map(function (p) { return p.filename; });
-            const saved2 = savedPhotoOrder[cat.name];
-            if (Array.isArray(saved2) && saved2.length) {
-              filenames.sort(function (a, b) {
-                const ia = saved2.indexOf(a);
-                const ib = saved2.indexOf(b);
-                if (ia !== -1 && ib !== -1) return ia - ib;
-                if (ia !== -1) return -1;
-                if (ib !== -1) return 1;
-                return 0;
-              });
-            }
-            photoOrderDraft[cat.name] = filenames;
-          });
-
-          if (!activePhotoCategory || categoryOrderDraft.indexOf(activePhotoCategory) === -1) {
-            activePhotoCategory = categoryOrderDraft[0] || null;
-          }
-          renderPhotoCategoryTabs();
-          renderPhotoGrid();
-        }, function (err) {
-          setPhotosStatus('Could not load saved order: ' + err.message, true);
-        });
-      })
-      .catch(function (err) {
-        setPhotosStatus("Couldn't load photos from GitHub: " + err.message, true);
-      });
-  }
-
-  photosSaveBtn.addEventListener('click', function () {
-    if (!auth.currentUser) {
-      setPhotosStatus('You’ve been signed out — please sign in again.', true);
-      return;
-    }
-    photosSaveBtn.disabled = true;
-    setPhotosStatus('Saving…');
-    PHOTO_ORDER_DOC_REF.set({
-      categoryOrder: categoryOrderDraft,
-      photoOrder: photoOrderDraft,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy: auth.currentUser.email || auth.currentUser.uid
-    }).then(function () {
-      setPhotosStatus('Saved — everyone will see the update.');
-    }).catch(function (err) {
-      setPhotosStatus('Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).', true);
-    }).finally(function () {
-      photosSaveBtn.disabled = false;
-    });
-  });
 
   // ---------- STARTUP ----------
   function startEditors() {
@@ -3121,7 +2921,7 @@
   let storeOrdersLoaded = false;
   let editingProductId = null;   // null while the modal is adding a new product
   let editingProductImages = []; // urls, live-edited while the modal's open
-  let editingProductColors = []; // [{name, hex}], live-edited while the modal's open — see renderColorsList
+  let editingProductColors = []; // [{name, hex, image?}], live-edited while the modal's open — see renderColorsList
   let productUploadFolderId = null; // shared by every photo uploaded in one modal session — see openProductModal
 
   const productsList = document.getElementById('productsList');
@@ -3239,20 +3039,27 @@
     renderPhotosGrid();
   });
 
-  // Renders as an ordered list of chips, same left-to-right = display-
+  // Renders as an ordered list of rows, same top-to-bottom = display-
   // order convention as everything else editable here — no drag-to-
-  // reorder like the photos grid gets since color pickers are small
+  // reorder like the photos grid gets since color pickers are short
   // enough in practice that "remove and re-add" covers reordering fine.
+  // Each row's photo tile is that color's own product shot — shown on
+  // the Store page in place of the default photo when a customer picks
+  // this swatch (see store.html's showProduct/renderColorSwatches).
   function renderColorsList() {
     if (!editingProductColors.length) {
       productColorsList.innerHTML = '<div class="note" style="margin:0;">No colors added — the Store page hides the color picker entirely until at least one exists.</div>';
       return;
     }
     productColorsList.innerHTML = editingProductColors.map(function (c, i) {
-      return '<span class="color-chip">' +
+      var photoInner = c.image
+        ? '<img src="' + escapeAttr(c.image) + '"><button type="button" class="remove-color-photo-btn" data-index="' + i + '" title="Remove photo">&times;</button>'
+        : '<span class="photo-plus">+</span>';
+      return '<span class="color-row">' +
         '<span class="swatch" style="background:' + escapeAttr(c.hex) + ';"></span>' +
-        escapeAttr(c.name || c.hex) +
-        '<button type="button" class="remove-color-btn" data-index="' + i + '" title="Remove">&times;</button>' +
+        '<span class="color-name">' + escapeAttr(c.name || c.hex) + '</span>' +
+        '<span class="color-photo-tile" data-index="' + i + '" title="' + (c.image ? 'Change photo' : 'Upload photo') + '">' + photoInner + '</span>' +
+        '<button type="button" class="remove-color-btn" data-index="' + i + '" title="Remove color">&times;</button>' +
         '</span>';
     }).join('');
     Array.prototype.forEach.call(productColorsList.querySelectorAll('.remove-color-btn'), function (btn) {
@@ -3261,7 +3068,60 @@
         renderColorsList();
       });
     });
+    Array.prototype.forEach.call(productColorsList.querySelectorAll('.color-photo-tile'), function (tile) {
+      tile.addEventListener('click', function (e) {
+        if (e.target.closest('.remove-color-photo-btn')) return;
+        colorPhotoEditIndex = parseInt(tile.dataset.index, 10);
+        productColorPhotoInput.click();
+      });
+    });
+    Array.prototype.forEach.call(productColorsList.querySelectorAll('.remove-color-photo-btn'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        delete editingProductColors[parseInt(btn.dataset.index, 10)].image;
+        renderColorsList();
+      });
+    });
   }
+
+  // Shared by every color row rather than one file input each — simpler
+  // than juggling dynamically-created inputs, and only one upload can be
+  // in flight from this list at a time anyway. colorPhotoEditIndex tracks
+  // which row a click on its photo tile was for.
+  const productColorPhotoInput = document.getElementById('productColorPhotoInput');
+  let colorPhotoEditIndex = -1;
+  productColorPhotoInput.addEventListener('change', function () {
+    var file = (productColorPhotoInput.files || [])[0];
+    productColorPhotoInput.value = '';
+    var idx = colorPhotoEditIndex;
+    if (!file || idx < 0 || !editingProductColors[idx]) return;
+
+    var tile = productColorsList.querySelector('.color-photo-tile[data-index="' + idx + '"]');
+    if (tile) { tile.classList.add('is-uploading'); tile.innerHTML = '<span class="upload-spinner"></span>'; }
+
+    function onUploaded(url) {
+      editingProductColors[idx].image = url;
+      renderColorsList();
+    }
+    function onFailed(err) {
+      productModalStatus.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'could not read file');
+      renderColorsList();
+    }
+
+    if (STORE_LOCAL_MODE) {
+      resizeImageFile(file, 1000, 0.82, 'image/png').then(onUploaded).catch(onFailed);
+      return;
+    }
+    if (!storage) {
+      productModalStatus.textContent = 'Photo upload needs Firebase Storage, which failed to load.';
+      renderColorsList();
+      return;
+    }
+    var path = 'store-products/' + productUploadFolderId + '/color-' + Date.now() + '-' + file.name;
+    storage.ref(path).put(file).then(function (snapshot) {
+      return snapshot.ref.getDownloadURL();
+    }).then(onUploaded).catch(onFailed);
+  });
 
   productColorAddBtn.addEventListener('click', function () {
     var name = productColorNameInput.value.trim();
