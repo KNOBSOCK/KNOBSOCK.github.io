@@ -45,6 +45,13 @@
      size — technically "not cropped", but unreadably small in practice). */
   * { box-sizing: border-box; }
 
+  /* Site's display font — used here only for the Back to Videos link. */
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
@@ -85,15 +92,20 @@
     top: clamp(10px, 2.5vw, 20px);
     left: clamp(10px, 2.5vw, 20px);
     z-index: 3;
+    font-family: 'Gratis Neue', Arial, sans-serif;
     color: #ffd479;
     font-size: clamp(11px, 2.2vw, 13px);
     font-weight: 700;
     text-decoration: underline;
     opacity: 0.85;
-    /* The page behind this link is illustrated art, not a flat color —
-       contrast isn't guaranteed (light bun art can sit right under it),
-       so this needs its own legibility net. */
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    /* Same black-outline technique as store.html's size selector
+       (-webkit-text-stroke + 4-direction text-shadow) — the page behind
+       this link is illustrated art, not a flat color, so it still needs
+       its own legibility net; a crisp outline reads against both the
+       light bun art and the dark room just as well as the old soft
+       drop-shadow did. */
+    -webkit-text-stroke: 0.5px #000;
+    text-shadow: -0.5px -0.5px 0 #000, 0.5px -0.5px 0 #000, -0.5px 0.5px 0 #000, 0.5px 0.5px 0 #000;
   }
   .back-link:hover { opacity: 1; }
 
