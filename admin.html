@@ -972,6 +972,16 @@
     <p class="panel-sub">Add and edit what's for sale on the Store page, and see every order that's come in once checkout is actually connected (see functions/README.md) — this is the closest thing to a shipping queue this site has.</p>
 
     <div class="card">
+      <div class="card-head"><h2>Photo Uploads</h2></div>
+      <div class="note">Product photos upload straight to this GitHub repo (no Firebase Storage/Blaze needed) — paste a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained GitHub token</a> scoped to just this repo, with Contents set to Read and write. Stored only in this browser tab (sessionStorage) — cleared the moment you close it, never saved anywhere else.</div>
+      <div class="add-row">
+        <input type="password" class="search-input" id="githubTokenInput" placeholder="github_pat_…" autocomplete="off">
+        <button type="button" class="btn" id="githubTokenSaveBtn">Save</button>
+      </div>
+      <div class="save-status" id="githubTokenStatus"></div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
       <div class="card-head">
         <h2>Products</h2>
         <button type="button" class="btn btn-primary" id="productAddBtn">+ Add Product</button>
@@ -1168,20 +1178,78 @@
   const STORE_PRODUCTS_REF = db.collection('store_products');
   const STORE_ORDERS_REF = db.collection('store_orders');
 
-  // ---------- Product photos: embedded data URLs, not Storage ----------
+  // ---------- Product photos: committed straight to this GitHub repo ----------
   // Cloud Storage needs the project on Firebase's Blaze (pay-as-you-go)
-  // plan, which isn't set up — so rather than block the whole Store tab
-  // on that, product photos are resized client-side and embedded as data
-  // URLs directly in the Firestore document (same trick this used while
-  // it was still browser-local-only, just now the document itself lives
-  // in Firestore instead of localStorage). The real ceiling this runs
-  // into is Firestore's 1MiB-per-document limit, not localStorage's
-  // quota — see the size check in productSaveBtn's click handler, and
-  // MAX_PHOTO_DIM/PHOTO_QUALITY below. Once Blaze is on, swap these data
-  // URLs for real storage.ref(...).put(file) uploads (see git history
-  // for the last version that did this) to drop the size ceiling.
-  var MAX_PHOTO_DIM = 900;
-  var PHOTO_QUALITY = 0.82;
+  // plan, which isn't set up, and embedding photos as data URLs directly
+  // in the Firestore document (an earlier version of this — see git
+  // history) ran into Firestore's 1MiB-per-document limit fast. Instead:
+  // resize client-side, then commit the file straight to this repo's
+  // store-photos/ folder via GitHub's Contents API, using a token pasted
+  // into the "Photo Uploads" card above (see getGithubToken/
+  // githubUploadImage) — same instant-availability property Storage
+  // uploads had (raw.githubusercontent.com serves a freshly committed
+  // file within seconds, no waiting on a GitHub Pages rebuild), just a
+  // different host. Firestore then only ever stores the short resulting
+  // URL string, so the document-size ceiling stops being a concern at
+  // all — MAX_PHOTO_DIM/PHOTO_QUALITY below are picked for reasonable
+  // page-load weight and repo size, not to dodge a Firestore limit.
+  var MAX_PHOTO_DIM = 1400;
+  var PHOTO_QUALITY = 0.85;
+
+  var GITHUB_OWNER = 'KNOBSOCK';
+  var GITHUB_REPO = 'KNOBSOCK.github.io';
+  var GITHUB_BRANCH = 'main';
+  var GITHUB_TOKEN_KEY = 'knobsock_admin_github_token';
+
+  // sessionStorage, not localStorage — the token only needs to survive
+  // this one browser tab's session (cleared on close), not persist on
+  // disk indefinitely. Never written into this file itself; only ever
+  // exists wherever an admin pastes it in at runtime.
+  function getGithubToken() {
+    try { return sessionStorage.getItem(GITHUB_TOKEN_KEY) || ''; } catch (err) { return ''; }
+  }
+  function setGithubToken(token) {
+    try { sessionStorage.setItem(GITHUB_TOKEN_KEY, token); } catch (err) { /* storage full/blocked */ }
+  }
+
+  // Commits a resized photo (already a data URL from resizeImageFile)
+  // straight to store-photos/ as a new file — always a fresh, uniquely-
+  // named file rather than an update to an existing path, so this never
+  // needs to look up a file's current sha first (the Contents API only
+  // requires that for overwriting something that already exists).
+  // Resolves with the file's raw.githubusercontent.com URL, straight
+  // from GitHub's own response — instantly fetchable, no Pages rebuild
+  // wait.
+  function githubUploadImage(dataUrl) {
+    var token = getGithubToken();
+    if (!token) return Promise.reject(new Error('Paste a GitHub token in the Photo Uploads card above first.'));
+    var base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    var path = 'store-photos/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.webp';
+    return fetch('https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/contents/' + path, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify({
+        message: 'Add store product photo: ' + path,
+        content: base64,
+        branch: GITHUB_BRANCH
+      })
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          var reason = (body && body.message) ? body.message : (res.status + ' ' + res.statusText);
+          throw new Error('GitHub upload failed: ' + reason);
+        });
+      }
+      return res.json();
+    }).then(function (data) {
+      if (!data.content || !data.content.download_url) throw new Error('GitHub upload succeeded but returned no URL — check store-photos/ in the repo.');
+      return data.content.download_url;
+    });
+  }
 
   // Downscales to a sane max dimension and re-encodes as a data URL
   // before it ever gets pushed into editingProductImages/colors. WebP
@@ -2917,6 +2985,24 @@
 
   const productsList = document.getElementById('productsList');
   const productsStatus = document.getElementById('productsStatus');
+  const githubTokenInput = document.getElementById('githubTokenInput');
+  const githubTokenSaveBtn = document.getElementById('githubTokenSaveBtn');
+  const githubTokenStatus = document.getElementById('githubTokenStatus');
+
+  // Left blank even when a token's already saved (rather than re-filling
+  // the password field with it) — one less place the value sits in the
+  // DOM after the initial save.
+  function renderGithubTokenStatus() {
+    githubTokenStatus.textContent = getGithubToken() ? 'Token saved for this session ✓' : '';
+  }
+  renderGithubTokenStatus();
+  githubTokenSaveBtn.addEventListener('click', function () {
+    var token = githubTokenInput.value.trim();
+    if (!token) return;
+    setGithubToken(token);
+    githubTokenInput.value = '';
+    renderGithubTokenStatus();
+  });
   const productModalOverlay = document.getElementById('productModalOverlay');
   const productModalTitle = document.getElementById('productModalTitle');
   const productTitleInput = document.getElementById('productTitleInput');
@@ -3087,7 +3173,7 @@
       renderColorsList();
     }
 
-    resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(onUploaded).catch(onFailed);
+    resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(githubUploadImage).then(onUploaded).catch(onFailed);
   });
 
   productColorAddBtn.addEventListener('click', function () {
@@ -3139,8 +3225,8 @@
     files.forEach(function (file) {
       var tileId = 'up-' + Math.random().toString(36).slice(2);
       productPhotosGrid.insertAdjacentHTML('beforeend', '<div class="photo-upload-tile is-uploading" id="' + tileId + '"><span class="upload-spinner"></span></div>');
-      resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(function (dataUrl) {
-        editingProductImages.push(dataUrl);
+      resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(githubUploadImage).then(function (url) {
+        editingProductImages.push(url);
         renderPhotosGrid();
       }).catch(function (err) {
         productModalStatus.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'could not read file');
@@ -3155,12 +3241,6 @@
     if (!isFinite(n) || n < 0) return null;
     return Math.round(n * 100);
   }
-
-  // Firestore's real per-document ceiling is 1,048,576 bytes; this stays
-  // well under it (payload also carries title/description/etc., and
-  // JSON.stringify's UTF-16 length is a close-enough stand-in for byte
-  // count when the bulk of the payload is base64, which is ASCII-only).
-  var MAX_PAYLOAD_BYTES = 900 * 1024;
 
   productSaveBtn.addEventListener('click', function () {
     if (!auth.currentUser) { productModalStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
@@ -3183,12 +3263,6 @@
       colors: editingProductColors.slice(),
       active: productActiveInput.checked
     };
-
-    var payloadBytes = JSON.stringify(payload).length;
-    if (payloadBytes > MAX_PAYLOAD_BYTES) {
-      productModalStatus.textContent = 'Too many/large photos (' + Math.round(payloadBytes / 1024) + 'KB, limit ~' + Math.round(MAX_PAYLOAD_BYTES / 1024) + 'KB) — remove a photo and try again.';
-      return;
-    }
 
     productSaveBtn.disabled = true;
     productModalStatus.textContent = 'Saving…';
