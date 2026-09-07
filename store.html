@@ -440,6 +440,18 @@
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
 
+    /* 100svh (small viewport height — the guaranteed-smallest size, i.e.
+       Safari's address bar fully expanded), not 100dvh. dvh tracks
+       Safari's chrome live: as the address bar auto-collapses on
+       scroll, dvh grows to match, and since .product-viewport (the
+       shirt's row) is the ONLY flexible grid row and the shirt is
+       centered within it, that growth splits evenly above/below the
+       shirt — confirmed live, this is exactly what made the shirt-to-
+       Size gap drift depending on the address bar's state. Pinning to
+       svh keeps every row's size constant regardless of chrome state;
+       any extra space Safari reveals when its chrome collapses just
+       shows more of body's own (identical, seamless) cloud background
+       below the stage instead of reflowing the layout. */
     .stage {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -447,7 +459,7 @@
       row-gap: clamp(6px, 1.4vh, 14px);
       align-items: center;
       height: 100vh;
-      height: 100dvh;
+      height: 100svh;
       padding: 0 clamp(14px, 5vw, 32px) clamp(10px, 2.4vh, 26px);
     }
     .header-logo-link { grid-column: 1 / -1; grid-row: 1; justify-self: center; }
