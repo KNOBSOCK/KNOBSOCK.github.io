@@ -790,10 +790,24 @@
   // product of the next category in the list, cycling back around —
   // "next design" vs. "next kind of merch," per the original mockup
   // spec (shirts vs. hats vs. stickers, say).
+  //
+  // Trimmed + lowercased before comparing — confirmed live that two
+  // real products typed as "T-Shirt" and "T-shirts" (differing only in
+  // case) were landing in separate one-product "categories" instead of
+  // one shared one, since Category is a free-text field admin.html
+  // doesn't otherwise constrain. This still can't merge genuinely
+  // different wording (a straight-up typo like "T-Shirt" vs "T-Shirts"
+  // still won't match — that needs the actual text in admin.html made
+  // consistent), just the case/whitespace variety of "same category,
+  // typed slightly differently."
+  function normalizeCategory(category) {
+    return String(category || '').trim().toLowerCase();
+  }
   function categoryIndices(category) {
     var result = [];
+    var target = normalizeCategory(category);
     for (var i = 0; i < PRODUCTS.length; i++) {
-      if ((PRODUCTS[i].category || '') === (category || '')) result.push(i);
+      if (normalizeCategory(PRODUCTS[i].category) === target) result.push(i);
     }
     return result;
   }
@@ -809,12 +823,12 @@
     if (!PRODUCTS.length) return;
     var categories = [];
     PRODUCTS.forEach(function (p) {
-      var cat = p.category || '';
+      var cat = normalizeCategory(p.category);
       if (categories.indexOf(cat) === -1) categories.push(cat);
     });
-    var curPos = categories.indexOf(PRODUCTS[activeIndex].category || '');
+    var curPos = categories.indexOf(normalizeCategory(PRODUCTS[activeIndex].category));
     var nextCat = categories[(curPos + 1) % categories.length];
-    var firstIndex = PRODUCTS.findIndex(function (p) { return (p.category || '') === nextCat; });
+    var firstIndex = PRODUCTS.findIndex(function (p) { return normalizeCategory(p.category) === nextCat; });
     showProduct(firstIndex, 1);
   }
 
