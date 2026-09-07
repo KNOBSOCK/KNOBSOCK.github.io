@@ -2836,6 +2836,12 @@
     }).catch(function () {});
 
     document.getElementById('saveSoundcloudBtn').addEventListener('click', function () {
+      // Wrapped in try/catch (unlike the other Save buttons on this page)
+      // purely as a diagnostic net while tracking down a report that this
+      // one silently does nothing on click — an unexpected synchronous
+      // throw in here would otherwise vanish into the console with no
+      // on-page sign anything happened at all.
+      try {
       const input = document.getElementById('soundcloudUrlInput');
       const statusEl = document.getElementById('soundcloudStatus');
       const raw = input.value.trim();
@@ -2854,6 +2860,7 @@
         }).catch(function (err) {
           statusEl.textContent = 'Save failed: ' + err.message;
           statusEl.style.color = 'var(--danger)';
+          alert('Failed to save SoundCloud account: ' + err.message); // same pattern as the live-status toggle's failure below — a small status line under a button is too easy to miss when something actually goes wrong
         });
         return;
       }
@@ -2875,7 +2882,11 @@
       }).catch(function (err) {
         statusEl.textContent = 'Save failed: ' + err.message;
         statusEl.style.color = 'var(--danger)';
+        alert('Failed to save SoundCloud account: ' + err.message);
       });
+      } catch (err) {
+        alert('SoundCloud save button hit an unexpected error: ' + (err && err.message ? err.message : err));
+      }
     });
 
     // ---------- VODs ----------
