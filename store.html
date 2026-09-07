@@ -348,6 +348,19 @@
   .size-option.is-selected { color: var(--ks-pink); transform: scale(1.2); }
   .size-option.is-selected:hover { transform: scale(1.32); }
 
+  /* Nudge feedback for trying to Add to Cart without picking a size —
+     see addToCartBtn's click handler. Not scoped to mobile like
+     .is-popping; this should read the same on desktop (hover-driven)
+     too, it's not a tap-vs-hover distinction. */
+  @keyframes size-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .size-options.is-shaking { animation: size-shake 0.4s ease; }
+
   /* Two swapped button-art images (add/added), not CSS-styled text —
      see the JS side's addToCartBtn click handler. */
   .add-to-cart-btn {
@@ -884,9 +897,26 @@
     cartBadge.hidden = count === 0;
     cartBadge.textContent = count > 99 ? '99+' : String(count);
   }
+  // A shake, not a status-text message — there's no status-line element
+  // near Add to Cart the way admin.html's modals have, and a quick nudge
+  // on the sizes themselves points straight at what needs picking.
+  // Remove-before-add (+ the offsetWidth reflow) mirrors popOnClick's own
+  // restart trick, so mashing Add to Cart repeatedly without picking a
+  // size keeps re-triggering the shake instead of doing nothing after
+  // the first tap.
+  function promptSelectSize() {
+    sizeOptions.classList.remove('is-shaking');
+    void sizeOptions.offsetWidth;
+    sizeOptions.classList.add('is-shaking');
+  }
+
   addToCartBtn.addEventListener('click', function () {
     if (!PRODUCTS.length) return;
     var product = PRODUCTS[activeIndex];
+    if ((product.sizes || []).length && !selectedSize) {
+      promptSelectSize();
+      return;
+    }
     var color = (product.colors || [])[selectedColorIndex];
 
     var cart = getCart();
