@@ -172,30 +172,39 @@
   // `@media (max-width: 860px)`), reused here for the same "narrow
   // enough to count as a phone" cutoff rather than inventing a new one.
   var MOBILE_MAX_WIDTH = 860;
+  // minVideoFrac floors the video's own size at a fraction of the
+  // viewport on whichever axis binds, even if that means scaling past
+  // plain cover-fit (and cropping further into whatever margin the art
+  // has to spare) — desktop's square canvas genuinely needs this: plain
+  // cover alone renders the video too small to read on an ordinary
+  // desktop window once the background is this much bigger than the
+  // video slot cut into it.
+  //
+  // Mobile's canvas doesn't have that problem, because it isn't a
+  // generic oversized square being cropped down to a phone's shape — the
+  // artist drew it AT roughly a phone's own aspect ratio on purpose, so
+  // plain cover-fit already lands close to right on its own. A shared
+  // floor value was tried across both variants (twice) and, each time,
+  // ended up zooming mobile in far past what the art needed — confirmed
+  // by checking the exact numbers: on a canvas already this close to a
+  // real phone's shape, that floor's minimum-size guarantee was
+  // routinely demanding MORE scale than cover-fit alone would ever
+  // produce, not just topping it up when cover-fit fell short. minVideoFrac:
+  // 0 for mobile means pure cover-fit, no artificial zoom on top of it.
   var VARIANTS = {
     desktop: {
       src: '/hamburger-news-bg.webp',
       imgW: 8000, imgH: 8000,
-      hole: { x: 3211, y: 3373, w: 1560, h: 845 }
+      hole: { x: 3211, y: 3373, w: 1560, h: 845 },
+      minVideoFrac: 0.25
     },
     mobile: {
       src: '/hamburger-news-bg-mobile.webp',
-      imgW: 3674, imgH: 6532,
-      hole: { x: 1087, y: 2141, w: 1560, h: 845 }
+      imgW: 4500, imgH: 8000,
+      hole: { x: 1461, y: 3373, w: 1560, h: 845 },
+      minVideoFrac: 0
     }
   };
-  // Plain cover-fit scale alone renders the video too small to read on
-  // an ordinary desktop window once the background canvas is this much
-  // bigger than the video slot cut into it — this floors the video's own
-  // size at a fraction of the viewport on whichever axis binds, even if
-  // that means scaling past cover-fit (and cropping further into the
-  // huge margin the art already has to spare for exactly this). Shared
-  // by both variants — a mobile-only *floor value* was tried previously
-  // (chasing a mobile-specific mockup on the old square-only art) and
-  // just made mobile and desktop behave inconsistently without actually
-  // landing right, so this stays one number; mobile now gets its own
-  // look from VARIANTS.mobile's own art/proportions instead.
-  var MIN_VIDEO_FRAC = 0.25;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -223,9 +232,10 @@
       stageBg.src = variant.src;
     }
     var imgW = variant.imgW, imgH = variant.imgH, hole = variant.hole;
+    var minVideoFrac = variant.minVideoFrac;
     var scale = Math.max(
       vp.w / imgW, vp.h / imgH,
-      MIN_VIDEO_FRAC * vp.w / hole.w, MIN_VIDEO_FRAC * vp.h / hole.h
+      minVideoFrac * vp.w / hole.w, minVideoFrac * vp.h / hole.h
     );
     var offX = (vp.w - imgW * scale) / 2;
     var offY = (vp.h - imgH * scale) / 2;
