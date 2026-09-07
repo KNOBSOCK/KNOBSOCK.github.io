@@ -840,6 +840,17 @@
           <p class="panel-sub" style="margin-bottom: 10px;">Drag to prioritize which album shows first when a creator with more than one is selected on the Music page. Assign a track to an album from the Track List above — "SoundCloud" is where SoundCloud-only tracks land automatically.</p>
           <div class="list-scroll" id="musicAlbums"></div>
         </div>
+        <div class="card">
+          <div class="card-head"><h2>SoundCloud Account</h2></div>
+          <div class="live-card-body" style="max-height:none;">
+            <div class="note">Feeds the homepage's "Listen" widget. Renamed or switched SoundCloud accounts? Paste the new profile link here and save — no code changes needed. Clear the field and save to unlink it.</div>
+            <div class="add-row">
+              <input type="text" class="search-input" id="soundcloudUrlInput" placeholder="Paste your SoundCloud profile link">
+              <button type="button" class="btn" id="saveSoundcloudBtn">Save</button>
+            </div>
+            <div id="soundcloudStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1123,6 +1134,14 @@
   const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
   const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
   const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
+  // Not actually chat-related — it's the homepage Listen widget's linked
+  // SoundCloud profile (soundcloud-widget.html). Filed under chat_config
+  // anyway, rather than a new collection, purely so it inherits that
+  // collection's existing public-read/admin-write Firestore rules; those
+  // rules live only in the Firebase console (see firestore.rules' own
+  // header note), so reusing an already-public collection means this
+  // ships without anyone having to hand-edit rules there too.
+  const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
 
   // Store tab — see store-widget.html (reads store_products) and
   // functions/index.js's stripeWebhook (writes store_orders).
@@ -1231,6 +1250,29 @@
       if (m) return m[1];
     }
     return null;
+  }
+
+  // Accepts a full profile link (with or without https://, www.) or just
+  // a bare handle typed on its own, and normalizes it down to a canonical
+  // "https://soundcloud.com/<handle>" profile URL — the shape the
+  // SoundCloud Widget API's own ?url= param expects. Rejects anything
+  // that isn't a plain profile link (a track/set link's extra path
+  // segment, some other domain entirely) rather than guessing, since a
+  // wrong guess here would silently point the homepage widget at
+  // nothing playable.
+  function extractSoundcloudProfileUrl(input) {
+    if (!input) return null;
+    let trimmed = input.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+    if (!trimmed) return null;
+    let handle;
+    if (/^soundcloud\.com\//i.test(trimmed)) {
+      handle = trimmed.slice('soundcloud.com/'.length).split(/[/?#]/)[0];
+    } else if (!/[./]/.test(trimmed)) {
+      handle = trimmed; // bare handle, no domain typed at all
+    } else {
+      return null;
+    }
+    return /^[A-Za-z0-9_-]{2,50}$/.test(handle) ? 'https://soundcloud.com/' + handle : null;
   }
 
   // ---------- LOGIN ----------
@@ -2761,6 +2803,60 @@
       CHAT_LIVE_VIDEO_REF.set({ videoId: id }, { merge: true }).then(function () {
         input.value = 'https://www.youtube.com/watch?v=' + id;
         statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes live.html.';
+        statusEl.style.color = 'var(--accent)';
+      }).catch(function (err) {
+        statusEl.textContent = 'Save failed: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
+      });
+    });
+
+    // ---------- SOUNDCLOUD ACCOUNT ----------
+    // One-time prefill (not a live listener) — same "takes effect on
+    // load/refresh" model as the Live Stream Video URL above, and this
+    // has no second piece of live state (like isLive) that would need
+    // one anyway.
+    SOUNDCLOUD_REF.get().then(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      const input = document.getElementById('soundcloudUrlInput');
+      if (input && data && data.profileUrl) {
+        input.value = data.profileUrl;
+      }
+    }).catch(function () {});
+
+    document.getElementById('saveSoundcloudBtn').addEventListener('click', function () {
+      const input = document.getElementById('soundcloudUrlInput');
+      const statusEl = document.getElementById('soundcloudStatus');
+      const raw = input.value.trim();
+
+      // Empty input + Save is how an account gets unlinked — the
+      // homepage widget treats a missing/blank profileUrl as "nothing
+      // configured" and shows its own empty state rather than falling
+      // back to some guessed or stale account.
+      if (!raw) {
+        statusEl.textContent = 'Saving…';
+        statusEl.style.color = 'var(--text-dim)';
+        SOUNDCLOUD_REF.set({ profileUrl: '' }, { merge: true }).then(function () {
+          statusEl.textContent = 'Cleared — the homepage widget will show no account until a new link is saved.';
+          statusEl.style.color = 'var(--accent)';
+        }).catch(function (err) {
+          statusEl.textContent = 'Save failed: ' + err.message;
+          statusEl.style.color = 'var(--danger)';
+        });
+        return;
+      }
+
+      const url = extractSoundcloudProfileUrl(raw);
+      if (!url) {
+        statusEl.textContent = "That doesn't look like a SoundCloud profile link.";
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-dim)';
+      SOUNDCLOUD_REF.set({ profileUrl: url }, { merge: true }).then(function () {
+        input.value = url;
+        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes the homepage.';
         statusEl.style.color = 'var(--accent)';
       }).catch(function (err) {
         statusEl.textContent = 'Save failed: ' + err.message;

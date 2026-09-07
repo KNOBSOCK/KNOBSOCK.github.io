@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Listen</title>
 <script src="https://w.soundcloud.com/player/api.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   /* Custom cursor matching index.html's — the only page this embeds
      on. An iframe is a separate document, so index.html's own cursor
@@ -243,17 +245,18 @@
   <div class="player-wrap">
     <!--
       Real playback runs through SoundCloud's official Widget API (loaded
-      above), pointed at your profile so it always has your latest uploads
-      — the iframe below is just the invisible audio engine; everything the
-      visitor sees is custom-built.
+      above), pointed at whichever profile is linked in the admin page so
+      it always has your latest uploads — the iframe below is just the
+      invisible audio engine; everything the visitor sees is custom-built.
+      No src here: it's set by JS below only once the linked profile is
+      known, see "LINKED ACCOUNT" section.
     -->
     <iframe
       id="scWidget"
       title="SoundCloud audio engine"
       scrolling="no"
       frameborder="no"
-      allow="autoplay"
-      src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fbobbywyckoffnyc&auto_play=false&show_artwork=false">
+      allow="autoplay">
     </iframe>
 
     <div class="now-playing">
@@ -280,7 +283,12 @@
   const progressFillEl = document.getElementById("progressFill");
   const trackListEl = document.getElementById("trackList");
 
-  const widget = SC.Widget(iframeEl);
+  // Widget isn't created until the linked profile loads (see "LINKED
+  // ACCOUNT" below) — playBtn stays disabled (its default HTML state)
+  // until then, which is what keeps the click handler down at the
+  // bottom of this script safe to leave unguarded: a disabled button
+  // never actually dispatches a click.
+  let widget = null;
   let sounds = [];
   let currentIndex = 0;
   let isPlaying = false;
@@ -343,43 +351,45 @@
     playBtn.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
   }
 
-  widget.bind(SC.Widget.Events.READY, () => {
-    playBtn.disabled = false;
+  function bindWidgetEvents() {
+    widget.bind(SC.Widget.Events.READY, () => {
+      playBtn.disabled = false;
 
-    widget.getSounds((allSounds) => {
-      sounds = allSounds;
-      renderTrackList();
+      widget.getSounds((allSounds) => {
+        sounds = allSounds;
+        renderTrackList();
+      });
+
+      widget.getCurrentSound((sound) => {
+        if (sound) setTrackTitle(sound.title);
+      });
     });
 
-    widget.getCurrentSound((sound) => {
-      if (sound) setTrackTitle(sound.title);
+    widget.bind(SC.Widget.Events.PLAY, () => {
+      isPlaying = true;
+      updatePlayIcon();
+      widget.getCurrentSound((sound) => {
+        if (!sound) return;
+        setTrackTitle(sound.title);
+        currentDuration = sound.duration || 0;
+        const idx = sounds.findIndex((s) => s.id === sound.id);
+        if (idx !== -1) setActiveTrack(idx);
+      });
     });
-  });
 
-  widget.bind(SC.Widget.Events.PLAY, () => {
-    isPlaying = true;
-    updatePlayIcon();
-    widget.getCurrentSound((sound) => {
-      if (!sound) return;
-      setTrackTitle(sound.title);
-      currentDuration = sound.duration || 0;
-      const idx = sounds.findIndex((s) => s.id === sound.id);
-      if (idx !== -1) setActiveTrack(idx);
+    widget.bind(SC.Widget.Events.PAUSE, () => {
+      isPlaying = false;
+      updatePlayIcon();
     });
-  });
 
-  widget.bind(SC.Widget.Events.PAUSE, () => {
-    isPlaying = false;
-    updatePlayIcon();
-  });
+    widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+      progressFillEl.style.width = `${data.relativePosition * 100}%`;
+    });
 
-  widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
-    progressFillEl.style.width = `${data.relativePosition * 100}%`;
-  });
-
-  widget.bind(SC.Widget.Events.FINISH, () => {
-    progressFillEl.style.width = "0%";
-  });
+    widget.bind(SC.Widget.Events.FINISH, () => {
+      progressFillEl.style.width = "0%";
+    });
+  }
 
   playBtn.addEventListener("click", () => {
     widget.toggle();
@@ -422,6 +432,49 @@
     setActiveTrack(index);
     widget.skip(index);
     widget.play();
+  });
+
+  // ---------- LINKED ACCOUNT ----------
+  // The profile this widget plays is set from admin.html's Music tab
+  // ("SoundCloud Account" card) rather than hardcoded here, so renaming
+  // or switching SoundCloud accounts is a paste-and-save in the admin
+  // page instead of a code change. A one-time read (not a live listener)
+  // is enough — same "takes effect on load/refresh" model admin.html
+  // itself uses for the live-stream video URL.
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  // Filed under chat_config (not a new collection) so it inherits that
+  // collection's existing public-read Firestore rules — see admin.html's
+  // own SOUNDCLOUD_REF comment for the full reasoning.
+  const soundcloudConfigRef = db.collection('chat_config').doc('soundcloud');
+
+  function showNoAccountState() {
+    setTrackTitle("No SoundCloud account linked yet.");
+  }
+
+  function startPlayer(profileUrl) {
+    iframeEl.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(profileUrl) + "&auto_play=false&show_artwork=false";
+    widget = SC.Widget(iframeEl);
+    bindWidgetEvents();
+  }
+
+  soundcloudConfigRef.get().then((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    if (data && data.profileUrl) {
+      startPlayer(data.profileUrl);
+    } else {
+      showNoAccountState();
+    }
+  }).catch(() => {
+    showNoAccountState();
   });
 </script>
 
