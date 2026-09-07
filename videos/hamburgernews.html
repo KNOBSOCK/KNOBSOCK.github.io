@@ -117,6 +117,17 @@
     height: 100dvh;
     z-index: 9999;
   }
+  /* Belt-and-suspenders alongside the z-index above: reported as not
+     actually covering the art on mobile, most likely the classic 100vh-
+     vs-real-visible-height gap while iOS Safari's address bar is
+     animating in/out — 100dvh should already account for that, but
+     hiding the art outright removes any chance of it peeking through
+     during that transition (or from any other stacking quirk) rather
+     than relying solely on it staying strictly behind the fullscreen
+     iframe. Toggled in lockstep with .hn-fullscreen itself, below. */
+  .stage-bg.hn-bg-hidden {
+    visibility: hidden;
+  }
 </style>
 </head>
 <body>
@@ -138,10 +149,16 @@
   var stageBg = document.getElementById('stageBg');
   // Relayed from hamburger-news-widget.html's own fullscreen fallback —
   // see .patty-slot.hn-fullscreen's own comment above for why this has
-  // to happen up here rather than inside that iframe.
+  // to happen up here rather than inside that iframe. Also hides #stageBg
+  // itself (see .stage-bg.hn-bg-hidden's own comment) and un-hides it
+  // again on exit — easy to forget the reverse side of a toggle like
+  // this, so it's written as one toggle() call per element rather than
+  // as separate add/remove branches that could drift out of sync.
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
-    pattySlot.classList.toggle('hn-fullscreen', !!e.data.active);
+    var active = !!e.data.active;
+    pattySlot.classList.toggle('hn-fullscreen', active);
+    stageBg.classList.toggle('hn-bg-hidden', active);
   });
 
   // ---------- STAGE LAYOUT ----------
