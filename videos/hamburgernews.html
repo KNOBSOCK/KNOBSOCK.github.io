@@ -18,21 +18,23 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
   /* Standalone page, same rebuild approach as videos.html/music.html/
-     live.html, but with a drawn-scene background: hamburger-news-bg.webp
-     is a single 8000x8000 illustrated room (door, window, floor,
-     spotlight, burger), drawn edge-to-edge at that huge size specifically
-     so cover-fit crop always has room to spare before it could ever reach
-     the door/window/burger/plate — the artist's own fix for the earlier,
-     much-smaller-canvas version, which needed careful (and fragile)
-     padding-amount math to get the same guarantee. The video's slot is
-     the one part of that canvas left transparent — drawn with its own
-     brown border frame on all four sides, and (like the lettuce fringe
-     over the top edge) a few px of intentional overlap where the border/
-     lettuce/condiment art dips into the slot rather than butting flush
-     against it, so HOLE_RECT below is sized to the FULL reach of that
-     transparency (the shallowest point on each edge, not the safe common
-     core) — the video is meant to peek out from underneath those
-     overlapping bits, not sit inset from them. */
+     live.html, but with a drawn-scene background — two of them, actually
+     (see VARIANTS in the script below): hamburger-news-bg.webp is an
+     8000x8000 illustrated room (door, window, floor, spotlight, burger),
+     drawn edge-to-edge at that huge size specifically so cover-fit crop
+     always has room to spare before it could ever reach the door/window/
+     burger/plate; hamburger-news-bg-mobile.webp is the same burger art
+     recomposited onto its own 9:16 phone-shaped canvas instead of a crop
+     of the square one, so a phone screen doesn't waste most of its width
+     on transparent padding the square version needs for wide desktop
+     windows. Both leave the video's slot transparent — drawn with its
+     own brown border frame on all four sides, and (like the lettuce
+     fringe over the top edge) a few px of intentional overlap where the
+     border/lettuce/condiment art dips into the slot rather than butting
+     flush against it, so each variant's HOLE_RECT is sized to the FULL
+     reach of that transparency (the shallowest point on each edge, not
+     the safe common core) — the video is meant to peek out from
+     underneath those overlapping bits, not sit inset from them.
 
      #stageBg and #pattySlot (the video) are both positioned by the same
      JS layout() below rather than CSS object-fit:cover — see that
@@ -128,7 +130,7 @@
           allowfullscreen></iframe>
 </div>
 
-<img class="stage-bg" id="stageBg" src="/hamburger-news-bg.webp" alt="">
+<img class="stage-bg" id="stageBg" alt="">
 
 <script>
 (function () {
@@ -153,25 +155,46 @@
   // reliably solvable with aspect-ratio/min-width tricks across
   // browsers, so this is plain JS.
   //
-  // IMG_W/IMG_H and HOLE_RECT are in the source art's own pixel space
-  // (8000x8000) — easiest to re-derive from the source file directly if
-  // the art ever changes; the saved (smaller) hamburger-news-bg.webp
-  // doesn't matter since this is all aspect-ratio math.
-  var IMG_W = 8000, IMG_H = 8000;
-  var HOLE_RECT = { x: 3211, y: 3373, w: 1560, h: 845 };
+  // Two separate source images, not one — a phone-shaped (9:16) canvas
+  // wastes far less of itself on transparent padding than the square
+  // desktop one does once actually cropped to a phone's own aspect
+  // ratio, so mobile gets its own art drawn directly at that shape
+  // rather than a crop of the square version. Both are the same burger
+  // graphic at the same size (the video slot is pixel-for-pixel
+  // identical, 1560x845, in both source files) — only the surrounding
+  // canvas differs. IMG_W/IMG_H/HOLE_RECT below are each in their own
+  // source file's own pixel space — easiest to re-derive from those
+  // files directly if the art ever changes; the saved (smaller) .webp
+  // files don't matter since this is all aspect-ratio math.
+  //
+  // 860px matches this site's own existing mobile breakpoint (see
+  // videos.html/music.html/live.html's identical
+  // `@media (max-width: 860px)`), reused here for the same "narrow
+  // enough to count as a phone" cutoff rather than inventing a new one.
+  var MOBILE_MAX_WIDTH = 860;
+  var VARIANTS = {
+    desktop: {
+      src: '/hamburger-news-bg.webp',
+      imgW: 8000, imgH: 8000,
+      hole: { x: 3211, y: 3373, w: 1560, h: 845 }
+    },
+    mobile: {
+      src: '/hamburger-news-bg-mobile.webp',
+      imgW: 3674, imgH: 6532,
+      hole: { x: 1087, y: 2141, w: 1560, h: 845 }
+    }
+  };
   // Plain cover-fit scale alone renders the video too small to read on
   // an ordinary desktop window once the background canvas is this much
   // bigger than the video slot cut into it — this floors the video's own
   // size at a fraction of the viewport on whichever axis binds, even if
   // that means scaling past cover-fit (and cropping further into the
-  // huge margin the art already has to spare for exactly this).
-  //
-  // One shared value for every viewport, deliberately — a mobile-only
-  // floor was tried (0.28 vs 0.25 on desktop) to chase a mobile-specific
-  // mockup, but it left mobile and desktop looking noticeably different
-  // from each other and still didn't land right on mobile, so this goes
-  // back to a single number that behaves the same everywhere rather than
-  // layering on more special-casing to chase an exact match.
+  // huge margin the art already has to spare for exactly this). Shared
+  // by both variants — a mobile-only *floor value* was tried previously
+  // (chasing a mobile-specific mockup on the old square-only art) and
+  // just made mobile and desktop behave inconsistently without actually
+  // landing right, so this stays one number; mobile now gets its own
+  // look from VARIANTS.mobile's own art/proportions instead.
   var MIN_VIDEO_FRAC = 0.25;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
@@ -184,22 +207,36 @@
     return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
   }
 
+  // Tracks which variant's src is currently loaded so layout() (called
+  // on every resize/scroll tick) only ever touches stageBg.src when the
+  // viewport actually crosses the mobile/desktop breakpoint, not on
+  // every call — reassigning the same src repeatedly would otherwise
+  // restart the image request/decode each time.
+  var currentVariantName = null;
+
   function layout() {
     var vp = viewportSize();
+    var variantName = vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop';
+    var variant = VARIANTS[variantName];
+    if (variantName !== currentVariantName) {
+      currentVariantName = variantName;
+      stageBg.src = variant.src;
+    }
+    var imgW = variant.imgW, imgH = variant.imgH, hole = variant.hole;
     var scale = Math.max(
-      vp.w / IMG_W, vp.h / IMG_H,
-      MIN_VIDEO_FRAC * vp.w / HOLE_RECT.w, MIN_VIDEO_FRAC * vp.h / HOLE_RECT.h
+      vp.w / imgW, vp.h / imgH,
+      MIN_VIDEO_FRAC * vp.w / hole.w, MIN_VIDEO_FRAC * vp.h / hole.h
     );
-    var offX = (vp.w - IMG_W * scale) / 2;
-    var offY = (vp.h - IMG_H * scale) / 2;
+    var offX = (vp.w - imgW * scale) / 2;
+    var offY = (vp.h - imgH * scale) / 2;
     stageBg.style.left = offX + 'px';
     stageBg.style.top = offY + 'px';
-    stageBg.style.width = (IMG_W * scale) + 'px';
-    stageBg.style.height = (IMG_H * scale) + 'px';
-    pattySlot.style.left = (offX + HOLE_RECT.x * scale) + 'px';
-    pattySlot.style.top = (offY + HOLE_RECT.y * scale) + 'px';
-    pattySlot.style.width = (HOLE_RECT.w * scale) + 'px';
-    pattySlot.style.height = (HOLE_RECT.h * scale) + 'px';
+    stageBg.style.width = (imgW * scale) + 'px';
+    stageBg.style.height = (imgH * scale) + 'px';
+    pattySlot.style.left = (offX + hole.x * scale) + 'px';
+    pattySlot.style.top = (offY + hole.y * scale) + 'px';
+    pattySlot.style.width = (hole.w * scale) + 'px';
+    pattySlot.style.height = (hole.h * scale) + 'px';
   }
 
   var rafPending = false;
