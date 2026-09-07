@@ -2260,6 +2260,86 @@
       singular: 'Video',
       plural: 'videos'
     }).load();
+
+    initSoundcloudAccountEditor();
+  }
+
+  // ---------- SOUNDCLOUD ACCOUNT ----------
+  // Lives on the Music tab, but (unlike the tab's playlist editors above)
+  // isn't wired up by createPlaylistEditor, so it needs its own init call
+  // here — called unconditionally from startEditors() rather than from
+  // activateTab()/startLiveModerationIfNeeded(), which only run for the
+  // Live tab. This used to be set up inside startLiveModerationIfNeeded()
+  // (it writes to the same chat_config collection — see SOUNDCLOUD_REF's
+  // own comment), which meant an admin who opened the Music tab without
+  // ever visiting Live first got a Save button with no click handler on
+  // it at all: no prefilled value, and clicking Save silently did
+  // nothing, because this code had simply never run yet.
+  function initSoundcloudAccountEditor() {
+    // One-time prefill (not a live listener) — same "takes effect on
+    // load/refresh" model as the Live Stream Video URL, and this has no
+    // second piece of live state (like isLive) that would need one anyway.
+    SOUNDCLOUD_REF.get().then(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      const input = document.getElementById('soundcloudUrlInput');
+      if (input && data && data.profileUrl) {
+        input.value = data.profileUrl;
+      }
+    }).catch(function () {});
+
+    document.getElementById('saveSoundcloudBtn').addEventListener('click', function () {
+      // Wrapped in try/catch (unlike the other Save buttons on this page)
+      // purely as a diagnostic net while tracking down a report that this
+      // one silently does nothing on click — an unexpected synchronous
+      // throw in here would otherwise vanish into the console with no
+      // on-page sign anything happened at all.
+      try {
+      const input = document.getElementById('soundcloudUrlInput');
+      const statusEl = document.getElementById('soundcloudStatus');
+      const raw = input.value.trim();
+      statusEl.style.fontWeight = ''; // clear any bold left over from a previous rejection
+
+      // Empty input + Save is how an account gets unlinked — the
+      // homepage widget treats a missing/blank profileUrl as "nothing
+      // configured" and shows its own empty state rather than falling
+      // back to some guessed or stale account.
+      if (!raw) {
+        statusEl.textContent = 'Saving…';
+        statusEl.style.color = 'var(--text-dim)';
+        SOUNDCLOUD_REF.set({ profileUrl: '' }, { merge: true }).then(function () {
+          statusEl.textContent = 'Cleared — the homepage widget will show no account until a new link is saved.';
+          statusEl.style.color = 'var(--accent)';
+        }).catch(function (err) {
+          statusEl.textContent = 'Save failed: ' + err.message;
+          statusEl.style.color = 'var(--danger)';
+          alert('Failed to save SoundCloud account: ' + err.message); // same pattern as the live-status toggle's failure below — a small status line under a button is too easy to miss when something actually goes wrong
+        });
+        return;
+      }
+
+      const url = extractSoundcloudProfileUrl(raw);
+      if (!url) {
+        statusEl.textContent = "Couldn't read that as a SoundCloud profile — paste the link from your profile page (soundcloud.com/yourname) or just the handle itself.";
+        statusEl.style.color = 'var(--danger)';
+        statusEl.style.fontWeight = '700';
+        return;
+      }
+
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-dim)';
+      SOUNDCLOUD_REF.set({ profileUrl: url }, { merge: true }).then(function () {
+        input.value = url;
+        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes the homepage.';
+        statusEl.style.color = 'var(--accent)';
+      }).catch(function (err) {
+        statusEl.textContent = 'Save failed: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
+        alert('Failed to save SoundCloud account: ' + err.message);
+      });
+      } catch (err) {
+        alert('SoundCloud save button hit an unexpected error: ' + (err && err.message ? err.message : err));
+      }
+    });
   }
 
   // ==========================================================
@@ -2820,73 +2900,6 @@
         statusEl.textContent = 'Save failed: ' + err.message;
         statusEl.style.color = 'var(--danger)';
       });
-    });
-
-    // ---------- SOUNDCLOUD ACCOUNT ----------
-    // One-time prefill (not a live listener) — same "takes effect on
-    // load/refresh" model as the Live Stream Video URL above, and this
-    // has no second piece of live state (like isLive) that would need
-    // one anyway.
-    SOUNDCLOUD_REF.get().then(function (doc) {
-      const data = doc.exists ? doc.data() : null;
-      const input = document.getElementById('soundcloudUrlInput');
-      if (input && data && data.profileUrl) {
-        input.value = data.profileUrl;
-      }
-    }).catch(function () {});
-
-    document.getElementById('saveSoundcloudBtn').addEventListener('click', function () {
-      // Wrapped in try/catch (unlike the other Save buttons on this page)
-      // purely as a diagnostic net while tracking down a report that this
-      // one silently does nothing on click — an unexpected synchronous
-      // throw in here would otherwise vanish into the console with no
-      // on-page sign anything happened at all.
-      try {
-      const input = document.getElementById('soundcloudUrlInput');
-      const statusEl = document.getElementById('soundcloudStatus');
-      const raw = input.value.trim();
-      statusEl.style.fontWeight = ''; // clear any bold left over from a previous rejection
-
-      // Empty input + Save is how an account gets unlinked — the
-      // homepage widget treats a missing/blank profileUrl as "nothing
-      // configured" and shows its own empty state rather than falling
-      // back to some guessed or stale account.
-      if (!raw) {
-        statusEl.textContent = 'Saving…';
-        statusEl.style.color = 'var(--text-dim)';
-        SOUNDCLOUD_REF.set({ profileUrl: '' }, { merge: true }).then(function () {
-          statusEl.textContent = 'Cleared — the homepage widget will show no account until a new link is saved.';
-          statusEl.style.color = 'var(--accent)';
-        }).catch(function (err) {
-          statusEl.textContent = 'Save failed: ' + err.message;
-          statusEl.style.color = 'var(--danger)';
-          alert('Failed to save SoundCloud account: ' + err.message); // same pattern as the live-status toggle's failure below — a small status line under a button is too easy to miss when something actually goes wrong
-        });
-        return;
-      }
-
-      const url = extractSoundcloudProfileUrl(raw);
-      if (!url) {
-        statusEl.textContent = "Couldn't read that as a SoundCloud profile — paste the link from your profile page (soundcloud.com/yourname) or just the handle itself.";
-        statusEl.style.color = 'var(--danger)';
-        statusEl.style.fontWeight = '700';
-        return;
-      }
-
-      statusEl.textContent = 'Saving…';
-      statusEl.style.color = 'var(--text-dim)';
-      SOUNDCLOUD_REF.set({ profileUrl: url }, { merge: true }).then(function () {
-        input.value = url;
-        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes the homepage.';
-        statusEl.style.color = 'var(--accent)';
-      }).catch(function (err) {
-        statusEl.textContent = 'Save failed: ' + err.message;
-        statusEl.style.color = 'var(--danger)';
-        alert('Failed to save SoundCloud account: ' + err.message);
-      });
-      } catch (err) {
-        alert('SoundCloud save button hit an unexpected error: ' + (err && err.message ? err.message : err));
-      }
     });
 
     // ---------- VODs ----------
