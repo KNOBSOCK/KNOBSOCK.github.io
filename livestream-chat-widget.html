@@ -1254,6 +1254,17 @@
     font-size: clamp(11px, 3cqmin, 13px);
     white-space: nowrap;
   }
+  /* Replaces the old 🔥/🥇🥈🥉 emoji glyphs in .streak-bar-mine and each
+     .streak-bar-lb-entry below — sized in em off their own span's
+     font-size so they keep tracking the bar's clamp()-driven scaling
+     the same way the emoji did. */
+  .streak-fire-icon,
+  .streak-medal-icon {
+    height: 1.2em;
+    width: auto;
+    vertical-align: -0.2em;
+    display: inline-block;
+  }
   /* Divider only shows once there's a leaderboard segment to separate
      from — see the template in showStreakBar, which omits both this and
      .streak-bar-lb entirely while that fetch is still in flight/failed. */
@@ -2458,7 +2469,7 @@
     const token = ++streakBarToken;
 
     clearTimeout(streakBarHideTimer);
-    bar.innerHTML = `<span class="streak-bar-mine">\u{1F525} ${streak}-day streak</span>`;
+    bar.innerHTML = `<span class="streak-bar-mine"><img class="streak-fire-icon" src="/streak-fire.png" alt=""> ${streak}-day streak</span>`;
     wrap.classList.add('is-visible');
     streakBarHideTimer = setTimeout(() => {
       wrap.classList.remove('is-visible');
@@ -2475,9 +2486,9 @@
       // this content, or the bar already auto-hid — so appending now
       // would look like a glitch rather than a comparison for THIS tap-in.
       if (token !== streakBarToken || !wrap.classList.contains('is-visible') || !top.length) return;
-      const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+      const medals = ['/streak-rank-1.png', '/streak-rank-2.png', '/streak-rank-3.png'];
       const entries = top.map((row, i) =>
-        `<span class="streak-bar-lb-entry${row.isYou ? ' is-you' : ''}">${medals[i]} ${escapeHtml(row.username)} ${row.streak}</span>`
+        `<span class="streak-bar-lb-entry${row.isYou ? ' is-you' : ''}"><img class="streak-medal-icon" src="${medals[i]}" alt=""> ${escapeHtml(row.username)} ${row.streak}</span>`
       ).join('');
       bar.insertAdjacentHTML('beforeend',
         `<span class="streak-bar-divider">·</span><span class="streak-bar-lb">${entries}</span>`
