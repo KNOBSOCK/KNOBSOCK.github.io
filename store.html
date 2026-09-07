@@ -438,100 +438,31 @@
      its children become direct, explicitly-positioned grid items,
      regardless of which branch of the markup they actually live in. */
   @media (max-width: 860px) {
-    /* Overriding the base rule's overflow:hidden (desktop needs it — it
-       relies on the whole page being exactly one fixed, non-scrolling
-       screen) back to auto here — confirmed live that leaving it
-       inherited on mobile was silently clipping real content instead of
-       letting it scroll: body's actual (unclipped) scrollHeight came
-       out taller than its visible, overflow-hidden'd box, with Next
-       Item cut into the clipped region. Simply not re-declaring the
-       same overflow:hidden inside this media query (an earlier pass at
-       this bug) was a no-op, since the base rule outside any media
-       query still applied regardless — this needs an active override,
-       not just an absence of one. */
-    /* height:auto resets the base rule's height:100% here too — with
-       that still definite, body became its OWN nested internal-scroll
-       container (definite height + overflow-y:auto) instead of growing
-       to fit .stage and letting the page's normal top-level scroll
-       handle it — confirmed live (body.scrollHeight correctly saw the
-       overflow at 872px, but document.scrollingElement/html's did not,
-       and the page didn't actually scroll). A nested scroll container
-       here would've meant fighting a second, non-native scroll region
-       instead of just using the browser's own page scroll. */
-    html, body { height: auto; min-height: 100vh; min-height: 100dvh; overflow-y: auto; }
+    html, body { overflow: hidden; }
 
-    /* Vertical spacing here is sized off viewport WIDTH, not height —
-       mobile height units (vh/dvh/svh alike) turned out to be reported
-       inconsistently across different mobile browser chrome, not just
-       Safari's own dynamic address bar. dvh tracked the address bar
-       live, splitting its growth evenly above/below the (centered)
-       shirt as the bar collapsed — confirmed live. Switching to svh
-       (the guaranteed-smallest size) was meant to pin that down, but
-       Instagram's in-app browser doesn't compute it the same way Safari
-       does either: the gap was still inconsistent there, and the fixed
-       full-height stage ended up taller than what's actually visible,
-       pushing Next Item behind Instagram's own bottom bar.
-       Rather than chase a third viewport-height unit that might fail in
-       some OTHER in-app browser's chrome too, .product-viewport's own
-       size no longer depends on leftover height at all — its
-       aspect-ratio derives its height purely from its (reliably
-       reported) width instead, so its size and everything below it
-       stays byte-for-byte consistent regardless of what any given
-       host's chrome does to the reported viewport height. html/body's
-       overflow:hidden is gone too — min-height keeps the page filling
-       the screen when there's room, but it can scroll a little instead
-       of clipping/overlapping when some host's chrome leaves less
-       usable height than that. */
     .stage {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
-      grid-template-rows: auto auto auto auto auto auto auto;
+      grid-template-rows: auto 1fr auto auto auto auto auto;
       row-gap: clamp(6px, 1.4vh, 14px);
       align-items: center;
-      /* Explicit rather than relying on the default (which stretches
-         auto-sized row tracks to soak up any slack between the content's
-         natural height and min-height) — packs every row tight at the
-         top instead, so any leftover space from min-height always lands
-         in one place: past Next Item, never between rows. */
-      align-content: start;
-      /* height:auto resets the base (desktop) rule's height:100%/100dvh
-         — confirmed live this was the actual remaining bug: a grid
-         container with a DEFINITE height doesn't grow for content that
-         needs more room than that (unlike auto), so when this page's
-         rows needed more space than one screen, the excess rendered
-         past .stage's own fixed-height box without correctly
-         propagating into body's scrollHeight, leaving Next Item
-         genuinely unreachable rather than just scrolled-to. auto lets
-         .stage grow to fit its rows naturally; min-height is purely a
-         floor so it still fills the screen when content is short. */
-      height: auto;
-      min-height: 100vh;
-      min-height: 100dvh;
+      height: 100vh;
+      height: 100dvh;
       padding: 0 clamp(14px, 5vw, 32px) clamp(10px, 2.4vh, 26px);
     }
     .header-logo-link { grid-column: 1 / -1; grid-row: 1; justify-self: center; }
 
     .product-stage { display: contents; }
-    /* height via calc(100vw - <the exact same padding .stage itself
-       uses>) rather than aspect-ratio — confirmed live that
-       aspect-ratio on a grid item spanning columns with a content-sized
-       middle column (1fr auto 1fr) doesn't correctly feed back into
-       that item's own row's auto-track-sizing in this browser: the item
-       itself rendered at its full aspect-ratio height (340px) while its
-       row's computed track came out smaller (235px), so it overflowed
-       into the row below. 100vw resolves directly against the viewport
-       with no grid-sizing involvement at all, sidestepping that
-       entirely, and the calc() keeps this in exact sync with .stage's
-       own padding so the result is still genuinely square against the
-       actual visible content width. */
-    .product-viewport {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      position: relative;
-      inset: auto;
-      width: 100%;
-      height: calc(100vw - 2 * clamp(14px, 5vw, 32px));
-    }
+    /* align-self:stretch overrides .stage's own align-items:center
+       (needed so the shorter items in row 5 — add-to-cart-btn next to
+       the taller prev/next triangles — center instead of stretching
+       oddly) specifically for this one item. Without it, .product-
+       viewport has no intrinsic content height of its own (.product-img
+       is position:absolute, so it doesn't contribute to normal-flow
+       sizing) and collapses to 0 instead of filling its 1fr row —
+       confirmed live: the row's own computed track height was fine
+       (430px), the item just wasn't stretched into it. */
+    .product-viewport { grid-column: 1 / -1; grid-row: 2; position: relative; inset: auto; align-self: stretch; }
 
     .size-selector { grid-column: 1 / -1; grid-row: 3; justify-self: center; align-items: center; }
     .color-picker { grid-column: 1 / -1; grid-row: 4; justify-self: center; align-items: center; }
