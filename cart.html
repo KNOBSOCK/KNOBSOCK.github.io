@@ -19,9 +19,13 @@
      confirmation are one-off transactional pages with no reuse case for
      the "widget embeddable elsewhere" split those are built for, and
      checkout is exactly the wrong place to add cross-frame postMessage
-     plumbing just to stay consistent. Same pink palette as
-     store-widget.html and the real logo file store.html uses, so it still
-     reads as the same store, just laid out as one plain page. */
+     plumbing just to stay consistent.
+
+     NOTE: this still carries the store's older pink/dark palette —
+     store.html itself was since rebuilt as a plain white page (see its
+     own top-of-file comment) and no longer shares this theme. Left as-is
+     here since re-theming checkout wasn't part of that rebuild; worth
+     revisiting so cart/checkout reads as the same store again. */
   :root {
     --ink: #4a0a2e;
     --panel-2: rgba(74, 10, 46, 0.8);
