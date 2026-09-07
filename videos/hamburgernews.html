@@ -190,19 +190,26 @@
   // real phone's shape, that floor's minimum-size guarantee was
   // routinely demanding MORE scale than cover-fit alone would ever
   // produce, not just topping it up when cover-fit fell short. minVideoFrac:
-  // 0 for mobile means pure cover-fit, no artificial zoom on top of it.
+  // 0 for mobile means pure cover-fit, no artificial zoom via minVideoFrac
+  // — zoom (below) is a separate, flat multiplier on top of whichever
+  // scale (cover or floor) wins, for "just nudge it in/out a bit" asks
+  // that aren't about guaranteeing a minimum size the way minVideoFrac
+  // is. Mobile's 1.15 was requested directly, after pure cover-fit (1.0)
+  // read as slightly too far zoomed OUT once seen live.
   var VARIANTS = {
     desktop: {
       src: '/hamburger-news-bg.webp',
       imgW: 8000, imgH: 8000,
       hole: { x: 3211, y: 3373, w: 1560, h: 845 },
-      minVideoFrac: 0.25
+      minVideoFrac: 0.25,
+      zoom: 1
     },
     mobile: {
       src: '/hamburger-news-bg-mobile.webp',
       imgW: 4500, imgH: 8000,
       hole: { x: 1461, y: 3373, w: 1560, h: 845 },
-      minVideoFrac: 0
+      minVideoFrac: 0,
+      zoom: 1.15
     }
   };
 
@@ -236,7 +243,7 @@
     var scale = Math.max(
       vp.w / imgW, vp.h / imgH,
       minVideoFrac * vp.w / hole.w, minVideoFrac * vp.h / hole.h
-    );
+    ) * variant.zoom;
     var offX = (vp.w - imgW * scale) / 2;
     var offY = (vp.h - imgH * scale) / 2;
     stageBg.style.left = offX + 'px';
