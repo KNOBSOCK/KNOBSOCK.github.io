@@ -26,30 +26,29 @@
      than a hard rectangle, so it blends with the video underneath
      instead of needing a separate overlay sprite.
 
-     #stageBg renders with object-fit:cover — it fills the viewport
-     edge to edge with no letterbox bars at any window size/aspect
-     ratio. The art's own canvas was padded well past the hand-drawn
-     content on all four sides (flat extensions of the same wall green/
-     floor grey/divider-line colors the original edges already were —
-     see hn_extended_full.png's generation for the exact fill), sized so
-     cover's crop, even at extreme window shapes, only ever eats into
-     that plain padding and never touches the door/window/burger/plate.
-     There's no amount of padding that makes this true for literally any
-     conceivable window shape, but the margin here comfortably covers
-     the realistic range (roughly 0.42–3.6 width/height) — the two-tone
-     padding is visually indistinguishable from "more of the same
-     scene," not a border, so cropping into it doesn't look like
-     cropping. #pattySlot (the video) is repositioned to match on every
-     resize by a small JS layout() that replicates that same cover-fit
-     math — see its own comment below for why that needs JS at all
-     rather than being pure CSS.
+     #stageBg fills the viewport edge to edge with no letterbox bars at
+     any window size/aspect ratio, cover-fit style. The art's own canvas
+     was padded well past the hand-drawn content on all four sides (flat
+     extensions of the same wall green/floor grey/divider-line colors
+     the original edges already were), so cover's crop lands in that
+     plain padding instead of the door/window/burger/plate — EXCEPT that
+     plain cover-fit scale on a canvas padded this generously renders the
+     video too small to read on an ordinary desktop window (confirmed:
+     ~150px tall on a 2000px-wide window). layout() below adds a floor on
+     top of cover's own scale — never render smaller than a fixed
+     fraction of the viewport — so the video (and the burger around it)
+     stays a legible, prominent size on any normal window, at the cost of
+     that same floor eventually cropping into the padding, and at
+     sufficiently extreme window ratios the actual scene, once the floor
+     scale exceeds what pure cover would have used. That's an accepted
+     trade: a reliably-sized video on realistic windows beats
+     zero-cropping protection against arbitrarily extreme ones.
 
-     IMG_W/IMG_H and HOLE_RECT in layout() are expressed in that padded
-     source art's own pixel space (11946x9880, before it was scaled down
-     for the saved hamburger-news-bg.webp) — easiest to re-derive from
-     the source file directly if the art ever changes; the saved image
-     being smaller doesn't matter since cover-fit only cares about
-     aspect ratio. */
+     IMG_W/IMG_H and HOLE_RECT are expressed in the padded source art's
+     own pixel space (11946x9880, before it was scaled down for the
+     saved hamburger-news-bg.webp) — easiest to re-derive from the
+     source file directly if the art ever changes; the saved image being
+     smaller doesn't matter since this is all aspect-ratio math. */
   * { box-sizing: border-box; }
 
   html, body {
@@ -65,22 +64,20 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* The room + burger, filling the viewport edge to edge (object-fit:
-     cover) — see the top-of-file comment for why the padding built into
-     the art itself keeps this from ever cropping the actual scene.
-     pointer-events:none since this sits ABOVE #pattySlot in z-index
-     (its own transparent video-slot needs the opaque lettuce fringe
-     around the edges to visually overlap the video without ever
-     intercepting clicks meant for it — same trick used site-wide for
-     decorative art layered over interactive elements). */
+  /* The room + burger. Sized/positioned by JS (layout(), below) rather
+     than CSS object-fit:cover — cover's own scale formula has no notion
+     of "never render the video smaller than X", which layout() enforces
+     as a floor on top of cover's normal scale (see its own comment). If
+     this used object-fit:cover, it would zoom independently of that
+     floor and drift out of alignment with #pattySlot, whose position is
+     computed from the same floored scale. pointer-events:none since
+     this sits ABOVE #pattySlot in z-index (its own transparent
+     video-slot needs the opaque lettuce fringe around the edges to
+     visually overlap the video without ever intercepting clicks meant
+     for it — same trick used site-wide for decorative art layered over
+     interactive elements). */
   .stage-bg {
     position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    height: 100dvh;
-    object-fit: cover;
-    object-position: center;
     z-index: 2;
     pointer-events: none;
   }
@@ -161,6 +158,7 @@
 <script>
 (function () {
   var pattySlot = document.getElementById('pattySlot');
+  var stageBg = document.getElementById('stageBg');
   // Relayed from hamburger-news-widget.html's own fullscreen fallback —
   // see .patty-slot.hn-fullscreen's own comment above for why this has
   // to happen up here rather than inside that iframe.
@@ -170,16 +168,15 @@
   });
 
   // ---------- STAGE LAYOUT ----------
-  // #stageBg is shown with native object-fit:cover, which the browser
-  // scales/crops on its own with no way to ask it "where did the pixel
-  // that used to be at (x, y) in the source image end up on screen?" —
-  // #pattySlot can't land in the artwork's transparent video slot
-  // without doing that same cover-fit math by hand and applying it
-  // every time the viewport changes. A pure-CSS version of this (sizing
-  // a real box, not just an img/video, to "cover" its container while
-  // preserving a child's own coordinates inside it) isn't reliably
-  // solvable with aspect-ratio/min-width tricks across browsers, so
-  // this is plain JS instead.
+  // Both #stageBg and #pattySlot are positioned by hand here rather than
+  // via CSS object-fit:cover — cover's scale formula has no notion of
+  // "never smaller than X" (see MIN_CONTENT_FRAC below), and the two
+  // pieces have to move in exact lockstep or the video drifts out of
+  // its slot in the art. A pure-CSS version of this (sizing a real box,
+  // not just an img/video, to "cover" its container while preserving a
+  // child's own coordinates inside it, PLUS a floor on that scale)
+  // isn't reliably solvable with aspect-ratio/min-width tricks across
+  // browsers, so this is plain JS instead.
   //
   // IMG_W/IMG_H are the PADDED canvas's own dimensions (see the
   // top-of-file comment) — HOLE_RECT is the video slot's position
@@ -188,6 +185,27 @@
   // on the left/top (3925, 3302).
   var IMG_W = 11946, IMG_H = 9880;
   var HOLE_RECT = { x: 5171, y: 4302, w: 1587, h: 865 };
+  // The original, unpadded art's own size — MIN_CONTENT_FRAC (below)
+  // is expressed as a fraction of THIS, not the padded canvas, since
+  // it's a floor on how small the actual scene (not the padding) is
+  // allowed to render.
+  var CONTENT_W = 4096, CONTENT_H = 3276;
+
+  // Plain cover-fit on the padded canvas shrinks the video to the point
+  // of being unreadable on an ordinary desktop window (confirmed:
+  // ~150px tall on a 2000px-wide window) — the padding that protects
+  // the burger from wide-window cropping also, as a side effect, makes
+  // "fill the viewport" alone render everything tiny. This floor says:
+  // never let the unpadded content render smaller than 70% of the
+  // viewport on whichever axis binds, even if that means scaling PAST
+  // cover-fit and cropping into the padding (or, at sufficiently
+  // extreme window ratios, the actual scene) to get there. 0.7 was
+  // picked by checking it keeps both a 2000px desktop window and a
+  // 1920x1080 window at zero content crop while still meaningfully
+  // enlarging the video versus plain cover — see the PR description for
+  // the numbers this was checked against. Tune this one number to trade
+  // video size against how much window-shape range stays crop-free.
+  var MIN_CONTENT_FRAC = 0.7;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -201,14 +219,22 @@
 
   function layout() {
     var vp = viewportSize();
-    // Same formula object-fit:cover uses internally: scale up by
+    // Same formula object-fit:cover uses internally (scale up by
     // whichever axis needs it more, so the image fully covers the
-    // viewport on both axes, then center it and let the larger axis
-    // overflow (crop) — always lands inside this canvas's padding, per
-    // the top-of-file comment.
-    var scale = Math.max(vp.w / IMG_W, vp.h / IMG_H);
+    // viewport on both axes), but also floored so the unpadded CONTENT
+    // — not the padded canvas — never renders below MIN_CONTENT_FRAC of
+    // the viewport on either axis. Whichever of the three needs is
+    // largest wins.
+    var scale = Math.max(
+      vp.w / IMG_W, vp.h / IMG_H,
+      MIN_CONTENT_FRAC * vp.w / CONTENT_W, MIN_CONTENT_FRAC * vp.h / CONTENT_H
+    );
     var offX = (vp.w - IMG_W * scale) / 2;
     var offY = (vp.h - IMG_H * scale) / 2;
+    stageBg.style.left = offX + 'px';
+    stageBg.style.top = offY + 'px';
+    stageBg.style.width = (IMG_W * scale) + 'px';
+    stageBg.style.height = (IMG_H * scale) + 'px';
     pattySlot.style.left = (offX + HOLE_RECT.x * scale) + 'px';
     pattySlot.style.top = (offY + HOLE_RECT.y * scale) + 'px';
     pattySlot.style.width = (HOLE_RECT.w * scale) + 'px';
