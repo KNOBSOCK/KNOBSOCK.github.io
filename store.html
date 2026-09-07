@@ -38,8 +38,19 @@
      key cart.html reads — cart.html (which owns the actual Checkout
      button/Stripe handoff, hence no separate checkout.html) and
      confirmation.html were re-themed alongside this rebuild to carry the
-     same white/black/yellow/pink look. */
+     same white/black/yellow/pink look. A fixed cart button sits top-right
+     of the viewport (see .cart-btn) with a badge showing total item
+     count, read from the same knobsock_cart key on load and after every
+     Add to Cart. */
   * { box-sizing: border-box; }
+
+  /* Site's display font, used here for the cart-count badge only — no
+     other live (non-image) text on this page needed it. */
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
 
   :root {
     --ks-pink: #ff4fa8;
@@ -87,6 +98,52 @@
   @media (min-width: 861px) {
     .header-logo-link { width: min(11vw, 170px); }
   }
+
+  /* ---------- CART BUTTON ---------- */
+  /* position:fixed against the viewport, not .stage — works identically
+     whether .stage is desktop's flex column or mobile's grid, and needs
+     no grid-row/column slot of its own on mobile. */
+  .cart-btn {
+    position: fixed;
+    top: clamp(10px, 2.4vh, 26px);
+    right: clamp(10px, 3vw, 32px);
+    z-index: 20;
+    display: block;
+    width: clamp(38px, 5.6vw, 60px);
+    transition: transform 0.15s ease;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .cart-btn:hover { transform: scale(1.06); }
+  .cart-btn:active { transform: scale(0.94); }
+  .cart-btn img {
+    display: block;
+    width: 100%;
+    height: auto;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .cart-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #fff;
+    border: 2px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--ks-yellow);
+    -webkit-text-stroke: 1px #000;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
+  .cart-badge[hidden] { display: none; }
 
   /* ---------- PRODUCT + PREV/NEXT ---------- */
   .product-stage {
@@ -236,26 +293,28 @@
     align-items: flex-end;
     gap: clamp(6px, 1.4vh, 12px);
   }
+  /* Two swapped button-art images (add/added), not CSS-styled text —
+     see the JS side's addToCartBtn click handler. */
   .add-to-cart-btn {
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
-    border: clamp(2px, 0.3vw, 3px) solid #000;
-    border-radius: clamp(6px, 1vw, 10px);
-    background: var(--ks-yellow);
-    color: #000;
-    font-family: inherit;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    font-size: clamp(11px, 1.3vw, 14px);
-    padding: clamp(6px, 1.1vw, 11px) clamp(10px, 1.8vw, 18px);
-    white-space: nowrap;
+    border: 0;
+    background: none;
+    padding: 0;
+    margin: 0;
+    width: clamp(110px, 13vw, 190px);
     transition: transform 0.15s ease;
   }
   .add-to-cart-btn:hover { transform: scale(1.06); }
   .add-to-cart-btn:active { transform: scale(0.94); }
-  .add-to-cart-btn.is-added { background: #000; color: var(--ks-yellow); }
+  .add-to-cart-btn img {
+    display: block;
+    width: 100%;
+    height: auto;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
 
   .color-picker {
     display: flex;
@@ -357,7 +416,8 @@
     .nav-btn.is-popping,
     .next-item-btn.is-popping,
     .add-to-cart-btn.is-popping,
-    .color-swatch.is-popping {
+    .color-swatch.is-popping,
+    .cart-btn.is-popping {
       animation: btn-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
   }
@@ -372,6 +432,11 @@
 <body>
 
 <div class="stage">
+  <a class="cart-btn" href="/cart" aria-label="View cart">
+    <img src="/store-cart-icon.webp" alt="">
+    <span class="cart-badge" id="cartBadge" hidden>0</span>
+  </a>
+
   <a class="header-logo-link" href="/" aria-label="KNOBSOCK home">
     <img class="header-logo" src="/store-header.webp" alt="KNOBSOCK STORE">
   </a>
@@ -400,7 +465,9 @@
     </button>
 
     <div class="footer-right">
-      <button type="button" class="add-to-cart-btn" id="addToCartBtn">Add to Cart</button>
+      <button type="button" class="add-to-cart-btn" id="addToCartBtn" aria-label="Add to cart">
+        <img id="addToCartImg" src="/store-btn-addtocart.webp" alt="Add to Cart">
+      </button>
       <div class="color-picker" id="colorPicker" hidden>
         <img class="color-picker-heading" src="/store-colorpicker-heading.webp" alt="Color Picker">
         <div class="color-swatches" id="colorSwatches"></div>
@@ -520,6 +587,9 @@
   var infoPrice = document.getElementById('infoPrice');
   var infoMaterial = document.getElementById('infoMaterial');
   var addToCartBtn = document.getElementById('addToCartBtn');
+  var addToCartImg = document.getElementById('addToCartImg');
+  var cartBtn = document.querySelector('.cart-btn');
+  var cartBadge = document.getElementById('cartBadge');
 
   var PRODUCTS = [];
   var activeIndex = 0;
@@ -633,6 +703,7 @@
   popOnClick(nextBtn);
   popOnClick(nextItemBtn);
   popOnClick(addToCartBtn);
+  popOnClick(cartBtn);
 
   // ---- Swipe left/right (mobile) ----
   // Delegated onto the viewport itself rather than each image, since
@@ -658,11 +729,13 @@
     else showProduct(activeIndex - 1, -1);
   }, { passive: true });
 
-  // ---- Add to Cart ----
+  // ---- Add to Cart / cart badge ----
   // Same localStorage cart cart.html already reads (knobsock_cart) — a
   // matching productId+color line just bumps quantity instead of
   // duplicating.
   var CART_KEY = 'knobsock_cart';
+  var ADD_TO_CART_IMG = '/store-btn-addtocart.webp';
+  var ADDED_IMG = '/store-btn-added.webp';
   var addToCartResetTimer = null;
   function getCart() {
     try {
@@ -670,6 +743,11 @@
       var cart = raw ? JSON.parse(raw) : [];
       return Array.isArray(cart) ? cart : [];
     } catch (err) { return []; }
+  }
+  function updateCartBadge() {
+    var count = getCart().reduce(function (sum, l) { return sum + (l.quantity || 0); }, 0);
+    cartBadge.hidden = count === 0;
+    cartBadge.textContent = count > 99 ? '99+' : String(count);
   }
   addToCartBtn.addEventListener('click', function () {
     if (!PRODUCTS.length) return;
@@ -693,15 +771,16 @@
       });
     }
     try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) { /* storage full/blocked */ }
+    updateCartBadge();
 
-    addToCartBtn.classList.add('is-added');
-    addToCartBtn.textContent = 'Added ✓';
+    addToCartImg.src = ADDED_IMG;
     clearTimeout(addToCartResetTimer);
     addToCartResetTimer = setTimeout(function () {
-      addToCartBtn.classList.remove('is-added');
-      addToCartBtn.textContent = 'Add to Cart';
+      addToCartImg.src = ADD_TO_CART_IMG;
     }, 1400);
   });
+
+  updateCartBadge();
 
   loadProducts().then(function (products) {
     PRODUCTS = products;
