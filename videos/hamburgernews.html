@@ -211,8 +211,9 @@
   // — zoom (below) is a separate, flat multiplier on top of whichever
   // scale (cover or floor) wins, for "just nudge it in/out a bit" asks
   // that aren't about guaranteeing a minimum size the way minVideoFrac
-  // is. Mobile's 1.15 was requested directly, after pure cover-fit (1.0)
-  // read as slightly too far zoomed OUT once seen live.
+  // is. Mobile's zoom was requested directly, after pure cover-fit (1.0)
+  // read as slightly too far zoomed OUT once seen live: first a nudge to
+  // 1.15, then "25% more" on top of that (1.15 * 1.25 = 1.4375).
   var VARIANTS = {
     desktop: {
       src: '/hamburger-news-bg.webp',
@@ -226,7 +227,7 @@
       imgW: 4500, imgH: 8000,
       hole: { x: 1461, y: 3373, w: 1560, h: 845 },
       minVideoFrac: 0,
-      zoom: 1.15
+      zoom: 1.4375
     }
   };
 
