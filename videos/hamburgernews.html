@@ -19,27 +19,37 @@
 <style>
   /* Standalone page, same rebuild approach as videos.html/music.html/
      live.html, but with a drawn-scene background: hamburger-news-bg.webp
-     is the full illustrated room (door, window, floor, spotlight,
-     burger) with the video's rectangular slot already cut transparent
-     by the artist — including the lettuce fringe's own scalloped dip
-     into that slot, preserved as partial/antialiased transparency
-     rather than a hard rectangle, so it blends with the video
-     underneath instead of needing a separate overlay sprite.
+     is the illustrated room (door, window, floor, spotlight, burger)
+     with the video's rectangular slot already cut transparent by the
+     artist — including the lettuce fringe's own scalloped dip into
+     that slot, preserved as partial/antialiased transparency rather
+     than a hard rectangle, so it blends with the video underneath
+     instead of needing a separate overlay sprite.
 
-     #stageBg renders with object-fit:contain — the whole scene is
-     ALWAYS fully visible, scaled to fit the viewport and letterboxed
-     (not cropped) on whichever axis doesn't match its own aspect ratio.
-     #pattySlot (the video) is repositioned to match on every resize by
-     a small JS layout() that replicates that same contain-fit math —
-     see its own comment below for why that needs JS at all rather than
-     being pure CSS.
+     #stageBg renders with object-fit:cover — it fills the viewport
+     edge to edge with no letterbox bars at any window size/aspect
+     ratio. The art's own canvas was padded well past the hand-drawn
+     content on all four sides (flat extensions of the same wall green/
+     floor grey/divider-line colors the original edges already were —
+     see hn_extended_full.png's generation for the exact fill), sized so
+     cover's crop, even at extreme window shapes, only ever eats into
+     that plain padding and never touches the door/window/burger/plate.
+     There's no amount of padding that makes this true for literally any
+     conceivable window shape, but the margin here comfortably covers
+     the realistic range (roughly 0.42–3.6 width/height) — the two-tone
+     padding is visually indistinguishable from "more of the same
+     scene," not a border, so cropping into it doesn't look like
+     cropping. #pattySlot (the video) is repositioned to match on every
+     resize by a small JS layout() that replicates that same cover-fit
+     math — see its own comment below for why that needs JS at all
+     rather than being pure CSS.
 
-     IMG_W/IMG_H and HOLE_RECT in layout() are expressed in the source
-     art's own original pixel space (4096x3276, before it was scaled
-     down for the saved hamburger-news-bg.webp) — easiest to re-derive
-     from the source file directly if the art ever changes; the saved
-     image being smaller doesn't matter since contain-fit only cares
-     about aspect ratio. */
+     IMG_W/IMG_H and HOLE_RECT in layout() are expressed in that padded
+     source art's own pixel space (11946x9880, before it was scaled down
+     for the saved hamburger-news-bg.webp) — easiest to re-derive from
+     the source file directly if the art ever changes; the saved image
+     being smaller doesn't matter since cover-fit only cares about
+     aspect ratio. */
   * { box-sizing: border-box; }
 
   html, body {
@@ -47,28 +57,29 @@
     padding: 0;
     height: 100%;
     overflow: hidden;
-    /* Sampled from the art's own floor color — shows in the contain-fit
-       letterbox bars, and stops Safari's elastic overscroll bounce from
-       flashing white against the illustrated scene. */
+    /* Sampled from the art's own floor color — cover-fit means this
+       should never actually show, but it's the fallback for the instant
+       before the background image loads, and stops Safari's elastic
+       overscroll bounce from flashing white in the meantime. */
     background: #1e1e1e;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* The room + burger, always shown in full (object-fit:contain, never
-     cover) — same behavior at every viewport size/aspect ratio, just
-     more or less letterboxed depending on how far off-ratio the window
-     is. pointer-events:none since this sits ABOVE #pattySlot in
-     z-index (its own transparent video-slot needs the opaque lettuce
-     fringe around the edges to visually overlap the video without
-     ever intercepting clicks meant for it — same trick used site-wide
-     for decorative art layered over interactive elements). */
+  /* The room + burger, filling the viewport edge to edge (object-fit:
+     cover) — see the top-of-file comment for why the padding built into
+     the art itself keeps this from ever cropping the actual scene.
+     pointer-events:none since this sits ABOVE #pattySlot in z-index
+     (its own transparent video-slot needs the opaque lettuce fringe
+     around the edges to visually overlap the video without ever
+     intercepting clicks meant for it — same trick used site-wide for
+     decorative art layered over interactive elements). */
   .stage-bg {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
     height: 100dvh;
-    object-fit: contain;
+    object-fit: cover;
     object-position: center;
     z-index: 2;
     pointer-events: none;
@@ -122,8 +133,8 @@
      the actual screen; the iframe's own contents (already 100%
      width/height inside it) grow to fill it right along with it. Needs
      its own z-index above .stage-bg's 2, or the illustrated art (still
-     covering the full viewport in its own letterboxed layout) would
-     paint over the fullscreen video. */
+     covering the full viewport itself) would paint over the fullscreen
+     video. */
   .patty-slot.hn-fullscreen iframe {
     position: fixed;
     inset: 0;
@@ -159,21 +170,24 @@
   });
 
   // ---------- STAGE LAYOUT ----------
-  // #stageBg is shown with native object-fit:contain, which the browser
-  // scales/letterboxes on its own with no way to ask it "where did the
-  // pixel that used to be at (x, y) in the source image end up on
-  // screen?" — #pattySlot can't land in the artwork's transparent video
-  // slot without doing that same contain-fit math by hand and applying
-  // it every time the viewport changes. A pure-CSS version of this
-  // (sizing a real box, not just an img/video, to "contain" itself
-  // within its container while preserving a child's own coordinates
-  // inside it) isn't reliably solvable with aspect-ratio/min-width
-  // tricks across browsers, so this is plain JS instead.
-  var IMG_W = 4096, IMG_H = 3276;
-  // The video's transparent slot in the source art, with a small margin
-  // added on every side so #pattySlot's solid black fully backs even
-  // the outermost antialiased pixels of the cut edge.
-  var HOLE_RECT = { x: 1246, y: 1000, w: 1587, h: 865 };
+  // #stageBg is shown with native object-fit:cover, which the browser
+  // scales/crops on its own with no way to ask it "where did the pixel
+  // that used to be at (x, y) in the source image end up on screen?" —
+  // #pattySlot can't land in the artwork's transparent video slot
+  // without doing that same cover-fit math by hand and applying it
+  // every time the viewport changes. A pure-CSS version of this (sizing
+  // a real box, not just an img/video, to "cover" its container while
+  // preserving a child's own coordinates inside it) isn't reliably
+  // solvable with aspect-ratio/min-width tricks across browsers, so
+  // this is plain JS instead.
+  //
+  // IMG_W/IMG_H are the PADDED canvas's own dimensions (see the
+  // top-of-file comment) — HOLE_RECT is the video slot's position
+  // within that padded canvas, i.e. its position in the original
+  // unpadded art (1246, 1000, 1587, 865) shifted by the padding added
+  // on the left/top (3925, 3302).
+  var IMG_W = 11946, IMG_H = 9880;
+  var HOLE_RECT = { x: 5171, y: 4302, w: 1587, h: 865 };
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -187,11 +201,12 @@
 
   function layout() {
     var vp = viewportSize();
-    // Same formula object-fit:contain uses internally: scale down by
-    // whichever axis needs it more, so the whole image fits inside the
-    // viewport on both axes with no cropping, then center it —
-    // Math.min instead of cover's Math.max is the only difference.
-    var scale = Math.min(vp.w / IMG_W, vp.h / IMG_H);
+    // Same formula object-fit:cover uses internally: scale up by
+    // whichever axis needs it more, so the image fully covers the
+    // viewport on both axes, then center it and let the larger axis
+    // overflow (crop) — always lands inside this canvas's padding, per
+    // the top-of-file comment.
+    var scale = Math.max(vp.w / IMG_W, vp.h / IMG_H);
     var offX = (vp.w - IMG_W * scale) / 2;
     var offY = (vp.h - IMG_H * scale) / 2;
     pattySlot.style.left = (offX + HOLE_RECT.x * scale) + 'px';
