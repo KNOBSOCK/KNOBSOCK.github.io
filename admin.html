@@ -565,6 +565,15 @@
     width: 100%;
     max-width: 480px;
     max-height: 85vh;
+    /* Content taller than max-height needs somewhere to go — without
+       this, the panel's own box stays capped at 85vh but the overflow
+       isn't clipped OR scrollable (the default), it just spills out
+       past the box and overlaps whatever's behind it. Rarely visible on
+       a tall desktop viewport where this form comfortably fits in 85vh;
+       on a short mobile viewport (confirmed live: fields past "Photos"
+       became unreachable, Save button included) it's the whole panel. */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
     background: var(--panel);
