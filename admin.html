@@ -1255,24 +1255,36 @@
   // Accepts a full profile link (with or without https://, www.) or just
   // a bare handle typed on its own, and normalizes it down to a canonical
   // "https://soundcloud.com/<handle>" profile URL — the shape the
-  // SoundCloud Widget API's own ?url= param expects. Rejects anything
-  // that isn't a plain profile link (a track/set link's extra path
-  // segment, some other domain entirely) rather than guessing, since a
-  // wrong guess here would silently point the homepage widget at
-  // nothing playable.
+  // SoundCloud Widget API's own ?url= param expects.
+  //
+  // Deliberately permissive about what counts as a valid handle (SoundCloud
+  // permalinks can contain periods, e.g. soundcloud.com/dj.someone — an
+  // earlier version of this rejected any bare handle with a "." in it,
+  // which silently blocked exactly that kind of real account and looked
+  // like this whole feature just didn't work). Only rejects input that's
+  // empty, clearly some other domain, or contains whitespace/a slash after
+  // stripping a leading @ — i.e. looks like a pasted sentence/display name
+  // rather than a handle. A too-loose accept just means SoundCloud's own
+  // widget shows nothing for a bogus handle, same failure mode as leaving
+  // the field unset; a too-strict reject blocks a real account outright,
+  // which is the worse failure to bias against here.
   function extractSoundcloudProfileUrl(input) {
     if (!input) return null;
-    let trimmed = input.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+    let trimmed = input
+      .replace(/[\u200B-\u200D\uFEFF]/g, '') // invisible characters some paste sources (Notes, Word, etc.) leave behind
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '');
     if (!trimmed) return null;
     let handle;
-    if (/^soundcloud\.com\//i.test(trimmed)) {
+    if (trimmed.indexOf('/') === -1) {
+      handle = trimmed.replace(/^@/, ''); // no path at all — bare handle, periods and all
+    } else if (/^soundcloud\.com\//i.test(trimmed)) {
       handle = trimmed.slice('soundcloud.com/'.length).split(/[/?#]/)[0];
-    } else if (!/[./]/.test(trimmed)) {
-      handle = trimmed; // bare handle, no domain typed at all
     } else {
-      return null;
+      return null; // has a path but isn't soundcloud.com — some other site's link
     }
-    return /^[A-Za-z0-9_-]{2,50}$/.test(handle) ? 'https://soundcloud.com/' + handle : null;
+    return (handle && !/[\s/?#]/.test(handle)) ? 'https://soundcloud.com/' + handle : null;
   }
 
   // ---------- LOGIN ----------
@@ -2827,6 +2839,7 @@
       const input = document.getElementById('soundcloudUrlInput');
       const statusEl = document.getElementById('soundcloudStatus');
       const raw = input.value.trim();
+      statusEl.style.fontWeight = ''; // clear any bold left over from a previous rejection
 
       // Empty input + Save is how an account gets unlinked — the
       // homepage widget treats a missing/blank profileUrl as "nothing
@@ -2847,8 +2860,9 @@
 
       const url = extractSoundcloudProfileUrl(raw);
       if (!url) {
-        statusEl.textContent = "That doesn't look like a SoundCloud profile link.";
+        statusEl.textContent = "Couldn't read that as a SoundCloud profile — paste the link from your profile page (soundcloud.com/yourname) or just the handle itself.";
         statusEl.style.color = 'var(--danger)';
+        statusEl.style.fontWeight = '700';
         return;
       }
 
