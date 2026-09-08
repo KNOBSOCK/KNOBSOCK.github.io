@@ -11,7 +11,14 @@
   gtag('config', 'G-1WSW5HNWBG');
 </script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- maximum-scale/user-scalable=no is what actually stops iOS Safari's
+     native pinch-zoom on this page — touch-action:none and
+     preventDefault() on the product photo's own touchmove (see its CSS/
+     JS) turned out not to be enough on real Safari, only in Chrome's
+     synthetic touch-event testing. The page's own pinch gesture (see
+     wireZoom/PINCH_OPEN_RATIO) is meant to fully replace it here, not
+     just add to it. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Store - KNOBSOCK</title>
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://knobsock.net/store">
