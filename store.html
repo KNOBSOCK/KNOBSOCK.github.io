@@ -183,6 +183,15 @@
     position: absolute;
     inset: 0;
     overflow: hidden;
+    /* Tells the browser not to run its OWN default touch gestures here
+       at all — pinch-zooming the whole page (mobile's own complaint)
+       included — since the pinch handling below (see the touchmove
+       listener on this same element) is what actually drives the
+       photo's own zoom instead. Doesn't affect the single-finger swipe-
+       to-navigate handling right below it either way, since that's
+       already fully custom JS with no native touch behavior of its own
+       to preserve. */
+    touch-action: none;
   }
   /* Both the outgoing and incoming image during a slide, and the single
      resting image the rest of the time — always centered, translateX is
@@ -575,6 +584,11 @@
       z-index: 90;
       opacity: 0;
       visibility: hidden;
+      /* Fingers pinching the dimmed margin around the photo (not the
+         photo itself) still land on this element, not .product-viewport
+         underneath it — same reasoning as that element's own
+         touch-action, just covering the rest of the overlay's area. */
+      touch-action: none;
       transition: opacity 0.25s ease, visibility 0s linear 0.25s;
     }
     .zoom-backdrop.is-active {
@@ -980,6 +994,58 @@
     suppressNextClick = true;
     showRelativeInCategory(dx < 0 ? 1 : -1);
   }, { passive: true });
+
+  // ---- Pinch to zoom (mobile) ----
+  // A two-finger pinch on the product photo opens/closes the exact same
+  // overlay tapping it does (see wireZoom) — not a continuously-scaling
+  // photo viewer, just pinch as a second, more natural-feeling trigger
+  // for the same "show it bigger" gesture. The touchmove listener's
+  // preventDefault (needs { passive: false } to be allowed to fire at
+  // all) is what actually stops the BROWSER's own native pinch-zoom
+  // from also kicking in and scaling the whole page — the reported bug.
+  // zoomBackdrop gets the same preventDefault treatment below since a
+  // pinch with fingers on its dimmed margin (rather than the photo
+  // itself) never reaches this element at all.
+  function touchDistance(touches) {
+    var dx = touches[0].clientX - touches[1].clientX;
+    var dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  var PINCH_OPEN_RATIO = 1.15;  // fingers spread >15% opens
+  var PINCH_CLOSE_RATIO = 0.85; // fingers pinched in >15% closes
+  var pinchStartDist = 0;
+  var pinchHandled = false;
+  viewport.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 2) return;
+    // A second finger landing mid-gesture means the swipe tracker above
+    // already latched touchActive=true off the first one — left alone,
+    // its eventual touchend (now reporting wherever a pinching finger
+    // ended up, compared against where the FIRST finger started) reads
+    // as a huge, spurious swipe and navigates to the next/prev product
+    // right as the pinch ends. Cancelling it here is what stops that.
+    touchActive = false;
+    pinchStartDist = touchDistance(e.touches);
+    pinchHandled = false;
+  }, { passive: true });
+  viewport.addEventListener('touchmove', function (e) {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    if (pinchHandled || !pinchStartDist || !currentImg) return;
+    var ratio = touchDistance(e.touches) / pinchStartDist;
+    var zoomed = currentImg.classList.contains('is-zoomed');
+    if (ratio >= PINCH_OPEN_RATIO && !zoomed) {
+      currentImg.classList.add('is-zoomed');
+      zoomBackdrop.classList.add('is-active');
+      pinchHandled = true;
+    } else if (ratio <= PINCH_CLOSE_RATIO && zoomed) {
+      currentImg.classList.remove('is-zoomed');
+      zoomBackdrop.classList.remove('is-active');
+      pinchHandled = true;
+    }
+  }, { passive: false });
+  zoomBackdrop.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2) e.preventDefault();
+  }, { passive: false });
 
   // ---- Add to Cart / cart badge ----
   // Same localStorage cart cart.html already reads (knobsock_cart) — a
