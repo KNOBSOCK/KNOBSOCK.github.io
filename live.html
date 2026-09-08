@@ -92,6 +92,29 @@
     background: transparent;
   }
 
+  /* A normal flex child, not position:fixed — on the locked mobile
+     layout below (.page pinned to exactly one screen), a fixed-position
+     link ends up floating over whatever the widget itself is currently
+     showing at the bottom of its own box (the message input, in
+     livestream-chat-widget.html's case). Being a real flex item instead
+     makes .player-wrap's own flex:1 1 auto shrink to leave room for
+     this, the same way any other flex sibling would — no manual height
+     math, and the widget genuinely has less room rather than something
+     sitting on top of it. */
+  .privacy-footer {
+    flex: 0 0 auto;
+    text-align: center;
+    padding: 3px 0;
+  }
+  .privacy-footer a {
+    display: inline-block;
+    text-decoration: underline;
+    color: #fff;
+    font-size: 9px;
+    opacity: 0.75;
+  }
+  .privacy-footer a:hover { opacity: 1; }
+
   /* On mobile, lock the page itself to exactly one screen instead of
      letting it grow/scroll — the widget's own chat message list already
      has its own internal overflow-y:auto (see
@@ -241,6 +264,8 @@
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>
   </div>
+
+  <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 </div>
 
 <div class="tapin-overlay" id="tapinOverlay" aria-hidden="true">
@@ -397,7 +422,5 @@
   }).catch(function () {});
 })();
 </script>
-
-<div style="position:fixed;left:0;right:0;bottom:6px;text-align:center;z-index:999;pointer-events:none;"><a href="/privacy" style="pointer-events:auto;display:inline-block;text-decoration:underline;color:#fff;font-size:11px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:rgba(0,0,0,0.55);padding:3px 10px;border-radius:10px;">Privacy Policy &amp; User Agreement</a></div>
 </body>
 </html>

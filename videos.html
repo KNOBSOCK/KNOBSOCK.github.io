@@ -106,6 +106,23 @@
     overflow-y: auto;
   }
 
+  /* A normal flex child, not position:fixed — see live.html's matching
+     comment on this same class. .picker-wrap's flex:1 1 auto shrinks to
+     leave room for this instead of the link floating over the grid. */
+  .privacy-footer {
+    flex: 0 0 auto;
+    text-align: center;
+    padding: 3px 0;
+  }
+  .privacy-footer a {
+    display: inline-block;
+    text-decoration: underline;
+    color: #fff;
+    font-size: 9px;
+    opacity: 0.75;
+  }
+  .privacy-footer a:hover { opacity: 1; }
+
   .picker-grid {
     width: 100%;
     max-width: 900px;
@@ -203,6 +220,8 @@
       <div class="picker-empty">Loading creators…</div>
     </div>
   </div>
+
+  <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 </div>
 
 <!-- ============================================================
@@ -392,7 +411,5 @@
   }).catch(function () {});
 })();
 </script>
-
-<div style="position:fixed;left:0;right:0;bottom:6px;text-align:center;z-index:999;pointer-events:none;"><a href="/privacy" style="pointer-events:auto;display:inline-block;text-decoration:underline;color:#fff;font-size:11px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:rgba(0,0,0,0.55);padding:3px 10px;border-radius:10px;">Privacy Policy &amp; User Agreement</a></div>
 </body>
 </html>

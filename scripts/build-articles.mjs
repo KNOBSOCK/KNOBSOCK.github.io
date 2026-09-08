@@ -70,7 +70,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 7; // added the Privacy Policy & User Agreement footer link
+const TEMPLATE_VERSION = 8; // footer link: in-flow instead of fixed, smaller text
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -364,7 +364,7 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
     });
   });
 </script>
-<div style="position:fixed;left:0;right:0;bottom:6px;text-align:center;z-index:999;pointer-events:none;"><a href="/privacy" style="pointer-events:auto;display:inline-block;text-decoration:underline;color:#fff;font-size:11px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:rgba(0,0,0,0.55);padding:3px 10px;border-radius:10px;">Privacy Policy &amp; User Agreement</a></div>
+<div style="text-align:center;padding:8px 0 6px;"><a href="/privacy" style="text-decoration:underline;color:#fff;font-size:9px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:rgba(0,0,0,0.55);padding:2px 7px;border-radius:7px;">Privacy Policy &amp; User Agreement</a></div>
 </body>
 </html>
 `;
