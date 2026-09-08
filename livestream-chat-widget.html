@@ -2000,8 +2000,7 @@
     projectId: "chat-for-website-efee2",
     storageBucket: "chat-for-website-efee2.firebasestorage.app",
     messagingSenderId: "509309222193",
-    appId: "1:509309222193:web:f487258cfba2f7f7b00410",
-    measurementId: "G-RQF7G6VD1L"
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
   };
   // ====================================================================
 
@@ -2012,6 +2011,35 @@
   const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
   const devicesRef = db.collection('chat_devices');
+  // Separate from usernamesRef on purpose — see logIpBestEffort below for
+  // why this collection, specifically, needs to be able to expire on its
+  // own without touching the username-ownership doc it used to live on.
+  const ipLogRef = db.collection('chat_ip_log');
+
+  // Fixed string baked into this file, not a real secret (anyone can read
+  // this source) — it defeats a casual unsalted rainbow-table lookup, but
+  // it's not cryptographic protection against someone who reads this file
+  // and brute-forces the ~4 billion possible IPv4 addresses through the
+  // same salt. Treat hashIp()'s output as "harder to casually reverse,"
+  // not "unbreakable" — genuine secrecy would need the salt to live
+  // server-side, which this static site doesn't have.
+  const IP_LOG_SALT = 'knobsock-chat-ip-v1';
+  // How long a hashed IP sticks around before admin.html stops showing it
+  // (see findSignOutGroup) and Firestore's own TTL policy deletes the doc
+  // outright (see the chat_ip_log rules comment in firestore.rules) —
+  // picked as a window long enough to still catch a ban-evader who waits
+  // a while before coming back, while staying short enough to read as
+  // "temporary" rather than indefinite. See privacy.html for the
+  // plain-language version of this.
+  const IP_RETENTION_DAYS = 90;
+
+  async function hashIp(ip) {
+    const bytes = new TextEncoder().encode(IP_LOG_SALT + ip);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function (b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+  }
 
   // ---------- LIVE STREAM VIDEO ----------
   // Which video/stream #ytFrame embeds, and whether it's shown at all
@@ -2357,21 +2385,36 @@
   }
 
   // Fetches this browser's public IP from a keyless lookup service and
-  // logs it on the just-claimed username doc — purely a reference clue
-  // for admin.html (e.g. "these two names share an IP, might be the same
-  // person"), never an enforcement point; see the CLIENT_ID comment
-  // above for why a real IP block isn't possible from a static site.
+  // logs a SALTED HASH of it — never the address itself — to chat_ip_log,
+  // keyed by username: purely a reference clue for admin.html (e.g.
+  // "these two names hash to the same IP, might be the same person"),
+  // never an enforcement point; see the CLIENT_ID comment above for why a
+  // real IP block isn't possible from a static site.
+  //
+  // Written to its own collection instead of merged onto the username doc
+  // (like this used to work) specifically so it can expire on its own:
+  // expiresAt is set IP_RETENTION_DAYS out from right now, a Firestore TTL
+  // policy on that field (see the chat_ip_log rules comment in
+  // firestore.rules) deletes the doc once it passes, and admin.html
+  // additionally ignores anything past that age on read — so the data
+  // reads as gone immediately even during the day or so the TTL sweep
+  // itself can lag by, and username ownership/device locks/streaks (all
+  // on other docs) are never at risk of expiring along with it.
+  //
   // Best-effort and fire-and-forget: a blocked/failed lookup just means
   // this one detail stays blank, nothing about chat itself depends on it.
   function logIpBestEffort(finalUsername) {
     fetch('https://api.ipify.org?format=json')
       .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (!data || !data.ip) return;
-        return usernamesRef.doc(finalUsername.toLowerCase()).set({
-          lastIp: data.ip,
-          lastSeenAt: Date.now()
-        }, { merge: true });
+      .then(data => (data && data.ip) ? hashIp(data.ip) : null)
+      .then(ipHash => {
+        if (!ipHash) return;
+        const now = Date.now();
+        return ipLogRef.doc(finalUsername.toLowerCase()).set({
+          ipHash: ipHash,
+          loggedAt: now,
+          expiresAt: new Date(now + IP_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+        });
       })
       .catch(() => {});
   }

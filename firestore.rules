@@ -3,11 +3,12 @@ rules_version = '2';
 // ============================================================================
 // READ THIS BEFORE DEPLOYING
 //
-// This file only defines rules for the NEW store collections (store_products,
-// store_orders, store_meta). It does NOT include rules for the chat/playlist/
-// photo-order collections this site already uses (chat_messages, chat_config,
-// playlist, etc.) — those exist only in whatever's currently deployed in the
-// Firebase console, not anywhere in this repo.
+// This file only defines rules for collections that AREN'T live yet: the
+// store collections (store_products, store_orders, store_meta) and
+// chat_ip_log. It does NOT include rules for the chat/playlist/photo-order
+// collections this site already uses (chat_messages, chat_config, playlist,
+// etc.) — those exist only in whatever's currently deployed in the Firebase
+// console, not anywhere in this repo.
 //
 // `firebase deploy --only firestore:rules` REPLACES the entire ruleset — it
 // does not merge with what's live. Deploying this file as-is would make
@@ -16,9 +17,9 @@ rules_version = '2';
 // ordering, and anything else that currently depends on them.
 //
 // Before deploying: open the Firebase console → Firestore Database → Rules,
-// copy what's live there right now, and merge the two `match` blocks below
-// into it. If an `isAdmin()` (or similarly-named) helper already exists
-// there, reuse it instead of defining a second one.
+// copy what's live there right now, and merge the `match` blocks below into
+// it. If an `isAdmin()` (or similarly-named) helper already exists there,
+// reuse it instead of defining a second one.
 // ============================================================================
 
 service cloud.firestore {
@@ -70,6 +71,32 @@ service cloud.firestore {
     match /store_meta/{docId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // ---------- CHAT IP LOG ----------
+
+    // Holds ONLY a salted hash of a chat visitor's IP and when it expires
+    // — never the address itself. Written once per newly-claimed username
+    // by logIpBestEffort() in livestream-chat-widget.html; read by
+    // admin.html as a ban-evasion heuristic (see findSignOutGroup,
+    // getLiveIpHash). Same situation as the file-level comment up top:
+    // this collection isn't live yet either — merge this block into the
+    // console's rules alongside the chat ones when you deploy it, the
+    // same way as the store blocks above.
+    //
+    // A companion step outside these rules entirely: Firestore's own TTL
+    // policy has to be turned on for this collection's `expiresAt` field
+    // (Firebase console -> Firestore Database -> your database -> TTL
+    // tab, or `gcloud firestore fields ttls update expiresAt
+    // --collection-group=chat_ip_log --enable-ttl`) — that's what
+    // actually deletes a doc once it expires. These rules only control
+    // who can read/write one before that happens.
+    match /chat_ip_log/{username} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['ipHash', 'loggedAt', 'expiresAt'])
+                    && request.resource.data.ipHash is string
+                    && request.resource.data.expiresAt is timestamp;
+      allow update, delete: if isAdmin();
     }
   }
 }
