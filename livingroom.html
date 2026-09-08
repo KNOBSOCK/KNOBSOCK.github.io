@@ -44,19 +44,11 @@
     background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
   }
 
-  /* bottom is a reserved strip for .privacy-footer below, not 0 — this
-     page is locked (overflow:hidden above), so unlike a scrolling page a
-     fixed-position footer here would always sit over the same patch of
-     the 3D scene rather than just "wherever you'd scrolled to". Shrinking
-     the viewer itself leaves genuine empty space instead. */
   .viewer-wrap {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 20px;
+    inset: 0;
     width: 100vw;
-    height: auto;
+    height: 100dvh;
   }
   .viewer-wrap iframe {
     display: block;
@@ -66,23 +58,37 @@
     background: transparent;
   }
 
+  /* Overlaid on the 3D scene rather than given its own reserved strip
+     (unlike live.html/store.html/music.html/videos.html) — the Sketchfab
+     embed fills edge to edge either way, so reserving space here just
+     left a bare strip of this page's own tiled background showing below
+     it instead of more of the room. A translucent pill behind the text
+     keeps it legible regardless of what's in the scene behind it (unlike
+     a page with a known solid background, the 3D view under this can be
+     anything depending on how it's been panned/zoomed). pointer-events
+     is off on the wrapper and back on for the link alone so it doesn't
+     steal drag/pinch input from the model everywhere else across the
+     bottom edge — same trick .site-header above already uses. */
   .privacy-footer {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    bottom: 6px;
+    text-align: center;
+    z-index: 20;
+    pointer-events: none;
   }
   .privacy-footer a {
+    pointer-events: auto;
+    display: inline-block;
     text-decoration: underline;
     color: #fff;
     font-size: 9px;
-    opacity: 0.75;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 2px 7px;
+    border-radius: 7px;
   }
-  .privacy-footer a:hover { opacity: 1; }
 
   /* Header logo — floats over the 3D scene instead of pushing it down,
      same "Knobsock" image the knobsock.net landing page uses. pointer-events is off
