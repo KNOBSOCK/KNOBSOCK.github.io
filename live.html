@@ -380,6 +380,30 @@
 })();
 </script>
 
+<script>
+(function () {
+  // iOS Safari quirk: focusing the chat's message input — which lives
+  // inside the livestream-chat-widget.html iframe, not this document —
+  // can still scroll THIS page down to keep the input clear of the
+  // keyboard, even with html/body set to overflow:hidden above.
+  // WebKit's own "scroll focused input into view" behavior reaches
+  // through a same-origin iframe boundary; this page's own overflow
+  // rule doesn't stop it. Nothing here is ever meant to be scrolled, so
+  // snapping back to (0,0) on every real viewport-size change (keyboard
+  // opening OR closing) is always the correct position — not a guess
+  // for one specific case — which is what leaves the page stuck
+  // scrolled down (blank space where the header used to be) once the
+  // keyboard closes without this.
+  function resetScroll() {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resetScroll);
+  }
+  window.addEventListener('resize', resetScroll);
+})();
+</script>
+
 <!-- ============================================================
      SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
      every other Firestore-backed widget here uses) and overrides this
