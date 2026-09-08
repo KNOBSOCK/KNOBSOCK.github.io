@@ -507,6 +507,36 @@
     muteBtn.innerHTML = muted ? MUTE_ICON_MUTED : MUTE_ICON_UNMUTED;
     muteBtn.title = muted ? 'Unmute' : 'Mute';
   }
+
+  // Set when someone deliberately picks an episode from the Episodes
+  // pickle, rather than one just auto-loading on arrival. The player is
+  // always CREATED muted (see createPlayer's playerVars) because autoplay
+  // policies block a sound-on autoplay outright, and a muted start is the
+  // only way the first video plays at all — but a pick is a real click, so
+  // that one should come up audible.
+  //
+  // A flag rather than an unMute() on the spot, because the pick may be
+  // the very thing that creates the player: there's nothing to unmute
+  // until it's ready, so this is applied at every point the player can
+  // first become audible and clears itself once it lands. Once cleared it
+  // stays cleared, so it can't fight someone who then mutes by hand.
+  //
+  // Clearing only happens once isMuted() actually confirms false — not
+  // just because unMute() was called — because a call made right after
+  // loadVideoById() (the message handler below, mid-video-swap) can be
+  // too early for YouTube's player to honor: it doesn't error, it just
+  // doesn't stick. Clearing the flag unconditionally on that first,
+  // possibly-ineffective call was exactly what silently defeated the
+  // retry from onStateChange's own PLAYING case below — this flag was
+  // already false by the time that retry could have run.
+  let wantsUnmute = false;
+  function applyUnmute() {
+    if (!wantsUnmute || !ytPlayer || typeof ytPlayer.unMute !== 'function') return;
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+    updateMuteBtn();
+    if (typeof ytPlayer.isMuted !== 'function' || !ytPlayer.isMuted()) wantsUnmute = false;
+  }
   function updatePlayBtn(isPlaying) {
     playBtn.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9654;';
     playBtn.title = isPlaying ? 'Pause' : 'Play';
@@ -562,7 +592,12 @@
   pickerListEl.addEventListener('click', (e) => {
     const item = e.target.closest('.picker-item');
     if (!item) return;
+    // A real click on this document (unlike a pick relayed in from the
+    // Episodes pickle over in videos/hamburgernews.html) — same reasoning
+    // as the scrubber's own click handler.
+    wantsUnmute = true;
     playIndex(parseInt(item.dataset.index, 10));
+    applyUnmute();
     togglePicker(false);
   });
 
@@ -588,6 +623,13 @@
     const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     ytPlayer.seekTo(fraction * duration, true);
     scrubberFillEl.style.width = (fraction * 100) + '%';
+    // Unlike a pick made from the Episodes pickle (relayed in via
+    // postMessage from videos/hamburgernews.html — a different document),
+    // this click is a genuine, direct user gesture on THIS document, so
+    // unMute() called right here is on much firmer ground with the
+    // browser's own autoplay-with-sound policy.
+    wantsUnmute = true;
+    applyUnmute();
   });
 
   function playIndex(index) {
@@ -623,6 +665,7 @@
       events: {
         onReady: function () {
           playerReady = true;
+          applyUnmute();
           updateMuteBtn();
           updatePlayBtn(true);
           showControls(true);
@@ -645,7 +688,10 @@
           }
         },
         onStateChange: function (e) {
-          if (e.data === YT.PlayerState.PLAYING) { hideLoading(); updatePlayBtn(true); }
+          // applyUnmute here as well as in onReady: a pick made while the
+          // player already exists has nothing to hook onReady on, and one
+          // that lands mid-load can be too early for unMute() to stick.
+          if (e.data === YT.PlayerState.PLAYING) { hideLoading(); updatePlayBtn(true); applyUnmute(); }
           else if (e.data === YT.PlayerState.BUFFERING) { showLoading(); }
           else if (e.data === YT.PlayerState.PAUSED) { updatePlayBtn(false); }
           // Advances to the next episode instead of sitting on YouTube's
@@ -801,8 +847,10 @@
     var i = parseInt(e.data.index, 10);
     if (isNaN(i) || !videos.length) return;
     hasLoadedInitialVideo = true;   // an explicit pick outranks the auto-load
+    wantsUnmute = true;             // picking one deliberately means "with sound"
     showLoading();
     playIndex(i);
+    applyUnmute();                  // no-op unless the player's already up
   });
 
   // ---------- LIVE SYNC FROM FIRESTORE ----------
