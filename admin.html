@@ -808,6 +808,7 @@
     <h1>Admin</h1>
     <div class="tabs">
       <button type="button" class="nav-tab active" data-tab="videos">Videos</button>
+      <button type="button" class="nav-tab" data-tab="games">Games</button>
       <button type="button" class="nav-tab" data-tab="music">Music</button>
       <button type="button" class="nav-tab" data-tab="live">Live</button>
       <button type="button" class="nav-tab" data-tab="store">Store</button>
@@ -864,6 +865,25 @@
         <div class="card-head"><h2>Creators</h2></div>
         <div class="list-scroll" id="hamburgerNewsCreators"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== GAMES ===== -->
+  <div class="tab-panel" id="tab-games" hidden>
+    <h2 class="panel-heading">Games</h2>
+    <p class="panel-sub">The games behind the Games pickle on /videos/hamburgernews.html. Point each one at any HTML game by its link — the first nine fill the pickle's grid, and anything past that pages.</p>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Games List</h2>
+        <button type="button" class="btn btn-primary" id="gamesAddBtn">+ Add Game</button>
+      </div>
+      <div class="note">Drag the grip (&#10303;) to reorder — that's the order the pickle's slots fill in. A link can point anywhere: a page on this site (like <code>/joegame.html</code>) or a full URL somewhere else. The thumbnail is optional and gets cropped to a square in the pickle's grid; leave it blank for a plain black slot.</div>
+      <div class="list-scroll" id="gamesList"></div>
+      <div class="footer-actions">
+        <button type="button" class="btn btn-primary" id="gamesSaveBtn">Save Changes</button>
+      </div>
+      <div class="save-status" id="gamesStatus"></div>
     </div>
   </div>
 
@@ -1180,6 +1200,10 @@
   // /videos/hamburgernews.html, the same way VIDEO_DOC_REF is read by
   // video-playlist-widget.html.
   const HAMBURGER_NEWS_DOC_REF = db.collection('playlist').doc('hamburgerNews');
+  // Games behind the Games pickle on the same page — a sibling doc rather
+  // than a field on hamburgerNews, so the player and the pickle grids read
+  // exactly the list each one needs and nothing else.
+  const HAMBURGER_GAMES_DOC_REF = db.collection('playlist').doc('hamburgerGames');
 
   // Used by createPlaylistEditor's fetchAllPublishedDates below to look
   // up each video's REAL YouTube upload date (videos.list?part=snippet),
@@ -2269,8 +2293,105 @@
       plural: 'videos'
     }).load();
 
+    initGamesEditor();
     initSoundcloudAccountEditor();
     initSeoEditor();
+  }
+
+  // ---------- GAMES ----------
+  // Deliberately not run through createPlaylistEditor like the lists above:
+  // a game is just a title and a link to any HTML page, with none of the
+  // YouTube machinery those share (no video id to extract, no oEmbed title/
+  // author lookup, no upload date to sort by, no creator chips).
+  function initGamesEditor() {
+    const listRoot = document.getElementById('gamesList');
+    const statusEl = document.getElementById('gamesStatus');
+    let draft = [];
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text;
+      statusEl.style.color = isError ? '#ff6b6b' : '';
+    }
+
+    function render() {
+      if (!draft.length) {
+        listRoot.innerHTML = '<div class="note">No games yet — add one and save.</div>';
+        return;
+      }
+      listRoot.innerHTML = draft.map(function (g, i) {
+        return '<div class="row" data-draggable data-index="' + i + '">' +
+          '<span class="grip" title="Drag to reorder">&#10303;</span>' +
+          '<div class="row-fields">' +
+            '<input type="text" class="url-input" placeholder="Link to the game (e.g. /joegame.html)" value="' + escapeAttr(g.url || '') + '">' +
+            '<input type="text" class="title-input" placeholder="Game title" value="' + escapeAttr(g.title || '') + '">' +
+            '<input type="text" class="thumb-input" placeholder="Thumbnail image URL (optional)" value="' + escapeAttr(g.thumb || '') + '">' +
+          '</div>' +
+          '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
+        '</div>';
+      }).join('');
+
+      listRoot.querySelectorAll('.row').forEach(function (row) {
+        const i = parseInt(row.dataset.index, 10);
+        row.querySelector('.url-input').addEventListener('input', function () {
+          draft[i].url = this.value;
+        });
+        row.querySelector('.title-input').addEventListener('input', function () {
+          draft[i].title = this.value;
+        });
+        row.querySelector('.thumb-input').addEventListener('input', function () {
+          draft[i].thumb = this.value;
+        });
+        row.querySelector('.remove-btn').addEventListener('click', function () {
+          draft.splice(i, 1);
+          render();
+        });
+      });
+    }
+
+    makeSortable(listRoot, function (order) {
+      draft = order.map(function (i) { return draft[i]; });
+      render();
+    });
+
+    document.getElementById('gamesAddBtn').addEventListener('click', function () {
+      draft.push({ title: '', url: '', thumb: '' });
+      render();
+      const last = listRoot.querySelector('.row:last-child .url-input');
+      if (last) last.focus();
+    });
+
+    document.getElementById('gamesSaveBtn').addEventListener('click', function () {
+      // A row with no link has nothing to point the pickle slot at, so it's
+      // dropped rather than saved as a dead slot.
+      const games = draft
+        .filter(function (g) { return (g.url || '').trim(); })
+        .map(function (g) {
+          return {
+            title: (g.title || '').trim(),
+            url: g.url.trim(),
+            thumb: (g.thumb || '').trim()
+          };
+        });
+      setStatus('Saving…');
+      HAMBURGER_GAMES_DOC_REF.set({ games: games }, { merge: true })
+        .then(function () {
+          draft = games.slice();
+          render();
+          setStatus('Saved — the Games pickle updates live.');
+        })
+        .catch(function (err) {
+          setStatus('Save failed: ' + err.message, true);
+        });
+    });
+
+    HAMBURGER_GAMES_DOC_REF.get().then(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      draft = (data && Array.isArray(data.games)) ? data.games.slice() : [];
+      render();
+    }).catch(function (err) {
+      setStatus("Couldn't load the games list: " + err.message, true);
+      render();
+    });
   }
 
   // ---------- SOUNDCLOUD ACCOUNT ----------

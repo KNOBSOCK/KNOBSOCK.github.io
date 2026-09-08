@@ -792,6 +792,19 @@
     document.addEventListener(evt, updateFullscreenIcon);
   });
 
+  // Picking an episode from the Episodes pickle happens up in
+  // videos/hamburgernews.html (this widget is only the patty-slot player,
+  // and the pickle grid covers the whole page), so it hands the choice
+  // down here rather than loading anything itself.
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'knobsock-hamburger-play') return;
+    var i = parseInt(e.data.index, 10);
+    if (isNaN(i) || !videos.length) return;
+    hasLoadedInitialVideo = true;   // an explicit pick outranks the auto-load
+    showLoading();
+    playIndex(i);
+  });
+
   // ---------- LIVE SYNC FROM FIRESTORE ----------
   HAMBURGER_NEWS_DOC_REF.onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
