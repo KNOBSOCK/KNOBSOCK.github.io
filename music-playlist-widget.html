@@ -18,10 +18,11 @@
     --text-dim: #f5e9c9;
     --font-display: Arial, Helvetica, sans-serif;
     --font-body: Arial, Helvetica, sans-serif;
-    /* Shared between .bg-glow and .layout below so the panel's edges and
-       the content's padding can never drift apart at any window size —
-       both reference the exact same values instead of two independently
-       written formulas that merely happened to match. */
+    /* .layout's own edge padding, kept as named variables (rather than
+       inlined) since .video-pane's mobile max-height formula further
+       down needs to subtract the same --inset-side the padding itself
+       uses, and a shared variable is what keeps those two from being
+       able to drift apart. */
     --inset-top: clamp(4px, 1vw, 8px);
     --inset-side: clamp(4px, 1vw, 8px);
     --inset-bottom: clamp(16px, 3vw, 32px);
@@ -39,29 +40,6 @@
   }
 
   body { position: relative; }
-
-  /* ---------- BACKDROP ----------
-     A padded, rounded panel with a 50% frosted backdrop blur — same blur
-     treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
-     so 50% = 10px). Full-bleed edge-to-edge (same as livestream-chat-
-     widget.html's own .bg-glow) rather than capped at a fixed pixel
-     width — a width cap here while .layout's height was free to grow
-     unbounded is what made the widget elongate (get taller without
-     getting wider) on a big/zoomed-out screen instead of scaling
-     proportionally like live.html. */
-  .bg-glow {
-    position: absolute;
-    inset: var(--inset-bottom);
-    top: var(--inset-top);
-    left: var(--inset-side);
-    right: var(--inset-side);
-    border-radius: clamp(10px, 2.5vw, 28px);
-    background: rgba(242, 183, 5, 0.45);
-    backdrop-filter: blur(10px) saturate(150%);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    z-index: -1;
-    pointer-events: none;
-  }
 
   /* ---------- PAGE LAYOUT ----------
      Desktop (CSS Grid, >= 861px): video, creator chin, and SoundCloud
@@ -95,10 +73,7 @@
      hands the iframe — .layout itself is the scroll container for
      that, rather than the host page growing/scrolling around an
      oversized iframe (that used to feel like scrolling a separate
-     nested frame instead of the widget itself). Scoped to .layout
-     specifically, not html/body, so .bg-glow — a sibling of .layout,
-     not a descendant — stays put as a fixed backdrop instead of
-     scrolling away with the content. */
+     nested frame instead of the widget itself). */
   @media (max-width: 860px) {
     .layout {
       overflow-y: auto;
@@ -653,9 +628,6 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    /* Not --accent: this sits directly on .bg-glow's own gold wash with
-       no opaque backing behind it, so accent-gold text here read as
-       yellow-on-yellow. White keeps it legible against that glow. */
     color: var(--text);
   }
 
@@ -694,8 +666,6 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    /* Same yellow-on-yellow issue as .playlist-title above — this also
-       sits right on the glow with nothing opaque behind it. */
     color: var(--text-dim);
     padding: 0 2px;
     margin-top: clamp(2px, 1cqh, 6px);
@@ -955,9 +925,6 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    /* .sc-card's own background is only --panel (32% opacity), so
-       enough of the gold glow still bleeds through to make accent-gold
-       text here read as yellow-on-yellow too. */
     color: var(--text);
   }
 
@@ -1129,7 +1096,6 @@
 </head>
 <body>
 
-<div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
   <div class="video-pane is-loading" id="videoPane">
     <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
