@@ -201,21 +201,41 @@
     width: auto;
     height: auto;
     transform: translate(-50%, -50%);
-    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s ease, max-height 0.3s ease;
+    /* Invisible until showProduct's decode() call resolves (see its own
+       comment) — mobile Safari in particular will happily paint a
+       raster image mid-decode, native size and all, before this box's
+       own max-width/max-height have anything correct to clamp against,
+       which is what the cropped-corner flash on a slow mobile load
+       actually was. Fading in only once decoding is confirmed complete
+       means there's simply never a frame with the wrong size to see. */
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s ease, max-height 0.3s ease;
     -webkit-user-drag: none;
     user-select: none;
     cursor: zoom-in;
   }
+  .product-img.is-ready { opacity: 1; }
   /* Click-to-expand — same fit-to-window/actual-size toggle Chrome's own
      built-in image viewer does when you click a standalone image, with
      the matching zoom-in/zoom-out cursor. There's no way for a webpage to
      summon the OS-level magnifier itself, so this reproduces the browser-
-     native image-viewer behavior instead. */
+     native image-viewer behavior instead. Desktop only — see the mobile
+     media query for its own, much bigger, non-cropping override; on a
+     narrow screen .product-viewport is already too small a box to zoom
+     "into" without either barely growing at all (bounded to its own
+     100%) or spilling past its edges and getting clipped by its own
+     overflow:hidden, so mobile escapes that box entirely instead (below)
+     rather than reusing this. */
   .product-img.is-zoomed {
     max-width: 100%;
     max-height: 100%;
     cursor: zoom-out;
   }
+  /* Backdrop behind a zoomed image — mobile-only overlay treatment (see
+     the mobile media query for the real rules); display:none here keeps
+     it fully inert on desktop with zero layout/paint footprint no
+     matter what JS does with its is-active class. */
+  .zoom-backdrop { display: none; }
 
   /* One wrapper per side, holding one button each — display:contents
      makes the wrapper's own box disappear so .nav-btn behaves as a
@@ -522,6 +542,46 @@
     .size-option.is-popping {
       animation: btn-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+
+    /* Tap-to-zoom "overlay" — see the desktop .product-img.is-zoomed
+       rule's own comment for why this needs a different approach here:
+       .product-viewport is a small, fixed-size box on a phone (barely
+       taller than the shirt itself), so anything zoomed relative to IT
+       either barely grows (capped at its own 100%) or spills past its
+       edges and gets clipped by its own overflow:hidden — cropping the
+       collar/shoulders off, which is exactly the "don't crop" ask this
+       is fixing. position:fixed escapes .product-viewport (and .stage's
+       grid placement) entirely, sizing instead against the real
+       viewport in vw/vh — object-fit:contain math against the WHOLE
+       screen instead of one row of it, so the full photo, aspect ratio
+       intact, always fits with nothing cut off. #zoomBackdrop (dimming
+       the rest of the page behind it, toggled in lockstep by JS — see
+       wireZoom) is what actually makes this read as a lightbox
+       overlay rather than a giant photo just floating over the nav/
+       footer UI underneath it. */
+    .product-img.is-zoomed {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      max-width: 92vw;
+      max-height: 92vh;
+      z-index: 100;
+    }
+    .zoom-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      z-index: 90;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+    }
+    .zoom-backdrop.is-active {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.25s ease, visibility 0s linear 0s;
+    }
   }
 
   @keyframes btn-pop {
@@ -581,6 +641,10 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile-only zoom overlay backdrop — see its own CSS comment.
+       Inert (display:none) on desktop regardless of is-active. -->
+  <div class="zoom-backdrop" id="zoomBackdrop"></div>
 </div>
 
 <!-- ============================================================
@@ -680,6 +744,7 @@
   var addToCartImg = document.getElementById('addToCartImg');
   var cartBtn = document.querySelector('.cart-btn');
   var cartBadge = document.getElementById('cartBadge');
+  var zoomBackdrop = document.getElementById('zoomBackdrop');
 
   var PRODUCTS = [];
   var activeIndex = 0;
@@ -734,7 +799,7 @@
         // since this is the same design/product, just a different shot
         // of it.
         var color = colors[selectedColorIndex];
-        if (currentImg) currentImg.src = (color && color.image) ? color.image : product.image;
+        if (currentImg) loadImageSrc(currentImg, (color && color.image) ? color.image : product.image);
       });
     });
   }
@@ -767,12 +832,42 @@
   // this (not a real OS-level magnifier, which a webpage has no way to
   // summon) is the closest available equivalent. Ignored mid-swipe (see
   // the touch handling below) so a drag-to-swipe gesture on mobile can't
-  // also toggle zoom.
+  // also toggle zoom. zoomBackdrop only actually renders on mobile (see
+  // its own CSS) — toggling it here unconditionally is harmless on
+  // desktop, where it stays display:none regardless of is-active.
   function wireZoom(img) {
     img.addEventListener('click', function () {
       if (suppressNextClick) { suppressNextClick = false; return; }
-      img.classList.toggle('is-zoomed');
+      var zoomed = img.classList.toggle('is-zoomed');
+      zoomBackdrop.classList.toggle('is-active', zoomed);
     });
+  }
+  // Tapping the dimmed area around a zoomed photo closes it, same as
+  // tapping the photo itself again — standard lightbox behavior, and
+  // the backdrop is otherwise just dead space with nothing else to do.
+  zoomBackdrop.addEventListener('click', function () {
+    if (currentImg) currentImg.classList.remove('is-zoomed');
+    zoomBackdrop.classList.remove('is-active');
+  });
+
+  // Shared by showProduct below (a brand-new <img>) and the color-swatch
+  // swap in renderColorSwatches above (an existing one getting a new
+  // src) — both point a .product-img at a fresh photo, so both carry the
+  // same risk of a slow mobile decode painting it at the wrong size
+  // before max-width/max-height have anything correct to clamp against
+  // (see .product-img's own comment). decode() is what actually closes
+  // that window; the fallback covers a browser missing it.
+  function loadImageSrc(img, src) {
+    img.classList.remove('is-ready');
+    img.decoding = 'async';
+    img.src = src;
+    function reveal() { img.classList.add('is-ready'); }
+    if (img.decode) {
+      img.decode().then(reveal).catch(reveal);
+    } else {
+      img.addEventListener('load', reveal, { once: true });
+      img.addEventListener('error', reveal, { once: true });
+    }
   }
 
   function showProduct(index, dir) {
@@ -783,7 +878,7 @@
     var incoming = document.createElement('img');
     incoming.className = 'product-img';
     incoming.alt = product.title || '';
-    incoming.src = product.image;
+    loadImageSrc(incoming, product.image);
     incoming.style.transform = 'translate(-50%, -50%) translateX(' + (dir * 100) + 'vw)';
     wireZoom(incoming);
     viewport.appendChild(incoming);
