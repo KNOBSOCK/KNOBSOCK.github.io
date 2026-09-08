@@ -253,6 +253,7 @@
   // blocked autoplay) can't stall the click indefinitely.
   function playThenNavigate(soundSrc, href) {
     const audio = new Audio(soundSrc);
+    audio.volume = 0.5;
     let navigated = false;
     function go() {
       if (navigated) return;
@@ -335,7 +336,9 @@
             setTimeout(function () { window.location.href = href; }, 400);
           }
         } else if (soundSrc) {
-          new Audio(soundSrc).play().catch(function () {});
+          const audio = new Audio(soundSrc);
+          audio.volume = 0.5;
+          audio.play().catch(function () {});
         }
       });
     });
