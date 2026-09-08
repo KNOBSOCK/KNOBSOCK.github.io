@@ -58,7 +58,8 @@
      size — technically "not cropped", but unreadably small in practice). */
   * { box-sizing: border-box; }
 
-  /* Site's display font — used here only for the Back to Videos link. */
+  /* Site's display font — used here for the Back to Videos link and the
+     Games pickle's empty-state message. */
   @font-face {
     font-family: 'Gratis Neue';
     src: url('/Gratis%20Neue.otf') format('opentype');
@@ -152,8 +153,9 @@
   }
   .pickle-btn:hover { transform: scale(1.06); }
   .pickle-btn:active { transform: scale(0.97); }
-  /* Hidden (not just faded) while zoomed, so a stray tap can't reopen the
-     overlay from underneath it. */
+  /* Only ever set while the video widget is fullscreen — the zoom leaves
+     the pickles alone and lets them ride the stage in and out with the
+     rest of the scene (see openZoom). */
   .pickle-btn[hidden] { display: none; }
 
   /* Everything that makes up the un-zoomed scene, wrapped so the zoom can
@@ -166,23 +168,41 @@
     inset: 0;
     transform-origin: 50% 50%;
   }
+  /* Same curve and duration as the overlay's own transform below — the two
+     halves of the push-in have to stay locked together, and any mismatch
+     between them shows up as the scene visibly sliding out from under the
+     close-up. will-change promotes the stage to its own layer for the
+     duration, so the browser rasterises it once and GPU-scales it instead
+     of re-rendering an 8000px illustration every frame (which is what made
+     the push-in stutter). It's set only while the class is on, since a
+     permanent will-change would keep that layer around forever. */
   .stage-wrap.is-zooming {
-    transition: transform 0.42s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.42s ease;
+    transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+    will-change: transform;
+    backface-visibility: hidden;
   }
 
   /* ---------- PICKLE ZOOM OVERLAY ----------
      Clicking a pickle reads as the camera pushing in on it: the scene
-     above scales up about that pickle and fades, while this overlay grows
-     out of the pickle's own on-screen position to full frame. The close-up
-     art is a separate drawing of the same scene, positioned by the same
-     cover-fit + focus-point maths layout() uses for everything else (see
-     PICKLE_ART/zoomFrame), so it lands identically at any window size. */
+     above scales up about that pickle, while this overlay grows out of the
+     pickle's own on-screen position to full frame. The close-up art is a
+     separate drawing of the same scene, positioned by the same cover-fit +
+     focus-point maths layout() uses for everything else (see
+     PICKLE_ART/zoomFrame), so it lands identically at any window size.
+
+     Deliberately has NO background colour of its own. It used to be a flat
+     dark panel, which is what made the zoom "blink": mid-animation the
+     close-up is still scaled down to pickle size, so everywhere it doesn't
+     reach was that dark fill washing over the scene as the overlay faded
+     up. Transparent, the only thing crossing the frame is the close-up
+     itself growing over a scene that's still fully opaque underneath, and
+     once it settles the art covers the viewport on its own (its layout is
+     cover-fit, so that's guaranteed at any window size). */
   .pickle-zoom {
     position: fixed;
     inset: 0;
     z-index: 20;
     overflow: hidden;
-    background: #1e1e1e;
   }
   .pickle-zoom[hidden] { display: none; }
   .pickle-zoom-inner {
@@ -191,9 +211,19 @@
     transform-origin: 0 0;
   }
   .pickle-zoom.is-animating .pickle-zoom-inner {
-    transition: transform 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+    will-change: transform;
+    backface-visibility: hidden;
   }
-  .pickle-zoom.is-animating { transition: opacity 0.42s ease; }
+  /* Opacity is eased separately from the transform on purpose. While the
+     close-up is small it's a mismatched patch of a DIFFERENT drawing
+     sitting over the scene, so it wants to stay faint until it's big
+     enough to read as the same pickle; the curve below holds it low for
+     the first half and brings it up late. is-closing flips to a curve that
+     drops it early instead, so the patch is gone well before it shrinks
+     back down to pickle size. */
+  .pickle-zoom.is-animating { transition: opacity 0.46s cubic-bezier(0.62, 0, 0.86, 0.42); }
+  .pickle-zoom.is-animating.is-closing { transition: opacity 0.34s cubic-bezier(0.2, 0.7, 0.4, 1); }
   .pickle-zoom-art {
     position: absolute;
     pointer-events: none;
@@ -209,8 +239,16 @@
     grid-template-rows: repeat(3, 1fr);
     transform-origin: 50% 50%;
   }
+  /* Thumbnail on top, title underneath — so a long episode name never
+     covers the picture it belongs to. The split is driven from JS (--thumb-h,
+     set in layoutZoom) rather than hard-coded here, because the same
+     fraction also decides how tall each cell has to be for its thumbnail to
+     come out square, and the grid's own height is derived from that. One
+     number, one place. */
   .pickle-slot {
     position: relative;
+    display: flex;
+    flex-direction: column;
     padding: 0;
     border: 0;
     background: none;
@@ -220,11 +258,11 @@
     transition: transform 0.15s ease;
     -webkit-tap-highlight-color: transparent;
   }
-  /* Square, filling its whole cell — a thumbnail is cropped to fit rather
-     than letterboxed, which keeps the grid square on the pickle's face. */
+  /* Square, because the cell above it was sized to make it square — a
+     thumbnail is cropped to fill it rather than letterboxed. */
   .pickle-slot-box {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    flex: 0 0 var(--thumb-h, 78%);
     background: #000;
     overflow: hidden;
   }
@@ -234,19 +272,22 @@
     object-fit: cover;
     display: block;
   }
-  /* Sits across the bottom of its own thumbnail, spilling a little past
-     the sides — same as the mockups, where the titles read across the
-     pickle rather than being boxed in. */
+  /* Spills a little past its own cell's sides, so titles read across the
+     pickle rather than being boxed into a column-wide strip. */
   .pickle-slot-label {
-    position: absolute;
-    left: -6%;
-    right: -6%;
-    bottom: 4%;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 118%;
+    margin-left: -9%;
+    padding-top: 2%;
     text-align: center;
     color: #ffffff;
     font-family: Arial, Helvetica, sans-serif;
     font-weight: 700;
-    line-height: 1.05;
+    /* Tight, because the strip is only as tall as LABEL_FRAC makes it and
+       a two-line title has to clear its descenders inside that — any
+       looser and the clamped second line gets sliced in half. */
+    line-height: 1.02;
     letter-spacing: 0.02em;
     overflow: hidden;
     display: -webkit-box;
@@ -262,33 +303,75 @@
   .pickle-slot:disabled { cursor: default; }
   .pickle-slot:disabled .pickle-slot-box { opacity: 0.45; }
 
-  /* Only rendered when there are more than nine of something — the grid
-     itself is fixed at the nine slots the art was drawn with. */
-  .pickle-pager {
-    position: fixed;
-    z-index: 21;
-    left: 50%;
-    transform: translateX(-50%);
+  /* Games with nothing in it yet. Takes over the grid's own rect (and its
+     rotation), so the message lands on the pickle's face exactly where the
+     slots would have been. */
+  .pickle-slots.is-empty {
     display: flex;
     align-items: center;
-    gap: 14px;
-    font-family: 'Gratis Neue', Arial, sans-serif;
-    color: #ffd479;
-    -webkit-text-stroke: 0.5px #000;
-    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+    justify-content: center;
   }
-  .pickle-pager[hidden] { display: none; }
-  .pickle-pager button {
-    -webkit-appearance: none;
-    appearance: none;
+  .pickle-empty {
+    padding: 0 6%;
+    text-align: center;
+    color: #ffffff;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    font-size: 2.1em;
+    line-height: 1.15;
+    -webkit-text-stroke: 0.5px #000;
+    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+  }
+
+  /* ---------- PAGE ARROWS ----------
+     Only rendered when there's more than one page of something — the grid
+     itself is fixed at the nine slots the art was drawn with. Sat either
+     side of the zoomed pickle by layoutZoom, in the same close-up art space
+     everything else up there uses, then clamped into the viewport so they
+     stay reachable on a phone where the pickle runs off both edges. */
+  .pickle-arrow {
+    position: fixed;
+    z-index: 21;
+    padding: 0;
     border: 0;
     background: none;
-    color: inherit;
-    font: inherit;
     cursor: pointer;
-    padding: 4px 10px;
+    -webkit-appearance: none;
+    appearance: none;
+    transform-origin: 50% 50%;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
   }
-  .pickle-pager button:disabled { opacity: 0.35; cursor: default; }
+  .pickle-arrow[hidden] { display: none; }
+  .pickle-arrow img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .pickle-arrow:not(:disabled):hover { transform: scale(1.12); }
+  .pickle-arrow:not(:disabled):active { transform: scale(0.95); }
+  .pickle-arrow:disabled { opacity: 0.3; cursor: default; }
+  /* The "jump out" on a tap. Runs as a keyframe rather than a class-swapped
+     transform so it always plays to completion and resets itself, even when
+     the pointer is still sitting on the button (where a :hover transform
+     would otherwise hold it mid-pop). Each arrow leans the way it pages. */
+  .pickle-arrow.is-jump { animation: pickleArrowJump 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  #pickleNext.is-jump { animation-name: pickleArrowJumpNext; }
+  @keyframes pickleArrowJump {
+    0%   { transform: translateX(0) scale(1); }
+    38%  { transform: translateX(-14%) scale(1.3); }
+    100% { transform: translateX(0) scale(1); }
+  }
+  @keyframes pickleArrowJumpNext {
+    0%   { transform: translateX(0) scale(1); }
+    38%  { transform: translateX(14%) scale(1.3); }
+    100% { transform: translateX(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pickle-arrow.is-jump { animation: none; }
+  }
 
   /* Real-viewport fullscreen fallback for hamburger-news-widget.html's
      own fullscreen button. That widget lives in an iframe, and on iOS
@@ -351,11 +434,12 @@
     <div class="pickle-slots" id="pickleSlots"></div>
   </div>
 </div>
-<div class="pickle-pager" id="picklePager" hidden>
-  <button type="button" id="picklePrev" aria-label="Previous page">&larr;</button>
-  <span id="picklePageLabel"></span>
-  <button type="button" id="pickleNext" aria-label="Next page">&rarr;</button>
-</div>
+<button type="button" class="pickle-arrow" id="picklePrev" aria-label="Previous page" hidden>
+  <img src="/hamburger-arrow-prev.webp" alt="">
+</button>
+<button type="button" class="pickle-arrow" id="pickleNext" aria-label="Next page" hidden>
+  <img src="/hamburger-arrow-next.webp" alt="">
+</button>
 
 <!-- ============================================================
      FIREBASE — read-only here: this page only ever reads the Hamburger
@@ -384,10 +468,9 @@
   var zoomInner = document.getElementById('pickleZoomInner');
   var zoomArt = document.getElementById('pickleZoomArt');
   var slotsEl = document.getElementById('pickleSlots');
-  var pagerEl = document.getElementById('picklePager');
-  var pagerPrev = document.getElementById('picklePrev');
-  var pagerNext = document.getElementById('pickleNext');
-  var pagerLabel = document.getElementById('picklePageLabel');
+  var arrowPrev = document.getElementById('picklePrev');
+  var arrowNext = document.getElementById('pickleNext');
+  var ARROWS = [arrowPrev, arrowNext];
   var PICKLE_BTNS = {
     episodes: document.getElementById('pickleEpisodes'),
     games: document.getElementById('pickleGames')
@@ -404,11 +487,18 @@
   // again on exit — easy to forget the reverse side of a toggle like
   // this, so it's written as one toggle() call per element rather than
   // as separate add/remove branches that could drift out of sync.
+  //
+  // The pickles need the same treatment for the same reason: they're
+  // position:fixed siblings of the video, so hiding the art alone still
+  // leaves two pickles floating over a fullscreen video. They're the only
+  // thing that sets [hidden] on those buttons — the zoom deliberately
+  // doesn't (see openZoom).
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
     var active = !!e.data.active;
     pattySlot.classList.toggle('hn-fullscreen', active);
     stageBg.classList.toggle('hn-bg-hidden', active);
+    Object.keys(PICKLE_BTNS).forEach(function (n) { PICKLE_BTNS[n].hidden = active; });
   });
 
   // ---------- STAGE LAYOUT ----------
@@ -524,21 +614,64 @@
   //
   // grid is the 3x3 slot area, rotated to sit square on the pickle's face
   // — level for Games, tilted for Episodes, matching how each was drawn.
+  // Only its WIDTH is given: the height falls out of LABEL_FRAC/GAP_FRAC
+  // below, since each cell has to be tall enough for a square thumbnail
+  // plus its title underneath. Moving the titles out from inside the
+  // thumbnails made every cell taller, which is what pushed the old grids
+  // (800/980 wide, square) over the pickle's outline — Episodes visibly
+  // so, at the bottom-left, because rotating a now-tall block swings its
+  // corners further out than a square one. So these were re-solved rather
+  // than nudged: mask the pickle's own green face out of the close-up,
+  // erode it for a margin, then take the largest grid whose rotated
+  // corners all still land inside, backed off a little and re-centred on
+  // the face. Hence the odd-looking exact numbers.
   var PICKLE_ART = {
     episodes: {
       closeup: '/hamburger-pickle-episodes-zoom.webp',
       centre: { x: 1378, y: 1514 }, faceW: 1472,
       btnGreen: { cx: 0.5190, cy: 0.4675, w: 0.9490 },
-      grid: { cx: 1440, cy: 1515, size: 800, rot: -25.2 }
+      grid: { cx: 1454, cy: 1457, w: 560, rot: -25.2 }
     },
     games: {
       closeup: '/hamburger-pickle-games-zoom.webp',
       centre: { x: 1664, y: 1558 }, faceW: 2085,
       btnGreen: { cx: 0.5168, cy: 0.4907, w: 0.9433 },
-      grid: { cx: 1640, cy: 1470, size: 980, rot: 0 }
+      grid: { cx: 1644, cy: 1444, w: 761, rot: 0 }
     }
   };
   var CLOSEUP_SIZE = 3000;
+  // A splat as each pickle is hit, at the same half volume videos.html
+  // plays its own click sounds at. Built once up front rather than as a
+  // fresh Audio per click, so the file is already fetched and decoded when
+  // the first pickle is hit and the sound lands with the zoom instead of
+  // arriving after it.
+  var PICKLE_SOUNDS = {};
+  ['episodes:/splat1.mp3', 'games:/splat2.mp3'].forEach(function (pair) {
+    var bits = pair.split(':');
+    var a = new Audio(bits[1]);
+    a.preload = 'auto';
+    a.volume = 0.5;
+    PICKLE_SOUNDS[bits[0]] = a;
+  });
+  function playSplat(name) {
+    var a = PICKLE_SOUNDS[name];
+    if (!a) return;
+    // Rewind so a second hit re-triggers rather than doing nothing, and
+    // swallow both failure modes — currentTime throws if the file never
+    // loaded, play() rejects under an autoplay policy. Neither is worth
+    // breaking the zoom over.
+    try { a.currentTime = 0; } catch (err) {}
+    var p = a.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  // Share of each cell's height given over to the title strip under its
+  // thumbnail, and the gutter between cells as a share of the grid's
+  // width. Both are read back by layoutZoom — LABEL_FRAC also reaches the
+  // CSS as --thumb-h, so the two can't drift apart.
+  var LABEL_FRAC = 0.22;
+  var GAP_FRAC = 0.035;
+  // Arrow art's own aspect ratio, for sizing them from a width alone.
+  var ARROW_RATIO = 473 / 560;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -618,20 +751,45 @@
     zoomArt.style.width = (CLOSEUP_SIZE * fr.scale) + 'px';
     zoomArt.style.height = (CLOSEUP_SIZE * fr.scale) + 'px';
 
-    // Square, so the thumbnails crop to squares and the whole block sits
-    // square on the pickle's face rather than stretching across it.
+    // Cells are sized from the grid's width alone: three square thumbnails
+    // across, then each cell grown taller by LABEL_FRAC to make room for
+    // the title underneath. The grid's height is whatever that comes to,
+    // which is why only the width is a tuned constant.
     var g = art.grid;
-    var gs = g.size * fr.scale;
-    slotsEl.style.width = gs + 'px';
-    slotsEl.style.height = gs + 'px';
-    slotsEl.style.left = (fr.offX + g.cx * fr.scale - gs / 2) + 'px';
-    slotsEl.style.top = (fr.offY + g.cy * fr.scale - gs / 2) + 'px';
+    var gw = g.w * fr.scale;
+    var gap = gw * GAP_FRAC;
+    var cw = (gw - 2 * gap) / 3;
+    var ch = cw / (1 - LABEL_FRAC);
+    var gh = 3 * ch + 2 * gap;
+    slotsEl.style.width = gw + 'px';
+    slotsEl.style.height = gh + 'px';
+    slotsEl.style.left = (fr.offX + g.cx * fr.scale - gw / 2) + 'px';
+    slotsEl.style.top = (fr.offY + g.cy * fr.scale - gh / 2) + 'px';
     slotsEl.style.transform = 'rotate(' + g.rot + 'deg)';
-    slotsEl.style.gap = (gs * 0.035) + 'px';
-    slotsEl.style.fontSize = Math.max(8, gs * 0.042) + 'px';
+    slotsEl.style.gap = gap + 'px';
+    slotsEl.style.setProperty('--thumb-h', (100 * (1 - LABEL_FRAC)).toFixed(3) + '%');
+    // Sized off the CELL, not the whole grid, and specifically so that two
+    // clamped lines still fit the strip under the thumbnail: that strip is
+    // cw * LABEL_FRAC / (1 - LABEL_FRAC) tall, and 0.118 leaves room for
+    // two lines of it plus the padding and descenders.
+    slotsEl.style.fontSize = Math.max(8, cw * 0.118) + 'px';
 
-    pagerEl.style.bottom = Math.max(12, vp.h * 0.04) + 'px';
-    pagerEl.style.fontSize = Math.max(14, Math.min(22, vp.w * 0.018)) + 'px';
+    // Arrows go just outside the pickle's face, level with its middle,
+    // then get clamped into the viewport — on mobile the face runs off
+    // both edges, so unclamped they'd page from off-screen.
+    var aw = Math.max(44, Math.min(112, vp.w * 0.085));
+    var ah = aw * ARROW_RATIO;
+    var faceHalf = art.faceW * fr.scale / 2;
+    var faceCx = fr.offX + art.centre.x * fr.scale;
+    var margin = Math.max(8, vp.w * 0.02);
+    var top = fr.offY + art.centre.y * fr.scale - ah / 2;
+    arrowPrev.style.width = arrowNext.style.width = aw + 'px';
+    arrowPrev.style.height = arrowNext.style.height = ah + 'px';
+    arrowPrev.style.top = arrowNext.style.top = top + 'px';
+    arrowPrev.style.left =
+      Math.max(margin, faceCx - faceHalf - margin - aw) + 'px';
+    arrowNext.style.left =
+      Math.min(vp.w - margin - aw, faceCx + faceHalf + margin) + 'px';
   }
 
   var rafPending = false;
@@ -674,6 +832,20 @@
   function renderSlots() {
     if (!openPickle) return;
     var items = pickleItems[openPickle];
+
+    // Games ships with nothing in it until admin.html has something to
+    // point at, and nine dead slots read as broken rather than as empty.
+    // Episodes keeps the plain grid — it's never actually empty, and its
+    // greyed-out slots are the useful "this page isn't full" signal.
+    var empty = openPickle === 'games' && !items.length;
+    slotsEl.classList.toggle('is-empty', empty);
+    if (empty) {
+      slotsEl.innerHTML =
+        '<div class="pickle-empty">sorry there’s no games added yet :( come back later</div>';
+      setArrows(1);
+      return;
+    }
+
     var pages = Math.max(1, Math.ceil(items.length / SLOTS_PER_PAGE));
     if (picklePage[openPickle] > pages - 1) picklePage[openPickle] = pages - 1;
     var start = picklePage[openPickle] * SLOTS_PER_PAGE;
@@ -691,13 +863,21 @@
         '</button>';
     }
     slotsEl.innerHTML = html;
+    setArrows(pages);
+  }
 
-    pagerEl.hidden = pages < 2;
-    if (pages > 1) {
-      pagerLabel.textContent = (picklePage[openPickle] + 1) + ' / ' + pages;
-      pagerPrev.disabled = picklePage[openPickle] === 0;
-      pagerNext.disabled = picklePage[openPickle] >= pages - 1;
-    }
+  // With no page counter left on screen, the disabled states are the only
+  // thing telling you where you are in the run, so they matter more than
+  // they did when there was a "2 / 3" between them.
+  function setArrows(pages) {
+    var page = picklePage[openPickle] || 0;
+    arrowPrev.hidden = arrowNext.hidden = pages < 2;
+    arrowPrev.disabled = page === 0;
+    arrowNext.disabled = page >= pages - 1;
+  }
+
+  function hideArrows() {
+    ARROWS.forEach(function (a) { a.hidden = true; a.classList.remove('is-jump'); });
   }
 
   slotsEl.addEventListener('click', function (e) {
@@ -708,16 +888,32 @@
     chooseItem(openPickle, item);
   });
 
-  pagerPrev.addEventListener('click', function () {
-    if (!openPickle) return;
-    picklePage[openPickle] = Math.max(0, picklePage[openPickle] - 1);
-    renderSlots();
+  // Restarting the keyframe needs the class off, a reflow, then on again —
+  // re-adding a class that's already there doesn't replay an animation, so
+  // rapid paging would only pop the first press without this.
+  function jump(el) {
+    el.classList.remove('is-jump');
+    void el.offsetWidth;
+    el.classList.add('is-jump');
+  }
+  ARROWS.forEach(function (el) {
+    el.addEventListener('animationend', function () { el.classList.remove('is-jump'); });
   });
-  pagerNext.addEventListener('click', function () {
+
+  function turnPage(delta, el) {
     if (!openPickle) return;
-    picklePage[openPickle] += 1;
+    jump(el);
+    var items = pickleItems[openPickle];
+    var pages = Math.max(1, Math.ceil(items.length / SLOTS_PER_PAGE));
+    var next = Math.min(pages - 1, Math.max(0, picklePage[openPickle] + delta));
+    if (next === picklePage[openPickle]) return;
+    picklePage[openPickle] = next;
     renderSlots();
-  });
+  }
+  // Click covers both a mouse click and a tap (touch has no hover, which
+  // the CSS :hover pop handles on its own for pointers that do).
+  arrowPrev.addEventListener('click', function () { turnPage(-1, arrowPrev); });
+  arrowNext.addEventListener('click', function () { turnPage(1, arrowNext); });
 
   // Picking something zooms back out first, then hands it to the player —
   // the selection shouldn't happen behind a full-screen overlay.
@@ -739,10 +935,20 @@
 
   // ---------- ZOOM IN / OUT ----------
   // The illusion is one continuous push-in: the scene scales up about the
-  // pickle that was clicked and fades, while the overlay starts life scaled
-  // down and parked exactly over that same pickle, then settles to full
-  // frame. Both halves are driven off the same factor, so they move
-  // together rather than merely cross-fading.
+  // pickle that was clicked, while the overlay starts life scaled down and
+  // parked exactly over that same pickle, then settles to full frame. Both
+  // halves are driven off the same factor, so they move together rather
+  // than merely cross-fading.
+  //
+  // The scene deliberately does NOT fade out underneath. Fading both halves
+  // at once left a window where neither was opaque and the page's own
+  // background showed through the middle of the move — the "blink". Left at
+  // full opacity it's simply overtaken by the close-up, which covers the
+  // frame by the time it's done, and the stage is then hidden outright
+  // rather than faded. That also keeps the pickles themselves on screen for
+  // the whole of the way back out, since they ride the stage: they're
+  // visible again the instant a zoom-out starts, rather than popping back
+  // once it finishes.
   function openTransform(name) {
     var vp = viewportSize();
     var variantName = vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop';
@@ -781,6 +987,7 @@
     openPickle = name;
     picklePage[name] = 0;
     zoomReadyAt = Date.now() + 350;
+    playSplat(name);
 
     zoomArt.src = PICKLE_ART[name].closeup;
     zoomEl.hidden = false;
@@ -788,7 +995,7 @@
     layout();
 
     var t = openTransform(name);
-    zoomEl.classList.remove('is-animating');
+    zoomEl.classList.remove('is-animating', 'is-closing');
     zoomEl.style.opacity = '0';
     zoomInner.style.transform = t.inner;
     stageWrap.classList.remove('is-zooming');
@@ -808,37 +1015,42 @@
     zoomEl.style.opacity = '1';
     zoomInner.style.transform = 'translate(0px, 0px) scale(1)';
     stageWrap.style.transform = 'scale(' + t.stage.scale + ')';
-    stageWrap.style.opacity = '0';
 
-    Object.keys(PICKLE_BTNS).forEach(function (n) { PICKLE_BTNS[n].hidden = true; });
     backLink.textContent = '← Back';
     backLink.setAttribute('href', '#');
     document.addEventListener('keydown', onZoomKey);
 
     clearTimeout(zoomAnimTimer);
     zoomAnimTimer = setTimeout(function () {
-      // once settled, drop the transition so a resize can reposition
-      // instantly rather than sliding to the new spot
+      // once settled, drop the overlay's transition so a resize repositions
+      // it instantly rather than sliding to the new spot. The stage keeps
+      // is-zooming: nothing else ever transforms it, and holding its
+      // compositor layer means the way back out starts moving immediately
+      // instead of spending its first frames being promoted again.
       zoomEl.classList.remove('is-animating');
+      // Hidden rather than faded — the overlay covers it by now anyway, and
+      // this is what stops the pickles underneath from taking a stray tap
+      // while zoomed (visibility:hidden kills pointer events too), which is
+      // why they don't need [hidden] of their own here.
       stageWrap.style.visibility = 'hidden';
-    }, 460);
+    }, 500);
   }
 
   function closeZoom(done) {
     if (!openPickle) return;
     var name = openPickle;
+    // Back on screen for the whole way out, pickles included.
     stageWrap.style.visibility = '';
     var t = openTransform(name);
 
-    zoomEl.classList.add('is-animating');
+    zoomEl.classList.add('is-animating', 'is-closing');
     stageWrap.classList.add('is-zooming');
     zoomEl.style.opacity = '0';
     zoomInner.style.transform = t.inner;
     stageWrap.style.transform = 'scale(1)';
-    stageWrap.style.opacity = '1';
 
     openPickle = null;
-    pagerEl.hidden = true;
+    hideArrows();
     document.removeEventListener('keydown', onZoomKey);
     backLink.textContent = '← Back to Videos';
     backLink.setAttribute('href', '/videos');
@@ -846,13 +1058,12 @@
     clearTimeout(zoomAnimTimer);
     zoomAnimTimer = setTimeout(function () {
       zoomEl.hidden = true;
-      zoomEl.classList.remove('is-animating');
+      zoomEl.classList.remove('is-animating', 'is-closing');
       stageWrap.classList.remove('is-zooming');
       stageWrap.style.transform = '';
-      Object.keys(PICKLE_BTNS).forEach(function (n) { PICKLE_BTNS[n].hidden = false; });
       layout();
       if (done) done();
-    }, 440);
+    }, 480);
   }
 
   function onZoomKey(e) {
