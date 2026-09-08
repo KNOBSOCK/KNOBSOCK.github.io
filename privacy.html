@@ -60,23 +60,19 @@
     .site-header img { max-height: 140px; }
   }
 
+  /* Same values as the truth-zone article template's own .page-wrapper
+     (scripts/build-articles.mjs renderPage()) — this page is the same
+     kind of single-document read, so it uses the same card. */
   .page-wrapper {
     position: relative;
-    width: auto;
-    margin: 0 28px 60px;
-    padding: 28px 36px 44px;
+    width: calc(100% - 24px);
+    max-width: 820px;
+    margin: 12px auto 40px;
+    padding: 28px clamp(18px, 5vw, 44px) 40px;
     background: rgba(0, 19, 156, 0.5);
     backdrop-filter: blur(16px) saturate(150%);
     -webkit-backdrop-filter: blur(16px) saturate(150%);
     border-radius: 28px;
-  }
-  @media (min-width: 768px) {
-    .page-wrapper {
-      width: calc(100% - 100px);
-      max-width: 820px;
-      margin: 0 auto 60px;
-      padding: 32px clamp(24px, 5vw, 48px) 48px;
-    }
   }
 
   .back-link { display: inline-block; margin-bottom: 24px; color: #fff; font-size: 14px; opacity: 0.85; text-decoration: none; }
@@ -126,8 +122,6 @@
     </div>
 
     <div class="body-content">
-      <p>This policy describes the information this site collects, the purpose of its collection, and how to request its deletion.</p>
-
       <h2>Live Chat</h2>
 
       <p>Selecting a username in the live chat, available on the Live page, stores a device identifier in the visitor's browser to associate that username with the device on return visits. The username and message content are stored to operate the chat.</p>
@@ -148,17 +142,27 @@
 
       <p>This site embeds YouTube, SoundCloud, and Sketchfab content. These are third-party services that may set their own cookies under their own privacy policies, independent of this site.</p>
 
+      <p>This site uses the YouTube API Service to display recently uploaded videos. Use of this site's video content constitutes acceptance of <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube's Terms of Service</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</p>
+
       <h2>Personal Information</h2>
 
       <p>No name, email address, or physical address is collected unless voluntarily submitted. Data collected under this policy is stored using Google Firebase.</p>
 
       <h2>Cookies</h2>
 
-      <p>The only browser storage used by this site is the device identifier described above, required for the chat feature to function. It is not used for advertising or tracking. Because this site performs no non-essential tracking, no cookie consent banner is presented.</p>
+      <p>The only browser storage used by this site is the device identifier described above, required for the chat feature to function. It is not used for advertising or tracking.</p>
 
-      <h2>Children's Privacy</h2>
+      <h2>Age Requirement</h2>
 
-      <p>This site is not directed to children under the age of 13 and does not knowingly collect information from children under 13. Information believed to have been submitted by a child will be deleted upon request.</p>
+      <p>This site is intended for users who are at least 18 years old. By using this site, you represent that you meet this requirement. Separately, this site is not directed to children under the age of 13, and does not knowingly collect information from children under 13; any information believed to have been submitted by a child under 13 will be deleted upon request.</p>
+
+      <h2>User Agreement</h2>
+
+      <ul>
+        <li>Accessing data, accounts, or information belonging to another user is not permitted.</li>
+        <li>Creating user profiles by automated means, including bots or scripts, is not permitted.</li>
+        <li>Each visitor may hold one user profile at a time. Anyone who has lost access to a previous profile should contact <a href="mailto:contact@knobsock.net">contact@knobsock.net</a> to have it removed before creating a new one.</li>
+      </ul>
 
       <h2>Changes to This Policy</h2>
 
