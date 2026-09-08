@@ -201,19 +201,33 @@
     width: auto;
     height: auto;
     transform: translate(-50%, -50%);
-    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s ease, max-height 0.3s ease;
+    /* Invisible until showProduct's decode() call resolves (see its own
+       comment) — mobile Safari in particular will happily paint a
+       raster image mid-decode, native size and all, before this box's
+       own max-width/max-height have anything correct to clamp against,
+       which is what the cropped-corner flash on a slow mobile load
+       actually was. Fading in only once decoding is confirmed complete
+       means there's simply never a frame with the wrong size to see. */
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s ease, max-height 0.3s ease;
     -webkit-user-drag: none;
     user-select: none;
     cursor: zoom-in;
   }
+  .product-img.is-ready { opacity: 1; }
   /* Click-to-expand — same fit-to-window/actual-size toggle Chrome's own
      built-in image viewer does when you click a standalone image, with
      the matching zoom-in/zoom-out cursor. There's no way for a webpage to
      summon the OS-level magnifier itself, so this reproduces the browser-
      native image-viewer behavior instead. */
   .product-img.is-zoomed {
-    max-width: 100%;
-    max-height: 100%;
+    /* Was 100%/100% (i.e. "fit to window") — against .product-img's own
+       82%/94% resting size that's only a ~6% size bump, barely visible.
+       These push the zoomed image past the edges of .product-viewport
+       on purpose (clipped by its own overflow:hidden) for an actual
+       zoomed-in look, not just "slightly less padded." */
+    max-width: 140%;
+    max-height: 150%;
     cursor: zoom-out;
   }
 
@@ -734,7 +748,7 @@
         // since this is the same design/product, just a different shot
         // of it.
         var color = colors[selectedColorIndex];
-        if (currentImg) currentImg.src = (color && color.image) ? color.image : product.image;
+        if (currentImg) loadImageSrc(currentImg, (color && color.image) ? color.image : product.image);
       });
     });
   }
@@ -775,6 +789,26 @@
     });
   }
 
+  // Shared by showProduct below (a brand-new <img>) and the color-swatch
+  // swap in renderColorSwatches above (an existing one getting a new
+  // src) — both point a .product-img at a fresh photo, so both carry the
+  // same risk of a slow mobile decode painting it at the wrong size
+  // before max-width/max-height have anything correct to clamp against
+  // (see .product-img's own comment). decode() is what actually closes
+  // that window; the fallback covers a browser missing it.
+  function loadImageSrc(img, src) {
+    img.classList.remove('is-ready');
+    img.decoding = 'async';
+    img.src = src;
+    function reveal() { img.classList.add('is-ready'); }
+    if (img.decode) {
+      img.decode().then(reveal).catch(reveal);
+    } else {
+      img.addEventListener('load', reveal, { once: true });
+      img.addEventListener('error', reveal, { once: true });
+    }
+  }
+
   function showProduct(index, dir) {
     if (animating || !PRODUCTS.length) return;
     activeIndex = ((index % PRODUCTS.length) + PRODUCTS.length) % PRODUCTS.length;
@@ -783,7 +817,7 @@
     var incoming = document.createElement('img');
     incoming.className = 'product-img';
     incoming.alt = product.title || '';
-    incoming.src = product.image;
+    loadImageSrc(incoming, product.image);
     incoming.style.transform = 'translate(-50%, -50%) translateX(' + (dir * 100) + 'vw)';
     wireZoom(incoming);
     viewport.appendChild(incoming);
