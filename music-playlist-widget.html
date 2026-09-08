@@ -628,12 +628,12 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--text);
+    color: var(--ink);
   }
 
   .playlist-count {
     font-size: clamp(9px, 2.6cqw, 12px);
-    color: var(--text-dim);
+    color: var(--ink);
   }
 
   .playlist-items {
@@ -666,7 +666,7 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: var(--ink);
     padding: 0 2px;
     margin-top: clamp(2px, 1cqh, 6px);
   }
@@ -844,7 +844,7 @@
   .empty-state {
     margin: auto;
     text-align: center;
-    color: var(--text-dim);
+    color: var(--ink);
     font-size: clamp(10px, 2.8cqw, 13px);
     padding: 20px;
   }
@@ -873,19 +873,18 @@
 
   .sc-card {
     /* Matches the video's own width above it (flush left) instead of a
-       centered, narrower box floating in the middle of the column. */
+       centered, narrower box floating in the middle of the column. No
+       background/border of its own — sits directly on the page like the
+       playlist header/headings below, rather than as a separate panel. */
     flex: none;
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 1.5vw, 10px);
     overflow: hidden;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: clamp(8px, 2vw, 14px);
     padding: clamp(8px, 2vw, 14px);
     font-family: var(--font-body);
-    color: var(--text);
+    color: var(--ink);
   }
 
   /* Desktop, video-collapsed only: stretches the card to fill the
@@ -925,7 +924,7 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--text);
+    color: var(--ink);
   }
 
   .sc-now-playing {
@@ -1021,7 +1020,7 @@
 
   .sc-artist {
     font-size: clamp(9px, 2.2vw, 11px);
-    color: var(--text-dim);
+    color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1029,7 +1028,7 @@
 
   .sc-album {
     font-size: clamp(9px, 2.2vw, 11px);
-    color: var(--text-dim);
+    color: var(--ink);
     font-style: italic;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1041,7 +1040,7 @@
 
   .sc-source {
     font-size: clamp(7px, 1.3vw, 9px);
-    color: var(--text-dim);
+    color: var(--ink);
     opacity: 0.55;
     margin-top: 1px;
   }
@@ -1058,7 +1057,13 @@
     width: 100%;
     height: 4px;
     border-radius: 2px;
-    background: rgba(242, 183, 5, 0.2);
+    /* Was a faint gold wash, meant to show up against .sc-card's own dark
+       backing — with the card's own background gone, that same faint
+       gold would barely register against a bright yellow page, so this
+       uses the page's own dark ink instead for a track that stays
+       visible (and still contrasts with the gold --accent fill on top of
+       it) regardless of what's behind it. */
+    background: rgba(58, 42, 0, 0.25);
     overflow: hidden;
   }
   .sc-progress-fill {
