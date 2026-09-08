@@ -37,7 +37,14 @@
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
+    /* Was plain 100% — that doesn't track mobile Safari's own
+       collapsing address-bar toolbar the way .viewer-wrap's 100dvh
+       below already does, so this box could end up shorter than the
+       actually-visible viewport once the toolbar hides, leaving a gap
+       above/below it painted in Safari's own default white rather than
+       this element's own black background. */
+    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
   }
