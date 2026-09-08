@@ -235,27 +235,51 @@
     cursor: zoom-in;
   }
   .product-img.is-ready { opacity: 1; }
-  /* Click-to-expand — same fit-to-window/actual-size toggle Chrome's own
-     built-in image viewer does when you click a standalone image, with
-     the matching zoom-in/zoom-out cursor. There's no way for a webpage to
-     summon the OS-level magnifier itself, so this reproduces the browser-
-     native image-viewer behavior instead. Desktop only — see the mobile
-     media query for its own, much bigger, non-cropping override; on a
-     narrow screen .product-viewport is already too small a box to zoom
-     "into" without either barely growing at all (bounded to its own
-     100%) or spilling past its edges and getting clipped by its own
-     overflow:hidden, so mobile escapes that box entirely instead (below)
-     rather than reusing this. */
+  /* Click-to-expand — a full-screen, aspect-ratio-preserving lightbox on
+     both desktop and mobile now (used to be a much smaller, barely-
+     zooming desktop-only version bounded to .product-viewport). Sized
+     in vw/vh against the real viewport rather than .product-viewport
+     itself, since that box is too small on any screen to zoom "into"
+     without either barely growing at all (capped at its own 100%) or
+     spilling past its edges and getting clipped by its own
+     overflow:hidden — cropping the shirt, which is exactly what this
+     avoids. max-width/max-height (not a fixed size) is what keeps this
+     "contain" rather than crop: the full photo, aspect ratio intact,
+     always fits on screen with nothing cut off, whatever the source
+     photo's own resolution actually is. There's no way for a webpage to
+     summon the OS-level magnifier itself, so this is the closest
+     available equivalent, with the matching zoom-in/zoom-out cursor. */
   .product-img.is-zoomed {
-    max-width: 100%;
-    max-height: 100%;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    max-width: 92vw;
+    max-height: 92vh;
+    z-index: 100;
     cursor: zoom-out;
   }
-  /* Backdrop behind a zoomed image — mobile-only overlay treatment (see
-     the mobile media query for the real rules); display:none here keeps
-     it fully inert on desktop with zero layout/paint footprint no
-     matter what JS does with its is-active class. */
-  .zoom-backdrop { display: none; }
+  /* Dims the rest of the page behind a zoomed image, toggled in lockstep
+     by JS (see wireZoom) — what actually makes the zoom read as a
+     lightbox overlay rather than a giant photo just floating over the
+     nav/footer UI underneath it. */
+  .zoom-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    z-index: 90;
+    opacity: 0;
+    visibility: hidden;
+    /* A pointer/finger landing on the dimmed margin around the photo
+       (not the photo itself) still lands on this element, not
+       .product-viewport underneath it. */
+    touch-action: none;
+    transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+  }
+  .zoom-backdrop.is-active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.25s ease, visibility 0s linear 0s;
+  }
 
   /* One wrapper per side, holding one button each — display:contents
      makes the wrapper's own box disappear so .nav-btn behaves as a
@@ -283,7 +307,13 @@
   }
   .nav-btn:hover { transform: translateY(-50%) scale(1.06); }
   .nav-btn:active { transform: translateY(-50%) scale(0.94); }
-  .nav-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; }
+  /* Visual echo for this button's arrow-key equivalent (see the keydown/
+     keyup handling below) — darkened + popped slightly larger than even
+     the hover state, held for as long as the key itself is held down,
+     the same way a real button looks pressed while you hold it. */
+  .nav-btn.is-key-active { transform: translateY(-50%) scale(1.1); }
+  .nav-btn.is-key-active img { filter: brightness(0.7); }
+  .nav-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; transition: filter 0.15s ease; }
   .nav-prev { left: clamp(6px, 3vw, 48px); }
   .nav-next { right: clamp(6px, 3vw, 48px); }
 
@@ -342,7 +372,12 @@
   }
   .next-item-btn:hover { transform: scale(1.06); }
   .next-item-btn:active { transform: scale(0.94); }
-  .next-item-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; }
+  /* Shared by both Down (next category) and Up (previous category) —
+     there's no separate "prev item" button on screen for Up to light up
+     instead, see the keydown handling below. */
+  .next-item-btn.is-key-active { transform: scale(1.1); }
+  .next-item-btn.is-key-active img { filter: brightness(0.7); }
+  .next-item-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; transition: filter 0.15s ease; }
 
   .footer-right {
     flex: 1 1 0;
@@ -536,6 +571,7 @@
       width: clamp(56px, 18vw, 120px);
     }
     .nav-btn:hover, .nav-btn:active { transform: none; }
+    .nav-btn.is-key-active { transform: scale(1.1); }
     .nav-prev { grid-column: 1; justify-self: start; }
     .nav-next { grid-column: 3; justify-self: end; }
 
@@ -561,51 +597,6 @@
     .cart-btn.is-popping,
     .size-option.is-popping {
       animation: btn-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    /* Tap-to-zoom "overlay" — see the desktop .product-img.is-zoomed
-       rule's own comment for why this needs a different approach here:
-       .product-viewport is a small, fixed-size box on a phone (barely
-       taller than the shirt itself), so anything zoomed relative to IT
-       either barely grows (capped at its own 100%) or spills past its
-       edges and gets clipped by its own overflow:hidden — cropping the
-       collar/shoulders off, which is exactly the "don't crop" ask this
-       is fixing. position:fixed escapes .product-viewport (and .stage's
-       grid placement) entirely, sizing instead against the real
-       viewport in vw/vh — object-fit:contain math against the WHOLE
-       screen instead of one row of it, so the full photo, aspect ratio
-       intact, always fits with nothing cut off. #zoomBackdrop (dimming
-       the rest of the page behind it, toggled in lockstep by JS — see
-       wireZoom) is what actually makes this read as a lightbox
-       overlay rather than a giant photo just floating over the nav/
-       footer UI underneath it. */
-    .product-img.is-zoomed {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      max-width: 92vw;
-      max-height: 92vh;
-      z-index: 100;
-    }
-    .zoom-backdrop {
-      display: block;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.78);
-      z-index: 90;
-      opacity: 0;
-      visibility: hidden;
-      /* Fingers pinching the dimmed margin around the photo (not the
-         photo itself) still land on this element, not .product-viewport
-         underneath it — same reasoning as that element's own
-         touch-action, just covering the rest of the overlay's area. */
-      touch-action: none;
-      transition: opacity 0.25s ease, visibility 0s linear 0.25s;
-    }
-    .zoom-backdrop.is-active {
-      opacity: 1;
-      visibility: visible;
-      transition: opacity 0.25s ease, visibility 0s linear 0s;
     }
   }
 
@@ -656,14 +647,14 @@
         <span class="size-label">Size:</span>
         <div class="size-options" id="sizeOptions"></div>
       </div>
-      <button type="button" class="add-to-cart-btn" id="addToCartBtn" aria-label="Add to cart — checkout coming soon" disabled>
-        <img id="addToCartImg" src="/store-btn-addtocart.webp" alt="Add to Cart">
-        <img class="add-to-cart-construction" src="/store-under-construction.gif" alt="">
-      </button>
       <div class="color-picker" id="colorPicker" hidden>
         <img class="color-picker-heading" src="/store-colorpicker-heading.webp" alt="Color Picker">
         <div class="color-swatches" id="colorSwatches"></div>
       </div>
+      <button type="button" class="add-to-cart-btn" id="addToCartBtn" aria-label="Add to cart — checkout coming soon" disabled>
+        <img id="addToCartImg" src="/store-btn-addtocart.webp" alt="Add to Cart">
+        <img class="add-to-cart-construction" src="/store-under-construction.gif" alt="">
+      </button>
     </div>
   </div>
 
@@ -857,9 +848,7 @@
   // this (not a real OS-level magnifier, which a webpage has no way to
   // summon) is the closest available equivalent. Ignored mid-swipe (see
   // the touch handling below) so a drag-to-swipe gesture on mobile can't
-  // also toggle zoom. zoomBackdrop only actually renders on mobile (see
-  // its own CSS) — toggling it here unconditionally is harmless on
-  // desktop, where it stays display:none regardless of is-active.
+  // also toggle zoom.
   function wireZoom(img) {
     img.addEventListener('click', function () {
       if (suppressNextClick) { suppressNextClick = false; return; }
@@ -899,6 +888,14 @@
     if (animating || !PRODUCTS.length) return;
     activeIndex = ((index % PRODUCTS.length) + PRODUCTS.length) % PRODUCTS.length;
     var product = PRODUCTS[activeIndex];
+
+    // Now that is-zoomed is a full-screen fixed overlay on every screen
+    // size (see its own CSS comment), leaving it zoomed here would slide
+    // that giant photo off screen via the translateX below while a
+    // brand-new, normal-sized one slides into .product-viewport at the
+    // same time — closing it on navigation avoids that.
+    if (currentImg) currentImg.classList.remove('is-zoomed');
+    zoomBackdrop.classList.remove('is-active');
 
     var incoming = document.createElement('img');
     incoming.className = 'product-img';
@@ -988,13 +985,27 @@
   // ---- Arrow-key navigation (desktop) ----
   // Left/Right mirror the prev/next buttons; Down mirrors Next Item, and
   // Up walks the same category list backward — there's no separate
-  // "prev item" button on screen, so the keyboard is the only way to
-  // reach that direction.
+  // "prev item" button on screen, so Up borrows Next Item's own button
+  // for the key-active flash below too, just going the other way.
+  var ARROW_KEY_BTN = { ArrowLeft: prevBtn, ArrowRight: nextBtn, ArrowDown: nextItemBtn, ArrowUp: nextItemBtn };
   document.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft') { e.preventDefault(); showRelativeInCategory(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); showRelativeInCategory(1); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); showRelativeCategory(1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); showRelativeCategory(-1); }
+    else return;
+    ARROW_KEY_BTN[e.key].classList.add('is-key-active');
+  });
+  document.addEventListener('keyup', function (e) {
+    var btn = ARROW_KEY_BTN[e.key];
+    if (btn) btn.classList.remove('is-key-active');
+  });
+  // Safety net for a keyup that never arrives (e.g. Alt+Tabbing away
+  // mid-press) — without this a button could stay stuck looking pressed.
+  window.addEventListener('blur', function () {
+    prevBtn.classList.remove('is-key-active');
+    nextBtn.classList.remove('is-key-active');
+    nextItemBtn.classList.remove('is-key-active');
   });
 
   // ---- Swipe left/right (mobile) ----
