@@ -702,5 +702,48 @@
   checkHashAndRoute();
 </script>
 
+<!-- ============================================================
+     SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
+     every other Firestore-backed widget here uses) and overrides this
+     page's built-in title/meta description if something's been saved
+     for it. Fails silently (offline, doc missing, this slug not filled
+     in yet) rather than blanking anything out — the page's own
+     built-in text stays exactly as it is until this successfully
+     overrides it. Only reaches crawlers that actually run JavaScript
+     (Google does) — see admin.html's own SEO tab note for why link-
+     preview scrapers (Discord, Twitter/X, etc.) never see this. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  var firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  var db = firebase.firestore(firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig));
+  function setMeta(selector, value) {
+    var el = document.querySelector(selector);
+    if (el) el.setAttribute('content', value);
+  }
+  db.collection('chat_config').doc('seo').get().then(function (doc) {
+    var data = doc.exists ? doc.data() : null;
+    var page = data && data.pages && data.pages['truth'];
+    if (!page) return;
+    if (page.title) {
+      document.title = page.title;
+      setMeta('meta[property="og:title"]', page.title);
+    }
+    if (page.description) {
+      setMeta('meta[name="description"]', page.description);
+      setMeta('meta[property="og:description"]', page.description);
+    }
+  }).catch(function () {});
+})();
+</script>
+
 </body>
 </html>

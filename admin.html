@@ -71,6 +71,22 @@
     margin: 14px 0 6px;
   }
   .field-label:first-of-type { margin-top: 0; }
+  /* One row per page in the SEO tab — a border between rows (not cards
+     per page, there'd be nine of them) is enough separation given each
+     row is just two fields. */
+  .seo-page-row {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .seo-page-row:first-child { padding-top: 0; }
+  .seo-page-row:last-child { border-bottom: none; }
+  .seo-char-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: right;
+    margin-top: 2px;
+  }
+  .seo-char-count.is-over { color: var(--danger); }
   input[type="text"], input[type="email"], input[type="password"] {
     width: 100%;
     background: var(--panel-2);
@@ -795,6 +811,7 @@
       <button type="button" class="nav-tab" data-tab="music">Music</button>
       <button type="button" class="nav-tab" data-tab="live">Live</button>
       <button type="button" class="nav-tab" data-tab="store">Store</button>
+      <button type="button" class="nav-tab" data-tab="seo">SEO</button>
     </div>
     <span class="whoami" id="whoami"></span>
     <button type="button" class="btn" id="signOutBtn">Sign Out</button>
@@ -1021,6 +1038,21 @@
       <div class="save-status" id="ordersStatus"></div>
     </div>
   </div>
+
+  <!-- ===== SEO ===== -->
+  <div class="tab-panel" id="tab-seo" hidden>
+    <h2 class="panel-heading">SEO</h2>
+    <p class="panel-sub">Per-page title and meta description — the text Google shows in search results. Saved here once, applied live to whichever of these pages someone loads or refreshes next.</p>
+    <div class="note">This only reaches search engines that run JavaScript to see a page (Google does). Link-preview cards on Discord, Twitter/X, iMessage, Slack, etc. never run a page's JavaScript at all, so they'll keep showing whatever's already built into that page's own code regardless of what's saved here — ask separately whenever there's real copy ready for those.</div>
+    <div class="card">
+      <div class="card-head"><h2>Pages</h2></div>
+      <div id="seoPages"></div>
+      <div class="footer-actions">
+        <button type="button" class="btn btn-primary" id="seoSaveBtn">Save Changes</button>
+      </div>
+      <div class="save-status" id="seoStatus"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ---------- BAN / TIMEOUT DIALOG ---------- -->
@@ -1184,6 +1216,15 @@
   // header note), so reusing an already-public collection means this
   // ships without anyone having to hand-edit rules there too.
   const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
+
+  // SEO tab — also not chat-related, filed under chat_config for the
+  // exact reason SOUNDCLOUD_REF above is: it's already public-read/
+  // admin-write in the live console, so this works without anyone
+  // hand-editing Firestore rules there first. Read by a small inline
+  // script on each of the real pages listed in SEO_PAGES below (see
+  // that page's own <head>) to override its built-in <title>/meta
+  // description once this loads.
+  const SEO_REF = db.collection('chat_config').doc('seo');
 
   // Store tab — see store.html (reads store_products) and
   // functions/index.js's stripeWebhook (writes store_orders).
@@ -2229,6 +2270,7 @@
     }).load();
 
     initSoundcloudAccountEditor();
+    initSeoEditor();
   }
 
   // ---------- SOUNDCLOUD ACCOUNT ----------
@@ -2306,6 +2348,116 @@
       } catch (err) {
         alert('SoundCloud save button hit an unexpected error: ' + (err && err.message ? err.message : err));
       }
+    });
+  }
+
+  // ---------- SEO ----------
+  // A fixed list, not a generic "any page" system — these are this
+  // site's real, indexable pages (the ones actually meant to rank),
+  // not the admin panel, checkout flow, or any of the iframe-only
+  // widget files. Adding another page here later also means adding the
+  // same small reader script to that page's own <head> (see e.g.
+  // videos.html's own SEO block) — the two have to be kept in sync by
+  // hand, there's nothing that enforces it.
+  var SEO_PAGES = [
+    { slug: 'home', label: 'Home (/)' },
+    { slug: 'videos', label: 'Videos (/videos)' },
+    { slug: 'music', label: 'Music (/music)' },
+    { slug: 'live', label: 'Live (/live)' },
+    { slug: 'store', label: 'Store (/store)' },
+    { slug: 'truth', label: 'Truth (/truth/)' },
+    { slug: 'contact', label: 'Contact (/contact)' },
+    { slug: 'legal', label: 'Legal (/legal)' },
+    { slug: 'archive', label: 'Archive (/archive)' }
+  ];
+  // Google's own truncation points — not a hard limit (nothing stops
+  // typing past these), just what the character counts below warn
+  // against.
+  var SEO_TITLE_SOFT_MAX = 60;
+  var SEO_DESC_SOFT_MAX = 155;
+
+  function updateSeoCharCount(input, countEl, softMax) {
+    var len = input.value.length;
+    countEl.textContent = len + '/' + softMax;
+    countEl.classList.toggle('is-over', len > softMax);
+  }
+
+  function initSeoEditor() {
+    var pagesRoot = document.getElementById('seoPages');
+    var saveBtn = document.getElementById('seoSaveBtn');
+    var statusEl = document.getElementById('seoStatus');
+
+    pagesRoot.innerHTML = SEO_PAGES.map(function (p) {
+      return '<div class="seo-page-row" data-slug="' + p.slug + '">' +
+        '<label class="field-label">' + escapeAttr(p.label) + '</label>' +
+        '<input type="text" class="seo-title-input" placeholder="Page title">' +
+        '<div class="seo-char-count"></div>' +
+        '<textarea class="seo-desc-input" rows="2" placeholder="Meta description" style="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:9px 10px;font-size:13px;font-family:inherit;resize:vertical;margin-top:8px;"></textarea>' +
+        '<div class="seo-char-count"></div>' +
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(pagesRoot.querySelectorAll('.seo-page-row'), function (row) {
+      var titleInput = row.querySelector('.seo-title-input');
+      var descInput = row.querySelector('.seo-desc-input');
+      var counts = row.querySelectorAll('.seo-char-count');
+      var titleCount = counts[0];
+      var descCount = counts[1];
+      titleInput.addEventListener('input', function () { updateSeoCharCount(titleInput, titleCount, SEO_TITLE_SOFT_MAX); });
+      descInput.addEventListener('input', function () { updateSeoCharCount(descInput, descCount, SEO_DESC_SOFT_MAX); });
+      updateSeoCharCount(titleInput, titleCount, SEO_TITLE_SOFT_MAX);
+      updateSeoCharCount(descInput, descCount, SEO_DESC_SOFT_MAX);
+    });
+
+    // One-time prefill, same as the SoundCloud account field above —
+    // this is a settings form for one editor at a time, not a list that
+    // needs to stay live-synced while open.
+    SEO_REF.get().then(function (doc) {
+      var data = doc.exists ? doc.data() : null;
+      var pages = (data && data.pages) || {};
+      Array.prototype.forEach.call(pagesRoot.querySelectorAll('.seo-page-row'), function (row) {
+        var p = pages[row.dataset.slug] || {};
+        var titleInput = row.querySelector('.seo-title-input');
+        var descInput = row.querySelector('.seo-desc-input');
+        titleInput.value = p.title || '';
+        descInput.value = p.description || '';
+        var counts = row.querySelectorAll('.seo-char-count');
+        updateSeoCharCount(titleInput, counts[0], SEO_TITLE_SOFT_MAX);
+        updateSeoCharCount(descInput, counts[1], SEO_DESC_SOFT_MAX);
+      });
+    }).catch(function (err) {
+      statusEl.textContent = 'Could not load: ' + (err && err.message ? err.message : 'unknown error');
+      statusEl.style.color = 'var(--danger)';
+    });
+
+    saveBtn.addEventListener('click', function () {
+      if (!auth.currentUser) {
+        statusEl.textContent = 'You’ve been signed out — please sign in again.';
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+      var pages = {};
+      Array.prototype.forEach.call(pagesRoot.querySelectorAll('.seo-page-row'), function (row) {
+        var title = row.querySelector('.seo-title-input').value.trim();
+        var description = row.querySelector('.seo-desc-input').value.trim();
+        if (title || description) pages[row.dataset.slug] = { title: title, description: description };
+      });
+      saveBtn.disabled = true;
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-dim)';
+      SEO_REF.set({
+        pages: pages,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: auth.currentUser.email || auth.currentUser.uid
+      }).then(function () {
+        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes one of these pages.';
+        statusEl.style.color = 'var(--accent)';
+      }).catch(function (err) {
+        statusEl.textContent = 'Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).';
+        statusEl.style.color = 'var(--danger)';
+      }).finally(function () {
+        saveBtn.disabled = false;
+      });
     });
   }
 
