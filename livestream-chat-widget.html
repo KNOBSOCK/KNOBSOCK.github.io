@@ -1346,6 +1346,46 @@
   .send-btn:hover:not(:disabled) { filter: brightness(0.82); }
   .send-btn:active:not(:disabled) { filter: brightness(0.68); }
 
+  /* Wraps just the text input (not the send button beside it) so the
+     counter below can pin to ITS corner without floating out over the
+     button's own padding. */
+  .composer-input-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+  /* Room on the right so the counter never sits on top of typed text —
+     a single-line input scrolls its OWN text right up to the inner edge
+     of this padding once it overflows (to keep the caret visible), so
+     this has to comfortably clear the counter's widest realistic case
+     (see MAX_MSG_LEN's own comment on the "1000/400" ceiling) with a
+     few px to spare, not just its resting "0/400". */
+  .composer-input-wrap input { padding-right: clamp(58px, 15cqmin, 72px); }
+  .char-counter {
+    position: absolute;
+    right: clamp(6px, 1.8cqmin, 9px);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: clamp(9px, 2.1cqmin, 10.5px);
+    font-family: var(--font-body);
+    color: var(--text-dim);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  /* Over the limit isn't a typing error to block outright (see
+     sendMessage's own comment) — just a heads-up, so this only recolors
+     the existing counter rather than doing anything more alarming. */
+  .char-counter.is-over { color: var(--error); font-weight: 700; }
+  /* Hidden by default (see the composer template's `hidden` attribute) —
+     only shown for a few seconds right after a too-long send attempt,
+     never a permanent fixture like the counter above it. */
+  .composer-limit-msg {
+    color: var(--error);
+    font-size: clamp(10px, 2.6cqmin, 12px);
+    font-family: var(--font-body);
+    padding: clamp(4px, 1.4cqmin, 6px) clamp(8px, 2.8cqmin, 14px) 0;
+  }
+
   .loading {
     margin: auto;
     text-align: center;
@@ -2832,6 +2872,37 @@
   }
 
   // ---------- RENDER: CHAT ----------
+  // Not enforced with the input's own maxlength attribute — that would
+  // silently swallow keystrokes (or truncate a paste) with no feedback
+  // at all. sendMessage() below checks this instead, so someone who
+  // types/pastes past it still sees exactly what they typed, plus the
+  // counter and (only on an actual send attempt) composerLimitMsg
+  // telling them why nothing happened. The input's maxlength (see its
+  // template below) is set much higher than this, purely as a backstop
+  // against a pathological paste (megabytes into a single Firestore
+  // message field, or a counter so wide it can't fit its own corner) —
+  // it should never actually be what stops a normal over-limit send.
+  const MAX_MSG_LEN = 400;
+  const MSG_INPUT_HARD_CAP = 1000;
+
+  function updateCharCounter() {
+    const input = $('msgInput');
+    const counter = $('charCounter');
+    if (!input || !counter) return;
+    const len = input.value.length;
+    counter.textContent = len + '/' + MAX_MSG_LEN;
+    counter.classList.toggle('is-over', len > MAX_MSG_LEN);
+  }
+
+  let limitMsgTimer = null;
+  function flashLimitMsg() {
+    const el = $('composerLimitMsg');
+    if (!el) return;
+    el.hidden = false;
+    clearTimeout(limitMsgTimer);
+    limitMsgTimer = setTimeout(() => { el.hidden = true; }, 4000);
+  }
+
   function renderChatShell() {
     // Own color resolves the same lazy way everyone else's does (see
     // colorForUsername) — usernameColorCache already has it "pending" or
@@ -2860,9 +2931,13 @@
             </div>
           </div>
           <div class="composer">
-            <input type="text" id="msgInput" placeholder="Type a message…" maxlength="500" />
+            <div class="composer-input-wrap">
+              <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
+              <span class="char-counter" id="charCounter">0/${MAX_MSG_LEN}</span>
+            </div>
             <button class="send-btn" id="sendBtn" title="Send" aria-label="Send"><img src="/send-button.png" alt=""></button>
           </div>
+          <div class="composer-limit-msg" id="composerLimitMsg" hidden>Messages have to be ${MAX_MSG_LEN} characters or fewer — trim it down and hit send again.</div>
         </div>
       </div>
     `;
@@ -2879,6 +2954,8 @@
     $('msgInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
+    $('msgInput').addEventListener('input', updateCharCounter);
+    updateCharCounter();
 
     $('tapinBtn').addEventListener('click', sendTapIn);
     refreshTapInButtonState();
@@ -2934,10 +3011,15 @@
 
   async function sendMessage() {
     const input = $('msgInput');
+    if (input.value.length > MAX_MSG_LEN) {
+      flashLimitMsg();
+      return;
+    }
     const text = censorText(input.value.trim());
     if (!text) return;
     input.value = '';
     input.disabled = true;
+    updateCharCounter();
 
     try {
       await sendMessageToFirestore({
@@ -2947,6 +3029,7 @@
     } catch (e) {
       console.error(e);
       input.value = text;
+      updateCharCounter();
     } finally {
       input.disabled = false;
       input.focus();
