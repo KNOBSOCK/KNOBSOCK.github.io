@@ -85,70 +85,31 @@
     .layout {
       display: grid;
       grid-template-columns: 1fr minmax(280px, 34%);
-      /* minmax(0, auto)/minmax(0, 1fr) — not plain auto/1fr — on the
-         video and SoundCloud rows: plain "auto" never shrinks below its
-         content's natural size, which is what let a wide-but-short
-         window's aspect-ratio-driven video height overflow the layout
-         and clip/hide "Music Videos" entirely. With a 0 floor, the
-         video row still hugs its full 16:9 height whenever there's
-         room (nothing changes in the common case) but can shrink first
-         when the window doesn't have enough height for everything, so
-         the video scales down to fit instead of overflowing.
-
-         The SoundCloud row keeps a min-content floor for the same
-         reason in reverse: when there isn't room for everything, the
-         shrinking has to come out of the video — which letterboxes
-         inside its own pane and still looks right — rather than out of
-         the "Now Playing" card, which has nowhere to go and would just
-         have its artwork and controls cropped off the bottom.
-
-         The 1fr here is still needed even though .sc-card itself no
-         longer stretches to fill it (see the .sc-card rule further
-         down) — "playlist" spans both this row and the video row above
-         as one grid area (see grid-template-areas below), so shrinking
-         this row's *track* down to .sc-card's content size would take
-         the playlist pane's height down with it. The 1fr keeps the row
-         — and so the playlist column — filling the available height;
-         .sc-card just no longer insists on filling the row itself, so
-         it sits at the row's top instead, with .sc-section's own
-         (transparent) background showing through the space below it. */
-      grid-template-rows: minmax(0, auto) minmax(min-content, 1fr);
-      grid-template-areas:
-        "video      playlist"
-        "soundcloud playlist";
+      /* One row now that the video pane has the whole left column to
+         itself (no more separate SoundCloud "Now Playing" row sharing
+         it) — 1fr so that column, and "playlist" spanning it in the
+         column beside it, both fill the full available height. */
+      grid-template-rows: 1fr;
+      grid-template-areas: "video playlist";
       gap: 14px;
     }
-    /* Hide Playlist: let the video (and the Now Playing card below it)
-       span both columns instead of redefining the whole grid template
-       (rows/columns/areas together) — changing just this one property
-       is a much smaller move for the browser to reconcile than swapping
-       the entire template, which is what was making the video embed's
-       sizing/positioning glitch and drift outside the background panel
-       when the button was clicked. */
-    .layout.playlist-hidden .video-pane,
-    .layout.playlist-hidden .sc-section {
+    /* Hide Playlist: let the video span both columns instead of
+       redefining the whole grid template (rows/columns/areas together)
+       — changing just this one property is a much smaller move for the
+       browser to reconcile than swapping the entire template, which is
+       what was making the video embed's sizing/positioning glitch and
+       drift outside the background panel when the button was clicked. */
+    .layout.playlist-hidden .video-pane {
       grid-column: 1 / -1;
     }
-    /* Collapse Video: the freed video row goes entirely to the "Now
-       Playing" card below it — same idea as Hide Playlist just above,
-       spanning grid rows instead of columns. */
-    .layout.video-collapsed .sc-section {
-      grid-row: 1 / -1;
-    }
-    /* max-height keeps the 16:9 box inside its grid row. aspect-ratio
-       alone sizes the pane from its width and then simply overflows a
-       row that turned out to be shorter — which is how the video used
-       to end up sitting on top of the "Now Playing" card on a short
-       window. Clamped to the row instead, the video letterboxes within
-       the pane (that is what .video-frame-wrap's container units are
-       for) and everything below it stays where it belongs. */
-    .video-pane { grid-area: video; min-height: 0; max-height: 100%; }
-    .sc-section {
-      grid-area: soundcloud;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
+    /* aspect-ratio:auto overrides the 16:9 cap from the base .video-pane
+       rule below — with the whole column to itself now, this pane
+       should stretch to fill it (min-height:0/max-height:100% keep it
+       from overflowing the row); .video-frame-wrap's own container-
+       query sizing is what still keeps the actual VIDEO inside it at a
+       true 16:9, letterboxed within however much taller this box now
+       is than that. */
+    .video-pane { grid-area: video; min-height: 0; max-height: 100%; aspect-ratio: auto; }
     .playlist-pane { grid-area: playlist; min-height: 0; }
   }
 
@@ -198,31 +159,6 @@
     opacity: 0.35;
   }
 
-  /* ---------- COLLAPSE VIDEO / AUDIO-ONLY MODE ----------
-     display:none can make a YouTube iframe actually stop playing, so
-     instead of removing the pane this takes it out of flow (grid and
-     flex alike) and shrinks it to a hidden 1x1px — the same "invisible
-     but still alive" trick already used for the SoundCloud engine's own
-     iframe below (.sc-widget-frame). The video keeps playing for its
-     audio; the space it leaves behind goes to the "Now Playing" card —
-     see .sc-section's grid-row override above, and on mobile this just
-     closes the gap in the flex column on its own once the pane leaves
-     it. */
-  .layout.video-collapsed .video-pane {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 1px;
-    min-height: 0;
-    max-height: none;
-    aspect-ratio: auto;
-    opacity: 0;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: -1;
-  }
-
   .video-frame-wrap {
     width: min(100cqw, calc(100cqh * 16 / 9));
     height: min(100cqh, calc(100cqw * 9 / 16));
@@ -263,13 +199,13 @@
   .layout.playlist-hidden .playlist-pane { display: none; }
   @media (max-width: 860px) {
     /* A short phone doesn't have room for a full-width 16:9 video AND a
-       Now Playing card AND a full row of thumbnails+titles — something
-       has to give, and it needs to be the video, not this pane: a
-       min-height floor here still lets the pane grow past it whenever
-       flexbox has spare room (flex:1 1 auto), so on a tall phone it can
-       demand more than the layout actually has left over, forcing an
-       internal scroll and visibly overshooting the bottom edge before
-       that scroll even kicks in.
+       full row of thumbnails+titles — something has to give once both
+       are at their natural size, and it needs to be the video, not this
+       pane: a min-height floor here still lets the pane grow past it
+       whenever flexbox has spare room, so on a tall phone it can demand
+       more than the layout actually has left over, forcing an internal
+       scroll and visibly overshooting the bottom edge before that
+       scroll even kicks in.
        A concrete flex-basis (not "auto") fixes this pane's height at
        exactly one row's worth, in both directions. It can't be "auto"
        (sized to its own content) instead: .playlist-pane has
@@ -286,11 +222,13 @@
        that isn't a perfect 16:9, so a squeeze just makes the video
        pane shorter. */
     .video-pane {
-      /* grow:0 — only ever shrinks below its natural 16:9 size on a
-         short phone, never grows past it on a tall one (grow:1 here
-         instead balloons the video into a huge box with the "Music
-         Videos" list pushed halfway off-screen below it). */
-      flex: 0 1 auto;
+      /* grow:1 — now that there's no "Now Playing" card below it to
+         fill the freed space instead, the video itself grows to claim
+         it, up to its own 16:9-from-width max-height cap right below
+         (the same cap that already applied when grow was 0 — this only
+         changes whether the video GROWS into that ceiling or just gets
+         handed less shrinkage, never raises the ceiling itself). */
+      flex: 1 1 auto;
       min-height: 56px;
       /* Belt-and-suspenders alongside the YT.Player width/height fix
          above (see tryInitPlayer): aspect-ratio alone trusts the flex
@@ -305,13 +243,6 @@
       min-height: 0;
     }
     .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
-    /* Collapse Video: same growth the desktop .sc-card rule already gets
-       (below, under the min-width query) — without it the freed video
-       space would just sit empty above the playlist row instead of the
-       Now Playing card filling it. .sc-section needs display:flex of
-       its own here since it isn't a flex container outside desktop. */
-    .layout.video-collapsed .sc-section { flex: 1 1 auto; display: flex; flex-direction: column; }
-    .layout.video-collapsed .sc-card { flex: 1 1 auto; justify-content: center; }
   }
 
   /* Landscape phone: the mobile stack above still leaves the video
@@ -336,14 +267,6 @@
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .playlist-pane { display: none; }
     .layout .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
-    /* Not unconditional: .layout.video-collapsed already means the user
-       chose audio-only (see the "Hide Video" button, further down this
-       file) — .sc-section is the ONLY thing left on screen then, so
-       hiding it here too would leave a blank screen with nothing to
-       tap back on. Only hide it while the video is actually the thing
-       being watched, which is the whole point of rotating to landscape
-       in the first place. */
-    .layout:not(.video-collapsed) .sc-section { display: none; }
   }
 
 
@@ -558,12 +481,10 @@
   }
 
   /* Belt-and-suspenders alongside the sizing fix above: whichever
-     fullscreen path is active, explicitly hide SoundCloud/the artist
-     chips + "Music Videos" list (chips live inside .playlist-pane now,
-     see the HTML) rather than relying on the video simply covering
-     them, so there's no overlap even if a browser sizes fullscreen
-     differently than expected. */
-  .layout.fullscreen-active .sc-section,
+     fullscreen path is active, explicitly hide the artist chips +
+     "Music Videos" list rather than relying on the video simply
+     covering them, so there's no overlap even if a browser sizes
+     fullscreen differently than expected. */
   .layout.fullscreen-active .playlist-pane {
     display: none;
   }
@@ -850,18 +771,10 @@
   }
 
 
-  /* ---------- "NOW PLAYING" PANEL ----------
-     A second playhead for whatever's actually playing, video or
-     SoundCloud alike — cover art, title, artist, scrub bar, and play
-     button all mirror the single active entry in the merged "Music
-     Videos" list below (see the script block near the bottom of this
-     file). The invisible iframe inside is the real SoundCloud engine,
-     used only for SoundCloud-only songs (a song with a matching video
-     just plays that video instead — see buildMergedList()); on mobile
-     this panel is content-sized and lands right after the chin, flush
-     at the very bottom of the widget (a chin of its own); on desktop
-     the min-width:861px block above puts it in the left grid column
-     and lets it fill the leftover vertical room there instead. */
+  /* The real SoundCloud engine that plays a SoundCloud-only song's audio
+     (see buildMergedList()/playScByIndex() near the bottom of this
+     file) — there's no visible "Now Playing" panel anymore, so this
+     stays exactly what its own name says: invisible, everywhere. */
   .sc-widget-frame {
     position: absolute;
     width: 1px;
@@ -869,232 +782,6 @@
     opacity: 0;
     pointer-events: none;
     border: 0;
-  }
-
-  .sc-card {
-    /* Matches the video's own width above it (flush left) instead of a
-       centered, narrower box floating in the middle of the column. No
-       background/border of its own — sits directly on the page like the
-       playlist header/headings below, rather than as a separate panel. */
-    flex: none;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(6px, 1.5vw, 10px);
-    overflow: hidden;
-    padding: clamp(8px, 2vw, 14px);
-    font-family: var(--font-body);
-    color: var(--ink);
-  }
-
-  /* Desktop, video-collapsed only: stretches the card to fill the
-     "soundcloud" grid row's full height (which spans what's normally
-     both the video and soundcloud rows in that state — see
-     .layout.video-collapsed .sc-section's grid-row override) and
-     centers its content in the freed space, instead of leaving it
-     pinned to the top with a big gap below. In the ordinary state
-     (video visible) .sc-card is left content-sized instead — see the
-     plain .sc-card rule above. The row itself still fills the
-     available height either way (see the 1fr on the SoundCloud row in
-     grid-template-rows above — that's load-bearing for the playlist
-     column's height, not just this card, so it stays); what changed is
-     only whether .sc-card insists on filling *its* row too. Left
-     un-stretched, it just sits at the row's top with .sc-section's own
-     (transparent) background showing through the leftover space below
-     it, instead of the card's own bordered box stretching down through
-     that space with its content centered inside. The compound selector
-     below already outweighs the base .sc-card rule's specificity on
-     its own, so unlike some other overrides in this file, this one
-     doesn't depend on staying below it in source order. On mobile
-     .sc-section isn't a flex container outside its own video-collapsed
-     override further down, so this has no effect there regardless. */
-  @media (min-width: 861px) {
-    .layout.video-collapsed .sc-card { flex: 1 1 auto; justify-content: center; }
-  }
-
-  .sc-header {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .sc-title-label {
-    font-size: clamp(11px, 2.6vw, 13px);
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-
-  .sc-now-playing {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 2vw, 12px);
-  }
-
-  /* Cover art, pulled live from SoundCloud for whatever's currently
-     playing — see setScNowPlaying() in the script block near the bottom
-     of this file. Clicking it opens the track's real SoundCloud page. */
-  .sc-artwork-link {
-    display: block;
-    flex: none;
-    width: clamp(40px, 9vw, 56px);
-    height: clamp(40px, 9vw, 56px);
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--panel-2);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
-    /* Same spring-y "pop" used for the video controls' round buttons —
-       overshoots past 1.0 before settling, giving a little jump instead
-       of a flat scale. */
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .sc-artwork-link:hover,
-  .sc-artwork-link:focus-visible {
-    transform: scale(1.12) translateY(-2px);
-  }
-  /* Added/removed by JS on click so it replays every time instead of
-     only once — same technique as the play button's bounce-spin on the
-     homepage Listen widget. */
-  .sc-artwork-link.jump {
-    animation: sc-artwork-jump 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  @keyframes sc-artwork-jump {
-    0% { transform: scale(1); }
-    40% { transform: scale(1.22) translateY(-6px); }
-    100% { transform: scale(1); }
-  }
-  .sc-artwork {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  .sc-play-btn {
-    width: clamp(28px, 6vw, 36px);
-    font-size: clamp(11px, 2.6vw, 14px);
-    flex: none;
-    /* Same hover "pop" as the video's play/pause button. */
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .sc-play-btn:hover:not(:disabled) {
-    transform: scale(1.22) rotate(-6deg);
-  }
-
-  .sc-info { min-width: 0; flex: 1 1 auto; }
-
-  /* Top-aligned (not the row's default vertical centering) so its top
-     edge lands level with the title's, and flex:none so it keeps its
-     own natural size instead of being squeezed by .sc-info's flex:1 1
-     auto next to it. */
-  .toggle-video-btn {
-    flex: none;
-    align-self: flex-start;
-  }
-
-  .sc-title-wrap {
-    overflow: hidden;
-    white-space: nowrap;
-  }
-  .sc-title {
-    display: inline-flex;
-    font-size: clamp(11px, 2.6vw, 13px);
-    font-weight: 700;
-  }
-  .sc-title-copy {
-    white-space: nowrap;
-    padding-right: 32px;
-  }
-  .sc-title.scrolling {
-    animation-name: sc-marquee-scroll;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-  }
-  @keyframes sc-marquee-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-
-  .sc-artist {
-    font-size: clamp(9px, 2.2vw, 11px);
-    color: var(--ink);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .sc-album {
-    font-size: clamp(9px, 2.2vw, 11px);
-    color: var(--ink);
-    font-style: italic;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  /* No album set (a SoundCloud-only track, or a video the admin hasn't
-     assigned one) — collapses away instead of leaving an empty line. */
-  .sc-album:empty { display: none; }
-
-  .sc-source {
-    font-size: clamp(7px, 1.3vw, 9px);
-    color: var(--ink);
-    opacity: 0.55;
-    margin-top: 1px;
-  }
-
-  .sc-progress-track {
-    margin-top: 4px;
-    width: 100%;
-    height: 12px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-  }
-  .sc-progress-track-bg {
-    width: 100%;
-    height: 4px;
-    border-radius: 2px;
-    /* Was a faint gold wash, meant to show up against .sc-card's own dark
-       backing — with the card's own background gone, that same faint
-       gold would barely register against a bright yellow page, so this
-       uses the page's own dark ink instead for a track that stays
-       visible (and still contrasts with the gold --accent fill on top of
-       it) regardless of what's behind it. */
-    background: rgba(58, 42, 0, 0.25);
-    overflow: hidden;
-  }
-  .sc-progress-fill {
-    width: 0%;
-    height: 100%;
-    background: var(--accent);
-  }
-
-  /* On mobile, the video pane is the one that gives up room when
-     everything doesn't fit (see .video-pane's min-height:56px/shrink
-     above) — but this card eats into that same shared budget too, and
-     a fully populated card (real title/artist/album/source text, not
-     the "Loading…" placeholder it starts on) is taller than what that
-     balance was tuned against, so the video was losing more room than
-     it should on an ordinary phone. Trimming this card's own baseline
-     size hands that room back to the video on every phone, not just
-     the tightest ones. */
-  @media (max-width: 860px) {
-    .sc-card {
-      padding: 6px;
-      gap: 4px;
-    }
-    .sc-title,
-    .sc-artist,
-    .sc-album,
-    .sc-source {
-      line-height: 1.15;
-    }
-    .sc-progress-track {
-      margin-top: 2px;
-    }
   }
 
 </style>
@@ -1137,57 +824,26 @@
     </div>
   </div>
 
-  <!-- ---------- "NOW PLAYING" PANEL ----------
-       A second playhead for whatever's actually playing, video or
-       SoundCloud alike. The invisible iframe below is the real
-       SoundCloud engine (same linked profile as the homepage's
-       standalone Listen widget — see admin.html's Music tab), used only
-       for SoundCloud-only songs — a song that also has a video just
-       plays that video instead. See buildMergedList()/playMergedKey()
-       in the script block near the bottom of this file. No src here:
-       it's set by JS, once the linked profile loads — see the
-       SOUNDCLOUD "NOW PLAYING" ENGINE script near the bottom. -->
-  <div class="sc-section">
-    <div class="sc-card">
-      <iframe
-        id="scWidgetFrame"
-        class="sc-widget-frame"
-        title="SoundCloud audio engine"
-        scrolling="no"
-        frameborder="no"
-        allow="autoplay">
-      </iframe>
-      <div class="sc-header">
-        <span class="sc-title-label">Now Playing</span>
-      </div>
-      <div class="sc-now-playing">
-        <a class="sc-artwork-link" id="scArtworkLink" href="#" target="_blank" rel="noopener noreferrer" title="Open">
-          <img class="sc-artwork" id="scArtwork" src="" alt="" />
-        </a>
-        <button class="round-btn sc-play-btn" id="scPlayBtn" title="Play" disabled>&#9658;</button>
-        <div class="sc-info">
-          <div class="sc-title-wrap" id="scTitleWrap">
-            <div class="sc-title" id="scTitle"><span class="sc-title-copy">Loading…</span></div>
-          </div>
-          <div class="sc-artist" id="scArtist"></div>
-          <div class="sc-album" id="scAlbum"></div>
-          <div class="sc-source" id="scSourceLabel"></div>
-          <div class="sc-progress-track" id="scProgressTrack">
-            <div class="sc-progress-track-bg"><div class="sc-progress-fill" id="scProgressFill"></div></div>
-          </div>
-        </div>
-        <!-- Lives in this row (not .sc-header) and top-aligned so it no
-             longer sets the header row's height — that row used to be
-             as tall as this button's own padding demanded just to fit
-             it next to the much shorter "Now Playing" label, wasting
-             space above the title on every phone. Still not inside
-             .video-pane, so it stays on screen and clickable even once
-             the video pane itself is collapsed — see
-             .layout.video-collapsed below. -->
-        <button class="pill-btn toggle-video-btn" id="toggleVideoBtn" title="Hide video">Hide Video</button>
-      </div>
-    </div>
-  </div>
+  <!-- The real SoundCloud audio engine, kept even though the visible
+       "Now Playing" panel it used to sit inside is gone — a SoundCloud-
+       only song (no matching video) still needs this to actually make
+       sound; the video pane's own cover-art overlay is what represents
+       it visually now, and the video pane's own play/pause/scrub
+       controls already drive it too (see notifyScProgress/
+       notifyScPlayState and the playScByIndex/pauseSc/resumeSc/
+       seekScToFraction bridges in the script block near the bottom of
+       this file). Always invisible/1x1px regardless (see .sc-widget-
+       frame's own CSS) — dropping its wrapper card didn't change that,
+       just where it sits in the DOM. No src here: it's set by JS once
+       the linked profile loads. -->
+  <iframe
+    id="scWidgetFrame"
+    class="sc-widget-frame"
+    title="SoundCloud audio engine"
+    scrolling="no"
+    frameborder="no"
+    allow="autoplay">
+  </iframe>
 
   <div class="playlist-pane" id="playlistPane">
     <div class="playlist-card">
@@ -1299,23 +955,19 @@ let scSoundsList = [];
 // SoundCloud IIFE -> video IIFE
 let refreshMergedPlaylist = function () {};      // call after scSoundsList is fetched
 let advanceToNextInMergedList = function () {};  // call when a SoundCloud track finishes
-let pauseCurrentVideo = function () {};
-let resumeCurrentVideo = function () {};
-let seekVideoToFraction = function () {};
-// Lets the video pane's own scrub bar/play button reflect and control a
-// SoundCloud track while it's the active source.
+// Lets the video pane's own scrub bar/play/pause button reflect and
+// control a SoundCloud track while it's the active source — the only
+// transport controls either kind of track has now that there's no
+// separate "Now Playing" panel with its own play button/scrub bar.
 let notifyScProgress = function () {};
 let notifyScPlayState = function () {};
 
-// video IIFE -> SoundCloud IIFE (owns the real SoundCloud engine and
-// the "Now Playing" panel that mirrors whichever kind is active)
+// video IIFE -> SoundCloud IIFE (owns the real, always-invisible
+// SoundCloud engine — see .sc-widget-frame)
 let playScByIndex = function () {};
 let pauseSc = function () {};
 let resumeSc = function () {};
 let seekScToFraction = function () {};
-let setNowPlayingFromVideo = function () {};
-let notifyVideoProgress = function () {};
-let notifyVideoPlayState = function () {};
 
 function resolveAuthorDisplay(rawAuthor) {
   if (!rawAuthor) return rawAuthor;
@@ -1394,16 +1046,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     const hidden = layout.classList.toggle('playlist-hidden');
     toggleBtn.textContent = hidden ? 'Show Playlist' : 'Hide Playlist';
     toggleBtn.title = hidden ? 'Show playlist' : 'Hide playlist';
-  });
-})();
-
-(function () {
-  const layout = document.getElementById('layout');
-  const toggleVideoBtn = document.getElementById('toggleVideoBtn');
-  toggleVideoBtn.addEventListener('click', function () {
-    const collapsed = layout.classList.toggle('video-collapsed');
-    toggleVideoBtn.textContent = collapsed ? 'Show Video' : 'Hide Video';
-    toggleVideoBtn.title = collapsed ? 'Show video' : 'Hide video';
   });
 })();
 
@@ -1529,9 +1171,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       updateRangeFill();
       timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
     }
-    // Lets the "Now Playing" panel's own progress bar track this video's
-    // playhead whenever it's the active source.
-    notifyVideoProgress(current, duration);
   }
 
   function escapeHtml(s) {
@@ -1843,25 +1482,8 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     currentMergedList = buildMergedList();
     renderCreatorChin(currentMergedList);
     renderPlaylist(currentMergedList);
-    pushNowPlayingForActiveVideo();
   }
   refreshMergedPlaylist = recomputeAndRenderAll;
-
-  // Keeps the "Now Playing" panel (owned by the SoundCloud IIFE) in sync
-  // with whichever video entry is active — a no-op while a SoundCloud
-  // entry is active instead, since that panel then drives itself.
-  function pushNowPlayingForActiveVideo() {
-    if (isScKey(activeKey)) return;
-    const entry = currentMergedList.find(e => e.key === activeKey);
-    if (!entry) return;
-    setNowPlayingFromVideo({
-      title: (typeof entry.title === 'string' && entry.title.trim()) ? entry.title.trim() : 'Loading title…',
-      author: entry.author ? resolveAuthorDisplay(entry.author) : '',
-      album: entry.album || '',
-      thumbnail: entry.thumbnail,
-      linkUrl: entry.linkUrl
-    });
-  }
 
   // Pull each track's real title AND creator name from YouTube's oEmbed
   // data (via noembed.com, which mirrors YouTube's oEmbed response —
@@ -1975,7 +1597,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       hideVideoCoverArt();
       pauseSc();
       loadVideo(entry.videoId, true);
-      pushNowPlayingForActiveVideo();
     }
   }
 
@@ -2028,10 +1649,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
             showVideoLoading();
           }
           updatePlayPauseIcon(event.data === YT.PlayerState.PLAYING);
-          // Keeps the "Now Playing" panel's play icon in sync when this
-          // video is the active source (e.g. paused/resumed from the
-          // video pane's own controls instead of that panel's).
-          notifyVideoPlayState(event.data === YT.PlayerState.PLAYING);
           if (event.data === YT.PlayerState.ENDED) {
             advanceFromKey(activeKey);
           }
@@ -2055,7 +1672,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         activeKey = loadedVideoId;
         updateActiveHighlight();
         hideVideoCoverArt();
-        pushNowPlayingForActiveVideo();
         ytPlayer.playVideo();
       }
       doUnmute();
@@ -2067,17 +1683,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   });
 
   // ---------- ONE PLAYER, MANY SOURCES (SoundCloud IIFE -> here) ----------
-  pauseCurrentVideo = function () {
-    if (ytPlayer) ytPlayer.pauseVideo();
-  };
-  resumeCurrentVideo = function () {
-    if (ytPlayer) ytPlayer.playVideo();
-  };
-  seekVideoToFraction = function (fraction) {
-    if (!ytPlayer) return;
-    const duration = ytPlayer.getDuration();
-    if (duration > 0) ytPlayer.seekTo(fraction * duration, true);
-  };
   // Lets the video pane's own scrub bar/play button reflect and control a
   // SoundCloud track while it's the active source — called from the
   // SoundCloud IIFE's own progress/play-state events.
@@ -2253,25 +1858,16 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 <script src="https://w.soundcloud.com/player/api.js"></script>
 <script>
 // ============================================================
-// SOUNDCLOUD "NOW PLAYING" ENGINE — an invisible SoundCloud widget (same
-// profile as the homepage's standalone Listen widget) that only actually
-// plays audio for a SoundCloud-only song (no matching video). The visible
-// "Now Playing" panel above it mirrors whichever entry is active in the
-// single merged "Music Videos" list — video or SoundCloud alike — via the
+// SOUNDCLOUD ENGINE — an invisible SoundCloud widget (same profile as the
+// homepage's standalone Listen widget) that only actually plays audio for
+// a SoundCloud-only song (no matching video) — a song that also has a
+// video just plays that video instead. The video pane's own controls
+// (play/pause/scrub/cover-art overlay) are what represents this to a
+// visitor now; this engine just makes the sound happen, via the
 // activeKey/isScKey bridges declared at the top level of this file.
 // ============================================================
 (function () {
   const scFrame = document.getElementById('scWidgetFrame');
-  const scArtworkLinkEl = document.getElementById('scArtworkLink');
-  const scArtworkImgEl = document.getElementById('scArtwork');
-  const scPlayBtn = document.getElementById('scPlayBtn');
-  const scTitleWrapEl = document.getElementById('scTitleWrap');
-  const scTitleEl = document.getElementById('scTitle');
-  const scArtistEl = document.getElementById('scArtist');
-  const scAlbumEl = document.getElementById('scAlbum');
-  const scSourceLabelEl = document.getElementById('scSourceLabel');
-  const scProgressTrackEl = document.getElementById('scProgressTrack');
-  const scProgressFillEl = document.getElementById('scProgressFill');
 
   // Not created until the linked SoundCloud profile loads (see
   // SOUNDCLOUD_REF.get() near the bottom of this IIFE) — every place
@@ -2281,55 +1877,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   // there's no ordering hazard from leaving it null until then.
   let scWidget = null;
   let scDuration = 0; // seconds — always seconds here, converted to ms only at the scWidget.seekTo() call sites
-  // Last play state this widget itself reported, kept even while a video
-  // is active so scPlayBtn has something sane to fall back on.
-  let scIsPlaying = false;
-  // Last play state reported for the active video (via notifyVideoPlayState),
-  // used by scPlayBtn/updateScPlayIcon while a video is the active source.
-  let lastKnownVideoPlaying = false;
-
-  // Updates the title (with marquee), cover art, and the art's link to
-  // the track's real SoundCloud page — called whenever a SoundCloud entry
-  // becomes the active one.
-  function setScNowPlayingFromSound(sound) {
-    setScTitle(sound.title || 'Untitled');
-    scArtistEl.textContent = getScAuthor(sound);
-    scAlbumEl.textContent = ''; // SoundCloud tracks don't carry an admin-set album
-    scSourceLabelEl.textContent = 'via SoundCloud';
-    scArtworkImgEl.src = getScArtworkUrl(sound);
-    scArtworkLinkEl.href = sound.permalink_url || '#';
-    scArtworkLinkEl.title = 'Open on SoundCloud';
-  }
-
-  // Same car-radio marquee technique as the homepage Listen widget: a
-  // short title just sits still, a long one gets a second copy appended
-  // and scrolls left on a seamless loop instead of wrapping mid-word.
-  function setScTitle(text) {
-    scTitleEl.classList.remove('scrolling');
-    scTitleEl.style.animationDuration = '';
-    scTitleEl.innerHTML = '';
-
-    const firstCopy = document.createElement('span');
-    firstCopy.className = 'sc-title-copy';
-    firstCopy.textContent = text;
-    scTitleEl.appendChild(firstCopy);
-
-    requestAnimationFrame(function () {
-      if (scTitleEl.scrollWidth <= scTitleWrapEl.clientWidth) return;
-      const secondCopy = document.createElement('span');
-      secondCopy.className = 'sc-title-copy';
-      secondCopy.textContent = text;
-      scTitleEl.appendChild(secondCopy);
-      const pxPerSecond = 45;
-      const duration = (scTitleEl.scrollWidth / 2) / pxPerSecond;
-      scTitleEl.style.animationDuration = duration + 's';
-      scTitleEl.classList.add('scrolling');
-    });
-  }
-
-  function updateScPlayIcon(isPlaying) {
-    scPlayBtn.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9658;';
-  }
 
   // Called from the video IIFE (via the playScByIndex bridge) when the
   // user picks a SoundCloud-only entry from the merged playlist.
@@ -2337,9 +1884,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     if (idx < 0 || idx >= scSoundsList.length) return;
     const sound = scSoundsList[idx];
     scDuration = (sound.duration || 0) / 1000;
-    setScNowPlayingFromSound(sound);
-    scProgressFillEl.style.width = '0%';
-    updateScPlayIcon(true);
     scWidget.skip(idx);
     scWidget.play();
   };
@@ -2352,35 +1896,10 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   seekScToFraction = function (fraction) {
     if (!scDuration) return;
     scWidget.seekTo(fraction * scDuration * 1000);
-    scProgressFillEl.style.width = (fraction * 100) + '%';
-  };
-  // Called from the video IIFE whenever a video entry becomes the active
-  // one, so this panel mirrors it (title/artist/thumbnail/link) instead
-  // of stale SoundCloud info.
-  setNowPlayingFromVideo = function (info) {
-    setScTitle(info.title);
-    scArtistEl.textContent = info.author || '';
-    scAlbumEl.textContent = info.album || '';
-    scSourceLabelEl.textContent = 'via YouTube';
-    scArtworkImgEl.src = info.thumbnail;
-    scArtworkLinkEl.href = info.linkUrl || '#';
-    scArtworkLinkEl.title = 'Open on YouTube';
-  };
-  // Continuous progress/play-state from the video IIFE, only meaningful
-  // (and only sent) while a video is the active source.
-  notifyVideoProgress = function (current, duration) {
-    if (isScKey(activeKey) || !duration) return;
-    scDuration = duration;
-    scProgressFillEl.style.width = ((current / duration) * 100) + '%';
-  };
-  notifyVideoPlayState = function (isPlaying) {
-    lastKnownVideoPlaying = isPlaying;
-    updateScPlayIcon(isPlaying);
   };
 
   function bindScWidgetEvents() {
     scWidget.bind(SC.Widget.Events.READY, function () {
-      scPlayBtn.disabled = false;
       scWidget.getSounds(function (sounds) {
         scSoundsList = sounds || [];
         refreshMergedPlaylist();
@@ -2390,74 +1909,27 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     // These only ever fire as a direct result of our own playScByIndex/
     // pauseSc/resumeSc calls above — the widget itself is invisible and has
     // no controls of its own for a visitor to trigger PLAY/PAUSE with.
+    // notifyScPlayState is what keeps the video pane's own play/pause
+    // button (the only one left) showing the right icon for this track.
     scWidget.bind(SC.Widget.Events.PLAY, function () {
-      scIsPlaying = true;
-      if (isScKey(activeKey)) updateScPlayIcon(true);
+      notifyScPlayState(true);
     });
     scWidget.bind(SC.Widget.Events.PAUSE, function () {
-      scIsPlaying = false;
-      if (isScKey(activeKey)) updateScPlayIcon(false);
+      notifyScPlayState(false);
     });
 
     scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
       if (!isScKey(activeKey) || !scDuration) return;
-      scProgressFillEl.style.width = (data.relativePosition * 100) + '%';
       // Lets the video pane's own scrub bar/time label track this
-      // SoundCloud track's playhead too (see notifyScProgress in the video
-      // IIFE) — both sides agree scDuration/current are always seconds.
+      // SoundCloud track's playhead too — both sides agree scDuration/
+      // current are always seconds.
       notifyScProgress(data.relativePosition * scDuration, scDuration);
     });
 
     scWidget.bind(SC.Widget.Events.FINISH, function () {
-      scProgressFillEl.style.width = '0%';
       if (isScKey(activeKey)) advanceToNextInMergedList();
     });
   }
-
-  // Explicit play()/pause() based on our own tracked scIsPlaying, rather
-  // than the widget's toggle() — toggle() is unreliable on the very
-  // first click before any play/pause state has been established with
-  // the widget yet, which is what made this need two clicks to actually
-  // start playing.
-  scPlayBtn.addEventListener('click', function () {
-    if (isScKey(activeKey)) {
-      if (scIsPlaying) scWidget.pause();
-      else scWidget.play();
-    } else if (lastKnownVideoPlaying) {
-      pauseCurrentVideo();
-    } else {
-      resumeCurrentVideo();
-    }
-  });
-
-  scArtworkLinkEl.addEventListener('click', function (e) {
-    // Nothing's loaded yet — don't navigate to a bare "#".
-    if (!scArtworkLinkEl.getAttribute('href') || scArtworkLinkEl.getAttribute('href') === '#') {
-      e.preventDefault();
-      return;
-    }
-    // Same restart-the-animation trick as the homepage Listen widget's
-    // play button: remove the class, force a reflow, then re-add it so
-    // it replays even if clicked again before the last jump finished.
-    scArtworkLinkEl.classList.remove('jump');
-    void scArtworkLinkEl.offsetWidth;
-    scArtworkLinkEl.classList.add('jump');
-  });
-  scArtworkLinkEl.addEventListener('animationend', function (e) {
-    if (e.animationName === 'sc-artwork-jump') scArtworkLinkEl.classList.remove('jump');
-  });
-
-  scProgressTrackEl.addEventListener('click', function (e) {
-    if (!scDuration) return;
-    const rect = scProgressTrackEl.getBoundingClientRect();
-    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    if (isScKey(activeKey)) {
-      scWidget.seekTo(fraction * scDuration * 1000);
-    } else {
-      seekVideoToFraction(fraction);
-    }
-    scProgressFillEl.style.width = (fraction * 100) + '%';
-  });
 
   // ---------- LINKED ACCOUNT ----------
   // Same admin.html "SoundCloud Account" card (Music tab) and the same
