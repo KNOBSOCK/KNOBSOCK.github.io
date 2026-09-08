@@ -6,12 +6,3 @@ functions/node_modules/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
-
-# joegame.html — a personal "Joe Medina Hamburger Stacker" build compiled
-# from a local Burger Stacker project for offline play, not a site page.
-# It's built on Disney/Numuki's "Sandwich Stacker" game engine (some of its
-# own text/code is still unmodified Lilo & Stitch IP under the custom art),
-# so this stays off GitHub rather than going out on the live public site.
-joegame.html
-joegame-images/
-joegame-audio/
