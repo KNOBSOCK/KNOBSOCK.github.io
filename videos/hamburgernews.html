@@ -670,8 +670,12 @@
   // CSS as --thumb-h, so the two can't drift apart.
   var LABEL_FRAC = 0.22;
   var GAP_FRAC = 0.035;
-  // Arrow art's own aspect ratio, for sizing them from a width alone.
+  // Arrow art's own aspect ratio, for sizing them from a width alone, plus
+  // that width and the gap out to it — both as shares of the grid's width,
+  // so the arrows scale with the pickle rather than with the window.
   var ARROW_RATIO = 473 / 560;
+  var ARROW_FRAC = 0.42;
+  var ARROW_GAP_FRAC = 0.18;
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -774,22 +778,31 @@
     // two lines of it plus the padding and descenders.
     slotsEl.style.fontSize = Math.max(8, cw * 0.118) + 'px';
 
-    // Arrows go just outside the pickle's face, level with its middle,
-    // then get clamped into the viewport — on mobile the face runs off
-    // both edges, so unclamped they'd page from off-screen.
-    var aw = Math.max(44, Math.min(112, vp.w * 0.085));
+    // Arrows sit just off the ends of the grid, along the GRID'S own
+    // rotated axis rather than the viewport's — so they land at the two
+    // ends of the pickle the way it was drawn: level either side for
+    // Games, and up-right / down-left following the tilt for Episodes.
+    // Only the placement rotates; the arrow art itself stays upright.
+    var aw = Math.max(40, gw * ARROW_FRAC);
     var ah = aw * ARROW_RATIO;
-    var faceHalf = art.faceW * fr.scale / 2;
-    var faceCx = fr.offX + art.centre.x * fr.scale;
-    var margin = Math.max(8, vp.w * 0.02);
-    var top = fr.offY + art.centre.y * fr.scale - ah / 2;
-    arrowPrev.style.width = arrowNext.style.width = aw + 'px';
-    arrowPrev.style.height = arrowNext.style.height = ah + 'px';
-    arrowPrev.style.top = arrowNext.style.top = top + 'px';
-    arrowPrev.style.left =
-      Math.max(margin, faceCx - faceHalf - margin - aw) + 'px';
-    arrowNext.style.left =
-      Math.min(vp.w - margin - aw, faceCx + faceHalf + margin) + 'px';
+    var off = gw / 2 + gw * ARROW_GAP_FRAC + aw / 2;
+    var rad = g.rot * Math.PI / 180;
+    var ox = Math.cos(rad) * off, oy = Math.sin(rad) * off;
+    var gcx = fr.offX + g.cx * fr.scale;
+    var gcy = fr.offY + g.cy * fr.scale;
+    placeArrow(arrowPrev, gcx - ox, gcy - oy, aw, ah, vp);
+    placeArrow(arrowNext, gcx + ox, gcy + oy, aw, ah, vp);
+  }
+
+  // Centred on the point worked out above, then nudged back inside the
+  // viewport if the framing pushed it past an edge — on a phone the Games
+  // pickle runs off both sides, which would otherwise leave half of an
+  // arrow's tap target off-screen.
+  function placeArrow(el, cx, cy, w, h, vp) {
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.style.left = Math.max(0, Math.min(vp.w - w, cx - w / 2)) + 'px';
+    el.style.top = Math.max(0, Math.min(vp.h - h, cy - h / 2)) + 'px';
   }
 
   var rafPending = false;
