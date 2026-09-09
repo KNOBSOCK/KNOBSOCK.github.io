@@ -249,13 +249,21 @@
     transition: transform 0.15s ease;
     -webkit-tap-highlight-color: transparent;
   }
-  /* Square, because the cell above it was sized to make it square — a
-     thumbnail is cropped to fill it rather than letterboxed. */
+  /* 16:9, cropped to fill via object-fit:cover on the thumbnail itself
+     (below) rather than letterboxed. --thumb-h (set in layoutZoom, JS) is
+     the thumbnail's own share of the cell's height; the 66.6% fallback
+     here is only what's visible for an instant before that first runs.
+     Only gets its own #000 backdrop when a thumbnail is actually loaded
+     into it (the :has() rule right below) — an empty slot has nothing
+     drawn behind it at all, on purpose (see renderSlots' own comment on
+     why an unfilled slot no longer shows a placeholder box). */
   .pickle-slot-box {
     position: relative;
-    flex: 0 0 var(--thumb-h, 78%);
-    background: #000;
+    flex: 0 0 var(--thumb-h, 66.6%);
     overflow: hidden;
+  }
+  .pickle-slot-box:has(.pickle-slot-thumb) {
+    background: #000;
   }
   .pickle-slot-thumb {
     width: 100%;
@@ -284,15 +292,21 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    /* Same outline treatment the back link uses — these sit on painted
-       art, not a flat panel, so they need their own legibility net. */
-    -webkit-text-stroke: 0.5px #000;
-    text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000;
+    /* Sits on the pickle's own busy checkered texture, not a flat panel —
+       a thin crisp outline alone (what the back link uses, against much
+       calmer art) still gets lost wherever it lines up with a same-tone
+       square in the pattern. A heavier stroke plus a soft blurred dark
+       halo behind it covers both cases: the halo carries contrast where
+       the hard edge doesn't, and the stroke keeps letterforms crisp up
+       close. */
+    -webkit-text-stroke: 1.1px #000;
+    text-shadow:
+      0 0 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.85),
+      -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000;
   }
   .pickle-slot:not(:disabled):hover { transform: scale(1.05); }
   .pickle-slot:not(:disabled):active { transform: scale(0.96); }
   .pickle-slot:disabled { cursor: default; }
-  .pickle-slot:disabled .pickle-slot-box { opacity: 0.45; }
 
   /* Games with nothing in it yet. Takes over the grid's own rect (and its
      rotation), so the message lands on the pickle's face exactly where the
@@ -616,17 +630,24 @@
   //
   // grid is the 3x3 slot area, rotated to sit square on the pickle's face
   // — level for Games, tilted for Episodes, matching how each was drawn.
-  // Only its WIDTH is given: the height falls out of LABEL_FRAC/GAP_FRAC
-  // below, since each cell has to be tall enough for a square thumbnail
-  // plus its title underneath. Moving the titles out from inside the
-  // thumbnails made every cell taller, which is what pushed the old grids
-  // (800/980 wide, square) over the pickle's outline — Episodes visibly
-  // so, at the bottom-left, because rotating a now-tall block swings its
-  // corners further out than a square one. So these were re-solved rather
-  // than nudged: mask the pickle's own green face out of the close-up,
-  // erode it for a margin, then take the largest grid whose rotated
-  // corners all still land inside, backed off a little and re-centred on
-  // the face. Hence the odd-looking exact numbers.
+  // Only its WIDTH is given: the height falls out of LABEL_FRAC/THUMB_RATIO/
+  // GAP_FRAC below, since each cell has to be tall enough for its
+  // thumbnail plus its title underneath. Moving the titles out from
+  // inside the thumbnails once made every cell taller, which pushed the
+  // old grids (800/980 wide, and square-cropped thumbnails at the time
+  // too) over the pickle's outline — Episodes visibly so, at the
+  // bottom-left, because rotating a now-tall block swings its corners
+  // further out than a square one. So these were re-solved rather than
+  // nudged: mask the pickle's own green face out of the close-up, erode
+  // it for a margin, then take the largest grid whose rotated corners all
+  // still land inside, backed off a little and re-centred on the face.
+  // Hence the odd-looking exact numbers.
+  // Thumbnails later went back to a real 16:9 crop — shorter than the
+  // square crop this was fitted against, so every cell only got smaller
+  // and it stays safely inside that same fit. These widths were
+  // deliberately NOT re-maximized to fill the extra room that freed up:
+  // doing that properly means redoing the same mask-and-measure pass
+  // against the art, not just nudging a number.
   var PICKLE_ART = {
     episodes: {
       closeup: '/hamburger-pickle-episodes-zoom.webp',
@@ -666,11 +687,17 @@
     var p = a.play();
     if (p && p.catch) p.catch(function () {});
   }
-  // Share of each cell's height given over to the title strip under its
-  // thumbnail, and the gutter between cells as a share of the grid's
-  // width. Both are read back by layoutZoom — LABEL_FRAC also reaches the
-  // CSS as --thumb-h, so the two can't drift apart.
+  // LABEL_FRAC is the title strip's height, expressed as a share of a
+  // SQUARE cell's height (cw/(1-LABEL_FRAC) tall) — kept in those terms,
+  // rather than as a plain fraction of cw, only because that's the units
+  // the original tuning pass measured it in. THUMB_RATIO is the thumbnail
+  // box's own real aspect (height / width) — a 16:9 crop via
+  // object-fit:cover, not the square crop this briefly used. GAP_FRAC is
+  // the gutter between cells as a share of the grid's width. All three are
+  // read back by layoutZoom — LABEL_FRAC/THUMB_RATIO also reach the CSS as
+  // --thumb-h, so nothing here can drift out of sync with what's on screen.
   var LABEL_FRAC = 0.22;
+  var THUMB_RATIO = 9 / 16;
   var GAP_FRAC = 0.035;
   // Arrow art's own aspect ratio, for sizing them from a width alone, plus
   // that width and the gap out to it — both as shares of the grid's width,
@@ -757,15 +784,23 @@
     zoomArt.style.width = (CLOSEUP_SIZE * fr.scale) + 'px';
     zoomArt.style.height = (CLOSEUP_SIZE * fr.scale) + 'px';
 
-    // Cells are sized from the grid's width alone: three square thumbnails
-    // across, then each cell grown taller by LABEL_FRAC to make room for
-    // the title underneath. The grid's height is whatever that comes to,
-    // which is why only the width is a tuned constant.
+    // Cells are sized from the grid's width alone: three 16:9 thumbnails
+    // across, then each cell grown taller by LABEL_FRAC (in square-cell
+    // terms — see labelH below) to make room for the title underneath.
+    // The grid's height is whatever that comes to, which is why only the
+    // width is a tuned constant.
     var g = art.grid;
     var gw = g.w * fr.scale;
     var gap = gw * GAP_FRAC;
     var cw = (gw - 2 * gap) / 3;
-    var ch = cw / (1 - LABEL_FRAC);
+    // Label height stays in the units it was originally tuned in (a share
+    // of a SQUARE cell) even though the thumbnail itself no longer is one
+    // — that's what keeps the two-line-fit math the font-size formula
+    // below relies on valid without re-tuning it just because the
+    // thumbnail's own height changed underneath it.
+    var labelH = cw * LABEL_FRAC / (1 - LABEL_FRAC);
+    var thumbH = cw * THUMB_RATIO;
+    var ch = thumbH + labelH;
     var gh = 3 * ch + 2 * gap;
     slotsEl.style.width = gw + 'px';
     slotsEl.style.height = gh + 'px';
@@ -773,11 +808,11 @@
     slotsEl.style.top = (fr.offY + g.cy * fr.scale - gh / 2) + 'px';
     slotsEl.style.transform = 'rotate(' + g.rot + 'deg)';
     slotsEl.style.gap = gap + 'px';
-    slotsEl.style.setProperty('--thumb-h', (100 * (1 - LABEL_FRAC)).toFixed(3) + '%');
+    slotsEl.style.setProperty('--thumb-h', (100 * thumbH / ch).toFixed(3) + '%');
     // Sized off the CELL, not the whole grid, and specifically so that two
     // clamped lines still fit the strip under the thumbnail: that strip is
-    // cw * LABEL_FRAC / (1 - LABEL_FRAC) tall, and 0.118 leaves room for
-    // two lines of it plus the padding and descenders.
+    // labelH tall, and 0.118 leaves room for two lines of it plus the
+    // padding and descenders.
     slotsEl.style.fontSize = Math.max(8, cw * 0.118) + 'px';
 
     // Arrows sit just off the ends of the grid, along the GRID'S own
@@ -850,8 +885,9 @@
 
     // Games ships with nothing in it until admin.html has something to
     // point at, and nine dead slots read as broken rather than as empty.
-    // Episodes keeps the plain grid — it's never actually empty, and its
-    // greyed-out slots are the useful "this page isn't full" signal.
+    // Episodes keeps the plain grid — it's never actually empty, and an
+    // unfilled slot there just renders as nothing at all (no thumbnail,
+    // no placeholder box, no title) rather than a visible empty-slot cue.
     var empty = openPickle === 'games' && !items.length;
     slotsEl.classList.toggle('is-empty', empty);
     if (empty) {
