@@ -1261,6 +1261,12 @@
     return null;
   }
 
+  function isDirectVideoUrl(input) {
+    if (!input) return false;
+    const trimmed = input.trim();
+    return /^https?:\/\//i.test(trimmed) && /\.(m3u8|mp4|webm|mov)(\?.*)?$/i.test(trimmed);
+  }
+
   function extractSoundcloudProfileUrl(input) {
     if (!input) return null;
     let trimmed = input
@@ -1848,9 +1854,13 @@
         })
         .filter(function (v) { return v.url; });
 
-      const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url); });
+      const invalid = cleaned.filter(function (v) {
+        return !extractVideoId(v.url) && !(opts.allowDirectVideo && isDirectVideoUrl(v.url));
+      });
       if (invalid.length) {
-        setStatus('One or more links don’t look like valid YouTube links — fix those and save again.', true);
+        setStatus(opts.allowDirectVideo
+          ? 'One or more links don’t look like valid YouTube or direct video (.m3u8/.mp4/.webm) links — fix those and save again.'
+          : 'One or more links don’t look like valid YouTube links — fix those and save again.', true);
         return;
       }
       if (!auth.currentUser) {
@@ -2004,9 +2014,10 @@
       resetBtn: document.getElementById('hamburgerNewsResetBtn'),
       statusEl: document.getElementById('hamburgerNewsStatus'),
       defaultList: DEFAULT_HAMBURGER_NEWS_LIST,
-      urlPlaceholder: 'Paste a YouTube link',
+      urlPlaceholder: 'Paste a YouTube or Bunny Stream link',
       singular: 'Video',
-      plural: 'videos'
+      plural: 'videos',
+      allowDirectVideo: true
     }).load();
 
     initGamesEditor();
