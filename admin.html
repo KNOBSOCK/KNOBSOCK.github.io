@@ -921,9 +921,10 @@
               <button type="button" class="btn" id="liveStatusToggleBtn">…</button>
             </div>
             <div class="note">When offline, live.html shows the "We are currently offline" card instead of playing the last broadcast's replay — flip this the moment a stream ends, and back on before the next one starts. Takes effect immediately for anyone already on the page.</div>
-            <div class="note">Paste the YouTube link for whatever's live (or about to go live). Takes effect for anyone who loads or refreshes the page after saving.</div>
+            <div class="note">Paste the YouTube link for whatever's live (or about to go live) — or a direct Bunny .m3u8 link if you're pushing the stream through Bunny instead. Takes effect for anyone who loads or refreshes the page after saving.</div>
+            <div class="note">For a Bunny Stream link: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
             <div class="add-row">
-              <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste the YouTube live link">
+              <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste a YouTube or Bunny .m3u8 link">
               <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
             </div>
             <div id="liveVideoStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
@@ -935,10 +936,10 @@
             <button type="button" class="btn btn-primary" id="vodsSaveBtn">Save Changes</button>
           </div>
           <div class="live-card-body" style="max-height:none;">
-            <div class="note">Past streams the viewer can pick from the "VODs" drawer on live.html. Drag the grip (&#10303;) to reorder — that order is what viewers see.</div>
+            <div class="note">Past streams the viewer can pick from the "VODs" drawer on live.html. Drag the grip (&#10303;) to reorder — that order is what viewers see. YouTube or direct Bunny .m3u8 links both work; a Bunny VOD needs a thumbnail pasted in manually since there's no automatic one.</div>
             <div class="list-scroll" id="vodsList" style="max-height:320px;overflow-y:auto;"></div>
             <div class="add-row">
-              <input type="text" class="search-input" id="vodsAddInput" placeholder="Paste a YouTube link">
+              <input type="text" class="search-input" id="vodsAddInput" placeholder="Paste a YouTube or Bunny .m3u8 link">
               <button type="button" class="btn" id="vodsAddBtn">Add</button>
             </div>
             <div class="save-status" id="vodsStatus"></div>
@@ -2773,7 +2774,9 @@
       if (!liveVideoUrlPrefilled) {
         liveVideoUrlPrefilled = true;
         const input = document.getElementById('liveVideoUrlInput');
-        if (input && data && data.videoId) {
+        if (input && data && data.directUrl) {
+          input.value = data.directUrl;
+        } else if (input && data && data.videoId) {
           input.value = 'https://www.youtube.com/watch?v=' + data.videoId;
         }
       }
@@ -2787,16 +2790,18 @@
     document.getElementById('saveLiveVideoBtn').addEventListener('click', function () {
       const input = document.getElementById('liveVideoUrlInput');
       const statusEl = document.getElementById('liveVideoStatus');
-      const id = extractVideoId(input.value);
-      if (!id) {
-        statusEl.textContent = 'That doesn\'t look like a valid YouTube link.';
+      const raw = input.value.trim();
+      const id = extractVideoId(raw);
+      const directUrl = !id && isDirectVideoUrl(raw) ? raw : null;
+      if (!id && !directUrl) {
+        statusEl.textContent = 'That doesn\'t look like a valid YouTube or direct video (.m3u8/.mp4/.webm) link.';
         statusEl.style.color = 'var(--danger)';
         return;
       }
       statusEl.textContent = 'Saving…';
       statusEl.style.color = 'var(--text-dim)';
-      CHAT_LIVE_VIDEO_REF.set({ videoId: id }, { merge: true }).then(function () {
-        input.value = 'https://www.youtube.com/watch?v=' + id;
+      CHAT_LIVE_VIDEO_REF.set({ videoId: id || null, directUrl: directUrl || null }, { merge: true }).then(function () {
+        input.value = id ? ('https://www.youtube.com/watch?v=' + id) : directUrl;
         statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes live.html.';
         statusEl.style.color = 'var(--accent)';
       }).catch(function (err) {
@@ -2835,8 +2840,9 @@
         return '<div class="row" data-draggable data-index="' + i + '">' +
           '<span class="grip" title="Drag to reorder">&#10303;</span>' +
           '<div class="row-fields">' +
-            '<input type="text" class="url-input" placeholder="Paste a YouTube link" value="' + escapeAttr(v.url) + '">' +
+            '<input type="text" class="url-input" placeholder="Paste a YouTube or Bunny .m3u8 link" value="' + escapeAttr(v.url) + '">' +
             '<input type="text" class="title-input" placeholder="VOD title" value="' + escapeAttr(v.title || '') + '">' +
+            '<input type="text" class="thumb-input" placeholder="Thumbnail image URL (optional — required for Bunny links)" value="' + escapeAttr(v.thumb || '') + '">' +
           '</div>' +
           '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
         '</div>';
@@ -2862,6 +2868,9 @@
           vodDraftList[idx].title = row.querySelector('.title-input').value;
           vodDraftList[idx]._titleTouched = true;
         });
+        row.querySelector('.thumb-input').addEventListener('input', function () {
+          vodDraftList[idx].thumb = row.querySelector('.thumb-input').value;
+        });
         row.querySelector('.remove-btn').addEventListener('click', function () {
           vodDraftList.splice(idx, 1);
           renderVodsList();
@@ -2878,7 +2887,7 @@
       const data = doc.exists ? doc.data() : null;
       const items = (data && Array.isArray(data.items)) ? data.items : [];
       vodDraftList = items.map(function (v) {
-        return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0 };
+        return { url: v.url, title: v.title || '', thumb: v.thumb || '', addedAt: v.addedAt || 0 };
       });
       renderVodsList();
     }, function (err) {
@@ -2890,7 +2899,7 @@
       const input = document.getElementById('vodsAddInput');
       const url = input.value.trim();
       if (!url) return;
-      const item = { url: url, title: '', addedAt: Date.now() };
+      const item = { url: url, title: '', thumb: '', addedAt: Date.now() };
       vodDraftList.push(item);
       renderVodsList();
       fetchVodTitleFor(item);
@@ -2901,11 +2910,11 @@
       const saveBtn = document.getElementById('vodsSaveBtn');
       const statusEl = document.getElementById('vodsStatus');
       const cleaned = vodDraftList
-        .map(function (v) { return { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now() }; })
+        .map(function (v) { return { url: (v.url || '').trim(), title: (v.title || '').trim(), thumb: (v.thumb || '').trim(), addedAt: v.addedAt || Date.now() }; })
         .filter(function (v) { return v.url; });
-      const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url); });
+      const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url) && !isDirectVideoUrl(v.url); });
       if (invalid.length) {
-        statusEl.textContent = 'One or more links don’t look like valid YouTube links — fix those and save again.';
+        statusEl.textContent = 'One or more links don’t look like valid YouTube or direct video (.m3u8/.mp4/.webm) links — fix those and save again.';
         statusEl.style.color = 'var(--danger)';
         return;
       }
