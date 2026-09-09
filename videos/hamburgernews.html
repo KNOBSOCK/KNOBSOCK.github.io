@@ -798,6 +798,9 @@
     playSound(PICK_SOUND);
     currentPlayingId = item.id || null;
     updateCopyLinkVisibility();
+    if (currentPlayingId) {
+      history.replaceState(null, '', '/videos/hamburgernews/v/' + currentPlayingId + '/');
+    }
     closeZoom(function () {
       var frame = pattySlot.querySelector('iframe');
       if (!frame || !frame.contentWindow) return;

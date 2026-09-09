@@ -684,10 +684,14 @@
     infoTitle.textContent = product.title || '';
     infoPrice.textContent = product.priceCents ? formatCents(product.priceCents) : '';
     infoMaterial.textContent = product.material || '';
+    var categorySlug = slugify(product.category);
     copyLinkBtn.hidden = !product.slug;
     copyLinkBtn.textContent = 'Copy Link';
-    copyLinkBtn.dataset.category = slugify(product.category);
+    copyLinkBtn.dataset.category = categorySlug;
     copyLinkBtn.dataset.slug = product.slug || '';
+    if (product.slug) {
+      history.replaceState(null, '', '/store/' + categorySlug + '/' + product.slug + '/');
+    }
   }
 
   copyLinkBtn.addEventListener('click', function () {
