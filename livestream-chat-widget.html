@@ -529,10 +529,7 @@
     width: clamp(26px, 7.5cqw, 34px);
     font-size: clamp(11px, 3.2cqw, 15px);
     flex: none;
-    color: #ffffff;
   }
-  .play-pause-btn:hover:not(:disabled),
-  .play-pause-btn:active:not(:disabled) { color: #ffffff; }
   .play-pause-btn:disabled { opacity: 0.5; cursor: default; }
 
   .fullscreen-btn {
@@ -690,6 +687,13 @@
   .round-btn:hover:not(:disabled) { color: var(--accent-dim); }
   .round-btn:active:not(:disabled) { color: var(--accent-dim); }
   .round-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .round-btn.play-pause-btn,
+  .round-btn.fullscreen-btn { color: #ffffff; }
+  .round-btn.play-pause-btn:hover:not(:disabled),
+  .round-btn.play-pause-btn:active:not(:disabled),
+  .round-btn.fullscreen-btn:hover:not(:disabled),
+  .round-btn.fullscreen-btn:active:not(:disabled) { color: #ffffff; }
 
   .status-actions {
     display: flex;
