@@ -165,8 +165,8 @@
     mobile: {
       src: '/videos-room-mobile.webp',
       w: 4511, h: 8000,
-      tv: { cx: 2198, cy: 3271, w: 2047, h: 546 },
-      tvTopY: 2820
+      tv: { cx: 2236, cy: 2315, w: 2047, h: 546 },
+      tvTopY: 1863
     }
   };
   var LOGO_ASPECT = 4080 / 1221;
@@ -213,12 +213,14 @@
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
 
     var topY = oy + v.tvTopY * s;
-    var lw = Math.min(Math.max(topY, 0) * 0.75 * LOGO_ASPECT, vp.w * 0.78, 820);
-    var lh = lw / LOGO_ASPECT;
+    var pad = Math.max(8, Math.min(20, vp.w * 0.02));
+    var lh = Math.min(vp.h * 0.18, Math.max(34, topY - pad - vp.h * 0.012));
+    var lw = Math.min(lh * LOGO_ASPECT, 760, vp.w * 0.92);
+    lh = lw / LOGO_ASPECT;
     logo.style.width = lw + 'px';
     logo.style.height = lh + 'px';
-    logo.style.left = (ox + v.tv.cx * s - lw / 2) + 'px';
-    logo.style.top = Math.max(6, (topY - lh) / 2) + 'px';
+    logo.style.left = ((vp.w - lw) / 2) + 'px';
+    logo.style.top = pad + 'px';
   }
 
   var rafPending = false;
