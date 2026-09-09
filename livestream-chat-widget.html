@@ -529,7 +529,10 @@
     width: clamp(26px, 7.5cqw, 34px);
     font-size: clamp(11px, 3.2cqw, 15px);
     flex: none;
+    color: #ffffff;
   }
+  .play-pause-btn:hover:not(:disabled),
+  .play-pause-btn:active:not(:disabled) { color: #ffffff; }
   .play-pause-btn:disabled { opacity: 0.5; cursor: default; }
 
   .fullscreen-btn {
