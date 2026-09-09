@@ -722,11 +722,16 @@
     var toY = fr.offY + art.centre.y * fr.scale;
     var toW = art.faceW * fr.scale;
     var k = toW > 0 ? fromW / toW : 0.2;
+    var stageScale = 1 / k;
     return {
       k: k,
-
       inner: 'translate(' + (fromX - toX * k) + 'px, ' + (fromY - toY * k) + 'px) scale(' + k + ')',
-      stage: { originX: fromX, originY: fromY, scale: 1 / k }
+      stage: {
+        originX: fromX, originY: fromY, scale: stageScale,
+        dx: toX - fromX, dy: toY - fromY,
+        from: 'translate(0px, 0px) scale(1)',
+        to: 'translate(' + (toX - fromX) + 'px, ' + (toY - fromY) + 'px) scale(' + stageScale + ')'
+      }
     };
   }
 
@@ -752,6 +757,7 @@
     zoomInner.style.transform = t.inner;
     stageWrap.classList.remove('is-zooming');
     stageWrap.style.transformOrigin = t.stage.originX + 'px ' + t.stage.originY + 'px';
+    stageWrap.style.transform = t.stage.from;
 
     void zoomEl.offsetWidth;
 
@@ -759,7 +765,7 @@
     stageWrap.classList.add('is-zooming');
     zoomEl.style.opacity = '1';
     zoomInner.style.transform = 'translate(0px, 0px) scale(1)';
-    stageWrap.style.transform = 'scale(' + t.stage.scale + ')';
+    stageWrap.style.transform = t.stage.to;
 
     backLink.textContent = '← Back';
     backLink.setAttribute('href', '#');
@@ -786,7 +792,7 @@
     stageWrap.classList.add('is-zooming');
     zoomEl.style.opacity = '0';
     zoomInner.style.transform = t.inner;
-    stageWrap.style.transform = 'scale(1)';
+    stageWrap.style.transform = t.stage.from;
 
     openPickle = null;
     hideArrows();
