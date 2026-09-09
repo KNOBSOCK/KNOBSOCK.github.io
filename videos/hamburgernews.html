@@ -327,7 +327,12 @@
     text-align: center;
     color: #ffffff;
     font-family: 'Gratis Neue', Arial, sans-serif;
-    font-size: 2.1em;
+    /* Was 2.1em against the same base the (much smaller) slot title text
+       uses — massively oversized for a multi-line paragraph filling the
+       whole grid area, and it overflowed past the pickle's edges. This
+       message needs to wrap into several lines within the pickle's face,
+       not read as a single huge headline. */
+    font-size: 0.5em;
     line-height: 1.15;
     -webkit-text-stroke: 0.5px #000;
     text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
@@ -667,7 +672,17 @@
       closeup: '/hamburger-pickle-games-zoom.webp',
       centre: { x: 1664, y: 1558 }, faceW: 2085,
       btnGreen: { cx: 0.5168, cy: 0.4907, w: 0.9433 },
-      grid: { cx: 1644, cy: 1444, w: 1050, rot: 0 }
+      // Widened from 1050 (was under half the pickle's own green face) and
+      // recentred: measured the face's actual green bounds directly off
+      // the art (a flood-filled pixel mask of hamburger-pickle-games-zoom
+      // .webp, since eyeballing it against the rotated/zoomed preview was
+      // how the old numbers ended up small and off-centre) — its
+      // bounding box is roughly x:[536,2706] y:[786,2266], centre
+      // (1621,1526). 1450 leaves a deliberate, forgiving margin inside
+      // that (rather than the exact inscribed-rectangle max) since the
+      // thumbnail/label sit ON the pickle as foreground content, not
+      // cropped by it.
+      grid: { cx: 1600, cy: 1600, w: 1450, rot: 0 }
     }
   };
   var CLOSEUP_SIZE = 3000;
@@ -718,6 +733,18 @@
   // slot per page, below, means there's only ever one cell.)
   var LABEL_FRAC = 0.22;
   var THUMB_RATIO = 9 / 16;
+  // Tilts the thumbnail+label card back in 3D so it reads as artwork
+  // lying flat on the pickle's own face rather than a flat sticker
+  // pasted over it — a rotateX under a perspective() of its own, scaled
+  // to the grid's current on-screen width (gw) so the illusion holds at
+  // any viewport size rather than looking flatter/steeper as the pickle
+  // scales. Applied INSIDE the existing in-plane rotate(g.rot) (see the
+  // transform line in layoutZoom) so the tilt happens in the grid's own
+  // canonical (unrotated) frame first and then gets carried along with
+  // it into the pickle's tilt — otherwise Episodes' rotated grid would
+  // tip back around the viewport's horizontal axis instead of its own.
+  var GRID_TILT_DEG = 34;
+  var GRID_PERSPECTIVE_MULT = 1.4;
   // Arrow art's own aspect ratio, for sizing them from a width alone, plus
   // that width and the gap out to it — both as shares of the grid's width,
   // so the arrows scale with the pickle rather than with the window.
@@ -824,7 +851,9 @@
     slotsEl.style.height = gh + 'px';
     slotsEl.style.left = (fr.offX + g.cx * fr.scale - gw / 2) + 'px';
     slotsEl.style.top = (fr.offY + g.cy * fr.scale - gh / 2) + 'px';
-    slotsEl.style.transform = 'rotate(' + g.rot + 'deg)';
+    slotsEl.style.transform =
+      'perspective(' + (GRID_PERSPECTIVE_MULT * gw) + 'px) ' +
+      'rotate(' + g.rot + 'deg) rotateX(' + GRID_TILT_DEG + 'deg)';
     slotsEl.style.setProperty('--thumb-h', (100 * thumbH / ch).toFixed(3) + '%');
     // Sized off the CELL, not the whole grid, and specifically so that two
     // clamped lines still fit the strip under the thumbnail: that strip is
