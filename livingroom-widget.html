@@ -29,7 +29,7 @@
   }
   .overlay {
     position: fixed;
-    top: 2vh;
+    top: calc(clamp(10px, 2.5vw, 22px) + min(70vw, 480px) * 0.38 + 16px);
     left: 2vw;
     width: 25vw;
     max-width: 350px;

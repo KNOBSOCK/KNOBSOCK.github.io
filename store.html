@@ -60,7 +60,7 @@
   .header-logo-link {
     flex: 0 0 auto;
     display: block;
-    width: min(42vw, 640px);
+    width: min(70vw, 480px);
     margin: clamp(8px, 2.4vh, 26px) 0 0;
     line-height: 0;
   }
@@ -68,12 +68,9 @@
     display: block;
     width: 100%;
     height: auto;
+    aspect-ratio: 50 / 19;
     -webkit-user-drag: none;
     user-select: none;
-  }
-
-  @media (min-width: 861px) {
-    .header-logo-link { width: min(11vw, 170px); }
   }
 
   .cart-btn {
@@ -478,7 +475,7 @@
   </a>
 
   <a class="header-logo-link" href="/" aria-label="KNOBSOCK home">
-    <img class="header-logo" src="/store-header.webp" alt="KNOBSOCK STORE">
+    <img class="header-logo" src="/knobsock-store-logo.png" alt="KNOBSOCK STORE">
   </a>
 
   <div class="product-stage">

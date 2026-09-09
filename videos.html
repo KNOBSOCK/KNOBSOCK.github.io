@@ -38,6 +38,16 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 
+  body {
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.7s ease;
+    transform-origin: 50% 50%;
+  }
+  body.tv-exit {
+    transform: scale(1.18);
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .room-bg {
     position: fixed;
     z-index: 1;
@@ -168,7 +178,7 @@
       tvTopY: 1863
     }
   };
-  var LOGO_ASPECT = 4080 / 1221;
+  var LOGO_ASPECT = 50 / 19;
 
   var bg = document.getElementById('roomBg');
   var slot = document.getElementById('tvSlot');
@@ -213,9 +223,11 @@
 
     var topY = oy + v.tvTopY * s;
     var pad = Math.max(8, Math.min(20, vp.w * 0.02));
-    var lh = Math.min(vp.h * 0.18, Math.max(34, topY - pad - vp.h * 0.012));
-    var lw = Math.min(lh * LOGO_ASPECT, 760, vp.w * 0.92);
-    lh = lw / LOGO_ASPECT;
+    var targetW = Math.min(vp.w * 0.7, 480);
+    var targetH = targetW / LOGO_ASPECT;
+    var availH = Math.max(34, topY - pad - vp.h * 0.012);
+    var lh = Math.min(targetH, availH);
+    var lw = lh * LOGO_ASPECT;
     logo.style.width = lw + 'px';
     logo.style.height = lh + 'px';
     logo.style.left = ((vp.w - lw) / 2) + 'px';
@@ -290,10 +302,11 @@
         var soundSrc = el.dataset.sound;
         if (href) {
           e.preventDefault();
+          document.body.classList.add('tv-exit');
           if (soundSrc) {
             playThenNavigate(soundSrc, href);
           } else {
-            setTimeout(function () { window.location.href = href; }, 400);
+            setTimeout(function () { window.location.href = href; }, 700);
           }
         } else if (soundSrc) {
           var audio = new Audio(soundSrc);
