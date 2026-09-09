@@ -162,6 +162,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    min-height: 0;
     padding: 0;
     border: 0;
     background: none;
@@ -436,11 +437,6 @@
       centre: { x: 1378, y: 1514 }, faceW: 1472,
       btnGreen: { cx: 0.5190, cy: 0.4675, w: 0.9490 },
       quad: [[948, 1348], [1622, 1040], [1966, 1443], [1278, 1807]],
-      // Episode thumbnails are always YouTube's mqdefault.jpg (a true
-      // 16:9 image), unlike Games' admin-supplied cover art which can be
-      // any shape - so only Episodes forces the thumbnail box to this
-      // ratio rather than letting it fall out of the quad's own measured
-      // proportions (labelH just absorbs whatever height that leaves).
       thumbAspect: 16 / 9
     },
     games: {
@@ -558,7 +554,7 @@
     // own clamp() just below. Also guards the opposite failure on a very
     // wide/short desktop window, where the same hole.y-based math can
     // go negative and push the header off the top of the screen.
-    hdrTop = Math.max(6, Math.min(hdrTop, vp.h * 0.045)) + 15;
+    hdrTop = Math.max(6, Math.min(hdrTop, vp.h * 0.045));
     hnHeader.style.width = hdrW + 'px';
     hnHeader.style.height = hdrH + 'px';
     hnHeader.style.left = (offX + (hole.x + hole.w / 2) * scale - hdrW / 2) + 'px';
