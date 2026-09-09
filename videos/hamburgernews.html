@@ -578,7 +578,8 @@
     pattySlot.style.width = (hole.w * scale) + 'px';
     pattySlot.style.height = (hole.h * scale) + 'px';
 
-    var hdrW = hole.w * HEADER.widthFrac * scale;
+    var hdrWidthFrac = HEADER.widthFrac * (variantName === 'desktop' ? 0.5 : 1);
+    var hdrW = hole.w * hdrWidthFrac * scale;
     var hdrH = hdrW / HEADER.aspect;
     var hdrBottomArt = hole.y - hole.w * HEADER.bottomGapFrac;
     var hdrTop = offY + hdrBottomArt * scale - hdrH;
