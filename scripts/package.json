@@ -1,0 +1,8 @@
+{
+  "name": "knobsock-scripts",
+  "private": true,
+  "description": "Standalone maintenance scripts run by GitHub Actions on a schedule. Separate from functions/ (the deployed Stripe backend) — nothing here deploys anywhere, and build-articles.mjs needs no dependencies at all, so this only exists for purge-expired-ip-logs.mjs's sake.",
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  }
+}
