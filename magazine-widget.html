@@ -6,11 +6,7 @@
 <title>Your Magazine</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  /* Universe's "ratio" code-block sizing gives the iframe a FIXED box (2:3),
-     not an auto-growing height — so instead of letting the page scroll
-     natively, we go back to filling that box exactly (100% width/height) and
-     scrolling INSIDE it via .page-wrapper, so content never overflows or
-     leaves a gap within the box itself. */
+
   html, body {
     background: transparent;
     width: 100%;
@@ -26,13 +22,11 @@
     display: flex;
     flex-direction: column;
   }
-  /* Headlines/titles stay yellow; everything else (meta lines, captions,
-     body copy, labels) uses body's white by default. */
+
   h1, h2, h3 { color: yellow; }
   .headline-clickable { cursor: pointer; }
   a { text-decoration: none; color: inherit; }
 
-  /* Logo header — transparent, fixed height at the top of the box, never scrolls away */
   .site-header {
     flex-shrink: 0;
     display: flex;
@@ -52,22 +46,14 @@
     .site-header img { max-height: 162px; }
   }
 
-  /* Solid-ish blue card background, starting right below the logo header (which
-     stays transparent above it) — rounded corners like the reference swatch,
-     with an 80% frosted blur (our 1-100 scale: 100% = 20px, so 80% = 16px)
-     blurring whatever's behind the widget beneath that blue tint. */
   .page-wrapper {
     width: auto;
-    /* This margin only shows up on mobile in practice — the desktop media
-       query below fully replaces it with its own margin/width rule. */
+
     margin: 0 28px;
     padding: 12px 36px 44px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    /* Stops scroll input from chaining past this box's own top/bottom edge —
-       without it, once you scroll past the end of the article/homepage
-       content, the wheel/touch gesture "spills over" into the outer page
-       this widget is embedded on, scrolling that instead. */
+
     overscroll-behavior: contain;
     flex: 1 1 auto;
     min-height: 0;
@@ -77,14 +63,7 @@
     border-radius: 38px;
   }
   @media (min-width: 768px) {
-    /* On very wide/full-screen desktop displays, a plain 50px side margin
-       keeps growing the box with the screen — capping the width here stops
-       that growth past a reasonable size instead of letting it sprawl
-       edge-to-edge on big monitors, while behaving exactly like the old
-       "margin: 0 50px" on narrower desktop/laptop widths that don't hit the
-       cap. Kept modest (rather than wide) on purpose: the box's size should
-       stay stable — it's the headline photo's own max-height below, not the
-       box width, that keeps oversized content from blowing the box up. */
+
     .page-wrapper {
       width: calc(100% - 100px);
       max-width: 1400px;
@@ -92,15 +71,8 @@
     }
   }
 
-  /* ---------- HOMEPAGE VIEW ---------- */
-  /* Caps the overall content width so the two-column layout below stays
-     proportionate on very large/wide screens instead of stretching edge to
-     edge — without this, the grid columns get huge and everything (especially
-     the capped, centered headline photo) ends up looking oddly spaced out */
   #homepage-view { max-width: 1400px; margin: 0 auto; }
 
-  /* Headline (feature story) + Recent Articles side by side on wider screens,
-     stacked on mobile — same pattern as the Music/Politics row below */
   .top-row {
     display: grid;
     grid-template-columns: 1fr;
@@ -116,33 +88,22 @@
     padding: 24px 0;
     margin: 14px 0;
   }
-  /* On mobile the headline and Recent Articles stack vertically (the desktop
-     two-column layout below separates them visually on its own), so add a
-     divider line between them here to match the other section dividers. */
+
   @media (max-width: 767px) {
     .headline { border-bottom: 1px solid rgba(255,255,255,0.15); }
   }
-  /* Wraps just the image so the category badge below can anchor to the
-     photo's own box, not the wider headline-clickable container around it */
+
   .headline-media { position: relative; }
   .headline img { width: 100%; height: auto; border-radius: 12px; cursor: pointer; display: block; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
-  /* Desktop only: without a height cap, this image's rendered height is
-     purely a function of its column's width (height:auto keeps its aspect
-     ratio) — so any future width change balloons its height too, and with
-     it the whole box's height. Capping it and cropping with object-fit
-     keeps the photo (and the box around it) a stable, readable size no
-     matter how wide the desktop column gets. */
+
   @media (min-width: 768px) {
     .headline img { max-height: 420px; object-fit: cover; }
   }
-  /* Photo credit — pulled from the post's Excerpt field in WordPress, shown as
-     a small caption line right under the photo, the way most publications
-     caption a photo */
+
   .photo-credit { color: #fff; font-size: 11px; opacity: 0.6; letter-spacing: 0.2px; margin-top: 6px; }
   .headline h1 { font-size: clamp(28px, 5vw, 48px); margin: 20px 0 10px; cursor: pointer; }
   .headline .meta { color: #fff; font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
-  /* Positioned relative to .headline-media (the image itself), so the badge sits
-     pinned to the photo's top-left corner regardless of screen size */
+
   .headline .cat-tag {
     position: absolute;
     top: 12px;
@@ -193,7 +154,6 @@
 
   .category-section h2 { border-left: 4px solid limegreen; padding-left: 10px; }
 
-  /* Music & Politics side by side on wider screens, stacked on mobile */
   .categories-row {
     display: grid;
     grid-template-columns: 1fr;
@@ -207,10 +167,8 @@
 
   .loading { color: #fff; font-size: 14px; padding: 20px 0; }
 
-  /* ---------- ARTICLE VIEW ---------- */
   .article-view { padding: 40px 0; display: none; }
-  /* Computer/desktop screens: keep the article text in a centered, readable
-     column instead of stretching edge-to-edge — blank space on the sides is fine */
+
   @media (min-width: 768px) {
     .article-view { max-width: 760px; margin: 0 auto; }
   }
@@ -220,14 +178,12 @@
   .article-view h1 { font-size: clamp(28px, 5vw, 42px); margin-bottom: 12px; line-height: 1.15; }
   .article-view .meta { color: #fff; font-size: 14px; opacity: 0.75; }
 
-  /* Header block: category + headline + date, closed off by a divider */
   .article-header {
     padding-bottom: 24px;
     margin-bottom: 28px;
     border-bottom: 2px solid rgba(255, 80, 80, 0.45);
   }
 
-  /* Featured image sits in its own band with dividers above and below */
   .article-hero {
     padding-bottom: 28px;
     margin-bottom: 28px;
@@ -235,26 +191,17 @@
   }
   .article-hero img { width: 100%; height: auto; border-radius: 12px; display: block; }
 
-  /* Computer/desktop screens, article page only: cap the hero photo with a
-     max-width so it stays proportionate to the text instead of growing huge
-     on very large monitors. (The homepage headline photo used to get this
-     same treatment, but now that the whole homepage is already capped by
-     #homepage-view's max-width, centering it again here just added an extra
-     indent that the Music/Politics row didn't have — staggering the two
-     rows' left edges instead of lining them up.) */
   @media (min-width: 768px) {
     .article-hero img { width: 100%; max-width: 700px; margin: 0 auto; }
     .article-hero .photo-credit { text-align: center; }
   }
 
-  /* Body copy, visually distinct from the header/image above it */
   .article-view .body-content { font-size: 17px; line-height: 1.8; color: #fff; }
   .article-view .body-content p { margin-bottom: 20px; }
   .article-view .body-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; }
   .article-view .body-content h2,
   .article-view .body-content h3 { margin: 28px 0 12px; line-height: 1.3; }
 
-  /* ---------- SHARE BAR ---------- */
   .share-bar {
     margin-top: 40px;
     padding-top: 24px;
@@ -282,7 +229,6 @@
     display: none;
   }
 
-  /* ---------- BOTTOM ACTIONS ---------- */
   .bottom-actions {
     margin-top: 24px;
     padding-top: 24px;
@@ -309,24 +255,9 @@
   }
   .back-btn:hover { background: rgba(255,255,255,0.1); }
 
-  /* Desktop only: this code block is set to Universe's "auto" sizing (not a
-     fixed "ratio" box like mobile appears to use), meaning Universe measures
-     our page's natural content height and resizes the iframe to match —
-     overflow:hidden above only hides the visual overflow, it doesn't change
-     that natural layout height, so a short homepage produces a small iframe
-     and a long article produces a huge one, and .page-wrapper's own internal
-     scrolling never gets a chance to kick in. Giving .page-wrapper a fixed
-     pixel height (not a %/vh-based one) here makes its own rendered size
-     content-independent, so the whole page's natural height — and therefore
-     the auto-resized iframe — stays the same whether it's showing the
-     homepage or an article, with any extra content scrolling inside instead
-     of growing the iframe. html/body switch to height:auto so nothing gets
-     clipped if this fixed box ends up taller than 100dvh happened to report. */
   @media (min-width: 768px) {
     html, body { height: auto; min-height: 0; overflow: visible; }
-    /* Scales the entire desktop layout down ~15% (logo, spacing, fonts,
-       images all together) without touching any of the mobile-only rules
-       above/below — confined to this desktop-only media query. */
+
     body { zoom: 0.85; }
     .page-wrapper {
       flex: none;
@@ -337,20 +268,10 @@
     .page-wrapper::-webkit-scrollbar { display: none; }
   }
 
-  /* Mobile only: pull everything up tight against the top of the box (near-zero
-     top padding on the header/wrapper/headline/article) and trim the bottom
-     padding too, so the last line of content sits right at the box edge
-     instead of a full whitespace gutter — a visual cue that there's more to
-     scroll to. Placed last in the stylesheet (not just inside a media query
-     earlier in the file) so these overrides win the cascade against the base
-     .headline / .article-view rules above, which share the same specificity
-     and would otherwise take priority just by coming later in source order. */
   @media (max-width: 767px) {
     .site-header { padding: 0 0 2px; }
     .page-wrapper {
-      /* Shrinks the outer gap between the card and the screen edge — the
-         base rule's 28px side margin was left untouched here before, so
-         mobile still got the full desktop-ish gutter on both sides. */
+
       margin: 0 12px;
       padding: 20px 18px 2px;
       scrollbar-width: none;
@@ -371,7 +292,6 @@
 
   <div class="page-wrapper">
 
-    <!-- HOMEPAGE VIEW -->
     <div id="homepage-view">
       <div class="top-row">
         <section class="headline" id="headline">
@@ -417,7 +337,6 @@
       </div>
     </div>
 
-    <!-- ARTICLE VIEW -->
     <div class="article-view" id="article-view">
       <span class="back-link" id="back-link">&larr; Back to homepage</span>
       <div id="article-content">
@@ -437,27 +356,12 @@
   </div>
 
 <script>
-  // ====== CONFIG: your WordPress.com site ======
-  // WordPress.com subdomain sites use a different API than self-hosted WordPress —
-  // this is the correct endpoint format, no settings to change on your end.
+
   const SITE = "knobsock4.wordpress.com";
   const API_BASE = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
 
-  // This widget lives inside a sandboxed iframe Universe builds around the
-  // code block, where it can't see the real browser URL at all — neither
-  // window.location (just "about:srcdoc") nor document.referrer (blocked
-  // here too) carry the outer knobsock.net/truth URL in. So a shareable
-  // per-article link can't point at knobsock.net/truth at all — it points
-  // at this plain, non-embedded reader page on GitHub Pages instead, which
-  // has no such restriction since it isn't inside anything. GitHub Pages
-  // now serves knobsock.net directly (formerly a separate
-  // truth.knobsock.net subdomain), with the Truth Zone/article reader
-  // living under /truth.
   const ARTICLE_PAGE_URL = "https://knobsock.net/truth/article.html";
 
-  // Each article's own generated page (scripts/build-articles.mjs).
-  // Absolute, not root-relative: this widget is embedded on another
-  // domain, where a root-relative path would resolve against that host.
   const ARTICLE_BASE = "https://knobsock.net/truth/article/";
 
   function articleUrl(slug) {
@@ -476,24 +380,13 @@
   const articleView = document.getElementById("article-view");
   const articleContent = document.getElementById("article-content");
 
-  // Tracks the currently-open article's real WordPress URL (used for "View
-  // original post") and its slug (used to build the knobsock.net link Copy
-  // Link shares).
   let currentArticleUrl = "";
   let currentArticleSlug = "";
 
-  // Resets scroll to the top of the widget. .page-wrapper's own internal
-  // scrollbar is the one real scrolling context in this fixed 2:3 box, so
-  // just reset it directly — no scrollIntoView here, since that walks up
-  // every scrollable ancestor (including body, which is only user-scroll-
-  // blocked via overflow:hidden, not programmatic-scroll-blocked) and was
-  // shoving the whole page down to align things, permanently hiding the logo.
   function scrollToTop() {
     pageWrapper.scrollTop = 0;
   }
 
-  // No external image request here — this is generated inline as an SVG, so it
-  // can never be blocked by a sandboxed iframe's network/content restrictions.
   const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%2339ff14' font-family='sans-serif' font-size='28' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
   function getImage(post) {
@@ -517,15 +410,10 @@
     return (div.textContent || div.innerText || "").trim();
   }
 
-  // Pulls the photo credit from the post's Excerpt field in WordPress — the
-  // easiest field for typing something like "Photos by Wali Khan" without
-  // digging into the Media Library's Caption field for the image itself.
   function getPhotoCredit(post) {
     return cleanExcerpt(post.excerpt || "");
   }
 
-  // Under 1 hour: minutes ago. Under 24 hours: hours ago. Under 5 days: days
-  // ago. 5 days or older: the full date.
   function formatRelativeDate(dateStr) {
     const posted = new Date(dateStr);
     const diffMs = Date.now() - posted.getTime();
@@ -547,8 +435,6 @@
     return posted.toLocaleDateString();
   }
 
-  // Build a clickable article card (uses a div with data-slug, not a real link,
-  // so clicking it never triggers browser navigation inside the sandboxed iframe)
   function articleCard(post) {
     return `
       <div class="article-card" data-slug="${post.slug}">
@@ -598,8 +484,6 @@
       : `<p class="loading">No articles yet in this category.</p>`;
   }
 
-  // ---------- ARTICLE VIEW LOGIC ----------
-
   async function loadArticleBySlug(slug) {
     homepageView.style.display = "none";
     articleView.style.display = "block";
@@ -627,23 +511,11 @@
       <div class="body-content">${post.content}</div>
     `;
 
-    // Point the "View original post" link at the actual WordPress URL for
-    // this article, and remember both it and the slug for Copy Link below.
     currentArticleUrl = post.URL || "";
     currentArticleSlug = slug;
     document.getElementById("wordpress-link").href = currentArticleUrl || "#";
   }
 
-  // Articles are real generated pages now, so a click leaves this widget
-  // instead of swapping views inside it.
-  //
-  // Still driven from JS rather than a real <a>: the cards are divs
-  // precisely because a link click inside this sandboxed iframe used to
-  // produce a blank page, and that markup is left alone here. Navigating
-  // the top frame is what a sandbox is most likely to block — it throws
-  // in some browsers and silently does nothing in others — so a throw
-  // falls back to opening the article in a new tab, which only needs
-  // allow-popups.
   function goToArticle(slug) {
     const url = articleUrl(slug);
     try {
@@ -654,7 +526,6 @@
     }
   }
 
-  // Event delegation: catches clicks on any current or future element with data-slug
   document.addEventListener("click", (e) => {
     const target = e.target.closest("[data-slug]");
     if (target) {
@@ -669,7 +540,6 @@
     scrollToTop();
   }
 
-  // Handle back button clicks (top and bottom)
   function goBack() {
     try {
       history.pushState("", document.title, window.location.pathname + window.location.search);
@@ -681,11 +551,6 @@
   document.getElementById("back-link").addEventListener("click", goBack);
   document.getElementById("back-btn-bottom").addEventListener("click", goBack);
 
-  // Handle copy link button — shares this article's standalone reader-page
-  // link (see ARTICLE_PAGE_URL above for why that has to be a separate,
-  // non-embedded page rather than a knobsock.net/truth URL), not the raw
-  // WordPress.com one — "View original post" already covers that
-  // separately.
   document.getElementById("copy-link-btn").addEventListener("click", () => {
     if (!currentArticleSlug) return;
     const shareUrl = articleUrl(currentArticleSlug);
@@ -698,17 +563,10 @@
     });
   });
 
-  // Check the URL hash on load — if it points to an article, show that
-  // article directly. Only ever set by goToArticle() above (clicking a
-  // card within this already-loaded widget) — a fresh external visit has
-  // no way to reach this widget directly (see ARTICLE_PAGE_URL above for
-  // why Copy Link points at article.html instead), so this only covers
-  // in-widget navigation surviving something like a same-tab reload.
   function checkHashAndRoute() {
-    const hash = window.location.hash; // e.g. "#article=my-post-slug"
+    const hash = window.location.hash;
     if (hash.startsWith("#article=")) {
-      // Left over from before articles had their own pages — send it on
-      // rather than rendering the old in-widget view.
+
       const slug = decodeURIComponent(hash.replace("#article=", ""));
       goToArticle(slug);
     } else {
@@ -716,10 +574,8 @@
     }
   }
 
-  // Re-route whenever the hash changes (e.g. clicking an article card, or using back/forward)
   window.addEventListener("hashchange", checkHashAndRoute);
 
-  // Initial load
   loadHeadline();
   loadRecentArticles();
   CATEGORIES.forEach(cat => loadCategory(cat.slug, cat.elementId));

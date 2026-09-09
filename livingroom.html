@@ -21,23 +21,14 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Fullscreen 3D-room page, same tiled-GIF background as main/index.html.
-     The Sketchfab embed and its instructions overlay live in
-     /livingroom-widget.html (a nested iframe); this shell just fills the
-     browser with it edge to edge and floats the site's header logo on
-     top, the same way it sits over the video on the knobsock.net landing page. */
+
   * { box-sizing: border-box; }
 
   html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    /* Was plain 100% — that doesn't track mobile Safari's own
-       collapsing address-bar toolbar the way .viewer-wrap's 100dvh
-       below already does, so this box could end up shorter than the
-       actually-visible viewport once the toolbar hides, leaving a gap
-       above/below it painted in Safari's own default white rather than
-       this element's own black background. */
+
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
@@ -58,17 +49,6 @@
     background: transparent;
   }
 
-  /* Overlaid on the 3D scene rather than given its own reserved strip
-     (unlike live.html/store.html/music.html/videos.html) — the Sketchfab
-     embed fills edge to edge either way, so reserving space here just
-     left a bare strip of this page's own tiled background showing below
-     it instead of more of the room. A translucent pill behind the text
-     keeps it legible regardless of what's in the scene behind it (unlike
-     a page with a known solid background, the 3D view under this can be
-     anything depending on how it's been panned/zoomed). pointer-events
-     is off on the wrapper and back on for the link alone so it doesn't
-     steal drag/pinch input from the model everywhere else across the
-     bottom edge — same trick .site-header above already uses. */
   .privacy-footer {
     position: fixed;
     left: 0;
@@ -90,10 +70,6 @@
     border-radius: 7px;
   }
 
-  /* Header logo — floats over the 3D scene instead of pushing it down,
-     same "Knobsock" image the knobsock.net landing page uses. pointer-events is off
-     on the row itself so it doesn't block dragging/pinching the model
-     underneath it; the link re-enables it just over the logo. */
   .site-header {
     position: fixed;
     top: 0;

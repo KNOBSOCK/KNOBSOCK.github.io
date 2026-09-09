@@ -35,7 +35,6 @@
   }
   .hidden-hard { display: none !important; }
 
-  /* ---------- LOGIN ---------- */
   .login-wrap {
     min-height: 100vh;
     min-height: 100dvh;
@@ -71,9 +70,7 @@
     margin: 14px 0 6px;
   }
   .field-label:first-of-type { margin-top: 0; }
-  /* One row per page in the SEO tab — a border between rows (not cards
-     per page, there'd be nine of them) is enough separation given each
-     row is just two fields. */
+
   .seo-page-row {
     padding: 14px 0;
     border-bottom: 1px solid var(--line);
@@ -133,7 +130,6 @@
   .login-actions { margin-top: 18px; display: flex; justify-content: flex-end; }
   .error-text { color: var(--danger); font-size: 12px; margin-top: 12px; min-height: 14px; }
 
-  /* ---------- APP SHELL ---------- */
   .topbar {
     position: sticky;
     top: 0;
@@ -184,13 +180,6 @@
     color: var(--text-dim);
   }
 
-  /* On a narrow phone, ADMIN + email + Sign Out already fill most of the
-     row, squeezing .tabs down to a sliver — since it's still wider than
-     that sliver, it becomes a horizontally-scrollable strip that starts
-     mid-scrolled instead of at "Videos", showing a clipped slice of two
-     tab labels instead of any one of them in full. Simplest fix: give
-     the tabs their own full-width row below, where there's easily enough
-     room for all four labels without needing to scroll at all. */
   @media (max-width: 640px) {
     .topbar { flex-wrap: wrap; row-gap: 8px; }
     .tabs { order: 1; flex: 1 1 100%; overflow-x: visible; }
@@ -211,9 +200,7 @@
   @media (max-width: 780px) {
     .editor-grid { grid-template-columns: 1fr; }
   }
-  /* Groups Creators + Albums as one sidebar column (the Music tab's
-     third card) instead of the grid's own auto-placement wrapping it
-     onto a new row under Track List at the 1fr column's width. */
+
   .sidebar-stack {
     display: flex;
     flex-direction: column;
@@ -265,8 +252,7 @@
     line-height: 1;
     padding: 0 2px;
     user-select: none;
-    /* Without this, a touch-drag on the grip gets read as a page-scroll
-       gesture instead — the drag never gets a chance to start. */
+
     touch-action: none;
   }
   .row-fields {
@@ -306,9 +292,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* The Albums list (see renderAlbums()) is just a grip + name, one
-     row of flex — no wrapping .creator-row-top needed since there's
-     nothing else in the row for it to stack above. */
+
   .row > .raw-name {
     flex: 1 1 auto;
     font-size: 13px;
@@ -318,10 +302,7 @@
     white-space: nowrap;
   }
   .creator-row input[type="text"] { margin-top: 6px; }
-  /* Videos-only (see opts.showCreatorLinks in renderCreators) — a small
-     label ahead of each of the two upload rows below, lighter-weight
-     than .field-label (which is meant for a full form, not a repeated
-     row) so it doesn't blow out this list's row height. */
+
   .creator-field-label {
     display: block;
     font-size: 10px;
@@ -330,11 +311,7 @@
     letter-spacing: 0.03em;
     margin: 8px 0 3px;
   }
-  /* Preview of whatever's already saved, plus the file picker to
-     replace it. Not round/cropped-to-a-circle anymore — this image now
-     IS the entire picker button on videos.html (see that file), so the
-     admin's own preview shows it uncropped, at its real proportions,
-     the same way it'll actually appear. */
+
   .creator-photo-row {
     display: flex;
     align-items: center;
@@ -350,8 +327,7 @@
     background: var(--panel);
     border: 1px solid var(--line);
   }
-  /* Same row shape as .creator-photo-row, just pushed below it — the
-     optional second/"after" image (see creatorPhotos2 below). */
+
   .creator-photo2-row {
     display: flex;
     align-items: center;
@@ -366,9 +342,7 @@
     font-size: 11px;
     color: var(--text-dim);
   }
-  /* Same shape as .creator-photo-row above — an optional sound that
-     plays on click, previewed with a real <audio> element rather than
-     an image so the admin can actually hear it before saving. */
+
   .creator-sound-row {
     display: flex;
     align-items: center;
@@ -420,7 +394,6 @@
     margin-bottom: 16px;
   }
 
-  /* ---------- LIVE TAB ---------- */
   .live-grid {
     display: grid;
     grid-template-columns: 260px 1fr 280px;
@@ -569,7 +542,6 @@
   .censor-word-row .censor-word-text.masked { letter-spacing: 2px; color: var(--text-dim); }
   .censor-word-row .reveal-word-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-  /* ---------- MODAL OVERLAY (ban dialog + user history) ---------- */
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -581,23 +553,13 @@
     padding: 20px;
   }
   .modal-overlay[hidden] { display: none; }
-  /* The ban dialog can be opened from within the user-history panel, so
-     it needs to stack visibly (and clickably) above it rather than
-     underneath — same z-index would leave the history panel's own
-     content, painted later in the DOM, intercepting clicks meant for
-     the ban dialog's buttons. */
+
   #banModalOverlay { z-index: 60; }
   .modal-panel {
     width: 100%;
     max-width: 480px;
     max-height: 85vh;
-    /* Content taller than max-height needs somewhere to go — without
-       this, the panel's own box stays capped at 85vh but the overflow
-       isn't clipped OR scrollable (the default), it just spills out
-       past the box and overlaps whatever's behind it. Rarely visible on
-       a tall desktop viewport where this form comfortably fits in 85vh;
-       on a short mobile viewport (confirmed live: fields past "Photos"
-       became unreachable, Save button included) it's the whole panel. */
+
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     display: flex;
@@ -627,7 +589,6 @@
     margin-bottom: 10px;
   }
 
-  /* ---------- STORE: product photo uploads ---------- */
   .photo-upload-grid {
     display: flex;
     flex-wrap: wrap;
@@ -673,12 +634,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ---------- STORE: product color rows ----------
-     One row per color: swatch + name, a photo tile (that color's own
-     product shot, shown on the Store page's product image when this
-     swatch is selected — see store.html's renderColorSwatches), and
-     remove. Was a compact pill before the per-color photo was added;
-     needed the extra width for the photo tile. */
   .color-row-list {
     display: flex;
     flex-direction: column;
@@ -754,7 +709,6 @@
     flex: none;
   }
 
-  /* ---------- STORE: orders "spreadsheet" ---------- */
   .table-scroll { overflow-x: auto; }
   .orders-table {
     width: 100%;
@@ -786,7 +740,6 @@
 </head>
 <body>
 
-<!-- ---------- LOGIN ---------- -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
     <h1>KNOBSOCK Admin</h1>
@@ -802,7 +755,6 @@
   </div>
 </div>
 
-<!-- ---------- APP ---------- -->
 <div id="app" hidden>
   <div class="topbar">
     <h1>Admin</h1>
@@ -818,7 +770,6 @@
     <button type="button" class="btn" id="signOutBtn">Sign Out</button>
   </div>
 
-  <!-- ===== VIDEOS ===== -->
   <div class="tab-panel" id="tab-videos">
     <h2 class="panel-heading">Videos</h2>
     <p class="panel-sub">Reorder, add, or remove videos on the Videos page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
@@ -868,7 +819,6 @@
     </div>
   </div>
 
-  <!-- ===== GAMES ===== -->
   <div class="tab-panel" id="tab-games" hidden>
     <h2 class="panel-heading">Games</h2>
     <p class="panel-sub">The games behind the Games pickle on /videos/hamburgernews.html. Point each one at any HTML game by its link — the first nine fill the pickle's grid, and anything past that pages.</p>
@@ -887,7 +837,6 @@
     </div>
   </div>
 
-  <!-- ===== MUSIC ===== -->
   <div class="tab-panel" id="tab-music" hidden>
     <h2 class="panel-heading">Music</h2>
     <p class="panel-sub">Reorder, add, or remove YouTube tracks on the Music page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
@@ -933,7 +882,6 @@
     </div>
   </div>
 
-  <!-- ===== LIVE ===== -->
   <div class="tab-panel" id="tab-live" hidden>
     <h2 class="panel-heading">Live Chat Moderation</h2>
     <p class="panel-sub">This is the same live.html chat, in real time — search it, click any name to pull up everything they've said, and ban, timeout, or delete from there.</p>
@@ -1013,7 +961,6 @@
     </div>
   </div>
 
-  <!-- ===== STORE ===== -->
   <div class="tab-panel" id="tab-store" hidden>
     <h2 class="panel-heading">Store</h2>
     <p class="panel-sub">Add and edit what's for sale on the Store page, and see every order that's come in once checkout is actually connected (see functions/README.md) — this is the closest thing to a shipping queue this site has.</p>
@@ -1059,7 +1006,6 @@
     </div>
   </div>
 
-  <!-- ===== SEO ===== -->
   <div class="tab-panel" id="tab-seo" hidden>
     <h2 class="panel-heading">SEO</h2>
     <p class="panel-sub">Per-page title and meta description — the text Google shows in search results. Saved here once, applied live to whichever of these pages someone loads or refreshes next.</p>
@@ -1075,7 +1021,6 @@
   </div>
 </div>
 
-<!-- ---------- BAN / TIMEOUT DIALOG ---------- -->
 <div class="modal-overlay" id="banModalOverlay" hidden>
   <div class="modal-panel">
     <div class="card-head"><h2 id="banModalTitle">Ban user</h2></div>
@@ -1095,7 +1040,6 @@
   </div>
 </div>
 
-<!-- ---------- ADD/EDIT PRODUCT ---------- -->
 <div class="modal-overlay" id="productModalOverlay" hidden>
   <div class="modal-panel wide">
     <div class="card-head">
@@ -1154,7 +1098,6 @@
   </div>
 </div>
 
-<!-- ---------- USER HISTORY PANEL ---------- -->
 <div class="modal-overlay" id="userHistoryOverlay" hidden>
   <div class="modal-panel wide">
     <div class="card-head">
@@ -1167,12 +1110,6 @@
   </div>
 </div>
 
-<!-- ============================================================
-     FIREBASE — same project/pattern as video-playlist-widget.html and
-     music-playlist-widget.html. Sign-in is real Firebase Authentication
-     (email/password) — this reuses whichever admin account already
-     exists under Firebase console → Authentication → Users; nothing new
-     to create there. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -1189,91 +1126,34 @@
   const db = firebase.firestore();
   const auth = firebase.auth();
 
-  // Same Firestore documents the widgets themselves read from — saving
-  // here is exactly what saving from a widget's own hidden admin panel
-  // already did, just from one consolidated page instead of separate
-  // hidden triggers.
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const MUSIC_DOC_REF = db.collection('playlist').doc('music');
-  // Its own doc, own list, own creators — completely separate from the
-  // main Video List above. Read by hamburger-news-widget.html on
-  // /videos/hamburgernews.html, the same way VIDEO_DOC_REF is read by
-  // video-playlist-widget.html.
+
   const HAMBURGER_NEWS_DOC_REF = db.collection('playlist').doc('hamburgerNews');
-  // Games behind the Games pickle on the same page — a sibling doc rather
-  // than a field on hamburgerNews, so the player and the pickle grids read
-  // exactly the list each one needs and nothing else.
+
   const HAMBURGER_GAMES_DOC_REF = db.collection('playlist').doc('hamburgerGames');
 
-  // Used by createPlaylistEditor's fetchAllPublishedDates below to look
-  // up each video's REAL YouTube upload date (videos.list?part=snippet),
-  // since oEmbed — everything else here uses that instead, no key
-  // needed — doesn't expose it at all. Only ever called from this
-  // admin-only, signed-in page, never from a public-facing widget, so
-  // usage stays low; still, this key should be restricted in Google
-  // Cloud Console to this site's origin and to the YouTube Data API v3
-  // specifically, the same way any client-side API key should be.
   const YOUTUBE_API_KEY = 'AIzaSyCJr6Ho2v6Cgjnm2WQMXgwrHqtDKPZNSlk';
 
-  // Same collections livestream-chat-widget.html itself reads/writes —
-  // see that file's own comments for the full schema. This page only
-  // ever touches chat_bans and chat_config/censoredWords by writing to
-  // them (moderation actions); chat_messages, chat_usernames,
-  // chat_username_counters and chat_devices it also deletes from (a
-  // ban's message purge, per-message removal, and "Sign Out" clearing a
-  // sign-out group and the device locks tied to it — see
-  // signOutUsername below).
   const CHAT_MESSAGES_REF = db.collection('chat_messages');
   const CHAT_USERNAMES_REF = db.collection('chat_usernames');
   const CHAT_USERNAME_COUNTERS_REF = db.collection('chat_username_counters');
   const CHAT_DEVICES_REF = db.collection('chat_devices');
   const CHAT_BANS_REF = db.collection('chat_bans');
-  // Salted-hash-of-IP + expiresAt, one doc per username — see
-  // logIpBestEffort in livestream-chat-widget.html for why this lives on
-  // its own instead of merged onto CHAT_USERNAMES_REF like it used to.
+
   const CHAT_IP_LOG_REF = db.collection('chat_ip_log');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
   const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
   const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
   const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
-  // Not actually chat-related — it's the homepage Listen widget's linked
-  // SoundCloud profile (soundcloud-widget.html). Filed under chat_config
-  // anyway, rather than a new collection, purely so it inherits that
-  // collection's existing public-read/admin-write Firestore rules; those
-  // rules live only in the Firebase console (see firestore.rules' own
-  // header note), so reusing an already-public collection means this
-  // ships without anyone having to hand-edit rules there too.
+
   const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
 
-  // SEO tab — also not chat-related, filed under chat_config for the
-  // exact reason SOUNDCLOUD_REF above is: it's already public-read/
-  // admin-write in the live console, so this works without anyone
-  // hand-editing Firestore rules there first. Read by a small inline
-  // script on each of the real pages listed in SEO_PAGES below (see
-  // that page's own <head>) to override its built-in <title>/meta
-  // description once this loads.
   const SEO_REF = db.collection('chat_config').doc('seo');
 
-  // Store tab — see store.html (reads store_products) and
-  // functions/index.js's stripeWebhook (writes store_orders).
   const STORE_PRODUCTS_REF = db.collection('store_products');
   const STORE_ORDERS_REF = db.collection('store_orders');
 
-  // ---------- Product photos: committed straight to this GitHub repo ----------
-  // Cloud Storage needs the project on Firebase's Blaze (pay-as-you-go)
-  // plan, which isn't set up, and embedding photos as data URLs directly
-  // in the Firestore document (an earlier version of this — see git
-  // history) ran into Firestore's 1MiB-per-document limit fast. Instead:
-  // resize client-side, then commit the file straight to this repo's
-  // store-photos/ folder via GitHub's Contents API, using a token pasted
-  // into the "Photo Uploads" card above (see getGithubToken/
-  // githubUploadImage) — same instant-availability property Storage
-  // uploads had (raw.githubusercontent.com serves a freshly committed
-  // file within seconds, no waiting on a GitHub Pages rebuild), just a
-  // different host. Firestore then only ever stores the short resulting
-  // URL string, so the document-size ceiling stops being a concern at
-  // all — MAX_PHOTO_DIM/PHOTO_QUALITY below are picked for reasonable
-  // page-load weight and repo size, not to dodge a Firestore limit.
   var MAX_PHOTO_DIM = 1400;
   var PHOTO_QUALITY = 0.85;
 
@@ -1282,28 +1162,13 @@
   var GITHUB_BRANCH = 'main';
   var GITHUB_TOKEN_KEY = 'knobsock_admin_github_token';
 
-  // localStorage, not sessionStorage — persists on this device/browser
-  // until explicitly cleared, so it only needs pasting in once rather
-  // than every fresh tab. Never written into this file itself; only ever
-  // exists wherever an admin pastes it in at runtime. Use a
-  // fine-grained token (scoped to just this repo's Contents) precisely
-  // because it sits here indefinitely — narrow blast radius, and it's
-  // revocable/regeneratable anytime from GitHub's own token settings.
   function getGithubToken() {
     try { return localStorage.getItem(GITHUB_TOKEN_KEY) || ''; } catch (err) { return ''; }
   }
   function setGithubToken(token) {
-    try { localStorage.setItem(GITHUB_TOKEN_KEY, token); } catch (err) { /* storage full/blocked */ }
+    try { localStorage.setItem(GITHUB_TOKEN_KEY, token); } catch (err) {  }
   }
 
-  // Commits a resized photo (already a data URL from resizeImageFile)
-  // straight to store-photos/ as a new file — always a fresh, uniquely-
-  // named file rather than an update to an existing path, so this never
-  // needs to look up a file's current sha first (the Contents API only
-  // requires that for overwriting something that already exists).
-  // Resolves with the file's raw.githubusercontent.com URL, straight
-  // from GitHub's own response — instantly fetchable, no Pages rebuild
-  // wait.
   function githubUploadImage(dataUrl) {
     var token = getGithubToken();
     if (!token) return Promise.reject(new Error('Paste a GitHub token in the Photo Uploads card above first.'));
@@ -1335,14 +1200,6 @@
     });
   }
 
-  // Downscales to a sane max dimension and re-encodes as a data URL
-  // before it ever gets pushed into editingProductImages/colors. WebP
-  // (not JPEG or PNG) for product photos specifically: these are
-  // transparent cutout product art, so they need real alpha support like
-  // PNG, but WebP's actual lossy compression (PNG's "quality" argument is
-  // simply ignored by browsers — PNG is always lossless) keeps each
-  // photo small enough that several still fit under Firestore's document
-  // limit — see the format param note below.
   function resizeImageFile(file, maxDim, quality, format) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -1357,12 +1214,7 @@
           var canvas = document.createElement('canvas');
           canvas.width = w;
           canvas.height = h;
-          // format defaults to JPEG (existing callers: small opaque
-          // thumbnails where a lost alpha channel doesn't matter). Custom
-          // button-image uploads pass 'image/png' instead, since a
-          // transparent/irregularly-shaped button graphic — the whole
-          // point of a "make your own button" upload — would otherwise
-          // get flattened onto an opaque background.
+
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           resolve(canvas.toDataURL(format || 'image/jpeg', quality));
         };
@@ -1372,14 +1224,6 @@
     });
   }
 
-  // Sound that plays when a creator's picker button is clicked (Videos
-  // only). Unlike an image, audio can't be meaningfully shrunk by
-  // redrawing it at a smaller size — there's no in-browser re-encode step
-  // here, just a straight read-as-data-URL — so instead this caps the
-  // raw file size up front. 300KB comfortably covers a short click/chime
-  // sound effect while keeping this creator's whole row (image + sound,
-  // both living in the same Firestore doc as every other creator's) well
-  // clear of the 1MiB per-document limit even with a full roster.
   const MAX_CREATOR_SOUND_BYTES = 300 * 1024;
   function readAudioFileAsDataUrl(file) {
     return new Promise(function (resolve, reject) {
@@ -1417,42 +1261,25 @@
     return null;
   }
 
-  // Accepts a full profile link (with or without https://, www.) or just
-  // a bare handle typed on its own, and normalizes it down to a canonical
-  // "https://soundcloud.com/<handle>" profile URL — the shape the
-  // SoundCloud Widget API's own ?url= param expects.
-  //
-  // Deliberately permissive about what counts as a valid handle (SoundCloud
-  // permalinks can contain periods, e.g. soundcloud.com/dj.someone — an
-  // earlier version of this rejected any bare handle with a "." in it,
-  // which silently blocked exactly that kind of real account and looked
-  // like this whole feature just didn't work). Only rejects input that's
-  // empty, clearly some other domain, or contains whitespace/a slash after
-  // stripping a leading @ — i.e. looks like a pasted sentence/display name
-  // rather than a handle. A too-loose accept just means SoundCloud's own
-  // widget shows nothing for a bogus handle, same failure mode as leaving
-  // the field unset; a too-strict reject blocks a real account outright,
-  // which is the worse failure to bias against here.
   function extractSoundcloudProfileUrl(input) {
     if (!input) return null;
     let trimmed = input
-      .replace(/[\u200B-\u200D\uFEFF]/g, '') // invisible characters some paste sources (Notes, Word, etc.) leave behind
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
       .trim()
       .replace(/^https?:\/\//i, '')
       .replace(/^www\./i, '');
     if (!trimmed) return null;
     let handle;
     if (trimmed.indexOf('/') === -1) {
-      handle = trimmed.replace(/^@/, ''); // no path at all — bare handle, periods and all
+      handle = trimmed.replace(/^@/, '');
     } else if (/^soundcloud\.com\//i.test(trimmed)) {
       handle = trimmed.slice('soundcloud.com/'.length).split(/[/?#]/)[0];
     } else {
-      return null; // has a path but isn't soundcloud.com — some other site's link
+      return null;
     }
     return (handle && !/[\s/?#]/.test(handle)) ? 'https://soundcloud.com/' + handle : null;
   }
 
-  // ---------- LOGIN ----------
   const loginWrap = document.getElementById('loginWrap');
   const appEl = document.getElementById('app');
   const loginEmail = document.getElementById('loginEmail');
@@ -1504,14 +1331,6 @@
     }
   });
 
-  // ---------- TABS ----------
-  // The active tab lives in the URL hash (admin.html#music, #photos,
-  // #live) so a reload — or a bookmarked/shared link — lands back on
-  // the same tab instead of always resetting to Videos. Uses
-  // replaceState rather than pushState/location.hash so clicking
-  // between tabs doesn't spam the browser's back button with an entry
-  // per tab; a real navigation (typing a different #hash, or hitting
-  // back to one from before this page) still updates via hashchange.
   const navTabs = document.querySelectorAll('.nav-tab');
   const validTabs = Array.prototype.map.call(navTabs, function (b) { return b.dataset.tab; });
 
@@ -1533,32 +1352,6 @@
     activateTab(location.hash.slice(1), false);
   });
 
-  // Not called from here yet — landing directly on #live would run
-  // startLiveModerationIfNeeded() before that module's own `let`
-  // declarations further down this same script have executed. The
-  // actual initial call sits at the very end of this file instead, once
-  // everything above it is guaranteed to exist.
-
-  // ---------- DRAG-AND-DROP (Pointer Events, no library) ----------
-  // Built on Pointer Events rather than the native HTML5 Drag and Drop
-  // API — HTML5 DnD has no real touch support (iOS Safari doesn't fire
-  // its drag events from a touch at all, which is exactly why dragging
-  // didn't work on mobile), while Pointer Events fire consistently for
-  // mouse AND touch input alike, so one implementation covers both.
-  //
-  // A drag only starts from the small grip icon (not the whole row), so
-  // tapping/clicking anywhere else — a text input, a checkbox, a photo
-  // tab's own click-to-select — is never mistaken for a drag.
-  //
-  // Rows carry `data-draggable` + a `data-index` matching their position
-  // at render time. While dragging, the row being moved has its pointer
-  // captured (so pointermove/up keep targeting it even off-element), and
-  // `document.elementFromPoint` finds whatever's really under the pointer
-  // to decide where to live-move it — capture makes `e.target` always
-  // report the captured element instead. On release, the caller gets the
-  // ORIGINAL indices in their new visual order and is responsible for
-  // reordering its own array and re-rendering (which rebuilds these same
-  // data-index values fresh from 0).
   function makeSortable(container, onReorder) {
     let dragEl = null;
     let pointerId = null;
@@ -1571,7 +1364,7 @@
       e.preventDefault();
       dragEl = row;
       pointerId = e.pointerId;
-      try { row.setPointerCapture(pointerId); } catch (err) { /* older browsers, harmless */ }
+      try { row.setPointerCapture(pointerId); } catch (err) {  }
       row.classList.add('dragging');
     });
 
@@ -1589,7 +1382,7 @@
     function endDrag(e) {
       if (!dragEl || e.pointerId !== pointerId) return;
       dragEl.classList.remove('dragging');
-      try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
+      try { dragEl.releasePointerCapture(pointerId); } catch (err) {  }
       const rows = Array.prototype.slice.call(container.querySelectorAll('[data-draggable]'));
       onReorder(rows.map(function (r) { return parseInt(r.dataset.index, 10); }));
       dragEl = null;
@@ -1599,12 +1392,6 @@
     container.addEventListener('pointercancel', endDrag);
   }
 
-  // Same drag-to-reorder idea as makeSortable above, but for a wrapping
-  // grid of same-size tiles (the product photo picker) rather than a
-  // vertical list of rows — there's no separate .grip handle (the whole
-  // tile drags), and "before or after the hovered tile" is decided by
-  // horizontal position within it instead of vertical, since two tiles
-  // being compared are usually side by side in the same row.
   function makeGridSortable(container, tileSelector, onReorder) {
     let dragEl = null;
     let pointerId = null;
@@ -1616,7 +1403,7 @@
       e.preventDefault();
       dragEl = tile;
       pointerId = e.pointerId;
-      try { tile.setPointerCapture(pointerId); } catch (err) { /* older browsers, harmless */ }
+      try { tile.setPointerCapture(pointerId); } catch (err) {  }
       tile.classList.add('dragging');
     });
 
@@ -1634,7 +1421,7 @@
     function endDrag(e) {
       if (!dragEl || e.pointerId !== pointerId) return;
       dragEl.classList.remove('dragging');
-      try { dragEl.releasePointerCapture(pointerId); } catch (err) { /* harmless */ }
+      try { dragEl.releasePointerCapture(pointerId); } catch (err) {  }
       const tiles = Array.prototype.slice.call(container.querySelectorAll(tileSelector + '[data-index]'));
       onReorder(tiles.map(function (t) { return parseInt(t.dataset.index, 10); }));
       dragEl = null;
@@ -1644,53 +1431,23 @@
     container.addEventListener('pointercancel', endDrag);
   }
 
-  // ---------- SHARED VIDEO/MUSIC PLAYLIST EDITOR ----------
-  // Videos and Music are the exact same shape in Firestore (videos[] +
-  // creatorAliases/creatorOrder/hiddenCreators) and the exact same admin
-  // behavior, so one factory drives both tabs instead of duplicating
-  // this logic twice.
   function createPlaylistEditor(opts) {
     let draftList = [];
     let draftCreators = [];
     let creatorAliases = {};
     let creatorOrder = [];
     let hiddenCreators = [];
-    // Only meaningful when opts.showCreatorLinks is set (Videos only) —
-    // keyed by displayAs (not raw), same as creatorOrder itself, so the
-    // videos.html picker that reads this back can match a name straight
-    // out of creatorOrder without needing a separate raw-name lookup.
+
     let creatorLinks = {};
-    // Same keying/gating as creatorLinks above — a PNG (resizeImageFile
-    // caps it at 300px on its longest side, alpha preserved so a custom
-    // button shape doesn't get flattened onto an opaque background) data
-    // URL per creator, stored directly in this doc rather than Firebase
-    // Storage (which needs the project on Firebase's Blaze plan — see
-    // resizeImageFile's own comment for the Store tab's version of this
-    // same situation), and unlike a shopping cart's product photos, a
-    // handful of these comfortably fits Firestore's 1MiB document limit
-    // without needing Storage at all. This is no
-    // longer a small round avatar next to a text button — it IS the
-    // entire button on videos.html now, so a creator with nothing set
-    // here just doesn't get a button at all (see that file).
+
     let creatorPhotos = {};
-    // Optional second image, same data-URL-in-Firestore approach as
-    // creatorPhotos above — swapped in on the videos.html picker button
-    // the instant it's clicked (e.g. a "bite taken out" version of a
-    // burger logo), then shown for a beat before navigating away. Falls
-    // straight back to creatorPhotos (no swap at all) when this is unset,
-    // so uploading it per creator is optional, not required.
+
     let creatorPhotos2 = {};
-    // Optional sound that plays when this creator's button is clicked —
-    // same data-URL-in-Firestore approach as creatorPhotos, but audio
-    // can't be meaningfully recompressed in-browser the way a canvas
-    // resize handles images, so the upload handler below just rejects
-    // anything too large up front instead (see MAX_CREATOR_SOUND_BYTES).
+
     let creatorSounds = {};
     let draftAlbums = [];
     let albumOrder = [];
-    // Only Music passes opts.showAlbums — an id unique to this editor
-    // instance so the per-row album inputs' <datalist> (rendered once,
-    // shared by every row) never collides with Videos' own, unused one.
+
     const albumListId = 'albumOptions-' + Math.random().toString(36).slice(2);
 
     function collectAlbums() {
@@ -1703,14 +1460,6 @@
       return list;
     }
 
-    // "SoundCloud" is always offered even if nothing on this track list
-    // is tagged with it yet — the front-end widget auto-assigns every
-    // SoundCloud-only track to it, so the admin can still position it
-    // relative to the real albums without needing a track to type it
-    // onto first. Previously-saved albumOrder entries are kept in the
-    // list too (same reasoning as creators below) so an album that's
-    // momentarily unused by any track doesn't just vanish from the
-    // reorderable list until the admin saves again.
     function collectAlbumNames() {
       const seen = new Set();
       const list = [];
@@ -1779,10 +1528,6 @@
       return rows;
     }
 
-    // Pulls a video's real title + author from YouTube's oEmbed data (via
-    // noembed.com — same reason the widgets themselves use it: reliable
-    // CORS headers, unlike calling youtube.com/oembed directly). Title is
-    // only overwritten when the admin hasn't hand-edited it for this row.
     function fetchAuthorFor(item) {
       const id = extractVideoId(item.url);
       if (!id) return;
@@ -1813,14 +1558,6 @@
       draftList.forEach(function (v) { if (!v.author) fetchAuthorFor(v); });
     }
 
-    // Batches every item still missing a publishedAt into as few
-    // videos.list calls as the API allows (up to 50 ids each) rather
-    // than one request per video — costs the same 1 quota unit per
-    // call regardless of how many ids ride along, so this is the
-    // difference between (say) 3 calls and 120 for a full reload.
-    // Keyed by video id (not list index) so a duplicate id anywhere in
-    // the list, or a row whose url changed between the request going
-    // out and coming back, still lands on every matching row.
     function fetchPublishedDatesFor(items) {
       const idToItems = new Map();
       items.forEach(function (item) {
@@ -1912,11 +1649,7 @@
           albumInput.addEventListener('input', function () {
             draftList[idx].album = albumInput.value;
           });
-          // The datalist and the reorderable Albums list below only
-          // reflect albums that existed at the last render — refresh both
-          // once the admin commits to a brand-new name (on blur, not
-          // every keystroke) so it shows up everywhere without needing a
-          // reload.
+
           albumInput.addEventListener('change', function () {
             renderList();
             if (opts.albumsRoot) {
@@ -1938,11 +1671,7 @@
         return;
       }
       opts.creatorsRoot.innerHTML = draftCreators.map(function (row, i) {
-        // Videos-only (see opts.showCreatorLinks) — where the picker on
-        // videos.html sends someone who taps this creator's button, the
-        // image that IS that button (no text, no background — nothing
-        // renders there at all until one's uploaded here), and an
-        // optional sound that plays on click.
+
         const linkFieldHtml = opts.showCreatorLinks
           ? '<input type="text" class="link-input" placeholder="Link (where this creator\'s picker button goes — optional if it only plays a sound)" value="' + escapeAttr(row.link || '') + '">'
           : '';
@@ -2000,10 +1729,7 @@
           photoInput.addEventListener('change', function (e) {
             const file = e.target.files && e.target.files[0];
             if (!file) return;
-            // Capped at 300px on the longest side and re-encoded as PNG
-            // (not JPEG) — this is the entire button now, not a small
-            // round avatar, so alpha transparency has to survive for a
-            // custom-shaped graphic to actually look right on the page.
+
             resizeImageFile(file, 300, undefined, 'image/png').then(function (dataUrl) {
               draftCreators[idx].photo = dataUrl;
               renderCreators();
@@ -2062,9 +1788,6 @@
       });
     }
 
-    // Purely a drag-to-prioritize list — an album's position here is
-    // its whole reason for existing, so unlike Creators there's no
-    // per-row alias/hide input, just the name.
     function renderAlbums() {
       if (!opts.albumsRoot) return;
       if (!draftAlbums.length) {
@@ -2099,9 +1822,6 @@
       renderList();
     });
 
-    // Unresolved (still-fetching, or a blank/invalid row) publishedAt is
-    // 0 either way, so those naturally sort last rather than needing
-    // their own branch — same treatment "Unknown" author gets elsewhere.
     opts.sortDateBtn.addEventListener('click', function () {
       draftList.sort(function (a, b) { return (b.publishedAt || 0) - (a.publishedAt || 0); });
       renderList();
@@ -2118,7 +1838,6 @@
       }
       setStatus('Reset to default list — click Save Changes to apply.');
     });
-
 
     opts.saveBtn.addEventListener('click', function () {
       const cleaned = draftList
@@ -2237,13 +1956,9 @@
     { url: 'https://youtube.com/watch?v=VuivQyVyKDM', title: 'Track Two' },
     { url: 'https://youtube.com/watch?v=Jc9Eay0tedo', title: 'Track Three' }
   ];
-  // Empty on purpose — a brand-new feed with no back catalog yet, unlike
-  // Videos/Music above (which fall back to real placeholder videos so
-  // the pages they feed never launch looking broken/empty). "Reset to
-  // default list" here just clears it back to nothing.
+
   const DEFAULT_HAMBURGER_NEWS_LIST = [];
 
-  // ---------- STARTUP ----------
   function startEditors() {
     createPlaylistEditor({
       docRef: VIDEO_DOC_REF,
@@ -2258,10 +1973,7 @@
       urlPlaceholder: 'Paste a YouTube link',
       singular: 'Video',
       plural: 'videos',
-      // The only editor instance whose Creators list feeds a picker of
-      // its own (the button grid on videos.html) rather than just
-      // ordering/hiding chips inside a playlist widget — Music and
-      // Hamburger News' Creators lists have no equivalent to link to.
+
       showCreatorLinks: true
     }).load();
 
@@ -2302,11 +2014,6 @@
     initSeoEditor();
   }
 
-  // ---------- GAMES ----------
-  // Deliberately not run through createPlaylistEditor like the lists above:
-  // a game is just a title and a link to any HTML page, with none of the
-  // YouTube machinery those share (no video id to extract, no oEmbed title/
-  // author lookup, no upload date to sort by, no creator chips).
   function initGamesEditor() {
     const listRoot = document.getElementById('gamesList');
     const statusEl = document.getElementById('gamesStatus');
@@ -2365,8 +2072,7 @@
     });
 
     document.getElementById('gamesSaveBtn').addEventListener('click', function () {
-      // A row with no link has nothing to point the pickle slot at, so it's
-      // dropped rather than saved as a dead slot.
+
       const games = draft
         .filter(function (g) { return (g.url || '').trim(); })
         .map(function (g) {
@@ -2398,21 +2104,8 @@
     });
   }
 
-  // ---------- SOUNDCLOUD ACCOUNT ----------
-  // Lives on the Music tab, but (unlike the tab's playlist editors above)
-  // isn't wired up by createPlaylistEditor, so it needs its own init call
-  // here — called unconditionally from startEditors() rather than from
-  // activateTab()/startLiveModerationIfNeeded(), which only run for the
-  // Live tab. This used to be set up inside startLiveModerationIfNeeded()
-  // (it writes to the same chat_config collection — see SOUNDCLOUD_REF's
-  // own comment), which meant an admin who opened the Music tab without
-  // ever visiting Live first got a Save button with no click handler on
-  // it at all: no prefilled value, and clicking Save silently did
-  // nothing, because this code had simply never run yet.
   function initSoundcloudAccountEditor() {
-    // One-time prefill (not a live listener) — same "takes effect on
-    // load/refresh" model as the Live Stream Video URL, and this has no
-    // second piece of live state (like isLive) that would need one anyway.
+
     SOUNDCLOUD_REF.get().then(function (doc) {
       const data = doc.exists ? doc.data() : null;
       const input = document.getElementById('soundcloudUrlInput');
@@ -2422,21 +2115,13 @@
     }).catch(function () {});
 
     document.getElementById('saveSoundcloudBtn').addEventListener('click', function () {
-      // Wrapped in try/catch (unlike the other Save buttons on this page)
-      // purely as a diagnostic net while tracking down a report that this
-      // one silently does nothing on click — an unexpected synchronous
-      // throw in here would otherwise vanish into the console with no
-      // on-page sign anything happened at all.
+
       try {
       const input = document.getElementById('soundcloudUrlInput');
       const statusEl = document.getElementById('soundcloudStatus');
       const raw = input.value.trim();
-      statusEl.style.fontWeight = ''; // clear any bold left over from a previous rejection
+      statusEl.style.fontWeight = '';
 
-      // Empty input + Save is how an account gets unlinked — the
-      // homepage widget treats a missing/blank profileUrl as "nothing
-      // configured" and shows its own empty state rather than falling
-      // back to some guessed or stale account.
       if (!raw) {
         statusEl.textContent = 'Saving…';
         statusEl.style.color = 'var(--text-dim)';
@@ -2446,7 +2131,7 @@
         }).catch(function (err) {
           statusEl.textContent = 'Save failed: ' + err.message;
           statusEl.style.color = 'var(--danger)';
-          alert('Failed to save SoundCloud account: ' + err.message); // same pattern as the live-status toggle's failure below — a small status line under a button is too easy to miss when something actually goes wrong
+          alert('Failed to save SoundCloud account: ' + err.message);
         });
         return;
       }
@@ -2476,14 +2161,6 @@
     });
   }
 
-  // ---------- SEO ----------
-  // A fixed list, not a generic "any page" system — these are this
-  // site's real, indexable pages (the ones actually meant to rank),
-  // not the admin panel, checkout flow, or any of the iframe-only
-  // widget files. Adding another page here later also means adding the
-  // same small reader script to that page's own <head> (see e.g.
-  // videos.html's own SEO block) — the two have to be kept in sync by
-  // hand, there's nothing that enforces it.
   var SEO_PAGES = [
     { slug: 'home', label: 'Home (/)' },
     { slug: 'videos', label: 'Videos (/videos)' },
@@ -2495,9 +2172,7 @@
     { slug: 'legal', label: 'Legal (/legal)' },
     { slug: 'archive', label: 'Archive (/archive)' }
   ];
-  // Google's own truncation points — not a hard limit (nothing stops
-  // typing past these), just what the character counts below warn
-  // against.
+
   var SEO_TITLE_SOFT_MAX = 60;
   var SEO_DESC_SOFT_MAX = 155;
 
@@ -2534,9 +2209,6 @@
       updateSeoCharCount(descInput, descCount, SEO_DESC_SOFT_MAX);
     });
 
-    // One-time prefill, same as the SoundCloud account field above —
-    // this is a settings form for one editor at a time, not a list that
-    // needs to stay live-synced while open.
     SEO_REF.get().then(function (doc) {
       var data = doc.exists ? doc.data() : null;
       var pages = (data && data.pages) || {};
@@ -2586,26 +2258,18 @@
     });
   }
 
-  // ==========================================================
-  // LIVE CHAT MODERATION
-  // Reads/writes the exact same Firestore collections
-  // livestream-chat-widget.html itself uses — see that file's own
-  // comments for the schema (chat_messages, chat_usernames, chat_bans,
-  // chat_config/censoredWords) and for why a ban targets a device id
-  // rather than an IP address.
-  // ==========================================================
   let liveModerationStarted = false;
-  let liveMessages = [];       // [{id, username, text, deviceId, ts}], newest first
-  let liveUsers = [];          // [{id (=username key), username, createdAt, lastDeviceId, color}]
-  let liveIpLog = {};          // username key -> {ipHash, loggedAt, expiresAt} (see CHAT_IP_LOG_REF, getLiveIpHash below)
-  let liveBans = {};           // key -> {bannedAt, expiresAt, reason, bannedBy, usernames, lastKnownIp, enforced}
+  let liveMessages = [];
+  let liveUsers = [];
+  let liveIpLog = {};
+  let liveBans = {};
   let liveCensorWords = [];
-  let revealedCensorWords = new Set(); // words currently un-masked in the Censored Words list
-  let chatClearedAt = 0; // 0 = not cleared; a timestamp otherwise (see chat_config/clear)
+  let revealedCensorWords = new Set();
+  let chatClearedAt = 0;
   let chatSearchQuery = '';
   let userSearchQuery = '';
   let userHistoryUsername = null;
-  let banModalTarget = null;   // {username, deviceId, enforced}
+  let banModalTarget = null;
   let banModalDuration = 'permanent';
 
   const MESSAGE_LOAD_LIMIT = 3000;
@@ -2621,10 +2285,6 @@
     return liveUsers.find(function (u) { return u.id === key; }) || null;
   }
 
-  // Looks up a username's logged IP hash, treating anything past its own
-  // expiresAt as already gone — so the UI stops showing/matching on it
-  // immediately at the 90-day mark even during the day or so Firestore's
-  // own TTL sweep can lag behind before it actually deletes the doc.
   function getLiveIpHash(usernameOrId) {
     const key = String(usernameOrId || '').toLowerCase();
     const entry = liveIpLog[key];
@@ -2633,14 +2293,6 @@
     return entry.ipHash;
   }
 
-  // Resolves the identity a ban/delete/history action should key off of.
-  // A device id (see the chat widget's CLIENT_ID) is what a ban actually
-  // enforces and is what "delete their previous messages" matches
-  // against everywhere that device has posted, regardless of which name
-  // it used each time; falling back to the username alone still lets the
-  // admin clean up old messages, it just can't stop that visitor from
-  // coming back under a new name (there's nothing else this static site
-  // can check them against).
   function resolveIdentity(username) {
     const userDoc = findUserByUsername(username);
     const deviceId = userDoc && userDoc.lastDeviceId;
@@ -2659,10 +2311,6 @@
     });
   }
 
-  // Firestore batches cap at 500 writes — chunks a flat list of doc refs
-  // into safe-sized sequential batches so a big delete (a heavy chatter's
-  // whole message history, or a large family of numbered usernames)
-  // can't silently fail past that limit.
   function commitDeletesInBatches(refs) {
     const chunks = [];
     for (let i = 0; i < refs.length; i += 450) chunks.push(refs.slice(i, i + 450));
@@ -2679,17 +2327,6 @@
     return commitDeletesInBatches(msgs.map(function (m) { return CHAT_MESSAGES_REF.doc(m.id); }));
   }
 
-  // ---------- ONE-TIME MIGRATION: legacy raw IPs ----------
-  // Before the chat_ip_log split (see logIpBestEffort in
-  // livestream-chat-widget.html), a visitor's raw IP address was written
-  // straight onto their chat_usernames doc as lastIp/lastSeenAt, with no
-  // expiry. That old code is gone, but any doc it already wrote still has
-  // those two fields sitting on it with nothing to clear them. This is a
-  // one-time cleanup for that backlog, not something that runs on its
-  // own — call it once from this tab's browser console while signed in
-  // here (`purgeLegacyIpFields()`), then never again: new logins don't
-  // write these fields at all, so once the backlog's clear there's
-  // nothing left for it to do.
   function purgeLegacyIpFields() {
     const targets = liveUsers.filter(function (u) { return u.lastIp || u.lastSeenAt; });
     if (!targets.length) {
@@ -2716,23 +2353,6 @@
   }
   window.purgeLegacyIpFields = purgeLegacyIpFields;
 
-  // Every chat_usernames doc that should go down together when an admin
-  // signs someone out: every doc sharing this username's base name (a
-  // leftover of the old #0001-style suffix scheme — usernames claimed
-  // since are always bare, but older suffixed docs can still exist),
-  // plus — since IP is the closest thing this static site has to
-  // "probably the same person" — every doc whose logged IP hashes the
-  // same, whatever name it's registered under. The IP itself is
-  // self-reported by each visitor's own browser (see logIpBestEffort in
-  // livestream-chat-widget.html), only ever kept as a salted hash with a
-  // 90-day expiry (see getLiveIpHash), and never enforced, so this is a
-  // convenience heuristic for catching someone cycling through unrelated
-  // names on one connection, not a guarantee — a shared home/school/
-  // office wifi can just as easily sweep up unrelated people, which is
-  // why the confirm dialog below always lists every name about to be
-  // affected before anything happens. liveUsers already mirrors the
-  // whole chat_usernames collection live, so this is a plain filter, no
-  // extra reads needed.
   function findSignOutGroup(username) {
     const baseKey = username.toLowerCase().split('#')[0];
     const ipHash = getLiveIpHash(username);
@@ -2741,17 +2361,6 @@
     });
   }
 
-  // Signs a person — or, when IP ties them to others, the whole group —
-  // out for good: deletes every chat_usernames doc in the group (see
-  // findSignOutGroup), every member's chat_devices lock, which is what
-  // actually boots any of them off chat immediately (see the live
-  // listener on chat_devices/<CLIENT_ID> in livestream-chat-widget.html),
-  // and each distinct base name's chat_username_counters doc, so a freed
-  // name that gets claimed again and collides restarts numbering at
-  // #0001 instead of resuming wherever its history left off. Every freed
-  // name goes back into the pool for anyone (including its old owner) to
-  // claim fresh — there's no way back in under the old name. Message
-  // history is untouched either way.
   function signOutUsername(username) {
     const group = findSignOutGroup(username);
     const baseKeys = new Set();
@@ -2765,11 +2374,6 @@
     return commitDeletesInBatches(refs);
   }
 
-  // chat_messages.ts is always a plain millisecond number (Date.now()),
-  // but chat_usernames.createdAt is written with serverTimestamp() and
-  // comes back as a Firestore Timestamp object instead — this normalizes
-  // either shape to plain milliseconds so timeLabel/sorting both work
-  // regardless of which field they're given.
   function toMillis(value) {
     if (!value) return 0;
     if (typeof value === 'number') return value;
@@ -2783,7 +2387,6 @@
     return ms ? new Date(ms).toLocaleString() : '';
   }
 
-  // ---------- RENDER: USERS ----------
   function renderUserList() {
     const root = document.getElementById('userList');
     if (!root) return;
@@ -2805,7 +2408,6 @@
     });
   }
 
-  // ---------- RENDER: CHAT LOG ----------
   function renderChatRow(m) {
     return '<div class="chat-log-row" data-id="' + escapeAttr(m.id) + '">' +
       '<div class="chat-log-row-head">' +
@@ -2850,7 +2452,6 @@
     wireChatRowActions(root);
   }
 
-  // ---------- RENDER: BANNED ----------
   function renderBannedList() {
     const root = document.getElementById('bannedList');
     if (!root) return;
@@ -2879,7 +2480,6 @@
     });
   }
 
-  // ---------- RENDER: CENSORED WORDS ----------
   function renderCensorWordsList() {
     const root = document.getElementById('censorWordsList');
     if (!root) return;
@@ -2917,11 +2517,6 @@
     CHAT_CENSORED_WORDS_REF.set({ words: words }, { merge: true }).catch(function (err) { alert('Save failed: ' + err.message); });
   }
 
-  // ---------- CLEAR CHAT ----------
-  // Moves the cutoff every visitor's own message query starts from
-  // (see livestream-chat-widget.html's subscribeToMessages) — the
-  // messages themselves are never deleted, so the chat log and search
-  // right here keep showing everything regardless of this.
   function renderClearChatStatus() {
     const note = document.getElementById('chatClearedNote');
     const btn = document.getElementById('clearChatBtn');
@@ -2949,7 +2544,6 @@
     }).catch(function (err) { alert('Clear failed: ' + err.message); });
   }
 
-  // ---------- USER HISTORY PANEL ----------
   function openUserHistory(username) {
     userHistoryUsername = username;
     document.getElementById('userHistoryOverlay').hidden = false;
@@ -2982,14 +2576,7 @@
     } else {
       actionsHtml += '<button type="button" class="btn btn-primary" id="userHistoryBanBtn">Ban This User</button>';
     }
-    // Deletes the whole sign-out group's chat_usernames registrations
-    // (see signOutUsername/findSignOutGroup — same base name and/or same
-    // last-known IP) plus every member's chat_devices lock, not any
-    // messages — every name involved goes back into the pool and anyone
-    // currently signed in under one of them gets kicked to the join
-    // screen right away. Only offered when there's actually a
-    // registration to clear; a username resolved purely from message
-    // history (no doc on record) has nothing here to clear.
+
     if (userDoc) {
       actionsHtml += '<button type="button" class="btn-link" id="userHistorySignOutBtn">Sign Out</button>';
     }
@@ -3023,7 +2610,6 @@
     wireChatRowActions(listEl);
   }
 
-  // ---------- BAN MODAL ----------
   function openBanModal(username) {
     banModalTarget = resolveIdentity(username);
     banModalDuration = 'permanent';
@@ -3076,7 +2662,6 @@
       });
   }
 
-  // ---------- LOAD / SUBSCRIBE ----------
   function startLiveModerationIfNeeded() {
     if (liveModerationStarted) return;
     liveModerationStarted = true;
@@ -3084,7 +2669,7 @@
     CHAT_MESSAGES_REF.orderBy('ts', 'desc').limit(MESSAGE_LOAD_LIMIT).onSnapshot(function (snapshot) {
       liveMessages = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
       renderChatLog();
-      renderUserList(); // banned-tag depends on liveBans, not messages, but re-render is cheap and keeps things simple
+      renderUserList();
       if (userHistoryUsername) renderUserHistory();
     }, function (err) {
       const root = document.getElementById('liveMessagesList');
@@ -3101,18 +2686,12 @@
       if (root) root.innerHTML = '<div class="empty-state">Could not load users: ' + escapeAttr(err.message) + '</div>';
     });
 
-    // Doesn't drive its own UI section — just feeds getLiveIpHash, which
-    // renderUserHistory/findSignOutGroup read from directly — so this
-    // listener only needs to keep liveIpLog current and re-render
-    // whatever's already on screen that depends on it.
     CHAT_IP_LOG_REF.onSnapshot(function (snapshot) {
       liveIpLog = {};
       snapshot.docs.forEach(function (doc) { liveIpLog[doc.id] = doc.data(); });
       if (userHistoryUsername) renderUserHistory();
     }, function () {
-      // Best-effort like the write side — a failed read just means the
-      // IP-hash heuristic is unavailable this session, nothing else here
-      // depends on it.
+
     });
 
     CHAT_BANS_REF.onSnapshot(function (snapshot) {
@@ -3126,14 +2705,6 @@
       if (root) root.innerHTML = '<div class="empty-state">Could not load bans: ' + escapeAttr(err.message) + '</div>';
     });
 
-    // onSnapshot above only re-fires on an actual WRITE to chat_bans — it
-    // has no way to notice a timeout's own expiresAt quietly slipping
-    // into the past just because time went by, so without this a spam
-    // timeout would sit in "Currently Banned" looking still-active for
-    // however long it takes some unrelated write (another timeout, a
-    // manual unban elsewhere) to touch the collection again. Re-running
-    // the same isBanRowActive filter on a plain timer, independent of
-    // any Firestore event, keeps the list honest against the clock.
     setInterval(renderBannedList, 15000);
 
     CHAT_CENSORED_WORDS_REF.onSnapshot(function (doc) {
@@ -3151,14 +2722,8 @@
       renderClearChatStatus();
     }, function () {});
 
-    // A live listener — the online/offline status needs to always read
-    // correctly (e.g. across two admin tabs, or right after this same
-    // toggle is clicked) — but the URL input is only ever prefilled
-    // from the *first* snapshot. Live-updating that field too would
-    // risk overwriting whatever's mid-edit in the input the moment
-    // anything else about this doc changes (like the toggle below).
     let liveVideoUrlPrefilled = false;
-    let currentLiveStatus = true; // corrected by the listener below before it matters
+    let currentLiveStatus = true;
 
     function renderLiveStatusToggle() {
       const label = document.getElementById('liveStatusLabel');
@@ -3172,7 +2737,7 @@
 
     CHAT_LIVE_VIDEO_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
-      currentLiveStatus = !(data && data.isLive === false); // missing/true = live
+      currentLiveStatus = !(data && data.isLive === false);
       renderLiveStatusToggle();
 
       if (!liveVideoUrlPrefilled) {
@@ -3210,12 +2775,6 @@
       });
     });
 
-    // ---------- VODs ----------
-    // Simpler cousin of the Videos/Music playlist editor above — one
-    // streamer's own past-stream archive doesn't need creator chips or
-    // albums, just an ordered list of links + titles, so this is its
-    // own small editor rather than another createPlaylistEditor() call
-    // (which requires a creators list that wouldn't mean anything here).
     let vodDraftList = [];
 
     function fetchVodTitleFor(item) {
@@ -3371,13 +2930,12 @@
     });
   }
 
-  // ---------- STORE: PRODUCTS ----------
   let storeProducts = [];
   let storeProductsLoaded = false;
   let storeOrdersLoaded = false;
-  let editingProductId = null;   // null while the modal is adding a new product
-  let editingProductImages = []; // urls, live-edited while the modal's open
-  let editingProductColors = []; // [{name, hex, image?}], live-edited while the modal's open — see renderColorsList
+  let editingProductId = null;
+  let editingProductImages = [];
+  let editingProductColors = [];
 
   const productsList = document.getElementById('productsList');
   const productsStatus = document.getElementById('productsStatus');
@@ -3386,9 +2944,6 @@
   const githubTokenForgetBtn = document.getElementById('githubTokenForgetBtn');
   const githubTokenStatus = document.getElementById('githubTokenStatus');
 
-  // Left blank even when a token's already saved (rather than re-filling
-  // the password field with it) — one less place the value sits in the
-  // DOM after the initial save.
   function renderGithubTokenStatus() {
     githubTokenStatus.textContent = getGithubToken() ? 'Token saved on this device ✓' : '';
   }
@@ -3444,15 +2999,6 @@
     }
   }
 
-  // Same <datalist> combo-box pattern the Music tab's Album field already
-  // uses — free-text still works (store.html's category matching also
-  // trims/lowercases now, so minor typos aren't fatal), but seeing what's
-  // already in use makes it easy to pick the exact existing spelling
-  // instead of accidentally typing a near-duplicate ("T-Shirt" vs
-  // "T-shirts" — see the KNOBSOCK-side fix for that exact live mixup).
-  // Exact-string dedup only, same as collectAlbumNames() — doesn't try to
-  // merge near-duplicates itself, since deciding which spelling is
-  // "correct" isn't this code's call to make.
   function renderProductCategoryOptions() {
     var seen = {};
     var categories = [];
@@ -3519,22 +3065,11 @@
     });
   }
 
-  // Drag any photo tile onto another to reorder — see makeGridSortable's
-  // own comment. Bound once to the container (its innerHTML gets replaced
-  // wholesale by renderPhotosGrid, but the listeners here live on
-  // productPhotosGrid itself, not its children, so they survive that).
   makeGridSortable(productPhotosGrid, '.photo-upload-tile', function (newOrderIndices) {
     editingProductImages = newOrderIndices.map(function (i) { return editingProductImages[i]; });
     renderPhotosGrid();
   });
 
-  // Renders as an ordered list of rows, same top-to-bottom = display-
-  // order convention as everything else editable here — no drag-to-
-  // reorder like the photos grid gets since color pickers are short
-  // enough in practice that "remove and re-add" covers reordering fine.
-  // Each row's photo tile is that color's own product shot — shown on
-  // the Store page in place of the default photo when a customer picks
-  // this swatch (see store.html's showProduct/renderColorSwatches).
   function renderColorsList() {
     if (!editingProductColors.length) {
       productColorsList.innerHTML = '<div class="note" style="margin:0;">No colors added — the Store page hides the color picker entirely until at least one exists.</div>';
@@ -3573,10 +3108,6 @@
     });
   }
 
-  // Shared by every color row rather than one file input each — simpler
-  // than juggling dynamically-created inputs, and only one upload can be
-  // in flight from this list at a time anyway. colorPhotoEditIndex tracks
-  // which row a click on its photo tile was for.
   const productColorPhotoInput = document.getElementById('productColorPhotoInput');
   let colorPhotoEditIndex = -1;
   productColorPhotoInput.addEventListener('change', function () {
@@ -3698,9 +3229,7 @@
     if (editingProductId) {
       savePromise = STORE_PRODUCTS_REF.doc(editingProductId).update(payload);
     } else {
-      // Every product needs a real sortOrder — Firestore's orderBy simply
-      // omits documents missing the field it's sorting on, so a product
-      // saved without one would silently never show up in the store.
+
       payload.sortOrder = storeProducts.length
         ? Math.max.apply(null, storeProducts.map(function (p) { return p.sortOrder || 0; })) + 1
         : 0;
@@ -3711,7 +3240,7 @@
     savePromise.then(function () {
       productSaveBtn.disabled = false;
       closeProductModal();
-      storeProductsLoaded = false; // simplest way to pick up the add/edit: just reload
+      storeProductsLoaded = false;
       loadStoreTab();
     }).catch(function (err) {
       productSaveBtn.disabled = false;
@@ -3736,7 +3265,6 @@
   document.getElementById('productAddBtn').addEventListener('click', function () { openProductModal(null); });
   document.getElementById('productModalCloseBtn').addEventListener('click', closeProductModal);
 
-  // ---------- STORE: ORDERS ----------
   let storeOrders = [];
   const ordersTableBody = document.getElementById('ordersTableBody');
   const ordersStatus = document.getElementById('ordersStatus');
@@ -3791,10 +3319,7 @@
       sel.addEventListener('change', function () {
         if (!auth.currentUser) { ordersStatus.textContent = 'You’ve been signed out — please sign in again.'; return; }
         STORE_ORDERS_REF.doc(sel.dataset.id).update({ fulfillmentStatus: sel.value }).then(function () {
-          // Keep the in-memory list (what Export CSV reads from) in sync —
-          // without this, a status change would round-trip to Firestore
-          // fine but a CSV exported right after would still show the old
-          // status until the next full reload of the tab.
+
           var order = storeOrders.find(function (o) { return o.id === sel.dataset.id; });
           if (order) order.fulfillmentStatus = sel.value;
           ordersStatus.textContent = 'Updated.';
@@ -3808,14 +3333,7 @@
 
   function csvEscape(value) {
     var s = String(value == null ? '' : value);
-    // Customer name/email/address come straight off Stripe's own checkout
-    // form (free text, not something this app validates) and land here
-    // unmodified — a cell starting with =, +, -, or @ opens as a formula
-    // in Excel/Sheets instead of plain text ("CSV injection"), which a
-    // shopper could abuse against whoever opens the exported file here.
-    // A leading tab/CR does the same via other spreadsheet quirks. Excel's
-    // own documented fix is a leading apostrophe, which forces text
-    // interpretation without changing what's visibly displayed.
+
     if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
@@ -3847,8 +3365,6 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });
 
-  // The actual initial tab activation (see the "TABS" comment near the
-  // top of this script for why it has to happen down here, not there).
   activateTab(location.hash.slice(1));
 })();
 </script>

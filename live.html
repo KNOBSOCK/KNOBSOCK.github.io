@@ -21,7 +21,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone rebuild in the same style as music.html/videos.html. */
 
   * { box-sizing: border-box; }
 
@@ -29,15 +28,7 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    /* Matches the live chat widget's own red palette (its --ink) instead
-       of the tiled GeoCities GIF every other non-widget page here uses,
-       so the page the widget sits in reads as part of the same color
-       scheme instead of a mismatched backdrop behind it. Swapped to
-       off-black by the knobsock-live-state postMessage handler below
-       (matching html.is-offline's --ink in livestream-chat-widget.html)
-       whenever admin.html's Go Offline toggle is set — starts on the
-       dark value since the widget itself defaults to offline until its
-       first Firestore snapshot confirms otherwise. */
+
     background: #0d0d0d;
     font-family: Arial, Helvetica, sans-serif;
   }
@@ -55,8 +46,6 @@
     padding: clamp(8px, 2vw, 20px) 0 0;
   }
 
-  /* Header logo — capped by width AND by a share of the viewport height
-     so it can't eat the player's room on a short/landscape screen. */
   .logo-link {
     flex: 0 0 auto;
     display: block;
@@ -73,10 +62,6 @@
     object-fit: contain;
   }
 
-  /* The widget fills whatever room it's given (it's built at 100% width
-     and height with its own frosted panels), so unlike the music/video
-     playlist widgets this doesn't need a postMessage height contract —
-     it just stretches to fill the flex row below the logo. */
   .player-wrap {
     flex: 1 1 auto;
     min-height: min(560px, 68vh);
@@ -92,15 +77,6 @@
     background: transparent;
   }
 
-  /* A normal flex child, not position:fixed — on the locked mobile
-     layout below (.page pinned to exactly one screen), a fixed-position
-     link ends up floating over whatever the widget itself is currently
-     showing at the bottom of its own box (the message input, in
-     livestream-chat-widget.html's case). Being a real flex item instead
-     makes .player-wrap's own flex:1 1 auto shrink to leave room for
-     this, the same way any other flex sibling would — no manual height
-     math, and the widget genuinely has less room rather than something
-     sitting on top of it. */
   .privacy-footer {
     flex: 0 0 auto;
     text-align: center;
@@ -115,14 +91,6 @@
   }
   .privacy-footer a:hover { opacity: 1; }
 
-  /* On mobile, lock the page itself to exactly one screen instead of
-     letting it grow/scroll — the widget's own chat message list already
-     has its own internal overflow-y:auto (see
-     livestream-chat-widget.html), so scrolling stays inside the widget
-     instead of moving the logo off-screen. min-height:0 (replacing the
-     desktop floor above) lets .player-wrap shrink to whatever's actually
-     left below the logo on a very short phone, letterboxing the widget
-     slightly rather than overflowing the locked page. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
     .page {
@@ -134,23 +102,6 @@
     }
   }
 
-  /* Phone rotated to landscape: same one-screen lock as the portrait
-     rule above (checked on max-height here since that's the dimension
-     a phone's short side ends up on once rotated — its width can be
-     well over 860px lying sideways), plus the logo and its padding/gap
-     go away entirely so the player gets the whole screen instead of
-     losing a chunk of an already-short viewport to a header. The
-     widget itself still needs telling to give up its own portrait-
-     shaped mobile stack — see livestream-chat-widget.html's own
-     matching landscape query.
-     hover:none + pointer:coarse (true only for touchscreens) are load-
-     bearing, not belt-and-suspenders: a perfectly ordinary desktop
-     browser window is "landscape" by nature and very often under
-     860px tall too (a laptop screen minus its own chrome), so
-     max-height + orientation alone was hiding the logo on regular
-     desktop visits — confirmed by testing an actual 1400x900 window,
-     not just guessing. The touch check is what actually scopes this to
-     phones/tablets. */
   @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; }
     .page {
@@ -163,17 +114,6 @@
     .player-wrap { min-height: 0; }
   }
 
-  /* ---------- TAP IN (fullscreen effect) ----------
-     Triggered by a postMessage from livestream-chat-widget.html's tap-in
-     button (see that file's TAP IN section). Has to live in this
-     top-level page rather than inside that iframe: position:fixed inside
-     an iframe only ever covers the iframe's OWN box (livestream-chat-
-     widget.html's own comment on .bg-glow notes the same constraint),
-     and on desktop especially that box sits below the header logo, so it
-     could never actually cover the real browser viewport the way "full
-     screen, like a hand came off the side of the browser" calls for.
-     pointer-events:none keeps it purely decorative — never blocks
-     clicking the chat/video underneath while it plays. */
   .tapin-overlay {
     position: fixed;
     inset: 0;
@@ -189,31 +129,15 @@
     height: 100%;
     object-fit: cover;
     opacity: 0;
-    transition: opacity 0.375s ease; /* 25% slower than the original 0.3s */
+    transition: opacity 0.375s ease;
   }
   .tapin-overlay img.is-visible { opacity: 1; }
 
-  /* "____ has tapped in", Streamlabs-alert style: giant bold text over
-     the top of the animation, popping in exactly when it plays. A black
-     stroke (the four offset shadows) plus a soft drop shadow keeps it
-     readable regardless of what's behind it (video, offline card, chat
-     panel), since unlike a normal caption this sits over arbitrary page
-     content rather than a designed background. top:22vh (not a few
-     percent) is deliberate: the gif is transparent up there for most of
-     the animation, so the header logo (capped at max-height:18vh) shows
-     straight through — both it and this text are bold yellow lettering,
-     so anything higher up overlaps them into an unreadable jumble. */
   .tapin-overlay .tapin-text {
     position: absolute;
     left: 50%;
     top: 22vh;
-    /* Resting scale matches the pop keyframe's OWN end state (100%
-       below), not its starting one — so when is-visible is removed and
-       the animation stops applying, transform falls back to exactly
-       where the animation already had it, with no snap. The animation
-       still starts from its own 0% (scale 0.4) on entry regardless of
-       what's specified here, since an active keyframe animation
-       overrides the base value for as long as it runs. */
+
     transform: translateX(-50%) scale(1);
     width: min(94vw, 1200px);
     margin: 0;
@@ -228,15 +152,7 @@
       0 8px 20px rgba(0, 0, 0, 0.6);
     opacity: 0;
     overflow-wrap: anywhere;
-    /* Deliberately the ONLY thing driving opacity — a transition here
-       fades it smoothly both in and out as is-visible toggles. Opacity
-       used to be part of the pop keyframe below instead, but a CSS
-       transition can't pick up a smooth handoff from a property an
-       animation was just driving: once the animation stops applying,
-       the value just jumps to the next matching rule with no
-       interpolation, which is why the fade-out wasn't visibly fading
-       at all before this. Keeping the keyframe to ONLY transform
-       (a different property) sidesteps that entirely. */
+
     transition: opacity 0.35s ease;
   }
   .tapin-overlay .tapin-name { color: #ffff00; }
@@ -286,16 +202,8 @@
   var IMG_SRC = '/gif%20version.gif';
   var hideTimer = null;
   var textFadeTimer = null;
-  var TEXT_FADE_OUT_MS = 350; // keep in sync with .tapin-text's transition duration above
+  var TEXT_FADE_OUT_MS = 350;
 
-  // This gif's own native one-loop duration: 182 frames at ~30-40ms
-  // each, measured by summing each frame's real delay (PIL:
-  // im.info['duration'] per frame) rather than guessed — if the file
-  // is ever swapped again, re-measure and update this. It loops
-  // forever like most animated GIFs (its own loop count is 0 =
-  // infinite), so waiting past this point lets it visibly wrap back to
-  // frame 0 and start replaying before the effect gets hidden — cutting
-  // it off a few frames early avoids that "restart flash" at the end.
   var GIF_LOOP_MS = 6030;
   var GIF_CUTOFF_MS = GIF_LOOP_MS - 120;
 
@@ -303,23 +211,11 @@
     clearTimeout(hideTimer);
     clearTimeout(textFadeTimer);
 
-    // No src at all until the moment of playback (not even "", which in
-    // some browsers re-requests the current page) — an animated image
-    // just keeps playing from wherever it left off once it has a src, and
-    // there's no JS seek/restart control for that format, so a fresh src
-    // assignment is the only reliable way to guarantee it starts at frame
-    // 0 every single time this is triggered, first tap-in or fiftieth.
     img.classList.remove('is-visible');
     img.removeAttribute('src');
     audio.pause();
     audio.currentTime = 0;
 
-    // Same restart concern as the image above, but for the CSS pop
-    // animation instead of a src: removing the class doesn't rewind an
-    // already-finished animation on its own, so a forced reflow (reading
-    // offsetWidth) is needed before re-adding it, or a second tap-in
-    // wouldn't visibly pop at all. textContent (not innerHTML) is enough
-    // to keep a username with HTML-looking characters inert.
     nameEl.textContent = username || '';
     text.classList.remove('is-visible');
     void text.offsetWidth;
@@ -329,27 +225,18 @@
       img.src = IMG_SRC;
       img.classList.add('is-visible');
       text.classList.add('is-visible');
-      audio.play().catch(function () {}); // best-effort — a browser blocking autoplay-with-sound here still shows the animation
+      audio.play().catch(function () {});
     });
 
-    // Ends at the earlier of "the audio actually finished" or "the gif
-    // is about to loop" — GIF_CUTOFF_MS on its own would be enough
-    // since the two are pre-timed to match, but if the audio ever ends
-    // up the shorter of the pair this still won't run the visual on
-    // past it.
     var durationMs = GIF_CUTOFF_MS;
     if (audio.duration && isFinite(audio.duration) && audio.duration * 1000 < durationMs) {
       durationMs = audio.duration * 1000;
     }
     hideTimer = setTimeout(function () {
       audio.pause();
-      img.classList.remove('is-visible'); // the gif itself still cuts off instantly - no fade-out asked for there
-      text.classList.remove('is-visible'); // starts the text's own opacity transition (see its CSS)
+      img.classList.remove('is-visible');
+      text.classList.remove('is-visible');
 
-      // The overlay's own display:none (see .tapin-overlay/.is-active)
-      // would cut that transition off invisibly the instant it applies,
-      // so it - and nothing else needs it, the gif's already gone -
-      // waits for the text to actually finish fading first.
       textFadeTimer = setTimeout(function () {
         overlay.classList.remove('is-active');
       }, TEXT_FADE_OUT_MS);
@@ -363,17 +250,6 @@
     }
   });
 
-  // The gif is a big (~18MB) full-animation file — fetching it eagerly
-  // via a render-blocking-priority <link rel=preload> would tax mobile
-  // data on every single visit just to shave latency off a feature most
-  // visitors never click. Warming it in the background well after the
-  // real page (logo/chat/video) has already loaded costs nothing on that
-  // initial load, and a livestream page is a long-dwell-time page, so by
-  // the time anyone actually taps in this has almost always already
-  // finished — the fetch here shares the same HTTP cache img.src reads
-  // from in playTapInEffect above, it just isn't attached to a live
-  // <img> (which would risk it silently animating in the background well
-  // before its first real trigger).
   window.addEventListener('load', function () {
     try { fetch(IMG_SRC, { priority: 'low' }).catch(function () {}); } catch (e) {}
   });
@@ -382,18 +258,7 @@
 
 <script>
 (function () {
-  // iOS Safari quirk: focusing the chat's message input — which lives
-  // inside the livestream-chat-widget.html iframe, not this document —
-  // can still scroll THIS page down to keep the input clear of the
-  // keyboard, even with html/body set to overflow:hidden above.
-  // WebKit's own "scroll focused input into view" behavior reaches
-  // through a same-origin iframe boundary; this page's own overflow
-  // rule doesn't stop it. Nothing here is ever meant to be scrolled, so
-  // snapping back to (0,0) on every real viewport-size change (keyboard
-  // opening OR closing) is always the correct position — not a guess
-  // for one specific case — which is what leaves the page stuck
-  // scrolled down (blank space where the header used to be) once the
-  // keyboard closes without this.
+
   function resetScroll() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }
@@ -404,16 +269,6 @@
 })();
 </script>
 
-<!-- ============================================================
-     SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
-     every other Firestore-backed widget here uses) and overrides this
-     page's built-in title/meta description if something's been saved
-     for it. Fails silently (offline, doc missing, this slug not filled
-     in yet) rather than blanking anything out — the page's own
-     built-in text stays exactly as it is until this successfully
-     overrides it. Only reaches crawlers that actually run JavaScript
-     (Google does) — see admin.html's own SEO tab note for why link-
-     preview scrapers (Discord, Twitter/X, etc.) never see this. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>

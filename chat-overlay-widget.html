@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KNOBSOCK Chat Overlay</title>
 <style>
-  /* Built for OBS's Browser Source, not for a visitor's tab: no chrome,
-     no input box, no join/leave spam — just message rows on a fully
-     transparent page background so only the text sits over your scene.
-     (OBS's Browser Source runs on Chromium/CEF and honors a transparent
-     background natively — this isn't a chroma-key trick.) */
+
   * { box-sizing: border-box; }
 
   html, body {
@@ -20,11 +16,6 @@
     overflow: hidden;
   }
 
-  /* Column anchored to the bottom: when messages overflow whatever
-     height you set the Browser Source to, the oldest lines are the ones
-     that fall off (above the top edge) while the newest stays pinned at
-     the bottom — same feel as a normal stream chat overlay, with no
-     scrollbar and no JS scroll-management needed. */
   #messages {
     display: flex;
     flex-direction: column;
@@ -40,8 +31,7 @@
     line-height: 1.35;
     color: #fff;
     word-wrap: break-word;
-    /* Layered shadow + a thin stroke stand in for a real text outline so
-       the chat stays readable over whatever's on screen behind it. */
+
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
     -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.6);
     animation: msgIn 0.25s ease-out;
@@ -58,14 +48,12 @@
 
 <div id="messages"></div>
 
-<!-- Firebase SDK (compat build, no build tools needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 (function () {
-  // Same public project/config livestream-chat-widget.html uses — this
-  // page only ever reads, same as that widget does with no auth step.
+
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
     authDomain: "chat-for-website-efee2.firebaseapp.com",
@@ -80,10 +68,9 @@
   const usernamesRef = db.collection('chat_usernames');
   const configRef = db.collection('chat_config');
 
-  const MAX_VISIBLE = 12;     // how many recent messages stay on screen
-  const FETCH_LIMIT = 60;     // overfetch so filtering out join-events doesn't starve MAX_VISIBLE
+  const MAX_VISIBLE = 12;
+  const FETCH_LIMIT = 60;
 
-  // ---------- censorship (mirrors livestream-chat-widget.html) ----------
   const DEFAULT_CENSORED_WORDS = [
     'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
     'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
@@ -102,7 +89,7 @@
     const data = doc.exists ? doc.data() : null;
     const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
     CENSOR_REGEXES = words.map(buildCensorRegex);
-  }, () => {}); // offline/blocked read just keeps whatever list is already loaded
+  }, () => {});
   function censorText(text) {
     let result = text;
     CENSOR_REGEXES.forEach(re => {
@@ -117,7 +104,6 @@
     }[c]));
   }
 
-  // ---------- username colors (same hash-based scheme as the live chat) ----------
   function hashHue(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
@@ -151,10 +137,9 @@
         if (onResolved) onResolved();
       });
     }
-    return defaultColorFor(username); // shown immediately; onResolved repaints if a custom pick exists
+    return defaultColorFor(username);
   }
 
-  // ---------- render ----------
   const container = document.getElementById('messages');
   let lastMsgs = [];
 
@@ -169,7 +154,6 @@
     }).join('');
   }
 
-  // ---------- live query (mirrors chat_config/clear cutoff) ----------
   let clearedAt = 0;
   let unsubscribeMessages = null;
 
@@ -184,8 +168,7 @@
           .slice(-MAX_VISIBLE);
         render(msgs);
       },
-      // A stream overlay should never flash an error banner on screen —
-      // just log it and leave whatever was last showing in place.
+
       (err) => console.error(err)
     );
   }

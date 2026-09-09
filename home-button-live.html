@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Button</title>
 <style>
-  /* Custom cursor matching index.html's — the only page this embeds
-     on. An iframe is a separate document, so index.html's own cursor
-     CSS can't reach in here on its own; this is what actually makes
-     the cursor stay consistent while hovering this widget. */
+
   html, body { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto; }
   a, button { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,13 +25,6 @@
 
   a { text-decoration: none; color: inherit; display: block; }
 
-  /* No float-bob or hover scale/rotate on this element itself — unlike
-     the other 3 nav buttons, this one has a "LIVE NOW!" badge sitting
-     just outside the iframe on index.html, and an animation living only
-     in here would leave that badge behind (or get covered by the
-     button growing over it on hover). index.html's own
-     .nav-button-live/.live-float/.live-pop wrap this whole iframe
-     instead, so the button and the badge float and pop as one unit. */
   .button-item {
     position: relative;
     width: 80%;
@@ -68,11 +58,6 @@
     height: 100%;
   }
 
-  /* On hover, the icon gif itself gets a fast little scale/rotate jitter
-     looped on top of it — a raw <img> gif's own frame timing can't be sped
-     up with CSS/JS (that's baked into the file), so this fakes "excited"
-     by shaking and pulsing the whole gif faster than it could animate on
-     its own. Scoped to :hover only, so it's inert the rest of the time. */
   @keyframes iconExcited {
     0%, 100% { transform: scale(1) rotate(0deg); }
     20% { transform: scale(1.08) rotate(-4deg); }
@@ -87,8 +72,6 @@
 </head>
 <body>
 
-  <!-- EDIT: href is the page this button should link to; the second img's
-       src is the animated gif/icon that sits on top of the blob. -->
   <a class="button-item" href="/live" target="_top">
     <img class="btn-base" src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_EEB436D1-F728-456D-BEA8-1AE7ACE238BE.PNG" width="964" height="1377" alt="Live">
     <div class="btn-icon-wrap">
@@ -97,11 +80,7 @@
   </a>
 
 <script>
-  // Relays this document's own mousemove to the parent page so
-  // index.html's cursor-chasing head easter egg can track the cursor
-  // seamlessly across this iframe's boundary too — an iframe is a
-  // separate browsing context, so the parent's own mousemove listener
-  // never sees events that happen in here on its own.
+
   if (window.parent !== window) {
     document.addEventListener('mousemove', function (e) {
       window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');

@@ -21,28 +21,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone rebuild of knobsock.net/videos, same approach as
-     main/index.html: a real hosted page instead of the Universe static
-     export that used to live here.
-
-     No embedded video player anymore — this used to iframe in
-     video-playlist-widget.html (the same admin-managed Video List
-     index.html's own player still reads, untouched by this change).
-     In its place: a grid of one button per creator from that same
-     admin list's Creators section, each one linking wherever
-     admin.html's per-creator Link field points it — its own
-     destination, not necessarily anything on this site. Reads
-     creatorOrder/creatorLinks/creatorPhotos/creatorPhotos2/creatorSounds
-     straight off playlist/main, live, same Firestore doc and same
-     project every other widget here already uses.
-
-     Every button IS a creator's own uploaded image now — no text, no
-     button chrome, nothing rendered at all for a creator that hasn't
-     had one uploaded in admin.html yet (see renderGrid below). An
-     optional per-creator sound (also admin-uploaded) plays on click;
-     when a button has both a sound and a link, the sound gets a moment
-     to actually be heard before navigating away, rather than being cut
-     off instantly by the page unload. */
 
   :root {
     --ink: #0a2a4a;
@@ -74,8 +52,6 @@
     padding: clamp(8px, 2vw, 20px) 0 0;
   }
 
-  /* Header logo — capped by width AND by a share of the viewport height
-     so it can't eat the picker's room on a short/landscape screen. */
   .logo-link {
     flex: 0 0 auto;
     display: block;
@@ -92,10 +68,6 @@
     object-fit: contain;
   }
 
-  /* Fills whatever's left below the logo, same flex slot the old
-     .player-wrap occupied — scrolls internally (rather than growing the
-     whole page) if enough creators are added to overflow the box on a
-     short screen. */
   .picker-wrap {
     flex: 1 1 auto;
     min-height: min(560px, 68vh);
@@ -106,9 +78,6 @@
     overflow-y: auto;
   }
 
-  /* A normal flex child, not position:fixed — see live.html's matching
-     comment on this same class. .picker-wrap's flex:1 1 auto shrinks to
-     leave room for this instead of the link floating over the grid. */
   .privacy-footer {
     flex: 0 0 auto;
     text-align: center;
@@ -133,12 +102,6 @@
     gap: clamp(10px, 2.5vw, 18px);
   }
 
-  /* No button chrome at all anymore — no background, no border, no
-     text. The creator's own uploaded image (admin.html's per-creator
-     "Button image") is the entire visible button; a creator with no
-     image uploaded yet renders nothing here (see renderGrid in the
-     script below) rather than a placeholder, per the ask: "without my
-     image it would otherwise be invisible." */
   .picker-btn {
     display: block;
     padding: 0;
@@ -147,9 +110,7 @@
     line-height: 0;
     cursor: pointer;
   }
-  /* A plain <img>, no wrapper element, for a creator with an image but
-     neither a link nor a sound — nothing to click for, so it's not
-     interactive at all (see renderGrid). */
+
   .picker-btn-image {
     display: block;
     width: auto;
@@ -157,11 +118,7 @@
     max-width: min(46vw, 260px);
     max-height: 34vh;
   }
-  /* Darkens on hover (mouse) or tap (touch, via :active) — no lift, no
-     pop, just the one plain feedback state, same as the old Win98
-     button had. Only applies to an actually-clickable button (an
-     image-only, non-interactive creator has no .picker-btn wrapper to
-     match this selector at all). */
+
   .picker-btn:hover .picker-btn-image,
   .picker-btn:active .picker-btn-image {
     filter: brightness(0.82);
@@ -174,10 +131,6 @@
     padding: 20px;
   }
 
-  /* On mobile, lock the page itself to exactly one screen instead of
-     letting it grow/scroll — the picker grid's own overflow-y:auto
-     already handles more creators than fit, same reasoning as the
-     other pages here locking around a widget's own internal scroll. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
     .page {
@@ -189,12 +142,6 @@
     }
   }
 
-  /* Phone rotated to landscape: same one-screen lock as the portrait
-     rule above, plus the logo goes away so the grid gets the whole
-     screen instead of losing a chunk of an already-short viewport to a
-     header — see videos/hamburgernews.html or live.html for the fuller
-     version of this same comment (hover:none + pointer:coarse scope
-     this to touchscreens specifically, not just any short window). */
   @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; }
     .page {
@@ -224,14 +171,6 @@
   <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 </div>
 
-<!-- ============================================================
-     FIREBASE — same project/doc video-playlist-widget.html itself
-     reads (playlist/main). Read-only: creatorOrder (who shows up, and
-     in what order), creatorLinks (where their button goes),
-     creatorPhotos (the button image itself), and creatorSounds (an
-     optional click sound) are all set from admin.html's Videos tab,
-     live.
-     ============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
@@ -256,11 +195,6 @@
 
   const gridEl = document.getElementById('pickerGrid');
 
-  // A sound is given a real chance to be heard before navigating away —
-  // otherwise same-tab navigation would tear down the audio context
-  // almost instantly, defeating the whole point of it. Capped at 1.8s
-  // so an unusually long clip (or one that never fires 'ended', e.g.
-  // blocked autoplay) can't stall the click indefinitely.
   function playThenNavigate(soundSrc, href) {
     const audio = new Audio(soundSrc);
     audio.volume = 0.5;
@@ -280,9 +214,7 @@
       gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
       return;
     }
-    // A creator with no button image uploaded in admin.html renders
-    // nothing at all here — no placeholder, no text — per the ask:
-    // "without my image it would otherwise be invisible."
+
     const withPhoto = creatorOrder.filter(function (name) { return (creatorPhotos[name] || ''); });
     if (!withPhoto.length) {
       gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
@@ -293,41 +225,32 @@
       const imgHtml = '<img class="picker-btn-image" src="' + escapeHtml(photo) + '" alt="">';
       const link = (creatorLinks[name] || '').trim();
       const sound = creatorSounds[name] || '';
-      // Optional — a creator with nothing uploaded here just keeps
-      // showing the one photo above, no swap, exactly as before this
-      // feature existed (see the ask: "fall back to the photo 1").
+
       const photo2 = (creatorPhotos2[name] || '').trim();
       const photo2Attr = photo2 ? ' data-photo2="' + escapeHtml(photo2) + '"' : '';
       if (!link && !sound) {
-        // Nothing to click for — a plain, non-interactive image.
+
         return imgHtml;
       }
       if (link && !sound) {
         if (!photo2) {
-          // A plain <a href> — no JS needed, native navigation (including
-          // ctrl/cmd-click opening a new tab) just works unmodified.
+
           return '<a class="picker-btn" href="' + escapeHtml(link) + '">' + imgHtml + '</a>';
         }
-        // Still needs JS: the second image has to actually be seen for a
-        // moment before navigating away.
+
         return '<a class="picker-btn" href="' + escapeHtml(link) + '"' + photo2Attr + '>' + imgHtml + '</a>';
       }
       if (sound && !link) {
-        // Nowhere to navigate — just plays the sound (and swaps the
-        // image, if a second one's set).
+
         return '<button type="button" class="picker-btn" data-sound="' + escapeHtml(sound) + '"' + photo2Attr + '>' + imgHtml + '</button>';
       }
-      // Both set: a real <a href> (kept for accessibility/right-click/
-      // hover-preview), but a click plays the sound first and delays
-      // navigation just long enough for it to be heard.
+
       return '<a class="picker-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '"' + photo2Attr + '>' + imgHtml + '</a>';
     }).join('');
 
     gridEl.querySelectorAll('.picker-btn[data-sound], .picker-btn[data-photo2]').forEach(function (el) {
       el.addEventListener('click', function (e) {
-        // A modifier/middle click means "open in a new tab" — leave that
-        // to the browser's own default handling rather than hijacking it
-        // for the sound/image delay.
+
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         const photo2 = el.dataset.photo2;
         if (photo2) {
@@ -341,8 +264,7 @@
           if (soundSrc) {
             playThenNavigate(soundSrc, href);
           } else {
-            // No sound to time the delay off of, but the swapped image
-            // still needs a beat on screen before the page navigates away.
+
             setTimeout(function () { window.location.href = href; }, 400);
           }
         } else if (soundSrc) {
@@ -369,16 +291,6 @@
 })();
 </script>
 
-<!-- ============================================================
-     SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
-     every other Firestore-backed widget here uses) and overrides this
-     page's built-in title/meta description if something's been saved
-     for it. Fails silently (offline, doc missing, this slug not filled
-     in yet) rather than blanking anything out — the page's own
-     built-in text stays exactly as it is until this successfully
-     overrides it. Only reaches crawlers that actually run JavaScript
-     (Google does) — see admin.html's own SEO tab note for why link-
-     preview scrapers (Discord, Twitter/X, etc.) never see this. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>

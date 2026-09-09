@@ -18,11 +18,7 @@
     --text-dim: #f5e9c9;
     --font-display: Arial, Helvetica, sans-serif;
     --font-body: Arial, Helvetica, sans-serif;
-    /* .layout's own edge padding, kept as named variables (rather than
-       inlined) since .video-pane's mobile max-height formula further
-       down needs to subtract the same --inset-side the padding itself
-       uses, and a shared variable is what keeps those two from being
-       able to drift apart. */
+
     --inset-top: clamp(4px, 1vw, 8px);
     --inset-side: clamp(4px, 1vw, 8px);
     --inset-bottom: clamp(16px, 3vw, 32px);
@@ -41,22 +37,6 @@
 
   body { position: relative; }
 
-  /* ---------- PAGE LAYOUT ----------
-     Desktop (CSS Grid, >= 861px): video, creator chin, and SoundCloud
-     stacked in a left column; "Up Next" filling a right column that
-     spans all three rows. Mobile (<= 860px): a single flex column in
-     plain DOM order (video, playlist, creator chin, SoundCloud), so
-     SoundCloud naturally lands flush at the very bottom, acting as a
-     chin under the whole widget — no reordering needed.
-
-     An earlier version grouped video/chin/SoundCloud in a wrapper div
-     and used display:contents + order to reflow it for mobile — that
-     combination has real cross-browser flexbox bugs (a positioned/
-     display:contents child can lose its flex-grow sizing), which is
-     what caused the "Up Next" list to collapse to zero height on a
-     narrower window and SoundCloud to render misaligned. Grid
-     placement on desktop plus plain DOM order on mobile avoids
-     display:contents and flex reordering entirely. */
   .layout {
     position: relative;
     display: flex;
@@ -68,12 +48,6 @@
     background: transparent;
   }
 
-  /* On mobile, the widget's own stacked content (video + Now Playing
-     card + playlist) can be taller than whatever box the host page
-     hands the iframe — .layout itself is the scroll container for
-     that, rather than the host page growing/scrolling around an
-     oversized iframe (that used to feel like scrolling a separate
-     nested frame instead of the widget itself). */
   @media (max-width: 860px) {
     .layout {
       overflow-y: auto;
@@ -85,30 +59,16 @@
     .layout {
       display: grid;
       grid-template-columns: 1fr minmax(280px, 34%);
-      /* One row now that the video pane has the whole left column to
-         itself (no more separate SoundCloud "Now Playing" row sharing
-         it) — 1fr so that column, and "playlist" spanning it in the
-         column beside it, both fill the full available height. */
+
       grid-template-rows: 1fr;
       grid-template-areas: "video playlist";
       gap: 14px;
     }
-    /* Hide Playlist: let the video span both columns instead of
-       redefining the whole grid template (rows/columns/areas together)
-       — changing just this one property is a much smaller move for the
-       browser to reconcile than swapping the entire template, which is
-       what was making the video embed's sizing/positioning glitch and
-       drift outside the background panel when the button was clicked. */
+
     .layout.playlist-hidden .video-pane {
       grid-column: 1 / -1;
     }
-    /* aspect-ratio:auto overrides the 16:9 cap from the base .video-pane
-       rule below — with the whole column to itself now, this pane
-       should stretch to fill it (min-height:0/max-height:100% keep it
-       from overflowing the row); .video-frame-wrap's own container-
-       query sizing is what still keeps the actual VIDEO inside it at a
-       true 16:9, letterboxed within however much taller this box now
-       is than that. */
+
     .video-pane { grid-area: video; min-height: 0; max-height: 100%; aspect-ratio: auto; }
     .playlist-pane { grid-area: playlist; min-height: 0; }
   }
@@ -119,10 +79,7 @@
     background: #000;
     border-radius: 10px;
     width: 100%;
-    /* Aspect-ratio (not a flex-stretched height) caps this at a true
-       16:9 box — it previously stretched to match the "Up Next" column's
-       full height, leaving a tall pane with far more room than the video
-       itself needed. */
+
     aspect-ratio: 16 / 9;
     flex: 0 0 auto;
     container-type: size;
@@ -132,14 +89,6 @@
     justify-content: center;
   }
 
-  /* Sits over the video pane while the YouTube embed has nothing to show
-     yet — before the player's first onReady, and again on a rebuffer —
-     so switching/starting a video doesn't just look frozen on the
-     previous frame. Hidden whenever showVideoCoverArt() takes over the
-     pane for a SoundCloud-only track instead. The pane keeps its normal
-     solid black background here (same as live.html); the iframe is
-     hidden below just so a rebuffer doesn't leave a stale frame showing
-     under the gif. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -198,44 +147,12 @@
 
   .layout.playlist-hidden .playlist-pane { display: none; }
   @media (max-width: 860px) {
-    /* A short phone doesn't have room for a full-width 16:9 video AND a
-       full row of thumbnails+titles — something has to give once both
-       are at their natural size, and it needs to be the video, not this
-       pane: a min-height floor here still lets the pane grow past it
-       whenever flexbox has spare room, so on a tall phone it can demand
-       more than the layout actually has left over, forcing an internal
-       scroll and visibly overshooting the bottom edge before that
-       scroll even kicks in.
-       A concrete flex-basis (not "auto") fixes this pane's height at
-       exactly one row's worth, in both directions. It can't be "auto"
-       (sized to its own content) instead: .playlist-pane has
-       container-type:size for the cqw/cqh units used throughout its
-       card, so its size can't legitimately depend on that same content
-       — the two are circular, and the browser resolves that by
-       collapsing it to 0, blanking out the whole track list.
-       Whatever's left over goes entirely to the video pane below —
-       same "shrink the video first" idea the desktop CSS Grid layout
-       already uses (see .video-pane's min-height:0/max-height:100%
-       there), just via flex-shrink here. .video-frame-wrap's own
-       container-query sizing (min(100cqw, 100cqh*16/9) / min(100cqh,
-       100cqw*9/16)) already letterboxes it correctly inside a box
-       that isn't a perfect 16:9, so a squeeze just makes the video
-       pane shorter. */
+
     .video-pane {
-      /* grow:1 — now that there's no "Now Playing" card below it to
-         fill the freed space instead, the video itself grows to claim
-         it, up to its own 16:9-from-width max-height cap right below
-         (the same cap that already applied when grow was 0 — this only
-         changes whether the video GROWS into that ceiling or just gets
-         handed less shrinkage, never raises the ceiling itself). */
+
       flex: 1 1 auto;
       min-height: 56px;
-      /* Belt-and-suspenders alongside the YT.Player width/height fix
-         above (see tryInitPlayer): aspect-ratio alone trusts the flex
-         basis math to keep this box at 16:9, and a taller iframe (even
-         briefly, mid-transition) can push it past that. Recomputing the
-         same 16:9-from-width bound here as a hard cap means the box
-         can't visibly grow no matter what the video inside does. */
+
       max-height: calc((100vw - 2 * var(--inset-side)) * 9 / 16);
     }
     .playlist-pane {
@@ -245,56 +162,26 @@
     .layout.playlist-hidden .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
   }
 
-  /* Landscape phone: the mobile stack above still leaves the video
-     squeezed near its natural 16:9 height, fighting the Now Playing
-     card and track list for an already-short viewport. Rather than
-     build a third layout, this applies the same "Hide Playlist"
-     treatment above unconditionally instead. Checked on max-height,
-     not max-width: that's the dimension a phone's short side ends up
-     on once rotated, and its width can be well over 860px lying
-     sideways. The ".layout" prefix is load-bearing, not stylistic —
-     .video-pane/.playlist-pane above are equal-specificity with
-     these, so without it this would only win when it happens to land
-     later in the file. The host page's own matching landscape query
-     is what actually frees up the room this then fills — see
-     music.html.
-     hover:none + pointer:coarse (true only for touchscreens) are load-
-     bearing too: an ordinary desktop browser window is "landscape" by
-     nature and often under 860px tall as well (a laptop screen minus
-     its own chrome), so max-height + orientation alone was hiding the
-     playlist on regular desktop visits — confirmed by testing an
-     actual 1400x900 window, not just guessing. */
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .playlist-pane { display: none; }
     .layout .video-pane { flex: 1 1 auto; aspect-ratio: auto; max-height: none; }
   }
 
-
-  /* ---------- CREATOR CHIN ----------
-     A row of pill buttons across the bottom, one per creator seen in the
-     playlist (plus "All"). Auto-populated as each track's author comes
-     back from the oEmbed fetch below — clicking one filters the same
-     "Up Next" list to just that creator's tracks, it doesn't touch
-     what's currently playing. */
   .creator-chin {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: clamp(6px, 1.5vw, 10px);
-    /* Equal breathing room above (from the header's divider line below)
-       and below (before the list starts) — was 2px all around, which
-       read as cramped right under that line. */
+
     margin: clamp(8px, 2.6cqh, 12px) 0;
     padding: 0 2px;
     overflow-x: auto;
     overflow-y: hidden;
-    /* Scrolling (swipe/drag/shift+wheel) still works when there are more
-       chips than fit — this just hides the visible scrollbar itself, on
-       every device, not just phones. */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* old Edge/IE */
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  .creator-chin::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
+  .creator-chin::-webkit-scrollbar { display: none; }
 
   .creator-chip {
     flex: none;
@@ -313,10 +200,7 @@
   }
   .creator-chip:hover { background: var(--accent-dim); color: #ffffff; }
   .creator-chip.active {
-    /* The selected chip (including "All") stands out using the same
-       gold accent every other button already uses for its default
-       state — text flips to the dark ink color here, same as the
-       existing pill-btn/round-btn convention. */
+
     background: var(--accent);
     border-color: var(--accent);
     color: var(--ink);
@@ -360,12 +244,6 @@
     z-index: 5;
   }
 
-  /* Shown/hidden by the .controls-visible class (see the JS below)
-     instead of :hover/:focus-within — a real hover still triggers it on
-     desktop (mouseenter/mouseleave), but touch devices get an actual
-     tap-to-show/tap-again-to-hide toggle instead of relying on mobile
-     browsers' sticky-:hover-after-tap quirk, which never explicitly
-     hides again on its own. */
   .video-pane .unmute-btn,
   .video-pane .video-pane-actions,
   .video-pane .video-controls {
@@ -380,7 +258,6 @@
     pointer-events: auto;
   }
 
-  /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
   .video-controls {
     position: absolute;
     left: 0;
@@ -419,9 +296,7 @@
     width: clamp(26px, 7.5cqw, 34px);
     font-size: clamp(11px, 3.2cqw, 15px);
     flex: none;
-    /* Same spring-y "pop" as the homepage Listen widget's play button —
-       overshoots past 1.0 before settling, so hovering gives it a little
-       dance instead of a flat color swap. */
+
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .play-pause-btn:hover:not(:disabled) {
@@ -438,37 +313,19 @@
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     width: 100vw; height: 100vh; height: 100dvh;
-    /* The mobile media query above caps this pane at a 16:9-from-width
-       max-height so it can't outgrow its normal in-page box — but that
-       cap doesn't know about fullscreen, so left in place here it was
-       clamping the "fullscreen" pane back down to that same small box
-       instead of actually filling the screen, leaving the rest of the
-       screen showing .layout's own background underneath. */
+
     max-height: none;
     margin: 0;
     border-radius: 0;
     z-index: 9999;
   }
-  /* A resize on entering/leaving fullscreen can make the YouTube embed
-     report a brief rebuffer, which applies .is-loading above — fine for
-     the small in-page pane (it's meant to show the page through), but
-     while fullscreen that pane IS the whole screen, so a transparent
-     background there means whatever's behind it bleeds through instead.
-     Keep it solid black here regardless of loading state (on top of the
-     fullscreen-active rule below, which already hides the sibling
-     panes). */
+
   .video-pane.pseudo-fullscreen.is-loading,
   .video-pane:fullscreen.is-loading,
   .video-pane:-webkit-full-screen.is-loading {
     background: #000;
   }
 
-  /* Native Fullscreen API on a plain div (not a video/img element)
-     doesn't reliably get full-viewport UA sizing/positioning on its own
-     — explicit position:fixed + full-viewport sizing here matches
-     .pseudo-fullscreen above (the JS fallback for when native
-     fullscreen isn't available), so the video actually covers the
-     screen instead of fullscreening at its existing grid-cell size. */
   .video-pane:fullscreen,
   .video-pane:-webkit-full-screen {
     position: fixed;
@@ -480,11 +337,6 @@
     border-radius: 0;
   }
 
-  /* Belt-and-suspenders alongside the sizing fix above: whichever
-     fullscreen path is active, explicitly hide the artist chips +
-     "Music Videos" list rather than relying on the video simply
-     covering them, so there's no overlap even if a browser sizes
-     fullscreen differently than expected. */
   .layout.fullscreen-active .playlist-pane {
     display: none;
   }
@@ -523,7 +375,6 @@
     white-space: nowrap;
   }
 
-  /* ---------- PLAYLIST WIDGET ---------- */
   .playlist-card {
     width: 100%;
     height: 100%;
@@ -565,21 +416,12 @@
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 2cqh, 10px);
-    /* Scrolling still works (vertical on desktop, horizontal on mobile
-       below) — this just hides the visible scrollbar itself, matching
-       the creator chin and SoundCloud track list elsewhere on this page. */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* old Edge/IE */
-  }
-  .playlist-items::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
 
-  /* Groups a run of same-album tracks under one label — only rendered
-     (see renderPlaylist() below) once a specific creator is filtered in,
-     since the same album name could span multiple artists under "All".
-     .creator-heading is the same idea in reverse: it groups a run of
-     same-creator tracks under "All" itself (never shown together with
-     .album-heading — only one of the two grouping modes is active at a
-     time, matching whether a creator filter is selected). */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .playlist-items::-webkit-scrollbar { display: none; }
+
   .album-heading,
   .creator-heading {
     flex: none;
@@ -597,28 +439,14 @@
   }
 
   @media (max-width: 860px) {
-    /* align-items: flex-start — NOT stretch. Stretching every card to
-       the row's full height is what squashed the thumbnails on a phone:
-       the card got whatever vertical room was left over, the thumbnail
-       grew/shrank to fill it, and object-fit:cover then cropped the
-       image down to a thin horizontal band. Content-height cards keep
-       every thumbnail at a true 16:9 instead, and the widget asks its
-       host page for exactly the height that needs (see the height
-       reporter at the bottom of this file). */
+
     .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: flex-start; }
-    /* The list becomes a horizontal strip above — a full-width label
-       doesn't fit between cards there, so it collapses to a slim,
-       vertically-set tab that scrolls along with its group instead. */
+
     .album-heading,
     .creator-heading {
       writing-mode: vertical-rl;
       text-orientation: mixed;
-      /* vertical-rl + mixed alone leans the glyphs so the label reads by
-         tilting your head left. transform is a paint-time-only op — it
-         doesn't touch the top-to-bottom character order the writing-mode
-         already laid out — so rotating the whole (tightly-fit) box
-         180deg flips just the lean, to read by tilting right instead,
-         without reversing or garbling the text itself. */
+
       transform: rotate(180deg);
       margin-top: 0;
       padding: 4px 0;
@@ -638,10 +466,7 @@
     color: var(--text);
     font-family: var(--font-body);
     flex: none;
-    /* A gentler version of the round buttons' hover dance — just a
-       soft lift, no rotation — on hover and on touch-tap (:active), so
-       cards feel a little alive without competing with the more
-       dramatic button animations elsewhere on the page. */
+
     transition: transform 0.2s ease, background 0.15s ease;
   }
   .playlist-item:hover,
@@ -656,25 +481,11 @@
   }
 
   @media (max-width: 860px) {
-    /* Thumbnail on top, title + creator underneath, left-aligned — a
-       different format than desktop's side-by-side row, since a bigger
-       thumbnail reads much better on a phone. width/align-items only
-       (the thumbnail/meta flex overrides live in a second media block
-       AFTER the base .playlist-thumb-wrap rule below — same specificity
-       or CSS rules, later source order wins, so this one has to come
-       after the base rule, not before it, or the base rule's fixed
-       aspect-ratio/flex:none silently wins back). Kept fairly compact —
-       on a short phone this row can end up with very little height to
-       work with (see .playlist-pane's mobile min-height below), and a
-       bigger thumbnail here just leaves less of that room for the
-       title underneath it. */
+
     .playlist-item {
       flex-direction: column;
       align-items: stretch;
-      /* cqw (this pane's own width), not vw (the raw viewport) — vw
-         ignores the layout's own padding/max-width, so at in-between
-         window sizes the card width could drift out of step with how
-         much room the pane actually has. */
+
       width: clamp(108px, 32cqw, 150px);
     }
   }
@@ -696,14 +507,7 @@
   }
 
   @media (max-width: 860px) {
-    /* Full card width, but still a true 16:9 box — the base rule's
-       aspect-ratio and flex:none are deliberately left alone here. An
-       earlier version let the thumbnail flex-grow into whatever height
-       the (stretched) card had; on a phone that height is whatever the
-       screen has left over, so the box went wide-and-short and
-       object-fit:cover cropped the artwork to a sliver. Fixed ratio +
-       content-height cards (see .playlist-items above) keeps every
-       thumbnail in proportion at any screen size. */
+
     .playlist-thumb-wrap { width: 100%; }
     .playlist-meta { flex: 0 0 auto; }
   }
@@ -752,13 +556,7 @@
   }
 
   @media (max-width: 860px) {
-    /* Reserves room for a full two lines regardless of how many the
-       actual title needs. Without this, a one-line title's card ends up
-       visibly shorter than a two-line title's card next to it in this
-       row layout — unlike the vertical list on desktop, where cards
-       naturally vary in height, a horizontal row of differently-sized
-       cards reads as broken even though every thumbnail itself is
-       already the same size. */
+
     .playlist-item-title { min-height: calc(2 * 1.3em); }
   }
 
@@ -770,11 +568,6 @@
     padding: 20px;
   }
 
-
-  /* The real SoundCloud engine that plays a SoundCloud-only song's audio
-     (see buildMergedList()/playScByIndex() near the bottom of this
-     file) — there's no visible "Now Playing" panel anymore, so this
-     stays exactly what its own name says: invisible, everywhere. */
   .sc-widget-frame {
     position: absolute;
     width: 1px;
@@ -808,11 +601,7 @@
     <div class="video-loading" id="videoLoading">
       <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
     </div>
-    <!-- Covers the paused video with the SoundCloud-only track's own
-         cover art while it's the active source — otherwise this whole
-         pane just sits on whatever video frame was last showing, which
-         reads as broken/stuck. Shown/hidden from playMergedKey() near
-         the bottom of this file. -->
+
     <div class="video-cover-overlay" id="videoCoverOverlay" hidden>
       <img class="video-cover-art" id="videoCoverArt" src="" alt="" />
     </div>
@@ -824,18 +613,6 @@
     </div>
   </div>
 
-  <!-- The real SoundCloud audio engine, kept even though the visible
-       "Now Playing" panel it used to sit inside is gone — a SoundCloud-
-       only song (no matching video) still needs this to actually make
-       sound; the video pane's own cover-art overlay is what represents
-       it visually now, and the video pane's own play/pause/scrub
-       controls already drive it too (see notifyScProgress/
-       notifyScPlayState and the playScByIndex/pauseSc/resumeSc/
-       seekScToFraction bridges in the script block near the bottom of
-       this file). Always invisible/1x1px regardless (see .sc-widget-
-       frame's own CSS) — dropping its wrapper card didn't change that,
-       just where it sits in the DOM. No src here: it's set by JS once
-       the linked profile loads. -->
   <iframe
     id="scWidgetFrame"
     class="sc-widget-frame"
@@ -851,11 +628,7 @@
         <span class="playlist-title">Music Videos</span>
         <span class="playlist-count" id="playlistCount"></span>
       </div>
-      <!-- Auto-populated from each track's YouTube author — see
-           renderCreatorChin() below. "All" chip clears the filter.
-           Lives here (not beside the video) so it never shares space
-           with — or gets covered by — the video pane or SoundCloud,
-           including in fullscreen. -->
+
       <div class="creator-chin" id="creatorChin"></div>
       <div class="playlist-items" id="playlistItems">
         <div class="empty-state">Loading playlist…</div>
@@ -863,13 +636,7 @@
     </div>
   </div>
 </div>
-<!-- ============================================================
-     FIREBASE — same Firebase project as the video-section widget,
-     but this one talks to a SEPARATE Firestore document so the music
-     playlist is managed independently from the video playlist.
-     Fill in firebaseConfig below with your project's values
-     (Firebase console → Project settings → General → Your apps).
-     ============================================================ -->
+
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
@@ -881,89 +648,44 @@
     messagingSenderId: "509309222193",
     appId: "1:509309222193:web:f487258cfba2f7f7b00410"
   };
-  // Reuse the existing app instance if this page is embedded alongside
-  // the video widget (both scripts calling initializeApp would throw).
+
   const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // Same project, different document: the video widget uses
-  // playlist/main — this one uses playlist/music, so editing one
-  // never touches the other.
   const PLAYLIST_DOC_REF = db.collection('playlist').doc('music');
 </script>
 
 <script>
-// ============================================================
-// DEFAULT PLAYLIST — used as a fallback only: before the Firestore
-// document has ever been saved, or if it's temporarily unreachable.
-// Once you sign in as admin and save changes, the Firestore document
-// becomes the live source of truth for every visitor.
-// ============================================================
+
 const DEFAULT_VIDEO_LIST = [
   { url: "https://youtube.com/watch?v=euMJknnSSqk", title: "Track One" },
   { url: "https://youtube.com/watch?v=VuivQyVyKDM", title: "Track Two" },
   { url: "https://youtube.com/watch?v=Jc9Eay0tedo", title: "Track Three" }
 ];
-// ============================================================
 
 let currentVideoList = DEFAULT_VIDEO_LIST;
 
-// Creator settings, editable from admin.html's "Creators" section and
-// synced the same way the track list is: creatorAliases renames/combines a
-// raw detected author name into a display name (two raw names sharing the
-// same display name become one chip), creatorOrder is the explicit chip
-// order set there, and hiddenCreators removes a raw author from the chin
-// entirely (their tracks still show under "All"). Declared at this outer
-// script level — not inside either IIFE below — so the player logic can
-// read them directly once the Firestore listener below updates them.
 let creatorAliases = {};
 let creatorOrder = [];
 let hiddenCreators = [];
-// Admin-set priority order for album groups (see the "Albums" section
-// of admin.html's Music tab) — used by orderVisibleForFilter() below to
-// put a specific album first regardless of which track in it was added
-// most recently. An album not listed here still gets grouped, just
-// sorted in after every explicitly-ordered one, by recency.
+
 let albumOrder = [];
 
-// Which creator the chin is currently filtering to — null means "All".
 let activeAuthorFilter = null;
 
-// ---------- ONE LIST, ONE PLAYHEAD ----------
-// activeKey is the single source of truth for "what's playing right
-// now": a YouTube video id, or 'sc-' + a SoundCloud sound id, or null
-// before anything has started. Both IIFEs below read it directly (same
-// top-level cross-script-tag pattern as activeAuthorFilter above) to
-// know which of the two real players is the active source.
 let activeKey = null;
 function isScKey(key) {
   return typeof key === 'string' && key.indexOf('sc-') === 0;
 }
 
-// Raw SoundCloud sounds, fetched once by the SoundCloud IIFE and read
-// here by the video IIFE to build the single merged "Music Videos"
-// list — every video, plus any SoundCloud-only song with no matching
-// video, using that song's own cover art as its thumbnail.
 let scSoundsList = [];
 
-// ---------- CROSS-IIFE BRIDGES ----------
-// Same no-op-until-ready pattern used throughout this file: each starts
-// as a harmless placeholder and gets replaced with the real
-// implementation once its owning IIFE runs, so whichever IIFE calls one
-// first never throws.
+let refreshMergedPlaylist = function () {};
+let advanceToNextInMergedList = function () {};
 
-// SoundCloud IIFE -> video IIFE
-let refreshMergedPlaylist = function () {};      // call after scSoundsList is fetched
-let advanceToNextInMergedList = function () {};  // call when a SoundCloud track finishes
-// Lets the video pane's own scrub bar/play/pause button reflect and
-// control a SoundCloud track while it's the active source — the only
-// transport controls either kind of track has now that there's no
-// separate "Now Playing" panel with its own play button/scrub bar.
 let notifyScProgress = function () {};
 let notifyScPlayState = function () {};
 
-// video IIFE -> SoundCloud IIFE (owns the real, always-invisible
-// SoundCloud engine — see .sc-widget-frame)
 let playScByIndex = function () {};
 let pauseSc = function () {};
 let resumeSc = function () {};
@@ -974,16 +696,10 @@ function resolveAuthorDisplay(rawAuthor) {
   return creatorAliases[rawAuthor] || rawAuthor;
 }
 
-// Shared between both IIFEs: the video IIFE needs these to build the
-// merged "Music Videos" list's SoundCloud-only entries; the SoundCloud
-// IIFE needs them for its own "Now Playing" panel.
 function getScAuthor(sound) {
   return (sound && sound.user && sound.user.username) ? sound.user.username : 'Unknown';
 }
-// SoundCloud's default artwork_url points at a small "-large" (100x100)
-// image — swapping in "-t500x500" gets a much sharper version at the
-// same URL. Falls back to the uploader's avatar for tracks with no
-// artwork of their own (SoundCloud does this too on the real site).
+
 function getScArtworkUrl(sound) {
   const raw = (sound && (sound.artwork_url || (sound.user && sound.user.avatar_url))) || '';
   return raw ? raw.replace('-large.jpg', '-t500x500.jpg') : '';
@@ -992,7 +708,7 @@ function getScArtworkUrl(sound) {
 function extractVideoId(input) {
   if (!input) return null;
   const trimmed = input.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed; // already a bare ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   ];
@@ -1003,16 +719,6 @@ function extractVideoId(input) {
   return null;
 }
 
-// previousPlaylist carries over already-resolved title/author data for any
-// track that appears in both the old and new list, by id — instead of
-// wiping every entry back to null and re-fetching from scratch every time
-// this runs. This matters because Firestore's onSnapshot listener fires
-// more than once on a normal page load (once immediately from its local
-// cache, then again once the server confirms the same data), and without
-// this, that second firing would reset every author back to null right as
-// the first round's fetches were finishing — which is what would leave the
-// creator chin stuck showing "Loading" even though the data had already
-// been fetched successfully.
 function buildPlaylist(list, previousPlaylist) {
   const previousById = new Map();
   (previousPlaylist || []).forEach(v => { if (v.id) previousById.set(v.id, v); });
@@ -1035,8 +741,7 @@ function buildPlaylist(list, previousPlaylist) {
 }
 
 let VIDEO_PLAYLIST = buildPlaylist(currentVideoList);
-// Highlights the first video as "active" from the very first paint,
-// matching the fact that it starts autoplaying (muted) immediately.
+
 activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 
 (function () {
@@ -1074,14 +779,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     videoPane.classList.remove('is-loading');
   }
 
-  // ---------- Controls visibility ----------
-  // Real hover reveals the controls on desktop (mouseenter/mouseleave).
-  // Touch devices have no hover, so a tap shows them instead, auto-hiding
-  // after a few seconds — and, since that leaves no way to dismiss them
-  // on purpose, a second tap anywhere on the video itself hides them
-  // immediately too. Tapping an actual control (unmute, scrub bar, etc)
-  // never counts as that second "close" tap — it should just do its own
-  // thing, not also yank the bar out from under it.
   const CONTROLS_AUTO_HIDE_MS = 3000;
   const supportsHover = window.matchMedia('(hover: hover)').matches;
   let controlsHideTimer = null;
@@ -1120,14 +817,14 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   let ytPlayer = null;
   let isDragging = false;
   let pollTimer = null;
-  let apiReady = false;       // true once the YT.Player instance has fired onReady
-  let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
-  let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
+  let apiReady = false;
+  let ytScriptReady = false;
+  let firestoreDataReady = false;
   let pendingLoadId = null;
   let pendingUnmute = false;
-  let loadedVideoId = null;    // whichever video id is actually loaded into ytFrame right now
-  let currentMergedList = [];  // the single "Music Videos" list actually on screen right now
-  let scIsActivePlaying = false; // last play state reported via notifyScPlayState below
+  let loadedVideoId = null;
+  let currentMergedList = [];
+  let scIsActivePlaying = false;
 
   unmuteBtn.disabled = true;
 
@@ -1159,8 +856,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   }
 
   function updateProgress() {
-    // A SoundCloud track is the active source — notifyScProgress below
-    // drives this same scrub bar/time label from its progress instead.
+
     if (isScKey(activeKey)) return;
     if (!ytPlayer || isDragging) return;
     const duration = ytPlayer.getDuration();
@@ -1179,12 +875,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }[c]));
   }
 
-  // ---------- ONE LIST, ONE PLAYHEAD ----------
-  // Builds the single "Music Videos" list: every video, plus any
-  // SoundCloud-only song (no matching video by title) using that song's
-  // own cover art as its thumbnail. Matching happens once here, not at
-  // playback time, so there's exactly one entry — and one key — per song
-  // regardless of which platform(s) it's actually on.
   function normalizeTitleForMatch(t) {
     return (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   }
@@ -1224,11 +914,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
         soundIndex: i,
         title: sound.title,
         author: getScAuthor(sound),
-        // A SoundCloud-only track has no admin.html row of its own to set
-        // an album on, so it's put in a standing "SoundCloud" album
-        // instead of showing up with no grouping at all — same bucket a
-        // video track lands in if the admin types "SoundCloud" as its
-        // own album.
+
         album: 'SoundCloud',
         thumbnail: getScArtworkUrl(sound),
         linkUrl: sound.permalink_url || '#'
@@ -1238,17 +924,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     return merged;
   }
 
-  // Under a specific creator filter, tracks are re-grouped by album
-  // instead of staying in raw "All" order — a song from one album could
-  // otherwise sit between two songs from another, breaking that album up
-  // into several disconnected runs (each getting its own heading). Groups
-  // are sorted by whichever album's most recently added track is newest;
-  // within a group, tracks keep their relative "All" order (the order
-  // admin.html has them arranged in) so this is still the source of truth
-  // for track order, just re-clustered by album. Under "All" itself,
-  // grouping is skipped entirely — the same album name could belong to
-  // several different artists there, so grouping would be misleading, and
-  // the admin's raw order is exactly what "All" is supposed to show.
   function orderVisibleForFilter(visible) {
     if (!activeAuthorFilter) return visible;
     const groups = [];
@@ -1264,13 +939,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       g.items.push(e);
       if ((e.addedAt || 0) > g.maxAdded) g.maxAdded = e.addedAt || 0;
     });
-    // An album in the admin-set albumOrder (see admin.html's "Albums"
-    // section) sorts by that explicit position first, taking priority
-    // over recency entirely; an album not listed there sorts in after
-    // every explicitly-ordered one, newest-added-track first. Array#sort
-    // is stable — ties (e.g. two unordered albums with no addedAt at
-    // all) keep the order they first appeared in, instead of jumping
-    // around on every re-render.
+
     groups.sort((a, b) => {
       const ia = albumOrder.indexOf(a.album);
       const ib = albumOrder.indexOf(b.album);
@@ -1282,15 +951,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     return groups.reduce((all, g) => all.concat(g.items), []);
   }
 
-  // Groups "All" itself by creator instead of leaving it flat — every
-  // track from one creator becomes one contiguous run (so it doesn't
-  // fragment the way a run-based grouping would), ordered by the same
-  // admin-set creatorOrder the chin's own chips already use, with an
-  // unresolved author (still being fetched) always sorting last so a
-  // slow oEmbed lookup can't jump a track ahead of creators that have
-  // already resolved. Within a group, tracks keep their original "All"
-  // order — this only re-clusters them, it never re-sorts by date or
-  // anything else.
   function orderVisibleForAll(visible) {
     const groups = [];
     const byAuthor = new Map();
@@ -1321,7 +981,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     return groups.reduce((all, g) => all.concat(g.items), []);
   }
 
-  // ---------- PLAYLIST RENDER ----------
   function renderPlaylist(merged) {
     if (!merged.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No tracks added yet.</div>';
@@ -1339,18 +998,12 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 
     const ordered = activeAuthorFilter ? orderVisibleForFilter(visible) : orderVisibleForAll(visible);
     playlistCountEl.textContent = ordered.length + (ordered.length === 1 ? ' track' : ' tracks');
-    // Only a run of consecutive tracks sharing an album (or, under "All",
-    // a creator) gets one shared heading — orderVisibleForFilter/
-    // orderVisibleForAll above already guarantee every track sharing that
-    // grouping key is one contiguous run, so this never fragments one
-    // group into repeated headings.
+
     let lastGroupKey = undefined;
     playlistItemsEl.innerHTML = ordered.map(e => {
       const title = (typeof e.title === 'string' && e.title.trim()) ? e.title.trim() : 'Loading title…';
       const isActive = e.key === activeKey;
-      // Shows who made it instead of a generic "Tap to play" once the
-      // author's known — falls back to "Tap to play" only while it's
-      // still being fetched.
+
       const sub = isActive
         ? 'Now playing'
         : (e.author ? escapeHtml(resolveAuthorDisplay(e.author)) : 'Tap to play');
@@ -1389,15 +1042,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     });
   }
 
-  // Switches which card is marked "active" in place — toggling classes
-  // and text on the existing buttons — instead of rebuilding the whole
-  // list's innerHTML. Rebuilding on every click reset playlistItemsEl's
-  // own scroll position back to 0, which is what made picking a video
-  // near the end of the mobile swipe list jump straight back to the
-  // start right after the tap. Only actual content changes (a new/
-  // reordered list, a filter change) should go through the full
-  // renderPlaylist() rebuild above — a change in which entry is active
-  // should not.
   function updateActiveHighlight() {
     playlistItemsEl.querySelectorAll('.playlist-item').forEach(btn => {
       const key = btn.getAttribute('data-key');
@@ -1414,36 +1058,16 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     });
   }
 
-  // ---------- CREATOR CHIN RENDER ----------
-  // Auto-populated from whichever authors have shown up in the merged
-  // list so far (fetchTitles fills v.author in asynchronously for video
-  // entries, so this gets called again each time one resolves — a
-  // SoundCloud entry's author is already known as soon as it's fetched).
-  // Clicking a chip only changes the filter used by renderPlaylist above
-  // — it never touches what's currently playing.
-  //
-  // The "All" chip always renders immediately, even before any author has
-  // loaded — a panel that only appears once the network fetch succeeds is
-  // a panel that can silently never appear at all (one failed request and
-  // there's nothing on screen to show something's wrong). "Unknown" is
-  // kept as a real, clickable chip too instead of being hidden, so a
-  // failed lookup still leaves a working filter rather than making the
-  // whole feature vanish.
   function renderCreatorChin(merged) {
     const authors = [];
     let stillLoading = false;
     merged.forEach(e => {
       if (e.author === null) { stillLoading = true; return; }
-      if (hiddenCreators.includes(e.author)) return; // hidden from the chin (its tracks still show under "All")
+      if (hiddenCreators.includes(e.author)) return;
       const display = resolveAuthorDisplay(e.author);
       if (!authors.includes(display)) authors.push(display);
     });
 
-    // Sorted by the admin-set creatorOrder first (from the "Creators"
-    // section of the editor); anything not explicitly ordered falls back
-    // to A→Z (case-insensitive) so the chin never looks scrambled just
-    // because a brand-new creator hasn't been given a position yet.
-    // "Unknown" always goes last since it's a fallback, not a real name.
     authors.sort((a, b) => {
       const ia = creatorOrder.indexOf(a);
       const ib = creatorOrder.indexOf(b);
@@ -1474,10 +1098,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     });
   }
 
-  // Rebuilds the merged list and re-renders everything driven by it — the
-  // single place a Firestore update (handlePlaylistSnapshot) and a fresh
-  // SoundCloud fetch (via the refreshMergedPlaylist bridge) both funnel
-  // through, so the list and chin never get out of sync with each other.
   function recomputeAndRenderAll() {
     currentMergedList = buildMergedList();
     renderCreatorChin(currentMergedList);
@@ -1485,32 +1105,12 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   }
   refreshMergedPlaylist = recomputeAndRenderAll;
 
-  // Pull each track's real title AND creator name from YouTube's oEmbed
-  // data (via noembed.com, which mirrors YouTube's oEmbed response —
-  // including author_name — but reliably sends the CORS headers a
-  // browser needs; calling youtube.com/oembed directly often fails
-  // silently or gets blocked cross-origin). Title-fetching is skipped for
-  // entries where one was typed in manually, but the author is always
-  // pulled since that's what drives the creator chin.
-  //
-  // This has to live in here (not at the top level of the script) so its
-  // calls to recomputeAndRenderAll() below can actually see it — declared
-  // inside this same IIFE. Calling it from an outer-scope fetchTitles()
-  // would silently throw a ReferenceError on every fetch completion
-  // (visible only in the browser console), leaving the creator chin
-  // permanently stuck showing "Loading" even though the author data
-  // itself had already been fetched successfully.
   function fetchTitles() {
     VIDEO_PLAYLIST.forEach((v, i) => {
       const needsTitle = !v.title;
-      if (!needsTitle && v.author) return; // nothing left to fetch for this one
+      if (!needsTitle && v.author) return;
       const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
 
-      // Some desktop setups (ad blockers, browser extensions, corporate
-      // networks) silently hang a request to a third-party domain like
-      // noembed.com instead of erroring outright — no CORS error, no
-      // rejection, it just never comes back. Aborting after 8s guarantees
-      // this always settles one way or the other.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -1551,9 +1151,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     unmuteBtn.title = 'Mute';
   }
 
-  // Covers the (paused, stale) video with the active SoundCloud track's
-  // own cover art, so the pane doesn't just sit on whatever video frame
-  // happened to be showing when SoundCloud took over.
   function showVideoCoverArt(artworkUrl) {
     videoCoverArt.src = artworkUrl;
     videoCoverOverlay.hidden = false;
@@ -1563,9 +1160,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     videoCoverOverlay.hidden = true;
   }
 
-  // Loads a video into the (single, persistent) YouTube player instance.
-  // autoUnmute is true for a direct click on a video entry, so it plays
-  // with sound right away instead of needing a separate Unmute click.
   function loadVideo(id, autoUnmute) {
     loadedVideoId = id;
     if (ytPlayer && apiReady) {
@@ -1578,10 +1172,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }
   }
 
-  // The one place a click (playlist item, or advancing to the next track)
-  // turns into "this is what's playing now" — sets activeKey once, then
-  // hands off to whichever real engine (YouTube or SoundCloud) owns that
-  // kind of entry.
   function playMergedKey(key) {
     const entry = currentMergedList.find(e => e.key === key);
     if (!entry) return;
@@ -1608,7 +1198,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   }
   advanceToNextInMergedList = function () { advanceFromKey(activeKey); };
 
-  // ---------- YT IFRAME API ----------
   function tryInitPlayer() {
     if (ytPlayer || !ytScriptReady || !firestoreDataReady || !VIDEO_PLAYLIST.length) return;
 
@@ -1620,11 +1209,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       events: {
         onReady: function () {
           apiReady = true;
-          // Set once here (rather than only on unmute) so the video is
-          // always at full volume the first time it's actually heard,
-          // regardless of which path unmutes it — YouTube's iframe can
-          // otherwise carry over a quieter volume from an earlier
-          // session/embed on the same page.
+
           ytPlayer.setVolume(100);
           unmuteBtn.disabled = false;
           playPauseBtn.disabled = false;
@@ -1642,7 +1227,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
           }
         },
         onStateChange: function (event) {
-          if (isScKey(activeKey)) return; // a SoundCloud track owns playback right now
+          if (isScKey(activeKey)) return;
           if (event.data === YT.PlayerState.PLAYING) {
             hideVideoLoading();
           } else if (event.data === YT.PlayerState.BUFFERING) {
@@ -1666,8 +1251,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
     if (ytPlayer.isMuted()) {
       if (isScKey(activeKey)) {
-        // Only one of the video/SoundCloud should have audio at a time —
-        // reclaim the currently-loaded video as the active source.
+
         pauseSc();
         activeKey = loadedVideoId;
         updateActiveHighlight();
@@ -1682,10 +1266,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }
   });
 
-  // ---------- ONE PLAYER, MANY SOURCES (SoundCloud IIFE -> here) ----------
-  // Lets the video pane's own scrub bar/play button reflect and control a
-  // SoundCloud track while it's the active source — called from the
-  // SoundCloud IIFE's own progress/play-state events.
   notifyScProgress = function (current, duration) {
     if (!isScKey(activeKey) || !duration || isDragging) return;
     scrubRange.max = duration;
@@ -1699,8 +1279,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   };
 
   playPauseBtn.addEventListener('click', function () {
-    // A SoundCloud track is the active source — this button controls
-    // that instead of the paused, irrelevant video.
+
     if (isScKey(activeKey)) {
       if (scIsActivePlaying) pauseSc();
       else resumeSc();
@@ -1730,7 +1309,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     isDragging = false;
   });
 
-  // ---------- FULLSCREEN ----------
   let usingPseudoFullscreen = false;
 
   function hasNativeFullscreenSupport(el) {
@@ -1771,9 +1349,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
   function updateFullscreenIcon() {
     const fs = isFullscreen();
     fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
-    // Lets the CSS hide SoundCloud/"Music Videos" (with the artist
-    // chips now inside it), which would otherwise sit visible/
-    // overlapping beside a fullscreened video.
+
     layoutEl.classList.toggle('fullscreen-active', fs);
   }
   fullscreenBtn.addEventListener('click', function () {
@@ -1789,11 +1365,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     document.addEventListener(evt, updateFullscreenIcon);
   });
 
-  // ---------- LIVE SYNC FROM FIRESTORE ----------
-  // Every visitor (no sign-in required) subscribes to the shared playlist
-  // document. The first snapshot boots the player; later snapshots (an
-  // admin saving changes) update the on-screen list for everyone without
-  // a page reload, and try to keep whatever's currently playing playing.
   function handlePlaylistSnapshot(list) {
     currentVideoList = list;
     const newVideoPlaylist = buildPlaylist(currentVideoList, VIDEO_PLAYLIST);
@@ -1808,17 +1379,12 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       return;
     }
 
-    // A SoundCloud entry's key doesn't depend on VIDEO_PLAYLIST, so it
-    // stays active across an update; a video entry needs to be
-    // re-checked in case it got removed.
     const wasActiveVideoId = !isScKey(activeKey) ? activeKey : null;
     VIDEO_PLAYLIST = newVideoPlaylist;
     if (wasActiveVideoId && !VIDEO_PLAYLIST.some(v => v.id === wasActiveVideoId)) {
       activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     }
 
-    // If the creator currently filtered on has no tracks left in the
-    // updated list, drop back to "All" instead of showing an empty list.
     const mergedForFilterCheck = buildMergedList();
     if (activeAuthorFilter && !mergedForFilterCheck.some(e => resolveAuthorDisplay(e.author) === activeAuthorFilter)) {
       activeAuthorFilter = null;
@@ -1828,7 +1394,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     fetchTitles();
 
     if (wasActiveVideoId && activeKey !== wasActiveVideoId && VIDEO_PLAYLIST.length) {
-      // The track that was playing got removed from the list — jump to the first one.
+
       loadVideo(activeKey, false);
     }
   }
@@ -1850,36 +1416,17 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 })();
 </script>
 
-<!-- YouTube IFrame Player API -->
 <script src="https://www.youtube.com/iframe_api"></script>
 
-<!-- SoundCloud Widget API — same one the homepage's standalone Listen
-     widget uses, for the mini player added below. -->
 <script src="https://w.soundcloud.com/player/api.js"></script>
 <script>
-// ============================================================
-// SOUNDCLOUD ENGINE — an invisible SoundCloud widget (same profile as the
-// homepage's standalone Listen widget) that only actually plays audio for
-// a SoundCloud-only song (no matching video) — a song that also has a
-// video just plays that video instead. The video pane's own controls
-// (play/pause/scrub/cover-art overlay) are what represents this to a
-// visitor now; this engine just makes the sound happen, via the
-// activeKey/isScKey bridges declared at the top level of this file.
-// ============================================================
+
 (function () {
   const scFrame = document.getElementById('scWidgetFrame');
 
-  // Not created until the linked SoundCloud profile loads (see
-  // SOUNDCLOUD_REF.get() near the bottom of this IIFE) — every place
-  // below that calls scWidget.* only ever does so once a SoundCloud-only
-  // entry is active in the merged list, which itself can't happen until
-  // scSoundsList is populated by the READY handler this triggers, so
-  // there's no ordering hazard from leaving it null until then.
   let scWidget = null;
-  let scDuration = 0; // seconds — always seconds here, converted to ms only at the scWidget.seekTo() call sites
+  let scDuration = 0;
 
-  // Called from the video IIFE (via the playScByIndex bridge) when the
-  // user picks a SoundCloud-only entry from the merged playlist.
   playScByIndex = function (idx) {
     if (idx < 0 || idx >= scSoundsList.length) return;
     const sound = scSoundsList[idx];
@@ -1906,11 +1453,6 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       });
     });
 
-    // These only ever fire as a direct result of our own playScByIndex/
-    // pauseSc/resumeSc calls above — the widget itself is invisible and has
-    // no controls of its own for a visitor to trigger PLAY/PAUSE with.
-    // notifyScPlayState is what keeps the video pane's own play/pause
-    // button (the only one left) showing the right icon for this track.
     scWidget.bind(SC.Widget.Events.PLAY, function () {
       notifyScPlayState(true);
     });
@@ -1920,9 +1462,7 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 
     scWidget.bind(SC.Widget.Events.PLAY_PROGRESS, function (data) {
       if (!isScKey(activeKey) || !scDuration) return;
-      // Lets the video pane's own scrub bar/time label track this
-      // SoundCloud track's playhead too — both sides agree scDuration/
-      // current are always seconds.
+
       notifyScProgress(data.relativePosition * scDuration, scDuration);
     });
 
@@ -1931,18 +1471,9 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
     });
   }
 
-  // ---------- LINKED ACCOUNT ----------
-  // Same admin.html "SoundCloud Account" card (Music tab) and the same
-  // chat_config/soundcloud doc the homepage's standalone Listen widget
-  // reads — one saved link feeds both places, so renaming/switching
-  // SoundCloud accounts only ever needs that one paste-and-save. `db` is
-  // this file's own top-level Firestore instance, set up above in the
-  // FIREBASE script block. A one-time read is enough — same
-  // "takes effect on load/refresh" model as everywhere else this site
-  // reads admin-set config.
   db.collection('chat_config').doc('soundcloud').get().then(function (doc) {
     const data = doc.exists ? doc.data() : null;
-    if (!data || !data.profileUrl) return; // unconfigured — scSoundsList stays empty, no SoundCloud-only entries merged in
+    if (!data || !data.profileUrl) return;
     scFrame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(data.profileUrl) + '&auto_play=false&show_artwork=false';
     scWidget = SC.Widget(scFrame);
     bindScWidgetEvents();

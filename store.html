@@ -2,13 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- maximum-scale/user-scalable=no is what actually stops iOS Safari's
-     native pinch-zoom on this page — touch-action:none and
-     preventDefault() on the product photo's own touchmove (see its CSS/
-     JS) turned out not to be enough on real Safari, only in Chrome's
-     synthetic touch-event testing. The page's own pinch gesture (see
-     wireZoom/PINCH_OPEN_RATIO) is meant to fully replace it here, not
-     just add to it. -->
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Store - KNOBSOCK</title>
 <meta property="og:type" content="website">
@@ -28,36 +22,9 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Full rebuild per the provided desktop/mobile mockups — one big
-     product image (whatever's next/prev/current in store_products,
-     same admin.html-authored source every other page reads), flanked by
-     prev/next arrows, a "next merch item" arrow below, and a color-swatch
-     picker bottom-right. Tiled cloud-gif page background (see html,body's
-     own comment) rather than this site's usual dark-panel widget look —
-     the product art itself is the whole page, not content living inside
-     a themed card.
 
-     Desktop: prev/next arrows are absolutely positioned over the sides
-     of the product image itself. Mobile: per the approved mobile mockup,
-     .stage itself becomes one big CSS grid and every element (including
-     prev/next) is explicitly placed into it — see the mobile media
-     query's own comment for why and how. Both switch at this site's
-     usual 860px mobile breakpoint (videos.html/music.html/live.html's
-     own `@media (max-width: 860px)`).
-
-     Title/price/material + Add to Cart flank the Next Item button in the
-     footer row. Add to Cart writes to the same knobsock_cart localStorage
-     key cart.html reads — cart.html (which owns the actual Checkout
-     button/Stripe handoff, hence no separate checkout.html) and
-     confirmation.html were re-themed alongside this rebuild to carry the
-     same white/black/yellow/pink look. A fixed cart button sits top-right
-     of the viewport (see .cart-btn) with a badge showing total item
-     count, read from the same knobsock_cart key on load and after every
-     Add to Cart. */
   * { box-sizing: border-box; }
 
-  /* Site's display font, used here for the cart-count badge only — no
-     other live (non-image) text on this page needed it. */
   @font-face {
     font-family: 'Gratis Neue';
     src: url('/Gratis%20Neue.otf') format('opentype');
@@ -75,13 +42,7 @@
     padding: 0;
     height: 100%;
     overflow: hidden;
-    /* Tiled repeating background, same old-GeoCities-style approach as
-       index.html's own body background (see that file's own comment) —
-       a plain CSS repeat, no scroll/animation. The underlying color
-       (shows through on iOS Safari's rubber-band overscroll above/below
-       the page, even with overflow:hidden here) is the sky blue from
-       the cloud gif itself, not white, so an overscroll bounce reads as
-       "more sky" rather than a stark white flash. */
+
     background: #A5C6DE url('/store-clouds-bg.gif') repeat;
     font-family: Arial, Helvetica, sans-serif;
   }
@@ -110,18 +71,11 @@
     -webkit-user-drag: none;
     user-select: none;
   }
-  /* Desktop only (mobile's own size above already read fine live) — the
-     logo doesn't need to compete with the product for attention the way
-     the mobile mockup's own tighter vertical space made it naturally do
-     on a phone. */
+
   @media (min-width: 861px) {
     .header-logo-link { width: min(11vw, 170px); }
   }
 
-  /* ---------- CART BUTTON ---------- */
-  /* position:fixed against the viewport, not .stage — works identically
-     whether .stage is desktop's flex column or mobile's grid, and needs
-     no grid-row/column slot of its own on mobile. */
   .cart-btn {
     position: fixed;
     top: clamp(10px, 2.4vh, 26px);
@@ -164,7 +118,6 @@
   }
   .cart-badge[hidden] { display: none; }
 
-  /* ---------- PRODUCT + PREV/NEXT ---------- */
   .product-stage {
     position: relative;
     flex: 1 1 auto;
@@ -172,37 +125,14 @@
     width: 100%;
   }
 
-  /* position:absolute + inset:0 rather than a flex-item percentage
-     height — this used to be `flex:1 1 auto; height:100%` inside a
-     row-direction flex .product-stage, which (confirmed live) resolved
-     to a height noticeably SHORTER than .product-stage's own actual
-     height, silently shrinking the product image along with it (a
-     flex-item cross-axis percentage-height quirk, not something
-     max-height on the image itself could fix). inset:0 against
-     .product-stage's own position:relative has no such ambiguity — it's
-     just "fill the positioned ancestor exactly," always. */
   .product-viewport {
     position: absolute;
     inset: 0;
     overflow: hidden;
-    /* Tells the browser not to run its OWN default touch gestures here
-       at all — pinch-zooming the whole page (mobile's own complaint)
-       included — since the pinch handling below (see the touchmove
-       listener on this same element) is what actually drives the
-       photo's own zoom instead. Doesn't affect the single-finger swipe-
-       to-navigate handling right below it either way, since that's
-       already fully custom JS with no native touch behavior of its own
-       to preserve. */
+
     touch-action: none;
   }
-  /* Both the outgoing and incoming image during a slide, and the single
-     resting image the rest of the time — always centered, translateX is
-     layered on top of that same centering transform by JS (see
-     showProduct()) rather than replacing it. object-fit:contain (via
-     max-width/max-height, since these are plain <img> tags, not a fixed
-     box) rather than cropping — "take up the whole page" means dominant
-     within the space actually left after the header/footer rows, not
-     cropped to fill it. */
+
   .product-img {
     position: absolute;
     top: 50%;
@@ -212,13 +142,7 @@
     width: auto;
     height: auto;
     transform: translate(-50%, -50%);
-    /* Invisible until showProduct's decode() call resolves (see its own
-       comment) — mobile Safari in particular will happily paint a
-       raster image mid-decode, native size and all, before this box's
-       own max-width/max-height have anything correct to clamp against,
-       which is what the cropped-corner flash on a slow mobile load
-       actually was. Fading in only once decoding is confirmed complete
-       means there's simply never a frame with the wrong size to see. */
+
     opacity: 0;
     transition: opacity 0.2s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s ease, max-height 0.3s ease;
     -webkit-user-drag: none;
@@ -226,20 +150,7 @@
     cursor: zoom-in;
   }
   .product-img.is-ready { opacity: 1; }
-  /* Click-to-expand — a full-screen, aspect-ratio-preserving lightbox on
-     both desktop and mobile now (used to be a much smaller, barely-
-     zooming desktop-only version bounded to .product-viewport). Sized
-     in vw/vh against the real viewport rather than .product-viewport
-     itself, since that box is too small on any screen to zoom "into"
-     without either barely growing at all (capped at its own 100%) or
-     spilling past its edges and getting clipped by its own
-     overflow:hidden — cropping the shirt, which is exactly what this
-     avoids. max-width/max-height (not a fixed size) is what keeps this
-     "contain" rather than crop: the full photo, aspect ratio intact,
-     always fits on screen with nothing cut off, whatever the source
-     photo's own resolution actually is. There's no way for a webpage to
-     summon the OS-level magnifier itself, so this is the closest
-     available equivalent, with the matching zoom-in/zoom-out cursor. */
+
   .product-img.is-zoomed {
     position: fixed;
     top: 50%;
@@ -249,10 +160,7 @@
     z-index: 100;
     cursor: zoom-out;
   }
-  /* Dims the rest of the page behind a zoomed image, toggled in lockstep
-     by JS (see wireZoom) — what actually makes the zoom read as a
-     lightbox overlay rather than a giant photo just floating over the
-     nav/footer UI underneath it. */
+
   .zoom-backdrop {
     position: fixed;
     inset: 0;
@@ -260,9 +168,7 @@
     z-index: 90;
     opacity: 0;
     visibility: hidden;
-    /* A pointer/finger landing on the dimmed margin around the photo
-       (not the photo itself) still lands on this element, not
-       .product-viewport underneath it. */
+
     touch-action: none;
     transition: opacity 0.25s ease, visibility 0s linear 0.25s;
   }
@@ -272,12 +178,6 @@
     transition: opacity 0.25s ease, visibility 0s linear 0s;
   }
 
-  /* One wrapper per side, holding one button each — display:contents
-     makes the wrapper's own box disappear so .nav-btn behaves as a
-     direct child of whatever actually lays it out: .product-stage (the
-     nearest positioned ancestor) on desktop, .stage's own grid on
-     mobile (see that media query's own comment). Same on both — no
-     duplicated markup needed for the two very different layouts. */
   .nav-row {
     display: contents;
   }
@@ -298,21 +198,13 @@
   }
   .nav-btn:hover { transform: translateY(-50%) scale(1.06); }
   .nav-btn:active { transform: translateY(-50%) scale(0.94); }
-  /* Visual echo for this button's arrow-key equivalent (see the keydown/
-     keyup handling below) — darkened + popped slightly larger than even
-     the hover state, held for as long as the key itself is held down,
-     the same way a real button looks pressed while you hold it. */
+
   .nav-btn.is-key-active { transform: translateY(-50%) scale(1.1); }
   .nav-btn.is-key-active img { filter: brightness(0.7); }
   .nav-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; transition: filter 0.15s ease; }
   .nav-prev { left: clamp(6px, 3vw, 48px); }
   .nav-next { right: clamp(6px, 3vw, 48px); }
 
-  /* ---------- FOOTER: INFO + NEXT ITEM + ADD TO CART/COLOR PICKER ----------
-     Three-column row: product info (title/price/material) on the left,
-     the Next Item arrow centered, Add to Cart + the color picker stacked
-     on the right — left/right columns share equal flex-basis so the
-     center arrow actually lands in the middle. */
   .footer-row {
     position: relative;
     flex: 0 0 auto;
@@ -324,11 +216,6 @@
     padding: 0 clamp(10px, 3vw, 32px) clamp(10px, 2.4vh, 26px);
   }
 
-  /* A normal flex child of .stage (desktop) — not position:fixed, which
-     would float over whatever .stage's own bottom edge is currently
-     showing on this locked (overflow:hidden) page. .product-stage's
-     flex:1 1 auto shrinks to leave room for this instead. Mobile's grid
-     mode below places it as an explicit 8th row for the same reason. */
   .privacy-footer {
     flex: 0 0 auto;
     width: 100%;
@@ -383,9 +270,7 @@
   }
   .next-item-btn:hover { transform: scale(1.06); }
   .next-item-btn:active { transform: scale(0.94); }
-  /* Shared by both Down (next category) and Up (previous category) —
-     there's no separate "prev item" button on screen for Up to light up
-     instead, see the keydown handling below. */
+
   .next-item-btn.is-key-active { transform: scale(1.1); }
   .next-item-btn.is-key-active img { filter: brightness(0.7); }
   .next-item-btn img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; transition: filter 0.15s ease; }
@@ -398,12 +283,7 @@
     align-items: flex-end;
     gap: clamp(6px, 1.4vh, 12px);
   }
-  /* Sizes come from the same per-product Sizes field admin.html already
-     had (comma-separated, e.g. "S, M, L, XL") — hidden entirely (like
-     .color-picker) when a product has none set. Plain live text, same
-     yellow-fill/black-outline technique as .cart-badge, rather than
-     baked-into-an-image like PREV/NEXT/etc., since the actual size list
-     is dynamic per product. */
+
   .size-selector {
     display: flex;
     flex-direction: column;
@@ -443,10 +323,6 @@
   .size-option.is-selected { color: var(--ks-pink); transform: scale(1.2); }
   .size-option.is-selected:hover { transform: scale(1.32); }
 
-  /* Nudge feedback for trying to Add to Cart without picking a size —
-     see addToCartBtn's click handler. Not scoped to mobile like
-     .is-popping; this should read the same on desktop (hover-driven)
-     too, it's not a tap-vs-hover distinction. */
   @keyframes size-shake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-6px); }
@@ -456,8 +332,6 @@
   }
   .size-options.is-shaking { animation: size-shake 0.4s ease; }
 
-  /* Two swapped button-art images (add/added), not CSS-styled text —
-     see the JS side's addToCartBtn click handler. */
   .add-to-cart-btn {
     position: relative;
     -webkit-appearance: none;
@@ -479,17 +353,9 @@
     -webkit-user-drag: none;
     user-select: none;
   }
-  /* Checkout isn't wired up yet — this banner sits over the button
-     (small enough that the yellow/black button art still shows around
-     it) rather than replacing it, and the native `disabled` attribute
-     (see the HTML) blocks clicks/hover without any JS changes, since
-     the existing click handler and popOnClick() just never fire. */
+
   .add-to-cart-btn:disabled { cursor: not-allowed; }
-  /* .add-to-cart-btn .add-to-cart-construction (two classes) rather than
-     just .add-to-cart-construction — needs to out-specificity the
-     .add-to-cart-btn img rule above (one class + one element still beats
-     a lone class), which would otherwise win and stretch this to 100%
-     width like the main button art. */
+
   .add-to-cart-btn .add-to-cart-construction {
     position: absolute;
     top: 50%;
@@ -530,21 +396,6 @@
   .color-swatch:hover { transform: translateY(-2px); }
   .color-swatch.is-selected { box-shadow: 0 0 0 2px #ff4fa8; }
 
-  /* ---------- MOBILE ----------
-     Per the approved mobile mockup: shirt, then color picker, then a
-     single row of [prev][add to cart][next], then title/price/material,
-     then Next Item — in that exact order. An earlier flex-wrap-based
-     attempt at this reordered unpredictably on real devices (prev/next
-     landing above the info block, Next Item stranded alone at the
-     bottom-left) because flex-wrap only ever preserves DOM source order
-     line by line; it can't move an item like add-to-cart-btn (which
-     lives in a completely different DOM branch, .footer-row, from
-     .nav-row's prev/next) into the middle of another element's row.
-     Fixed here by making .stage itself the one grid every element is
-     explicitly placed in — every intermediate wrapper (.product-stage,
-     .nav-row, .footer-row, .footer-right) turns to display:contents so
-     its children become direct, explicitly-positioned grid items,
-     regardless of which branch of the markup they actually live in. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
 
@@ -562,15 +413,7 @@
     .header-logo-link { grid-column: 1 / -1; grid-row: 1; justify-self: center; }
 
     .product-stage { display: contents; }
-    /* align-self:stretch overrides .stage's own align-items:center
-       (needed so the shorter items in row 5 — add-to-cart-btn next to
-       the taller prev/next triangles — center instead of stretching
-       oddly) specifically for this one item. Without it, .product-
-       viewport has no intrinsic content height of its own (.product-img
-       is position:absolute, so it doesn't contribute to normal-flow
-       sizing) and collapses to 0 instead of filling its 1fr row —
-       confirmed live: the row's own computed track height was fine
-       (430px), the item just wasn't stretched into it. */
+
     .product-viewport { grid-column: 1 / -1; grid-row: 2; position: relative; inset: auto; align-self: stretch; }
 
     .size-selector { grid-column: 1 / -1; grid-row: 3; justify-self: center; align-items: center; }
@@ -594,14 +437,6 @@
     .footer-right { display: contents; }
     .add-to-cart-btn { grid-column: 2; grid-row: 5; justify-self: center; }
 
-    /* Tap feedback — a quick scale-up-then-settle "pop" on every button,
-       triggered by JS toggling .is-popping (see popOnClick) rather than
-       :active alone, since a touch tap's :active window is too brief to
-       read as a deliberate animation. The animated transform wins over
-       the plain `transform: none`/scale() set elsewhere for these same
-       elements while it's running (animated values take priority over
-       the static cascade), then hands back to the normal resting style
-       once .is-popping is removed on animationend. */
     .nav-btn.is-popping,
     .next-item-btn.is-popping,
     .add-to-cart-btn.is-popping,
@@ -672,17 +507,9 @@
 
   <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 
-  <!-- Mobile-only zoom overlay backdrop — see its own CSS comment.
-       Inert (display:none) on desktop regardless of is-active. -->
   <div class="zoom-backdrop" id="zoomBackdrop"></div>
 </div>
 
-<!-- ============================================================
-     FIREBASE — same project as every other page, read-only here: this
-     page only ever reads published products, never writes them (that
-     happens from admin.html's Store tab). Guarded the same way the rest
-     of the site guards a Firebase read — a blocked/failed load just
-     means the local/seed product shows instead of a broken page. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
@@ -721,11 +548,6 @@
     return '$' + (Math.max(0, cents || 0) / 100).toFixed(2);
   }
 
-  // Only shown when there's genuinely nothing else to show — real
-  // products (even just one) always win. Points at store-test-product
-  // .webp, the actual asset supplied specifically "to help with
-  // scaling" — so this page never looks broken/empty before the first
-  // real product gets added from admin.html.
   var SEED_PRODUCT = {
     id: 'seed-test-product',
     title: 'Test Product',
@@ -749,16 +571,6 @@
       });
   }
 
-  // ====================================================================
-  // CAROUSEL — one <img> at rest at any given time; showProduct() adds a
-  // second (the incoming one), animates both simultaneously via CSS
-  // transition on transform, then drops the old one once it's finished.
-  // dir is +1 for next (old slides out left, new comes in from the
-  // right) or -1 for prev (mirrored) — the "should slide off your
-  // browser's screen" part comes for free from 100vw translateX combined
-  // with html/body's own overflow:hidden clipping anything past the
-  // actual edge, no extra clipping container needed.
-  // ====================================================================
   var viewport = document.getElementById('productViewport');
   var colorPicker = document.getElementById('colorPicker');
   var colorSwatches = document.getElementById('colorSwatches');
@@ -790,12 +602,6 @@
     });
   }
 
-  // Mobile-only "pop" tap feedback (see .is-popping's own CSS comment) —
-  // harmless no-op on desktop, where that class has no matching rule.
-  // Removing before re-adding, plus the offsetWidth read in between,
-  // forces a reflow so a second tap mid-animation restarts it from
-  // scratch instead of doing nothing (re-adding an already-present class
-  // doesn't retrigger a CSS animation on its own).
   function popOnClick(el) {
     el.addEventListener('click', function () {
       el.classList.remove('is-popping');
@@ -823,11 +629,7 @@
         Array.prototype.forEach.call(colorSwatches.querySelectorAll('.color-swatch'), function (b) {
           b.classList.toggle('is-selected', b === btn);
         });
-        // Swap in that color's own photo (admin.html's per-color photo
-        // upload) if it has one; otherwise fall back to the product's
-        // default photo — an in-place src swap, not a prev/next slide,
-        // since this is the same design/product, just a different shot
-        // of it.
+
         var color = colors[selectedColorIndex];
         if (currentImg) loadImageSrc(currentImg, (color && color.image) ? color.image : product.image);
       });
@@ -858,11 +660,6 @@
     infoMaterial.textContent = product.material || '';
   }
 
-  // Click-to-expand — see .product-img.is-zoomed's own comment for why
-  // this (not a real OS-level magnifier, which a webpage has no way to
-  // summon) is the closest available equivalent. Ignored mid-swipe (see
-  // the touch handling below) so a drag-to-swipe gesture on mobile can't
-  // also toggle zoom.
   function wireZoom(img) {
     img.addEventListener('click', function () {
       if (suppressNextClick) { suppressNextClick = false; return; }
@@ -870,21 +667,12 @@
       zoomBackdrop.classList.toggle('is-active', zoomed);
     });
   }
-  // Tapping the dimmed area around a zoomed photo closes it, same as
-  // tapping the photo itself again — standard lightbox behavior, and
-  // the backdrop is otherwise just dead space with nothing else to do.
+
   zoomBackdrop.addEventListener('click', function () {
     if (currentImg) currentImg.classList.remove('is-zoomed');
     zoomBackdrop.classList.remove('is-active');
   });
 
-  // Shared by showProduct below (a brand-new <img>) and the color-swatch
-  // swap in renderColorSwatches above (an existing one getting a new
-  // src) — both point a .product-img at a fresh photo, so both carry the
-  // same risk of a slow mobile decode painting it at the wrong size
-  // before max-width/max-height have anything correct to clamp against
-  // (see .product-img's own comment). decode() is what actually closes
-  // that window; the fallback covers a browser missing it.
   function loadImageSrc(img, src) {
     img.classList.remove('is-ready');
     img.decoding = 'async';
@@ -903,11 +691,6 @@
     activeIndex = ((index % PRODUCTS.length) + PRODUCTS.length) % PRODUCTS.length;
     var product = PRODUCTS[activeIndex];
 
-    // Now that is-zoomed is a full-screen fixed overlay on every screen
-    // size (see its own CSS comment), leaving it zoomed here would slide
-    // that giant photo off screen via the translateX below while a
-    // brand-new, normal-sized one slides into .product-viewport at the
-    // same time — closing it on navigation avoids that.
     if (currentImg) currentImg.classList.remove('is-zoomed');
     zoomBackdrop.classList.remove('is-active');
 
@@ -918,7 +701,7 @@
     incoming.style.transform = 'translate(-50%, -50%) translateX(' + (dir * 100) + 'vw)';
     wireZoom(incoming);
     viewport.appendChild(incoming);
-    void incoming.offsetWidth; // force layout so the transition below actually animates from the line above
+    void incoming.offsetWidth;
 
     animating = true;
     incoming.style.transform = 'translate(-50%, -50%) translateX(0)';
@@ -936,24 +719,6 @@
     renderProductInfo(product);
   }
 
-  // ---- Category-aware navigation ----
-  // Prev/next (and swipe) cycle within the CURRENT product's category
-  // (admin.html's Category field — same bucket as "Uncategorized"/''
-  // for anything left blank). Next Item (and the Up/Down arrow keys)
-  // instead jump to the first product of the next/previous category in
-  // the list, cycling back around — "next design" vs. "next kind of
-  // merch," per the original mockup spec (shirts vs. hats vs. stickers,
-  // say).
-  //
-  // Trimmed + lowercased before comparing — confirmed live that two
-  // real products typed as "T-Shirt" and "T-shirts" (differing only in
-  // case) were landing in separate one-product "categories" instead of
-  // one shared one, since Category is a free-text field admin.html
-  // doesn't otherwise constrain. This still can't merge genuinely
-  // different wording (a straight-up typo like "T-Shirt" vs "T-Shirts"
-  // still won't match — that needs the actual text in admin.html made
-  // consistent), just the case/whitespace variety of "same category,
-  // typed slightly differently."
   function normalizeCategory(category) {
     return String(category || '').trim().toLowerCase();
   }
@@ -996,11 +761,6 @@
   popOnClick(addToCartBtn);
   popOnClick(cartBtn);
 
-  // ---- Arrow-key navigation (desktop) ----
-  // Left/Right mirror the prev/next buttons; Down mirrors Next Item, and
-  // Up walks the same category list backward — there's no separate
-  // "prev item" button on screen, so Up borrows Next Item's own button
-  // for the key-active flash below too, just going the other way.
   var ARROW_KEY_BTN = { ArrowLeft: prevBtn, ArrowRight: nextBtn, ArrowDown: nextItemBtn, ArrowUp: nextItemBtn };
   document.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft') { e.preventDefault(); showRelativeInCategory(-1); }
@@ -1014,19 +774,13 @@
     var btn = ARROW_KEY_BTN[e.key];
     if (btn) btn.classList.remove('is-key-active');
   });
-  // Safety net for a keyup that never arrives (e.g. Alt+Tabbing away
-  // mid-press) — without this a button could stay stuck looking pressed.
+
   window.addEventListener('blur', function () {
     prevBtn.classList.remove('is-key-active');
     nextBtn.classList.remove('is-key-active');
     nextItemBtn.classList.remove('is-key-active');
   });
 
-  // ---- Swipe left/right (mobile) ----
-  // Delegated onto the viewport itself rather than each image, since
-  // .product-img elements get swapped out on every navigation.
-  // suppressNextClick stops a swipe gesture's touchend from also
-  // triggering the image's own click-to-zoom handler.
   var touchStartX = 0, touchStartY = 0, touchActive = false, suppressNextClick = false;
   var SWIPE_THRESHOLD = 50;
   viewport.addEventListener('touchstart', function (e) {
@@ -1045,34 +799,18 @@
     showRelativeInCategory(dx < 0 ? 1 : -1);
   }, { passive: true });
 
-  // ---- Pinch to zoom (mobile) ----
-  // A two-finger pinch on the product photo opens/closes the exact same
-  // overlay tapping it does (see wireZoom) — not a continuously-scaling
-  // photo viewer, just pinch as a second, more natural-feeling trigger
-  // for the same "show it bigger" gesture. The touchmove listener's
-  // preventDefault (needs { passive: false } to be allowed to fire at
-  // all) is what actually stops the BROWSER's own native pinch-zoom
-  // from also kicking in and scaling the whole page — the reported bug.
-  // zoomBackdrop gets the same preventDefault treatment below since a
-  // pinch with fingers on its dimmed margin (rather than the photo
-  // itself) never reaches this element at all.
   function touchDistance(touches) {
     var dx = touches[0].clientX - touches[1].clientX;
     var dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
   }
-  var PINCH_OPEN_RATIO = 1.15;  // fingers spread >15% opens
-  var PINCH_CLOSE_RATIO = 0.85; // fingers pinched in >15% closes
+  var PINCH_OPEN_RATIO = 1.15;
+  var PINCH_CLOSE_RATIO = 0.85;
   var pinchStartDist = 0;
   var pinchHandled = false;
   viewport.addEventListener('touchstart', function (e) {
     if (e.touches.length !== 2) return;
-    // A second finger landing mid-gesture means the swipe tracker above
-    // already latched touchActive=true off the first one — left alone,
-    // its eventual touchend (now reporting wherever a pinching finger
-    // ended up, compared against where the FIRST finger started) reads
-    // as a huge, spurious swipe and navigates to the next/prev product
-    // right as the pinch ends. Cancelling it here is what stops that.
+
     touchActive = false;
     pinchStartDist = touchDistance(e.touches);
     pinchHandled = false;
@@ -1097,10 +835,6 @@
     if (e.touches.length === 2) e.preventDefault();
   }, { passive: false });
 
-  // ---- Add to Cart / cart badge ----
-  // Same localStorage cart cart.html already reads (knobsock_cart) — a
-  // matching productId+color line just bumps quantity instead of
-  // duplicating.
   var CART_KEY = 'knobsock_cart';
   var ADD_TO_CART_IMG = '/store-btn-addtocart.webp';
   var ADDED_IMG = '/store-btn-added.webp';
@@ -1117,13 +851,7 @@
     cartBadge.hidden = count === 0;
     cartBadge.textContent = count > 99 ? '99+' : String(count);
   }
-  // A shake, not a status-text message — there's no status-line element
-  // near Add to Cart the way admin.html's modals have, and a quick nudge
-  // on the sizes themselves points straight at what needs picking.
-  // Remove-before-add (+ the offsetWidth reflow) mirrors popOnClick's own
-  // restart trick, so mashing Add to Cart repeatedly without picking a
-  // size keeps re-triggering the shake instead of doing nothing after
-  // the first tap.
+
   function promptSelectSize() {
     sizeOptions.classList.remove('is-shaking');
     void sizeOptions.offsetWidth;
@@ -1156,7 +884,7 @@
         priceCents: product.priceCents || 0
       });
     }
-    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) { /* storage full/blocked */ }
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) {  }
     updateCartBadge();
 
     addToCartImg.src = ADDED_IMG;
@@ -1175,16 +903,6 @@
 })();
 </script>
 
-<!-- ============================================================
-     SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
-     every other Firestore-backed widget here uses) and overrides this
-     page's built-in title/meta description if something's been saved
-     for it. Fails silently (offline, doc missing, this slug not filled
-     in yet) rather than blanking anything out — the page's own
-     built-in text stays exactly as it is until this successfully
-     overrides it. Only reaches crawlers that actually run JavaScript
-     (Google does) — see admin.html's own SEO tab note for why link-
-     preview scrapers (Discord, Twitter/X, etc.) never see this. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>

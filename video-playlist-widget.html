@@ -17,10 +17,7 @@
     --text-dim: #c9dcf5;
     --font-display: Arial, Helvetica, sans-serif;
     --font-body: Arial, Helvetica, sans-serif;
-    /* Shared between .bg-glow and .layout below so the panel's edges and
-       the content's padding can never drift apart at any window size —
-       both reference the exact same values instead of two independently
-       written formulas that merely happened to match. */
+
     --inset-top: clamp(4px, 1vw, 8px);
     --inset-side: clamp(4px, 1vw, 8px);
     --inset-bottom: clamp(16px, 3vw, 32px);
@@ -39,15 +36,6 @@
 
   body { position: relative; }
 
-  /* ---------- BACKDROP ----------
-     A padded, rounded panel with a 50% frosted backdrop blur — same blur
-     treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
-     so 50% = 10px). Full-bleed edge-to-edge (same as livestream-chat-
-     widget.html's own .bg-glow) rather than capped at a fixed pixel
-     width — a width cap here while .layout's height was free to grow
-     unbounded is what made the widget elongate (get taller without
-     getting wider) on a big/zoomed-out screen instead of scaling
-     proportionally like live.html. */
   .bg-glow {
     position: absolute;
     inset: var(--inset-bottom);
@@ -62,13 +50,6 @@
     pointer-events: none;
   }
 
-  /* ---------- PAGE LAYOUT ----------
-     Desktop: big player + playlist side by side, with the creator chin
-     (below) as a fixed-height strip under both. Mobile (<= 860px wide):
-     player on top, playlist scrolls below — same breakpoint and stacking
-     pattern as the livestream widget; the chin stays pinned to the
-     bottom either way since it's a sibling of .main-row inside .layout,
-     not part of the row that flips direction. */
   .layout {
     position: relative;
     display: flex;
@@ -101,12 +82,6 @@
     justify-content: center;
   }
 
-  /* Sits over the video pane while the YouTube embed has nothing to show
-     yet — before the player's first onReady, and again on a rebuffer —
-     so switching/starting a video doesn't just look frozen on the
-     previous frame. The pane keeps its normal solid black background
-     here (same as live.html); the iframe is hidden below just so a
-     rebuffer doesn't leave a stale frame showing under the gif. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -149,80 +124,37 @@
   @media (max-width: 860px) {
     .main-row { flex-direction: column; }
     .video-pane { flex: 0 0 38vh; }
-    /* min-height:0 (not just min-width) is required here: .main-row is
-       column-direction on mobile, so .playlist-pane's relevant
-       flex-shrink axis is now height, not width — without this override
-       a flex item won't shrink below its content's natural height. The
-       playlist itself already scrolls horizontally on mobile (see
-       .playlist-items below) and stays a fixed height regardless of
-       item count, so this mostly guards against .playlist-pane forcing
-       the widget's own document to overflow (host pages now lock their
-       own outer scroll on mobile — see videos.html — and rely on the
-       widget staying inside whatever box it's given). */
+
     .playlist-pane { flex: 1 1 auto; min-width: 0; min-height: 0; }
   }
 
   .layout.playlist-hidden .playlist-pane { display: none; }
   .layout.playlist-hidden .video-pane { flex: 1 1 100%; }
 
-  /* Landscape phone: the mobile stack above assumes a tall portrait
-     screen (video capped to 38vh, playlist scrolling below it) — on
-     its side, that same 38vh is a sliver of an already-short viewport.
-     Rather than build a third layout, this just applies the same
-     "Hide Playlist" treatment above unconditionally instead. Checked
-     on max-height, not max-width: that's the dimension a phone's short
-     side ends up on once rotated, and its width can be well over
-     860px lying sideways. The ".layout" prefix is load-bearing, not
-     stylistic — .video-pane/.playlist-pane above are equal-specificity
-     with these, so without it this would only win when it happens to
-     land later in the file (same trap .layout .stream-stats works
-     around in livestream-chat-widget.html). The host page's own
-     matching landscape query is what actually frees up the room this
-     then fills — see videos.html.
-     hover:none + pointer:coarse (true only for touchscreens) are load-
-     bearing too: an ordinary desktop browser window is "landscape" by
-     nature and often under 860px tall as well (a laptop screen minus
-     its own chrome), so max-height + orientation alone was hiding the
-     playlist on regular desktop visits — confirmed by testing an
-     actual 1400x900 window, not just guessing. */
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .playlist-pane { display: none; }
     .layout .video-pane { flex: 1 1 100%; }
   }
 
-  /* Whichever fullscreen path is active, explicitly hide the playlist
-     (the creator chin lives inside it now, so this already covers that
-     too) rather than relying on the video simply covering it, so
-     there's no overlap even if a browser sizes fullscreen differently
-     than expected. */
   .layout.fullscreen-active .playlist-pane {
     display: none;
   }
 
-  /* ---------- CREATOR CHIN ----------
-     A row of pill buttons, one per creator seen in the playlist (plus
-     "All"). Auto-populated as each video's author comes back from the
-     oEmbed fetch below — clicking one filters the same "Up Next" list to
-     just that creator's videos, it doesn't touch what's currently
-     playing. */
   .creator-chin {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: clamp(6px, 1.5vw, 10px);
-    /* Equal breathing room above (from the header's divider line below)
-       and below (before the list starts). */
+
     margin: clamp(8px, 2.6cqh, 12px) 0;
     padding: 0 2px;
     overflow-x: auto;
     overflow-y: hidden;
-    /* Scrolling (swipe/drag/shift+wheel) still works when there are more
-       chips than fit — this just hides the visible scrollbar itself, on
-       every device, not just phones. */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* old Edge/IE */
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  .creator-chin::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
+  .creator-chin::-webkit-scrollbar { display: none; }
 
   .creator-chip {
     flex: none;
@@ -241,9 +173,7 @@
   }
   .creator-chip:hover { background: var(--accent-dim); }
   .creator-chip.active {
-    /* The selected chip (including "All") stands out in yellow while
-       everything else on the page stays blue — text flips to the dark
-       ink color here since white-on-yellow doesn't read well. */
+
     background: var(--accent-yellow);
     border-color: var(--accent-yellow);
     color: var(--ink);
@@ -287,12 +217,6 @@
     z-index: 5;
   }
 
-  /* Shown/hidden by the .controls-visible class (see the JS below)
-     instead of :hover/:focus-within — a real hover still triggers it on
-     desktop (mouseenter/mouseleave), but touch devices get an actual
-     tap-to-show/tap-again-to-hide toggle instead of relying on mobile
-     browsers' sticky-:hover-after-tap quirk, which never explicitly
-     hides again on its own. */
   .video-pane .unmute-btn,
   .video-pane .video-pane-actions,
   .video-pane .video-controls {
@@ -307,7 +231,6 @@
     pointer-events: auto;
   }
 
-  /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
   .video-controls {
     position: absolute;
     left: 0;
@@ -362,12 +285,7 @@
     border-radius: 0;
     z-index: 9999;
   }
-  /* A resize on entering/leaving fullscreen can make the YouTube embed
-     report a brief rebuffer, which applies .is-loading above — fine for
-     the small in-page pane (it's meant to show the page through), but
-     while fullscreen that pane IS the whole screen, so a transparent
-     background there means the playlist behind it bleeds through
-     instead. Keep it solid black here regardless of loading state. */
+
   .video-pane.pseudo-fullscreen.is-loading {
     background: #000;
   }
@@ -406,7 +324,6 @@
     white-space: nowrap;
   }
 
-  /* ---------- PLAYLIST WIDGET ---------- */
   .playlist-card {
     width: 100%;
     height: 100%;
@@ -432,9 +349,7 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    /* Not --accent: this sits directly on .bg-glow's own blue wash with
-       no opaque backing behind it, so accent-blue text here read as
-       blue-on-blue. White keeps it legible against that glow. */
+
     color: var(--text);
   }
 
@@ -456,18 +371,13 @@
   .playlist-items::-webkit-scrollbar-track { background: transparent; }
   .playlist-items::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 4px; }
 
-  /* Groups a run of same-creator videos under one label — only rendered
-     (see renderPlaylist() below) under "All" itself, since a creator
-     filter already narrows the list to one creator with nothing left to
-     group. */
   .creator-heading {
     flex: none;
     font-size: clamp(10px, 2.6cqw, 12px);
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    /* Same blue-on-blue issue as .playlist-title above — this also sits
-       right on the glow with nothing opaque behind it. */
+
     color: var(--text-dim);
     padding: 0 2px;
     margin-top: clamp(2px, 1cqh, 6px);
@@ -476,18 +386,11 @@
 
   @media (max-width: 860px) {
     .playlist-items { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
-    /* The list becomes a horizontal strip above — a full-width label
-       doesn't fit between cards there, so it collapses to a slim,
-       vertically-set tab that scrolls along with its group instead. */
+
     .creator-heading {
       writing-mode: vertical-rl;
       text-orientation: mixed;
-      /* vertical-rl + mixed alone leans the glyphs so the label reads by
-         tilting your head left. transform is a paint-time-only op — it
-         doesn't touch the top-to-bottom character order the writing-mode
-         already laid out — so rotating the whole (tightly-fit) box
-         180deg flips just the lean, to read by tilting right instead,
-         without reversing or garbling the text itself. */
+
       transform: rotate(180deg);
       margin-top: 0;
       padding: 4px 0;
@@ -510,11 +413,7 @@
   }
   .playlist-item:hover { background: var(--accent-dim); }
   .playlist-item.active {
-    /* Highlighted in yellow (matching the creator chin's active chip)
-       instead of blue, so the selected video stands out from the rest
-       of the blue UI the same way the active creator filter does. Kept
-       as a translucent wash rather than a solid fill so the white title
-       text stays legible over it. */
+
     background: rgba(255, 221, 0, 0.18);
     border-color: var(--accent-yellow);
     box-shadow: 0 0 8px rgba(255, 221, 0, 0.5);
@@ -587,10 +486,7 @@
   }
 
   @media (max-width: 860px) {
-    /* Reserves room for a full two lines regardless of how many the
-       actual title needs, so a one-line title's card doesn't read as a
-       different size than a two-line title's card sitting right next
-       to it in this row layout. */
+
     .playlist-item-title { min-height: calc(2 * 1.3em); }
   }
 
@@ -642,11 +538,7 @@
         <span class="playlist-title">Up Next</span>
         <span class="playlist-count" id="playlistCount"></span>
       </div>
-      <!-- Auto-populated from each video's YouTube author — see
-           renderCreatorChin() below. "All" chip clears the filter.
-           Lives here (not beside the video) so it never shares space
-           with — or gets covered by — the video pane, including in
-           fullscreen. -->
+
       <div class="creator-chin" id="creatorChin"></div>
       <div class="playlist-items" id="playlistItems">
         <div class="empty-state">Loading playlist…</div>
@@ -656,11 +548,6 @@
  </div>
 </div>
 
-<!-- ============================================================
-     FIREBASE — reuses the same project/pattern as the livestream chat
-     widget. Fill in firebaseConfig below with your project's values
-     (Firebase console → Project settings → General → Your apps).
-     ============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
@@ -675,36 +562,19 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // Firestore document that holds the shared playlist — everyone reads
-  // this live; only a signed-in admin (per your Firestore rules) can write it.
   const PLAYLIST_DOC_REF = db.collection('playlist').doc('main');
 </script>
 
 <script>
-// ============================================================
-// DEFAULT PLAYLIST — used as a fallback only: before the Firestore
-// document has ever been saved, or if it's temporarily unreachable.
-// Once you sign in as admin and save changes, the Firestore document
-// becomes the live source of truth for every visitor.
-// ============================================================
+
 const DEFAULT_VIDEO_LIST = [
   { url: "https://youtube.com/watch?v=euMJknnSSqk", title: "Video One" },
   { url: "https://youtube.com/watch?v=VuivQyVyKDM", title: "Video Two" },
   { url: "https://youtube.com/watch?v=Jc9Eay0tedo", title: "Video Three" }
 ];
-// ============================================================
 
 let currentVideoList = DEFAULT_VIDEO_LIST;
 
-// Creator settings, editable from admin.html's "Creators" section and
-// synced the same way the video list is: creatorAliases renames/combines a
-// raw detected author name into a display name (two raw names sharing the
-// same display name become one chip), creatorOrder is the explicit chip
-// order set there, and hiddenCreators removes a raw author from the chin
-// entirely (their videos still show under "All"). Declared at this outer
-// script level — not inside either IIFE below — so the player logic can
-// read them directly once handlePlaylistSnapshot() below updates them from
-// Firestore.
 let creatorAliases = {};
 let creatorOrder = [];
 let hiddenCreators = [];
@@ -717,7 +587,7 @@ function resolveAuthorDisplay(rawAuthor) {
 function extractVideoId(input) {
   if (!input) return null;
   const trimmed = input.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed; // already a bare ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   ];
@@ -728,17 +598,6 @@ function extractVideoId(input) {
   return null;
 }
 
-// previousPlaylist carries over already-resolved title/author data for any
-// video that appears in both the old and new list, by id — instead of
-// wiping every entry back to null and re-fetching from scratch every time
-// this runs. This matters because Firestore's onSnapshot listener fires
-// more than once on a normal page load (once immediately from its local
-// cache, then again once the server confirms the same data), and without
-// this, that second firing was resetting every author back to null right
-// as the first round's fetches were finishing — which is what caused the
-// creator chin to get stuck showing "Loading" even though the data had
-// already been fetched successfully (a manual click just happened to
-// force a re-render against whichever round's data had settled by then).
 function buildPlaylist(list, previousPlaylist) {
   const previousById = new Map();
   (previousPlaylist || []).forEach(v => { if (v.id) previousById.set(v.id, v); });
@@ -753,12 +612,7 @@ function buildPlaylist(list, previousPlaylist) {
         id,
         title: manualTitle || (prev ? prev.title : null),
         author: prev ? prev.author : null,
-        // Admin-fetched (see admin.html's fetchPublishedDatesFor) real
-        // YouTube upload date, not when this entry was added to the
-        // list — orderVisibleForAll below sorts "All" by this. Read
-        // straight off the stored doc, unlike title/author: this is
-        // static per video, so there's nothing for the widget itself to
-        // resolve or keep fresh here.
+
         publishedAt: v.publishedAt || 0
       };
     })
@@ -800,14 +654,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     videoPane.classList.remove('is-loading');
   }
 
-  // ---------- Controls visibility ----------
-  // Real hover reveals the controls on desktop (mouseenter/mouseleave).
-  // Touch devices have no hover, so a tap shows them instead, auto-hiding
-  // after a few seconds — and, since that leaves no way to dismiss them
-  // on purpose, a second tap anywhere on the video itself hides them
-  // immediately too. Tapping an actual control (unmute, scrub bar, etc)
-  // never counts as that second "close" tap — it should just do its own
-  // thing, not also yank the bar out from under it.
   const CONTROLS_AUTO_HIDE_MS = 3000;
   const supportsHover = window.matchMedia('(hover: hover)').matches;
   let controlsHideTimer = null;
@@ -847,10 +693,10 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   let isDragging = false;
   let pollTimer = null;
   let activeIndex = 0;
-  let activeAuthorFilter = null; // null = "All"; a creator's name filters the list below
-  let apiReady = false;       // true once the YT.Player instance has fired onReady
-  let ytScriptReady = false;  // true once the YouTube iframe API script has loaded
-  let firestoreDataReady = false; // true once the first Firestore snapshot has arrived
+  let activeAuthorFilter = null;
+  let apiReady = false;
+  let ytScriptReady = false;
+  let firestoreDataReady = false;
   let pendingLoadId = null;
   let pendingUnmute = false;
 
@@ -903,21 +749,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     }
   }
 
-  // Groups "All" itself by creator instead of leaving it flat — every
-  // video from one creator becomes one contiguous run — but which
-  // creator's run comes first is now whoever has the single most
-  // recently uploaded video (real YouTube upload date, see buildPlaylist
-  // above), not admin's manual creatorOrder (that's still what orders
-  // the chin's own chips, just no longer this). Previously the reorder-
-  // by-hand creatorOrder list was doing double duty as both "chip order"
-  // and "All order," which read as backwards the moment a creator who
-  // happened to sit first in that list uploaded something old — they'd
-  // still lead "All" over someone who'd posted five minutes ago. An
-  // unresolved author (still being fetched) always sorts last, same
-  // treatment "Unknown" gets — matches music-playlist-widget.html's own
-  // still-creatorOrder-based version of this function, which this no
-  // longer shares logic with. Within a group, videos keep their
-  // original "All" order — this only re-clusters and re-orders groups.
   function orderVisibleForAll(visible) {
     const groups = [];
     const byAuthor = new Map();
@@ -946,11 +777,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     return groups.reduce((all, g) => all.concat(g.items), []);
   }
 
-  // ---------- PLAYLIST RENDER ----------
-  // Filtering by creator happens here, over the same PLAYLIST array/data
-  // used everywhere else — data-index still points at the real index in
-  // PLAYLIST (not the filtered array's position), so clicking a filtered
-  // row still plays the right video and activeIndex stays meaningful.
   function renderPlaylist() {
     if (!PLAYLIST.length) {
       playlistItemsEl.innerHTML = '<div class="empty-state">No videos added yet.</div>';
@@ -970,15 +796,11 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 
     const ordered = activeAuthorFilter ? visible : orderVisibleForAll(visible);
     playlistCountEl.textContent = ordered.length + (ordered.length === 1 ? ' video' : ' videos');
-    // orderVisibleForAll above already guarantees every video sharing a
-    // creator is one contiguous run, so this never fragments one
-    // creator's heading into repeats.
+
     let lastDisplay = undefined;
     playlistItemsEl.innerHTML = ordered.map(({ v, i }) => {
       const title = (typeof v.title === 'string' && v.title.trim()) ? v.title.trim() : 'Loading title…';
-      // Shows who made it instead of a generic "Tap to play" once the
-      // author's known — falls back to "Tap to play" only while it's
-      // still being fetched.
+
       const sub = i === activeIndex
         ? 'Now playing'
         : (v.author ? escapeHtml(resolveAuthorDisplay(v.author)) : 'Tap to play');
@@ -1013,35 +835,16 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     });
   }
 
-  // ---------- CREATOR CHIN RENDER ----------
-  // Auto-populated from whichever authors have shown up on PLAYLIST
-  // entries so far (fetchTitles fills v.author in asynchronously, so this
-  // gets called again each time one resolves). Clicking a chip only
-  // changes the filter used by renderPlaylist above — it never touches
-  // what's currently playing.
-  //
-  // The "All" chip always renders immediately, even before any author has
-  // loaded — a panel that only appears once the network fetch succeeds is
-  // a panel that can silently never appear at all (one failed request and
-  // there's nothing on screen to show something's wrong). "Unknown" is
-  // kept as a real, clickable chip too instead of being hidden, so a
-  // failed lookup still leaves a working filter rather than making the
-  // whole feature vanish.
   function renderCreatorChin() {
     const authors = [];
     let stillLoading = false;
     PLAYLIST.forEach(v => {
       if (v.author === null) { stillLoading = true; return; }
-      if (hiddenCreators.includes(v.author)) return; // hidden from the chin (its videos still show under "All")
+      if (hiddenCreators.includes(v.author)) return;
       const display = resolveAuthorDisplay(v.author);
       if (!authors.includes(display)) authors.push(display);
     });
 
-    // Sorted by the admin-set creatorOrder first (from the "Creators"
-    // section of the editor); anything not explicitly ordered falls back
-    // to A→Z (case-insensitive) so the chin never looks scrambled just
-    // because a brand-new creator hasn't been given a position yet.
-    // "Unknown" always goes last since it's a fallback, not a real name.
     authors.sort((a, b) => {
       const ia = creatorOrder.indexOf(a);
       const ib = creatorOrder.indexOf(b);
@@ -1078,33 +881,12 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     }[c]));
   }
 
-  // Pull each video's real title AND creator name from YouTube's oEmbed
-  // data (via noembed.com, which mirrors YouTube's oEmbed response —
-  // including author_name — but reliably sends the CORS headers a
-  // browser needs; calling youtube.com/oembed directly often fails
-  // silently or gets blocked cross-origin). Title-fetching is skipped for
-  // entries where one was typed in manually, but the author is always
-  // pulled since that's what drives the creator chin.
-  //
-  // This has to live in here (not at the top level of the script) so its
-  // calls to renderPlaylist()/renderCreatorChin() below can actually see
-  // those functions — they're declared inside this same IIFE. Calling
-  // them from an outer-scope fetchTitles() silently threw a
-  // ReferenceError on every fetch completion (visible only in the
-  // browser console), which is what left the creator chin permanently
-  // stuck showing "Loading" even though the author data itself had
-  // already been fetched successfully.
   function fetchTitles() {
     PLAYLIST.forEach((v, i) => {
       const needsTitle = !v.title;
-      if (!needsTitle && v.author) return; // nothing left to fetch for this one
+      if (!needsTitle && v.author) return;
       const watchUrl = 'https://www.youtube.com/watch?v=' + v.id;
 
-      // Some desktop setups (ad blockers, browser extensions, corporate
-      // networks) silently hang a request to a third-party domain like
-      // noembed.com instead of erroring outright — no CORS error, no
-      // rejection, it just never comes back. Aborting after 8s guarantees
-      // this always settles one way or the other.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -1146,7 +928,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     }
   }
 
-  // ---------- YT IFRAME API ----------
   function tryInitPlayer() {
     if (ytPlayer || !ytScriptReady || !firestoreDataReady || !PLAYLIST.length) return;
 
@@ -1221,7 +1002,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     isDragging = false;
   });
 
-  // ---------- FULLSCREEN ----------
   let usingPseudoFullscreen = false;
 
   function hasNativeFullscreenSupport(el) {
@@ -1262,27 +1042,10 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   function updateFullscreenIcon() {
     const fs = isFullscreen();
     fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
-    // Belt-and-suspenders alongside the video pane's own fullscreen
-    // sizing: explicitly hide the playlist/creator chin rather than
-    // relying solely on the video covering them, so there's no overlap
-    // even if a rebuffer briefly makes the (fullscreened) video pane's
-    // background transparent again.
+
     layoutEl.classList.toggle('fullscreen-active', fs);
   }
 
-  // iOS won't hand our own wrapper div off to its native video player
-  // (AirPlay button, its own scrub bar/back button) — that only exists
-  // for a real <video> element, and the real one lives inside YouTube's
-  // iframe, cross-origin and out of this page's reach. requestFullscreen
-  // on our div either isn't supported there at all, or (newer iOS) just
-  // fills the screen with our own web content instead of handing off.
-  // The only way to get the actual native treatment is to let a YouTube
-  // iframe with ITS OWN controls go fullscreen on the tap — so on iOS
-  // specifically, this spins up a second, temporary iframe (YouTube's
-  // stock controls, seeded to the current position/mute state) just for
-  // the fullscreen session, and folds wherever it ends up back into the
-  // normal in-page player on exit. Every other platform keeps the
-  // wrapper-div fullscreen above, untouched — it already works there.
   const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
     /iP(hone|od|ad)/.test(navigator.platform) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1301,12 +1064,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     if (ytPlayer) ytPlayer.playVideo();
     updateFullscreenIcon();
   }
-  // Returns true once it's actually kicked off the native-handoff
-  // attempt, false if it bailed out for any reason (nothing loaded yet,
-  // the requestFullscreen call itself threw, …) — the click handler
-  // below falls back to the ordinary wrapper-div/pseudo-fullscreen path
-  // whenever this returns false, so a tap always does *something*
-  // instead of silently no-oping if this path can't run.
+
   function enterIosFullscreen() {
     try {
       const current = PLAYLIST[activeIndex];
@@ -1396,11 +1154,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     });
   });
 
-  // ---------- LIVE SYNC FROM FIRESTORE ----------
-  // Every visitor (no sign-in required) subscribes to the shared playlist
-  // document. The first snapshot boots the player; later snapshots (an
-  // admin saving changes) update the on-screen list for everyone without
-  // a page reload, and try to keep whatever's currently playing playing.
   function handlePlaylistSnapshot(list) {
     currentVideoList = list;
     const newPlaylist = buildPlaylist(currentVideoList, PLAYLIST);
@@ -1420,8 +1173,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     PLAYLIST = newPlaylist;
     const stillThereIndex = currentId ? PLAYLIST.findIndex(v => v.id === currentId) : -1;
     activeIndex = stillThereIndex >= 0 ? stillThereIndex : 0;
-    // If the creator currently filtered on has no videos left in the
-    // updated list, drop back to "All" instead of showing an empty list.
+
     if (activeAuthorFilter && !PLAYLIST.some(v => v.author === activeAuthorFilter)) {
       activeAuthorFilter = null;
     }
@@ -1430,7 +1182,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
     fetchTitles();
 
     if (stillThereIndex < 0 && PLAYLIST.length) {
-      // The video that was playing got removed from the list — jump to the first one.
+
       if (ytPlayer && apiReady) ytPlayer.loadVideoById(PLAYLIST[0].id);
       else pendingLoadId = PLAYLIST[0].id;
     }
@@ -1453,7 +1205,6 @@ let PLAYLIST = buildPlaylist(currentVideoList);
 })();
 </script>
 
-<!-- YouTube IFrame Player API -->
 <script src="https://www.youtube.com/iframe_api"></script>
 
 </body>

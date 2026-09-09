@@ -36,25 +36,13 @@
     position: fixed;
     inset: 0;
     width: 100%;
-    /* height:100% alone locks to iOS Safari's LARGE viewport size and
-       doesn't track its toolbar collapsing/expanding on scroll (same
-       issue live.html/store.html/music.html/etc. already work around
-       the same way elsewhere in this codebase) — leaving a gap of the
-       page's own black background showing below the video once the
-       toolbar shrinks and the real visible area grows past this
-       element's stale height. dvh tracks the actual dynamic viewport,
-       closing that gap; the plain % stays as a fallback for browsers
-       that don't support dvh.
-    */
+
     height: 100%;
     height: 100dvh;
     object-fit: cover;
     object-position: center;
   }
 
-  /* Same values as the truth-zone article template's own .page-wrapper
-     (scripts/build-articles.mjs renderPage()) — this page is the same
-     kind of single-document read, so it uses the same card. */
   .page-wrapper {
     position: relative;
     width: calc(100% - 24px);

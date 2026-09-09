@@ -7,27 +7,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
-<!-- GitHub Pages serves this file for any path it has no file for.
 
-     That makes it the safety net for the gap between publishing a post
-     and the hourly sync generating its page: the magazine reads
-     WordPress live, so a brand-new article shows up in the listings
-     immediately, but /article/<slug>/ doesn't exist on disk until
-     .github/workflows/sync-articles.yml next runs. Without this, every
-     freshly published post would 404 for up to an hour.
-
-     So: if the path looks like an article, fetch it client-side from
-     the same API the generator uses and switch over to #article-view,
-     styled to match the generated page (scripts/build-articles.mjs) —
-     change the two together. The visitor sees the article at its real
-     URL, and once the sync runs the static file takes over and this
-     page stops being involved.
-
-     Anything else — a genuine wrong URL — stays on #notfound-view,
-     themed like the site's own index page rather than the Truth Zone,
-     since most 404s have nothing to do with an article. Note this page
-     is still served with a 404 status, so it renders for people but
-     won't be indexed. -->
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html {
@@ -46,13 +26,6 @@
   }
   a { text-decoration: none; color: inherit; }
 
-  /* ---------- NOT FOUND (default) ---------- */
-  /* Themed like index.html: same tiled repeating background and the
-     same site header logo, rather than the Truth Zone's video/blue-card
-     look. The background lives on this container (not body) so it
-     can't interfere with #article-view's own fixed bg-video below —
-     see that section's comment for why body itself never gets an
-     opaque background on this page. */
   #notfound-view {
     display: flex;
     flex-direction: column;
@@ -81,19 +54,6 @@
     max-height: 100%;
   }
 
-  /* ---------- ARTICLE FALLBACK (hidden unless a fetch succeeds) ---------- */
-  /* Styles below are a copy of the generator's template
-     (scripts/build-articles.mjs) so the two render identically; change
-     them together.
-     The fallback color goes on html ONLY, never on body — see the note
-     at the top of this file. An opaque body background paints OVER the
-     fixed video behind it: a z-index:-1 element paints beneath
-     block-level backgrounds, so body's own background would hide the
-     video everywhere except the strip below body's box, where its
-     collapsed bottom margin left a gap. html's background is propagated
-     to the canvas instead, which paints under everything — and
-     #notfound-view above only ever paints its OWN box, never body's, so
-     it can't cause that same problem while sitting hidden underneath. */
   #article-view[hidden] { display: none; }
   .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
   #article-view h1, #article-view h2, #article-view h3 { color: yellow; }
@@ -249,9 +209,6 @@
     articleView.hidden = false;
   }
 
-  // Matches /article/<slug>/ and /article/<slug>, and keeps working if
-  // the prefix later becomes /truth/article/ — it anchors on the
-  // "article" segment rather than the start of the path.
   function slugFromPath() {
     const m = window.location.pathname.match(/\/article\/([^\/]+)\/?$/);
     return m ? decodeURIComponent(m[1]) : null;
@@ -259,9 +216,7 @@
 
   async function load() {
     const slug = slugFromPath();
-    // No article-shaped path: this is a genuine 404, so #notfound-view
-    // (already showing by default) is the whole story — no need to hit
-    // the WordPress API at all.
+
     if (!slug) return;
 
     let post;
@@ -269,7 +224,7 @@
       const res = await fetch(API_BASE + "/posts/slug:" + encodeURIComponent(slug));
       post = await res.json();
     } catch (e) {
-      return; // Can't confirm the article exists — stay on #notfound-view.
+      return;
     }
     if (!post || post.error) return;
 

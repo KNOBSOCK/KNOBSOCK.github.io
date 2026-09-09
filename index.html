@@ -24,44 +24,15 @@
 <meta name="msapplication-TileColor" content="#da532c">
 <meta name="theme-color" content="#ffffff">
 <style>
-  /* The site's landing page — formerly knobsock.net/main, promoted to
-     root when the Truth Zone moved to /truth (see truth/index.html).
-     Standalone reconstruction of the old Universe home page, same
-     approach as truth/index.html: a real hosted page (no Universe
-     iframe sandboxing).
-     Background is a tiled repeating GIF (old-GeoCities style) instead
-     of the video Universe used here — a deliberate departure, not a
-     port of Universe's own background.
 
-     This is a simplified rebuild, not a pixel-for-pixel copy of
-     Universe's absolute grid layout — that layout was built for
-     Universe's own editor canvas (exact px/grid-cell coordinates,
-     several purely-decorative solid-color blocks layered under other
-     content) and hand-copying every coordinate wasn't worth it. Every
-     functional piece is here (nav buttons, Recent Articles, video
-     player, Listen widget, floating photos, Instagram links, view
-     counter, satellite), just arranged in a cleaner, maintainable CSS
-     grid instead. Expect to send screenshots for layout adjustments,
-     same as the truth.html build. */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     min-height: 100%;
-    /* Custom cursor, the same image everywhere on this page — set once
-       here and left to inherit (cursor is an inherited property, and
-       author styles win over the browser's own built-in pointer-on-
-       link behavior regardless of selector specificity), rather than
-       repeated per element. Only covers this document itself: an
-       iframe (nav buttons, video/music players, etc.) is a separate
-       document with its own cursor styling, so this can't reach
-       inside those. */
+
     cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto;
-    /* The mobile carousel's side cards deliberately sit past the edges of
-       the layout, so they'd otherwise widen the page and let it drag
-       sideways. Vertical scrolling is untouched — leaving overflow-y
-       alone means it stays auto. */
+
     overflow-x: hidden;
-    /* Scrolling still works — this only hides the visible scrollbar
-       track/thumb, same technique used sitewide on this site. */
+
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -69,25 +40,11 @@
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
-    /* Old-GeoCities-style tiled background — a repeating GIF instead of
-       Universe's looping video. Scrolls with the page (not fixed), same
-       as a classic tiled page background. */
+
     background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
   }
   a { text-decoration: none; color: inherit; }
 
-  /* Drifting satellite gif — same free-floating overlay Universe used,
-     wanders slowly around the page and wraps at the edges. It sits
-     BEHIND the interface (z-index 0, with .page above it at 1) rather
-     than on top of everything, so it drifts past in the background
-     instead of crossing over the cards and buttons. Still above the
-     body's tiled background, since a negative z-index would sink it
-     behind that instead and make it disappear entirely.
-     position:absolute (not fixed) and no positioned ancestor between
-     this and <body> — it's placed in the document's own initial
-     containing block, same as the tiled background, so it scrolls away
-     with the rest of the page instead of staying pinned to the
-     viewport as you scroll. */
   #satellite {
     position: absolute;
     top: 0;
@@ -97,16 +54,6 @@
     pointer-events: none;
   }
 
-  /* Flying UFO easter egg (see the script near the end of the body).
-     position:absolute like #satellite above — scrolls with the page
-     rather than staying pinned to the viewport — but z-index puts it
-     above literally everything else on the page, including the chase
-     head/lasers, per "overlay on top of EVERYTHING". pointer-events:
-     none the whole time so it can never block a click on whatever it
-     happens to be flying over. 75px on mobile; 25% bigger (93.75px) on
-     desktop — the script reads its size straight off this element
-     every frame, so it stays in sync with whichever rule applies
-     without needing its own copy of the breakpoint. */
   #ufoWrap {
     position: absolute;
     top: 0;
@@ -123,18 +70,9 @@
     display: block;
     width: 100%;
     height: 100%;
-    /* Scaled down to match the 75px sprite (was tuned for the original
-       150px one — the same offset/blur at half the size was reading as
-       a diffuse smudge instead of a crisp cast shadow) and darkened a
-       touch so it actually pops against whatever busy content it's
-       currently flying over. */
+
     filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.55));
-    /* A gentle hover bob/tilt independent of the JS-driven flight path
-       below (that sets transform on #ufoWrap, one level up, so the two
-       transforms never fight over the same property) — keeps it
-       reading as "hovering with intent" even while paused between
-       destinations, without ever rotating the sprite itself (its beam
-       has to keep pointing straight down to still read as a UFO). */
+
     animation: ufoBob 3s ease-in-out infinite;
   }
   @keyframes ufoBob {
@@ -142,17 +80,6 @@
     50% { transform: translateY(-10px) rotate(2deg); }
   }
 
-  /* Cursor-chasing floating head easter egg (see the script near the
-     end of the body — it no-ops entirely on touch devices and for
-     prefers-reduced-motion, since there's no persistent pointer to
-     chase on one and the other asked for less motion, not more).
-     Fixed (not absolute like #satellite above) — this one SHOULD track
-     the viewport-relative mouse position regardless of scroll. Sits
-     above every other z-index on the page but pointer-events:none on
-     both it and the laser layer below, so neither can ever intercept a
-     click meant for the real page underneath. Starts transparent; the
-     script fades it in once it has a real cursor position to chase,
-     so it doesn't flash into some arbitrary spot on load. */
   #chaseHead {
     position: fixed;
     top: 0;
@@ -166,9 +93,6 @@
   }
   #chaseHead.visible { opacity: 1; }
 
-  /* Full-viewport SVG overlay the eye-laser beams draw into. Lives at
-     raw pixel coordinates (no viewBox), matching clientX/clientY from
-     mousemove directly with no unit conversion. */
   #laserLayer {
     position: fixed;
     inset: 0;
@@ -191,25 +115,17 @@
     z-index: 1;
     max-width: 1100px;
     margin: 0 auto;
-    /* Top padding cut way down from the other three sides — this was
-       the same clamp(16px, 4vw, 40px) on every side, which read as a
-       big empty gap above the logo specifically since nothing else on
-       the page needs that much breathing room at the very top. */
+
     padding: clamp(4px, 1vw, 10px) clamp(16px, 4vw, 40px) clamp(16px, 4vw, 40px);
   }
 
-  /* ---------- HEADER ---------- */
   .top-row {
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     padding: 0;
-    /* Break out of .page's max-width/centered column so .live-badge's
-       right:0 below lands against the true browser edge instead of just
-       the padded column edge (which left it stranded with a wide gap on
-       anything wider than 1100px). The logo stays visually centered on
-       the viewport either way since .page was already centered on it. */
+
     width: 100vw;
     left: 50%;
     margin-left: -50vw;
@@ -222,10 +138,7 @@
     aspect-ratio: 50 / 19;
     object-fit: contain;
   }
-  /* "The Living Room" badge, pinned top-right — a separate, older link
-     from the four nav buttons below. right is a small clamp (not 0) so
-     it reads as tucked right up against the browser edge, about to run
-     off it, while still staying fully on screen. */
+
   .live-badge {
     position: absolute;
     right: clamp(2px, 1vw, 10px);
@@ -237,19 +150,6 @@
   .live-badge:hover { transform: translateY(-50%) scale(1.12) rotate(-4deg); }
   .live-badge img { display: block; width: 100%; height: auto; }
 
-  /* ---------- NAV BUTTONS ---------- */
-  /* Each button is a fixed, capped size (not a share of the row's width)
-     — a grid with "1fr" columns was making each iframe stretch to fill
-     whatever slice of the row it got, so fewer columns on a narrow phone
-     meant a BIGGER button instead of a smaller one.
-     All 4 always stay on one row (flex-wrap: nowrap) instead of the
-     4th one dropping to its own line — sized off this row's own actual
-     width via calc(), not raw vw (vw is the whole browser window, which
-     doesn't account for .page's own side padding narrowing the row's
-     real available space — that mismatch was exactly what made the 4th
-     button run out of room and wrap). Capped at 150px each so they don't
-     grow huge on a wide screen either; below that, all 4 shrink together
-     to whatever the row actually has room for. */
   .nav-buttons {
     --nav-gap: clamp(6px, 2vw, 18px);
     display: flex;
@@ -267,41 +167,18 @@
     border: 0;
   }
 
-  /* Wraps just the Live button so the "LIVE NOW!" banner (.live-now-badge
-     below) can anchor to it. Plain block, NOT a flex container — sized
-     with the exact same formula as the plain iframes above (so the row's
-     spacing/the button's own size are identical either way) and nothing
-     more, deliberately: an earlier version made this a nested column flex
-     container, and stretch-sizing an aspect-ratio iframe two flex levels
-     deep rendered inconsistently (the Live button came out visibly
-     bigger than the other three in real browsers). The badge is
-     absolutely positioned below, so it can't feed back into this
-     element's own size the way a normal-flow flex child could. */
   .nav-button-live {
     flex: 0 1 auto;
     min-width: 0;
     width: min(150px, calc((100% - 3 * var(--nav-gap)) / 4));
   }
-  /* Carries the iframe AND the badge below it through the same
-     float-bob + hover pop/rotate the other 3 buttons' own animations
-     live inside their iframe for. Those live out here instead, not in
-     home-button-live.html, specifically because this button has a
-     badge sitting outside its iframe: an animation trapped inside the
-     iframe would leave the badge behind on every float cycle, and
-     would let the button grow right over the badge on hover instead of
-     carrying it along. Two nested elements (not one), same as the
-     other buttons' own markup used to split it — an infinite
-     keyframe animation and a hover transition fight over the same
-     `transform` property on a single element, but compose fine when
-     it's one each on two nested ones. */
+
   .live-float {
     width: 100%;
     animation: liveFloatY 3.6s ease-in-out infinite;
     animation-delay: -2.7s;
   }
-  /* Named liveFloatY, not floatY — .panel-label below already owns that
-     keyframe name with different values; reusing it here would
-     silently redefine it document-wide and break both. */
+
   @keyframes liveFloatY {
     0%   { transform: translateY(-3%); }
     50%  { transform: translateY(3%); }
@@ -322,41 +199,10 @@
     border: 0;
   }
 
-  /* Toggled by admin.html's "Go Live"/"Go Offline" button — see the
-     Firebase listener near the end of the body. Hidden by default so a
-     page load never flashes it before that first snapshot arrives.
-     Positioned absolutely (not normal flow) so its size can never affect
-     the Live button/row above it. Sized as a fraction of the button's
-     own width (not a fixed px value) so it stays proportionally
-     consistent on any screen instead of a flat size that's oversized on
-     a phone and undersized on a wide desktop, or vice versa. Centered
-     under the button — it's now much narrower than the button itself,
-     so left-aligning it (as when it matched the button's full width)
-     would leave it looking stuck to one side instead of hanging under
-     the icon. Even the newer, "pre-cropped" gif still has a sizable
-     transparent margin baked into its own canvas (713x234, with the
-     glyphs only filling 578x110 of that, off-center toward the top) —
-     showing that canvas as-is at width:100%;height:auto left a visible
-     gap of empty space above the text. object-fit:cover on a box sized
-     to roughly the glyphs' own proportions (578:110) crops that margin
-     away; object-position is tuned to this exact source (measured once:
-     bbox 101,41–679,151) so it centers on the glyphs instead of
-     clipping them — cover's own default centering would clip a few
-     pixels off the top here, since the glyphs sit above center in this
-     particular canvas. object-fit is a standard browser feature, not
-     hand-rolled math, so — unlike the calc()'d crop that broke on real
-     phones two iterations ago — it isn't a likely source of further
-     cross-browser surprises. */
   .live-now-badge {
     display: block;
     position: absolute;
-    /* NOT 100%: home-button-live.html centers its own graphic at
-       width:80%;height:80% of the iframe body, so the blob's actual
-       visible bottom edge sits at 90% down the iframe, not the iframe's
-       own bottom edge — the badge was anchoring ~22px below the visible
-       button instead of just under it. That 80/90 split is this
-       button's own internal layout, not this page's — check
-       home-button-live.html first if it's ever redone differently. */
+
     top: 90%;
     left: 50%;
     width: 60%;
@@ -376,12 +222,6 @@
     object-position: 50% 28.6%;
   }
 
-  /* ---------- SECTION CARDS ---------- */
-  /* A soft, transparent panel behind each content section — not the
-     opaque blue "truth zone" card, just enough of a tint to separate
-     content from the busy video background underneath. Truth Zone/
-     Newest Video/Music Spot below override this with their own solid
-     color instead. */
   .panel {
     position: relative;
     background: rgba(0, 0, 0, 0.35);
@@ -391,10 +231,6 @@
     padding: clamp(14px, 3vw, 26px);
   }
 
-  /* Floating "Truth Zone" / "Newest Video" / "Music Spot" labels — same
-     bobbing animation as the site's other floating photos, pinned to a
-     corner of their panel so they read as a label flying over the
-     section rather than blocking its content. */
   .panel-label {
     position: absolute;
     top: -14px;
@@ -404,19 +240,11 @@
     pointer-events: none;
     animation: floatY 6s ease-in-out infinite;
   }
-  /* All three labels (Truth Zone, Newest Video, Music Spot) are real
-     links, so they have to take clicks. */
+
   a.panel-label {
     pointer-events: auto;
   }
-  /* Chromium (and presumably others) apparently gives <a>/<button> an
-     internal default pointer cursor that wins over a merely-inherited
-     author cursor from an ancestor like html,body above — confirmed by
-     testing, computed cursor on a link came back as the bare keyword
-     "pointer", not the inherited custom image. An explicit rule
-     directly on the elements themselves is what it actually takes to
-     override that, so every link/button gets the same cursor as the
-     rest of the page instead of the browser's own hand icon. */
+
   a, button {
     cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer;
   }
@@ -426,53 +254,19 @@
     50% { transform: translateY(-10px) rotate(2deg); }
   }
 
-  /* ---------- TRUTH ZONE / NEWEST VIDEO / MUSIC SPOT ---------- */
-  /* Three equal columns side by side, sharing one defined row height so
-     each iframe can fill its panel by height (flex + 100%) instead of
-     an arbitrary fixed pixel number that never quite matched the
-     widget's own content — that mismatch was exactly what made these
-     look cut off or scrollable instead of scaling to fit. Each widget
-     already scales its OWN content to whatever box it's given (that's
-     how they're built to work inside a Universe code block too) — this
-     just makes sure the outer iframe box itself is sized right. */
   .columns-row {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: clamp(10px, 2.5vw, 20px);
     margin: clamp(28px, 4vw, 48px) 0 clamp(10px, 2.5vw, 20px);
-    /* Scales with the window's WIDTH (vw), not its height — so as the
-       browser narrows toward the mobile breakpoint the whole three-across
-       stack shrinks proportionally with it, keeping its shape, instead of
-       staying tall while the columns get skinnier and skinnier. */
+
     height: clamp(340px, 46vw, 680px);
   }
-  /* overflow stays visible here on purpose — the panel-label above is
-     deliberately positioned partly outside this box (top: -14px) so it
-     reads as flying over the panel; overflow:hidden here would clip it
-     clean off, which is exactly what was happening before. Whatever
-     scrollbar shows up inside an iframe is the EMBEDDED page's own
-     doing (a separate document), not something this outer page's own
-     overflow property can reach at all — that has to be fixed in each
-     widget file itself. */
-  /* Shared by all three cards, not just the video one it was designed
-     for — outer pair lifts each card off the page, same soft-shadow
-     language the other widgets on this site already use for raised
-     cards (recent-articles, magazine, soundcloud). The inset trio is
-     each card's own depth: like a raised picture frame casting a soft
-     shadow onto its own inner lip, heaviest along the top the way a
-     real frame would read under an overhead light. This has to be a
-     shadow on each PANEL's own box (painted before its children) rather
-     than one trying to sit on top of an iframe's rendered content — an
-     iframe child always paints over anything from its parent showing
-     through the same pixels (iframes get their own compositing layer
-     that ignores stacking order for this), so a shadow declared on the
-     iframe itself, or on any element positioned over it, never actually
-     shows. */
+
   .columns-row .panel {
     display: flex;
     flex-direction: column;
-    /* Each layer's opacity halved from its original strength — same
-       shape/blur, just 50% less pronounced. */
+
     box-shadow:
       0 16px 34px rgba(0, 0, 0, 0.19), 0 5px 12px rgba(0, 0, 0, 0.125),
       inset 0 7px 9px -2px rgba(0, 0, 0, 0.35),
@@ -490,27 +284,13 @@
   .articles-panel { background: #310098; }
   .video-panel {
     background: #FF8C00;
-    /* Widened back up from a quarter of the shared .panel padding (was
-       clamp(4px, 0.75vw, 7px)) — a band that thin never had room to show
-       a real drop shadow inside it, whatever the shadow values. This is
-       still well under half of .panel's own padding, so the video keeps
-       most of the room it was given. */
+
     padding: clamp(9px, 1.6vw, 15px);
-    /* Offsets the middle column up relative to the other two, so the
-       row reads as staggered instead of three flush-aligned boxes.
-       Desktop only — see the mobile block below, which cancels this. */
+
     margin-top: clamp(-40px, -4vw, -20px);
-    /* Shadow itself is shared with the other two cards — see
-       .columns-row .panel above. */
+
   }
-  /* Rounds the video itself to match the orange frame's own corner
-     radius (.panel, above) — the iframe was never clipped to the
-     frame's shape at all, so its plain square corners sat inside the
-     rounded frame with a visible mismatch at each corner. Takes over
-     the iframe's own flex/sizing role (the generic .columns-row iframe
-     rule still applies to the iframe inside, but flex:1 1 auto on it is
-     now inert since it's no longer a direct flex child — this wrapper
-     is instead) so the iframe itself only needs to fill it. */
+
   .video-frame {
     position: relative;
     flex: 1 1 auto;
@@ -523,50 +303,21 @@
   }
   .listen-panel { background: #980237; }
 
-  /* ---------- MOBILE: 3D CARD CAROUSEL ----------
-     The active card sits front and center with the previous and next
-     ones shrunk back on either side, and a swipe rotates through them
-     endlessly.
-
-     This is driven entirely by transforms on absolutely-positioned
-     cards, NOT by a native scroll-snap container like the first attempt.
-     That switch is what fixes most of the carousel's bugs at once:
-     - A scroll container clips everything that overflows it, in BOTH
-       axes — which is what was slicing the tops off the floating "Truth
-       Zone"/"Newest Video"/"Music Spot" labels, since they deliberately
-       poke above their card. Nothing clips here (overflow stays
-       visible), so they render whole.
-     - Cards sized to the padded container's width left a dead margin
-       down each side that the clipping edge made look like an invisible
-       layer cutting the page off. These are centered on the viewport
-       instead, spilling past the layout's padding on purpose.
-     - The index lives in a variable rather than in scroll position, so
-       nothing can quietly reset it. iOS firing a resize every time its
-       URL bar hides was what kept snapping the old one back to card 1
-       after a few seconds.
-     - Touch handlers run on the element directly, so a swipe works on
-       the first try instead of needing the scroll container nudged into
-       position first. */
   @media (max-width: 720px) {
     .columns-row {
-      /* Square cards, per side of the viewport with room for the
-         neighbors to peek in from both edges. */
+
       --card-size: min(70vw, 330px);
       display: block;
       position: relative;
       grid-template-columns: none;
       height: var(--card-size);
-      /* Pulled out past .page's side padding so the centered card lines
-         up with the middle of the screen, not the middle of the padded
-         column. */
+
       margin-left: calc(-1 * clamp(16px, 4vw, 40px));
       margin-right: calc(-1 * clamp(16px, 4vw, 40px));
       margin-top: clamp(34px, 9vw, 54px);
       margin-bottom: clamp(20px, 6vw, 36px);
       overflow: visible;
-      /* Vertical drags still scroll the page normally; horizontal ones
-         are left alone for the swipe handler below to interpret, instead
-         of the browser turning them into a scroll. */
+
       touch-action: pan-y;
     }
     .columns-row .panel {
@@ -582,23 +333,12 @@
                   opacity 0.38s ease;
       will-change: transform;
     }
-    /* Explicit rather than leaning on flex-grow to fill. An iframe's
-       default intrinsic height is 150px, so with flex-basis:auto the
-       widget's own document can end up laid out in a box shorter than
-       the card — which makes anything it centers vertically look
-       top-heavy inside the square even though it's centered correctly
-       within the box it was actually given. */
+
     .columns-row iframe {
       height: 100%;
       flex: 1 1 auto;
     }
-    /* A slow bob on the front card so it reads as floating.
-       Animating `translate` rather than `transform` on purpose: the
-       carousel JS writes each card's position into its inline transform,
-       and a keyframe on that same property would override it outright
-       and throw the whole layout off. `translate` is a separate property
-       that composes with transform, so the bob rides on top of whatever
-       position the carousel has set. */
+
     @keyframes cardFloat {
       0%, 100% { translate: 0 0; }
       50% { translate: 0 -9px; }
@@ -606,27 +346,12 @@
     .columns-row .panel.is-active {
       animation: cardFloat 5s ease-in-out infinite;
     }
-    /* Mid-swipe the cards track the finger directly — a transition here
-       would lag a frame or two behind it and feel rubbery. The bob comes
-       off too: is-active flips as a card crosses the middle during a
-       drag, and restarting the animation mid-gesture reads as a jolt. */
+
     .columns-row.dragging .panel {
       transition: none;
       animation: none;
     }
-    /* THE thing that makes swiping actually work over a card.
-       Touch events never cross an iframe boundary — a finger landing on
-       the widget inside a card sends its touches to that widget's own
-       document, where this page's swipe handler can't see them at all.
-       Since the iframe covers nearly the whole card, the only swipeable
-       strip left was the ~14px of colored padding around it, which is
-       why swiping worked once in a while and otherwise seemed dead.
-       This transparent layer sits over the iframe, in THIS document, so
-       the gesture lands somewhere the carousel can read it.
-       A tap (as opposed to a swipe) lifts the layer for that card, so
-       the widget underneath is still usable — play buttons, scrubbers,
-       article links. Moving to another card puts it back, so swiping
-       never stays broken. */
+
     .columns-row .card-touch {
       display: block;
       position: absolute;
@@ -637,20 +362,14 @@
     .columns-row .panel.unlocked .card-touch {
       display: none;
     }
-    /* Above the capture layer so the label stays tappable. Swiping from
-       it still works — it's an ordinary element in this document, so its
-       touches bubble up to the carousel's handler either way. */
+
     .columns-row a.panel-label {
       z-index: 4;
     }
   }
-  /* Desktop never needs the capture layer — there's no carousel to
-     swipe and it would just block the widgets. */
+
   .card-touch { display: none; }
 
-  /* ---------- FOOTER ---------- */
-  /* Both pieces read as one footer: stacked and centered, rather than
-     pushed out to opposite corners as they were before. */
   .bottom-row {
     display: flex;
     flex-direction: column;
@@ -662,9 +381,7 @@
   .bottom-row .gif-embed { height: 30px; }
   .bottom-row .gif-embed img { display: block; height: 100%; width: auto; }
   .bottom-row .counter-panel { padding: 0; }
-  /* The counter widget sizes its own text from this box (container query
-     units), so shrinking the box is what makes the number tiny — no need
-     to touch the widget itself, which is shared with other embeds. */
+
   .bottom-row iframe { display: block; width: 130px; height: 16px; border: 0; }
 </style>
 </head>
@@ -699,9 +416,7 @@
         <div class="live-float">
           <div class="live-pop">
             <iframe src="/home-button-live.html" title="Live" loading="lazy"></iframe>
-            <!-- Shown/hidden by the Firebase listener near the end of the
-                 body, mirroring admin.html's "Go Live" toggle (same
-                 chat_config/liveVideo doc the live.html player watches). -->
+
             <a class="live-now-badge" id="liveNowBadge" href="/live" target="_top" hidden>
               <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/LIVENOW-ezgif.com-crop-2.gif" alt="Live now — click to watch">
             </a>
@@ -722,28 +437,7 @@
         <a class="panel-label" href="/videos" target="_top">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
         </a>
-        <!-- sandbox WITHOUT allow-top-navigation is what actually stops
-             the "reopen Safari and you're on youtube.com" bug. Sandbox
-             flags apply to nested frames too, so the YouTube player
-             inside this widget inherits the restriction and simply
-             cannot navigate the whole tab away, whatever it tries — no
-             frame-busting, no top.location. Making it structurally
-             impossible beats chasing whichever code path was doing it.
-             The three flags it does get are the ones the widget needs to
-             work at all: scripts to run, same-origin for its Firestore
-             connection, presentation for video playback. Deliberately
-             NOT granted: popups, forms, and top navigation — this widget
-             plays videos inline and has no legitimate reason to send you
-             anywhere. (The other widgets aren't sandboxed: Recent
-             Articles links out with target="_top" and SoundCloud opens
-             tracks in a new tab, both of which this would break.) -->
-        <!-- border-radius on the iframe alone doesn't reliably clip its
-             own rendered content to the rounded shape across browsers
-             (Safari in particular never does, regardless of the value) —
-             wrapping it in an overflow:hidden box is the one technique
-             that clips consistently everywhere, since overflow:hidden on
-             an ANCESTOR is a completely different, much better-supported
-             code path than a replaced element's own border-radius. -->
+
         <div class="video-frame">
           <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
                   sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
@@ -763,9 +457,7 @@
       <div class="gif-embed">
         <img src="https://raw.githubusercontent.com/KNOBSOCK/Bobby-Wyckoff-Website/refs/heads/main/IMG_9407.gif" alt="Bobby Wyckoff">
       </div>
-      <!-- Bare, not a .panel — a translucent box around just the count
-           would sit oddly next to the bare gif above it now that the two
-           read as one centered footer. -->
+
       <div class="counter-panel">
         <iframe src="/page-view-counter-widget.html" title="Page views" loading="lazy"></iframe>
       </div>
@@ -775,54 +467,23 @@
 <script>
   const sat = document.getElementById('satellite');
   const page = document.querySelector('.page');
-  // Now that #satellite is position:absolute (scrolls with the page —
-  // see its CSS comment), its wrap bounds need to cover the whole
-  // document's height, not just one viewport's worth, or it would only
-  // ever wander the top screenful and never be seen further down a
-  // page taller than that.
-  //
-  // This measures .page's own extent rather than
-  // document.body.scrollHeight/document.documentElement.scrollHeight —
-  // #satellite is .page's sibling, not its descendant, and is the only
-  // other thing in the body free to sit outside .page's own bounds, so
-  // .page's height is real page content, unaffected by wherever the
-  // satellite itself currently happens to be. Reading
-  // document.body.scrollHeight directly here would self-inflate: once
-  // the satellite got near the bottom of that reading, its own
-  // position would push body's scrollHeight taller, which would then
-  // push next frame's wrap boundary even further down, and so on —
-  // exactly what was leaving a growing patch of dead space at the
-  // bottom of the page.
+
   function docHeight() {
     return page ? page.offsetTop + page.offsetHeight
       : Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
   }
   let x = Math.random() * window.innerWidth;
   let y = Math.random() * docHeight();
-  let vx = (Math.random() - 0.5) * 0.6; // slow horizontal drift
-  let vy = (Math.random() - 0.5) * 0.6; // slow vertical drift
+  let vx = (Math.random() - 0.5) * 0.6;
+  let vy = (Math.random() - 0.5) * 0.6;
 
   function drift() {
     x += vx;
     y += vy;
 
-    // gentle random wobble so it doesn't look like a straight line
     vx += (Math.random() - 0.5) * 0.02;
     vy += (Math.random() - 0.5) * 0.02;
 
-    // Wrap around edges instead of bouncing (read fresh each frame so
-    // it keeps working as content loads and the page height changes).
-    // Every edge is kept flush with the real viewport/page bounds —
-    // no "+100" margin past any of them — so the satellite's own size
-    // can never push the page's real scrollable area past its actual
-    // content in either direction. overflow-x:hidden on html,body was
-    // assumed to make horizontal overshoot harmless here, but iOS
-    // Safari's rubber-band touch panning can still drag the page over
-    // to reveal absolutely-positioned content sitting past the
-    // viewport's own edge even with overflow:hidden set (the same
-    // quirk documented on recent-articles-widget.html's own overflow
-    // rules) — so this can't just rely on that the way the comment
-    // here used to assume.
     const h = docHeight();
     const satW = sat.offsetWidth || 60;
     const satH = sat.offsetHeight || 60;
@@ -841,27 +502,14 @@
 </script>
 
 <script>
-  // ---------- FLYING UFO ----------
-  // Cruises to a random point on the page at a steady speed (no
-  // jittery random-walk wobble, unlike the satellite above — the goal
-  // here is "purposeful", not "drifting"), pauses there to hover for a
-  // couple of seconds once it arrives, then picks a new destination
-  // and moves on. docHeight() is the satellite script's own function
-  // above — a plain function declaration is a real global, so it's
-  // already available here too — reused rather than redefined so both
-  // wander the same real page bounds, including the same fix for the
-  // self-inflating-height bug.
+
   (function () {
     const wrap = document.getElementById('ufoWrap');
     const img = document.getElementById('ufo');
     if (!wrap || !img) return;
 
-    // Read straight off the element rather than a hardcoded constant —
-    // #ufoWrap's own CSS is 75px on mobile, 25% bigger on desktop (see
-    // its @media rule), so this needs to track whichever currently
-    // applies rather than assuming one fixed size.
     function W() { return wrap.offsetWidth || 75; }
-    const SPEED = 0.5; // px/frame cruise speed
+    const SPEED = 0.5;
 
     function maxX() { return Math.max(0, window.innerWidth - W()); }
     function maxY() { return Math.max(0, docHeight() - W()); }
@@ -884,8 +532,7 @@
         const dy = targetY - y;
         const dist = Math.hypot(dx, dy);
         if (dist < 4) {
-          // Arrived — hover in place a couple of seconds, like it's
-          // surveying the spot, before cruising off to somewhere new.
+
           pauseUntil = now + 1500 + Math.random() * 2500;
           pickTarget();
         } else {
@@ -901,13 +548,7 @@
 </script>
 
 <script>
-  // ---------- CURSOR-CHASING HEAD ----------
-  // Small easter egg: the head eases toward the mouse position every
-  // frame (never snapping straight to it, so it visibly "chases"
-  // rather than teleports) and now and then zaps the actual cursor
-  // with a quick pair of laser beams from its eyes. Skipped entirely
-  // on touch devices (no persistent pointer to chase there) and for
-  // prefers-reduced-motion, rather than leaving it inert on-screen.
+
   (function () {
     const head = document.getElementById('chaseHead');
     const laserL = document.getElementById('laserEyeL');
@@ -916,31 +557,22 @@
     if (!window.matchMedia('(pointer: fine)').matches) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const HEAD_W = 35; // must match #chaseHead's CSS width
-    const HEAD_H = HEAD_W * (1718 / 1279); // source photo's own aspect ratio
-    // Eye centers as a fraction of the head image's own box, read off
-    // the source photo — this is what actually aims the lasers.
+    const HEAD_W = 35;
+    const HEAD_H = HEAD_W * (1718 / 1279);
+
     const EYE_L = { fx: 0.24, fy: 0.29 };
     const EYE_R = { fx: 0.63, fy: 0.28 };
 
-    // Trails just up-left of the pointer instead of centering on it,
-    // so it never sits exactly on top of whatever you're pointing at.
     const OFFSET_X = 11;
     const OFFSET_Y = -25;
-    const EASE = 0.07; // lower = laggier chase
+    const EASE = 0.07;
 
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
     let headX = mouseX;
     let headY = mouseY;
     let hasMouse = false;
-    // True while the real cursor is somewhere inside an <iframe> (nav
-    // buttons, the video/music players, article cards, ...). Each is a
-    // separate document/browsing context, so a mousemove happening
-    // inside one never reaches this page's own `window` listener at
-    // all — without this, the head would freeze solid the instant the
-    // cursor crossed into any of them, which is most of the page's own
-    // clickable/animated content.
+
     let insideIframe = false;
 
     window.addEventListener('mousemove', function (e) {
@@ -953,12 +585,6 @@
       }
     }, { passive: true });
 
-    // mouseenter/mouseleave on the <iframe> ELEMENT itself still fire
-    // normally on this document (crossing its border counts as
-    // entering/leaving that element) even though movement WITHIN it
-    // doesn't — so on entry, aim for its center as a best-available
-    // approximation instead of just leaving the last stale position as
-    // the target forever.
     document.querySelectorAll('iframe').forEach(function (frame) {
       frame.addEventListener('mouseenter', function () {
         const r = frame.getBoundingClientRect();
@@ -975,16 +601,6 @@
       });
     });
 
-    // Same-origin widgets now relay their own mousemove up to here (see
-    // the small script near the end of each of their bodies), landing
-    // as a message rather than a real DOM event — translated into this
-    // page's coordinate space via that specific iframe's own bounding
-    // rect, this is genuine live tracking, not just the mouseenter
-    // approximation above, so it clears insideIframe the same way a
-    // real mousemove does. Anything that ISN'T relaying (a nested
-    // cross-origin embed, like the actual YouTube/SoundCloud players
-    // inside two of these widgets, which can't be reached this way)
-    // still falls back to that approximation.
     window.addEventListener('message', function (e) {
       if (!e.data || e.data.type !== 'knobsock-chase-mousemove') return;
       const frames = document.querySelectorAll('iframe');
@@ -1008,9 +624,7 @@
         let targetX = mouseX + OFFSET_X;
         let targetY = mouseY + OFFSET_Y;
         if (insideIframe) {
-          // Can't see the exact cursor position in here — idle-bob
-          // around the approximate spot instead of sitting frozen, so
-          // it still visibly reads as "alive" while over one of these.
+
           const t = performance.now() / 500;
           targetX += Math.sin(t) * 14;
           targetY += Math.cos(t * 0.8) * 10;
@@ -1045,7 +659,7 @@
           laserR.classList.remove('firing');
         }, 130);
       }
-      // Frequent, but still with some variety — next shot 0.7-1.6s out.
+
       setTimeout(fireLaser, 700 + Math.random() * 900);
     }
     setTimeout(fireLaser, 500 + Math.random() * 700);
@@ -1053,11 +667,7 @@
 </script>
 
 <script>
-  // ---------- MOBILE 3D CARD CAROUSEL ----------
-  // Three cards, one front and center with the other two shrunk back on
-  // either side, swiped through endlessly. Positions come from each
-  // card's offset from the active one, wrapped short-way around the
-  // three, so it loops without needing duplicate cards at the ends.
+
   (function () {
     const row = document.getElementById('columnsRow');
     if (!row) return;
@@ -1065,16 +675,10 @@
     const count = cards.length;
     if (!count) return;
 
-    // How far a side card slides out (% of its own width) and how far
-    // down it scales — the pair of numbers that set the depth effect.
     const SIDE_SHIFT = 62;
     const SIDE_SCALE = 0.3;
     const SIDE_FADE = 0.45;
 
-    // Opens on Newest Video rather than whichever card happens to be
-    // first in the DOM. Found by class instead of hardcoding 1, so
-    // reordering the cards later can't quietly change which one greets
-    // you; falls back to the first card if that class ever goes away.
     let index = Math.max(0, cards.findIndex(function (card) {
       return card.classList.contains('video-panel');
     }));
@@ -1084,21 +688,13 @@
     let startY = 0;
     let dx = 0;
     let touchedCard = null;
-    // When the last swipe finished. Browsers fire a click after a touch
-    // gesture, so anything click-driven below checks this to tell a real
-    // tap apart from the tail end of a swipe — a timestamp rather than a
-    // flag that each handler has to remember to clear, since several
-    // handlers can fire for one gesture and the ordering between them is
-    // easy to get wrong.
+
     let lastSwipeAt = 0;
 
     function isCarousel() {
       return window.matchMedia('(max-width: 720px)').matches;
     }
 
-    // Shortest signed distance from the active card to card i, wrapped —
-    // so with 3 cards every card is always at -1, 0, or +1 and the ends
-    // join up instead of running out.
     function offsetFor(i) {
       let d = i - index;
       if (d > count / 2) d -= count;
@@ -1108,8 +704,7 @@
 
     function layout(dragPx) {
       if (!isCarousel()) {
-        // Desktop lays these out as a plain grid — clear anything the
-        // carousel set so it can't leak across the breakpoint.
+
         cards.forEach(function (card) {
           card.style.transform = '';
           card.style.opacity = '';
@@ -1132,16 +727,13 @@
       });
     }
 
-    // A click landing within this window of a swipe is that swipe's own
-    // trailing click, not a fresh tap.
     function recentlySwiped() {
       return Date.now() - lastSwipeAt < 400;
     }
 
     function go(delta) {
       index = (index + delta % count + count) % count;
-      // Every card gets its capture layer back on a move, so the next
-      // swipe works no matter which card was unlocked before.
+
       cards.forEach(function (card) { card.classList.remove('unlocked'); });
       layout(0);
     }
@@ -1160,24 +752,14 @@
       if (!dragging || e.touches.length !== 1) return;
       const moveX = e.touches[0].clientX - startX;
       const moveY = e.touches[0].clientY - startY;
-      // First few pixels decide whether this is a swipe or the start of
-      // scrolling the page — once it's committed to one, it stays there,
-      // so a slightly diagonal swipe doesn't flip between the two.
+
       if (axis === null) {
         if (Math.abs(moveX) < 8 && Math.abs(moveY) < 8) return;
         axis = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
         if (axis === 'x') row.classList.add('dragging');
       }
       if (axis !== 'x') return;
-      // Once committed to a horizontal swipe, stop the browser's own
-      // native vertical scroll from also kicking in for the same
-      // gesture — without this, a swipe the axis-lock above correctly
-      // read as horizontal could still turn into a vertical page
-      // scroll, since the browser's own scroll detection runs
-      // independently of this handler. Requires this listener to be
-      // non-passive (see below); preventDefault() inside a passive
-      // listener is silently ignored, which is exactly why that could
-      // still happen before this fix.
+
       e.preventDefault();
       dx = moveX;
       layout(dx);
@@ -1188,15 +770,12 @@
       dragging = false;
       row.classList.remove('dragging');
       const width = cards[0].offsetWidth || 1;
-      // Past about a fifth of a card's width counts as a deliberate
-      // swipe; anything shorter settles back where it started.
+
       if (axis === 'x' && Math.abs(dx) > width * 0.18) {
         lastSwipeAt = Date.now();
         go(dx < 0 ? 1 : -1);
       } else if (axis === null && touchedCard) {
-        // Barely moved, so it was a tap rather than a swipe. On a side
-        // card that means "bring me forward"; on the front card it means
-        // "let me actually use this widget", so its capture layer lifts.
+
         const i = cards.indexOf(touchedCard);
         if (i !== -1) {
           if (offsetFor(i) === 0) {
@@ -1217,10 +796,6 @@
     row.addEventListener('touchend', endDrag, { passive: true });
     row.addEventListener('touchcancel', endDrag, { passive: true });
 
-    // Mouse/pointer fallback (and desktop dev tools' touch emulation) —
-    // taps handled above already fire a click afterwards on real touch
-    // devices, so a just-handled gesture is skipped to keep the carousel
-    // from advancing twice for the same tap.
     cards.forEach(function (card, i) {
       card.addEventListener('click', function () {
         if (!isCarousel()) return;
@@ -1233,10 +808,6 @@
       });
     });
 
-    // The Truth Zone label is a link to /truth. On the
-    // carousel it only navigates from the front card — tapping it while
-    // its card is off to the side brings that card forward instead,
-    // which is what tapping a side card does everywhere else.
     const labelLink = row.querySelector('a.panel-label');
     if (labelLink) {
       labelLink.addEventListener('click', function (e) {
@@ -1253,10 +824,6 @@
       });
     }
 
-    // Re-laying out on resize is fine; what matters is that it never
-    // touches `index`. iOS fires a resize every time its URL bar slides
-    // away, and resetting the position on those is what kept yanking the
-    // old carousel back to the first card a few seconds after landing.
     let resizeTimer = null;
     window.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
@@ -1267,10 +834,6 @@
   })();
 </script>
 
-<!-- ============================================================
-     FIREBASE — reuses the same project/doc admin.html's "Go Live"
-     toggle and live.html's player both already use, just to read the
-     one isLive flag: no chat, no video embed, nothing else here. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
@@ -1282,40 +845,21 @@
     messagingSenderId: "509309222193",
     appId: "1:509309222193:web:f487258cfba2f7f7b00410"
   };
-  // Reuse the existing app instance if this page is ever embedded
-  // alongside another widget that already called initializeApp
-  // (calling it twice throws).
+
   const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // A live listener, not a one-time read — going live/offline from
-  // admin.html has to show/hide this banner immediately for anyone
-  // already sitting on the homepage, not just on their next visit. A
-  // missing isLive field defaults to true (online), matching the same
-  // "missing/true = live" rule live.html's player and admin.html's own
-  // toggle both already use for this exact field.
   const liveNowBadge = document.getElementById('liveNowBadge');
   db.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
     const isLive = !(data && data.isLive === false);
     liveNowBadge.hidden = !isLive;
   }, function () {
-    // Can't confirm live status (offline, rules not deployed yet, etc.)
-    // — stays hidden rather than claiming we're live when we can't tell.
+
     liveNowBadge.hidden = true;
   });
 </script>
 
-<!-- ============================================================
-     SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
-     every other Firestore-backed widget here uses) and overrides this
-     page's built-in title/meta description if something's been saved
-     for it. Fails silently (offline, doc missing, this slug not filled
-     in yet) rather than blanking anything out — the page's own
-     built-in text stays exactly as it is until this successfully
-     overrides it. Only reaches crawlers that actually run JavaScript
-     (Google does) — see admin.html's own SEO tab note for why link-
-     preview scrapers (Discord, Twitter/X, etc.) never see this. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>

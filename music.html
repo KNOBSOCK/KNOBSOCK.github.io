@@ -21,7 +21,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone rebuild in the same style as videos.html. */
 
   * { box-sizing: border-box; }
 
@@ -29,11 +28,7 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    /* Bright yellow — same brand yellow store.html uses (--ks-yellow) —
-       instead of the widget's own dark --ink. The widget's own text/
-       progress-bar colors that used to assume a dark backdrop (see their
-       own comments in music-playlist-widget.html) were flipped to dark
-       ink to match. */
+
     background: #f5e94a;
     font-family: Arial, Helvetica, sans-serif;
   }
@@ -47,14 +42,10 @@
     min-height: 100vh;
     min-height: 100dvh;
     gap: 2px;
-    /* Matching bottom padding to the gap the script leaves below the
-       player, so a scrolled phone layout doesn't end flush against the
-       bottom of the screen. */
+
     padding: clamp(8px, 2vw, 20px) 0 12px;
   }
 
-  /* Header logo — capped by width AND by a share of the viewport height
-     so it can't eat the player's room on a short/landscape screen. */
   .logo-link {
     flex: 0 0 auto;
     display: block;
@@ -71,23 +62,12 @@
     object-fit: contain;
   }
 
-  /* The box the player lives in, same as live.html's player-wrap — the
-     widget draws its own frosted panel and scales its own layout to
-     whatever room it's given, so it's meant to stretch on a tall/4K/8K
-     window rather than being capped to a "natural" height.
-
-     min-height (not height) keeps it usable on very short screens,
-     where the page then scrolls instead of squashing. */
   .player-wrap {
     flex: 1 1 auto;
     min-height: min(560px, 68vh);
     display: flex;
   }
-  /* height:auto (not 100%) on purpose — a percentage height can't
-     resolve against a flex container whose own height comes from
-     flex-grow, so the iframe would collapse to its default 150px.
-     Letting the parent's default align-items:stretch size it instead
-     makes it fill the row properly. */
+
   .player-wrap iframe {
     display: block;
     flex: 1 1 auto;
@@ -98,10 +78,6 @@
     background: transparent;
   }
 
-  /* A normal flex child, not position:fixed — see live.html's matching
-     comment on this same class. .player-wrap's flex:1 1 auto shrinks to
-     leave room for this instead of the link floating over whatever the
-     widget's own bottom edge is currently showing. */
   .privacy-footer {
     flex: 0 0 auto;
     text-align: center;
@@ -116,15 +92,6 @@
   }
   .privacy-footer a:hover { opacity: 1; }
 
-  /* On mobile, lock the page itself to exactly one screen instead of
-     letting it grow/scroll — the widget's own stacked mobile content
-     (video + Now Playing card + playlist) scrolls inside its own
-     .layout now instead (see music-playlist-widget.html), so scrolling
-     stays inside the widget instead of moving the logo off-screen.
-     min-height:0 (replacing the desktop floor above) lets .player-wrap
-     shrink to whatever's actually left below the logo on a very short
-     phone, letterboxing the widget slightly rather than overflowing the
-     locked page. */
   @media (max-width: 860px) {
     html, body { overflow: hidden; }
     .page {
@@ -136,23 +103,6 @@
     }
   }
 
-  /* Phone rotated to landscape: same one-screen lock as the portrait
-     rule above (checked on max-height here since that's the dimension
-     a phone's short side ends up on once rotated — its width can be
-     well over 860px lying sideways), plus the logo and its padding/gap
-     go away entirely so the player gets the whole screen instead of
-     losing a chunk of an already-short viewport to a header. The
-     widget itself still needs telling to give up its own portrait-
-     shaped mobile stack — see music-playlist-widget.html's own
-     matching landscape query.
-     hover:none + pointer:coarse (true only for touchscreens) are load-
-     bearing, not belt-and-suspenders: a perfectly ordinary desktop
-     browser window is "landscape" by nature and very often under
-     860px tall too (a laptop screen minus its own chrome), so
-     max-height + orientation alone was hiding the logo on regular
-     desktop visits — confirmed by testing an actual 1400x900 window,
-     not just guessing. The touch check is what actually scopes this to
-     phones/tablets. */
   @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; }
     .page {
@@ -183,16 +133,6 @@
   <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 </div>
 
-<!-- ============================================================
-     SEO — reads admin.html's SEO tab (chat_config/seo, same doc/project
-     every other Firestore-backed widget here uses) and overrides this
-     page's built-in title/meta description if something's been saved
-     for it. Fails silently (offline, doc missing, this slug not filled
-     in yet) rather than blanking anything out — the page's own
-     built-in text stays exactly as it is until this successfully
-     overrides it. Only reaches crawlers that actually run JavaScript
-     (Google does) — see admin.html's own SEO tab note for why link-
-     preview scrapers (Discord, Twitter/X, etc.) never see this. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>

@@ -22,10 +22,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone page, same reasoning as cart.html (see its own comment) —
-     no widget/iframe split needed for a one-off transactional page.
-     Re-themed alongside cart.html to match store.html's white/black/
-     yellow/pink comic look instead of the store's old pink/dark palette. */
+
   :root {
     --ks-pink: #ff4fa8;
     --ks-yellow: #f5e94a;
@@ -69,7 +66,6 @@
     text-align: center;
   }
 
-  /* ---------- LOADING (waiting on the webhook) ---------- */
   .spinner {
     width: 40px;
     height: 40px;
@@ -81,7 +77,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ---------- SUCCESS ---------- */
   .check-badge {
     width: 60px;
     height: 60px;
@@ -266,12 +261,7 @@
     return;
   }
 
-  // Reaching this page with a session_id at all means Stripe's own
-  // success_url redirect fired, which only happens after a real payment —
-  // the cart is cleared right away rather than waiting on the order doc
-  // below, which can lag a few seconds behind (it's written by a webhook,
-  // a separate request from this page load entirely).
-  try { localStorage.removeItem(CART_KEY); } catch (err) { /* nothing to clean up either way */ }
+  try { localStorage.removeItem(CART_KEY); } catch (err) {  }
 
   function renderOrder(order) {
     document.getElementById('orderNumber').textContent = order.orderNumber || sessionId;
@@ -303,14 +293,6 @@
     showState('successState');
   }
 
-  // The order doc is written by stripeWebhook — a separate request from
-  // Stripe that isn't guaranteed to land before this page does, so this
-  // polls a few times rather than treating "not found yet" as "not
-  // found". If nothing shows up after ~16s, stillProcessingState is
-  // still an honest, non-scary thing to say: the payment really did
-  // succeed (that's the only way to reach this URL at all), it's just
-  // our own record of it that's lagging or, before the backend is fully
-  // connected, possibly never arriving at all.
   var attempts = 0;
   var MAX_ATTEMPTS = 8;
 

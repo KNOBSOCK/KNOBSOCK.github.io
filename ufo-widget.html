@@ -7,14 +7,6 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* This code block sits as a full-page overlay so the UFO can roam
-     anywhere on screen — without an explicit transparent background here,
-     the browser's default opaque white page background would sit behind
-     the UFO and block every click on whatever's underneath it. Same idea
-     with pointer-events: none — by default the page (and anywhere on it
-     that ISN'T the UFO itself) lets clicks fall straight through to
-     whatever's actually underneath; only the UFO link below turns
-     pointer-events back on for its own pixels. */
   html, body {
     background: transparent;
     width: 100%;
@@ -35,7 +27,7 @@
   #ufo-link img {
     display: block;
     width: 100%;
-    /* Clicks are handled by the link wrapping it, not the image itself. */
+
     pointer-events: none;
   }
 </style>
@@ -57,7 +49,7 @@
   }
 
   moveUFO();
-  setInterval(moveUFO, 4000); // moves every 4 seconds
+  setInterval(moveUFO, 4000);
 </script>
 
 </body>

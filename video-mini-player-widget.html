@@ -5,14 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Videos</title>
 <style>
-  /* Custom cursor matching index.html's — the only page this embeds
-     on. An iframe is a separate document, so index.html's own cursor
-     CSS can't reach in here on its own; this is what actually makes
-     the cursor stay consistent while hovering this widget. */
+
   html, body { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, auto; }
   a, button { cursor: url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/cursor-pointer.png") 16 11, pointer; }
   :root {
-    /* Dark orange, matching the Newest Video card this sits on. */
+
     --accent: #FF8C00;
     --accent-rgb: 255, 140, 0;
     --text-dim: rgba(255, 255, 0, 0.65);
@@ -20,9 +17,6 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* Fully transparent — sits directly on whatever background the block
-     already has, and scales with whatever size the Universe code block
-     gives it. */
   html, body {
     background: transparent;
     width: 100%;
@@ -36,22 +30,12 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    /* Transparent, so the card's colour shows through it — meaning this
-       padding reads as part of the frame around the video, not as space
-       inside the widget. Halved along with the card's own padding when
-       that frame was thinned. */
+
     padding: 6px;
   }
 
   a { text-decoration: none; color: inherit; }
 
-  /* No border, no background of its own — fully transparent, flush to
-     the left edge, filling the block's full width at any size. Sizing
-     below uses plain flex-basis percentages instead of container-query
-     (cqw/cqh) units: those need the frame to have a definite height to
-     resolve correctly, which isn't guaranteed in every way this block
-     can be embedded, and percentages of the row's real rendered width
-     work unconditionally in every case. */
   .grid-frame {
     position: relative;
     width: 100%;
@@ -65,9 +49,6 @@
     overflow: hidden;
   }
 
-  /* Opens the grid as an overlay on mobile (see the media query below) —
-     hidden entirely on wider screens, where the grid is already visible
-     inline and there's nothing to toggle. */
   .grid-toggle-btn {
     display: none;
     position: absolute;
@@ -75,9 +56,7 @@
     right: 8px;
     z-index: 30;
     background: rgba(var(--accent-rgb), 0.5);
-    /* White, not the dark ink these used before — that read fine on the
-       old light periwinkle accent, but dark orange at half opacity over
-       the video underneath is far too dark to carry it. */
+
     color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.25);
     border-radius: 6px;
@@ -87,13 +66,6 @@
     font-family: inherit;
   }
 
-  /* Every overlay control (both buttons and the scrubber below) stays
-     half-transparent whenever visible, and fades to invisible by default
-     — .grid-frame.controls-visible (toggled by the hover/tap logic in the
-     JS) is what actually shows them. Pointer-events stay on even while
-     invisible: these sit in fixed spots, so a tap there should always
-     work on the first try instead of needing one tap just to reveal a
-     control and a second one to actually hit it. */
   .unmute-btn,
   .grid-toggle-btn,
   .scrubber {
@@ -106,9 +78,6 @@
     opacity: 1;
   }
 
-  /* Mini player at the top — plain percentage width + aspect-ratio, so it
-     scales correctly on any screen without relying on viewport or
-     container-query units. */
   .player-wrap {
     flex-shrink: 0;
     margin-bottom: 10px;
@@ -123,12 +92,6 @@
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
 
-  /* Sits over the player while the YouTube embed has nothing to show
-     yet — before the player's first onReady, and again while switching
-     videos — so it doesn't just sit frozen on the previous frame. The
-     box keeps its normal solid black background here (same as
-     live.html); the iframe is hidden below just so switching videos
-     doesn't leave a stale frame showing under the gif. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -153,29 +116,17 @@
     left: 50%;
     transform: translate(-50%, -50%);
     border: 0;
-    /* Width/height are set in JS (sizePlayerToCover) rather than fixed
-       here — the iframe is deliberately oversized in one dimension and
-       centered so the video crops/fills the box completely instead of
-       letterboxing when the box isn't exactly 16:9 (e.g. the full-height
-       mobile player). */
-    /* Blocks clicks from ever reaching the video itself — that's what
-       was triggering YouTube's own big center play/pause icon flash
-       and hover-triggered branding. With no interaction possible,
-       neither ever appears; the unmute button below is a separate
-       element on top, so it isn't affected by this. */
+
     pointer-events: none;
   }
-  /* The only visible control — everything YouTube would normally show
-     (play/pause, scrub bar, fullscreen, etc.) is turned off below. */
+
   .unmute-btn {
     position: absolute;
     top: 8px;
     left: 8px;
     z-index: 5;
     background: rgba(var(--accent-rgb), 0.5);
-    /* White, not the dark ink these used before — that read fine on the
-       old light periwinkle accent, but dark orange at half opacity over
-       the video underneath is far too dark to carry it. */
+
     color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.25);
     border-radius: 6px;
@@ -185,9 +136,6 @@
     font-family: inherit;
   }
 
-  /* Matches the buttons' accent color. A generous invisible hit area
-     (.scrubber) wraps a thin visible bar (.scrubber-track) so it's easy
-     to tap accurately on a phone without the bar itself looking oversized. */
   .scrubber {
     position: absolute;
     left: 8px;
@@ -211,10 +159,6 @@
     background: rgba(var(--accent-rgb), 0.9);
   }
 
-  /* Grid instead of a list: each thumbnail gets its own full-width row
-     in its column, so the title underneath always has the whole tile's
-     width to wrap in — no more squeezing text into a narrow slot next
-     to a thumbnail, which was the actual cause of the sizing problems. */
   .video-grid {
     flex: 1 1 auto;
     min-height: 0;
@@ -233,8 +177,7 @@
     flex-direction: column;
     gap: 6px;
     min-width: 0;
-    /* Stripping the browser's own button chrome — these are <button>s so
-       they can't navigate anywhere (see renderList), not for the look. */
+
     appearance: none;
     -webkit-appearance: none;
     background: none;
@@ -284,8 +227,7 @@
     line-height: 1.3;
     overflow-wrap: break-word;
     text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-    /* Caps every title at two lines so tiles line up evenly instead of
-       one long title making its row taller than the rest. */
+
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -301,18 +243,10 @@
     padding: 20px;
   }
 
-  /* Narrow columns keep 2 tiles per row (not 1) — just tighten the gap
-     a bit so two skinny tiles still have breathing room. */
   @media (max-width: 220px) {
     .video-grid { gap: 8px; }
   }
 
-  /* Mobile: the grid disappears entirely and the player takes over the
-     whole block. .player-wrap grows to fill all the leftover height in
-     .grid-frame, and centers .player-box inside it; .player-box itself
-     just goes full-width with height following the locked 16:9 ratio —
-     the same plain width + aspect-ratio approach used everywhere else
-     in this file, so it doesn't depend on container queries. */
   @media (max-width: 480px) {
     .grid-frame { padding: 0; }
     .player-wrap {
@@ -322,9 +256,7 @@
       display: flex;
       flex-direction: column;
     }
-    /* Fills the whole wrap exactly (not just a 16:9 slice of it) — the
-       iframe inside is what stays locked to 16:9 and gets cropped to
-       cover this box completely (see sizePlayerToCover in the JS). */
+
     .player-box {
       flex: 1 1 auto;
       min-height: 0;
@@ -334,16 +266,13 @@
       border-radius: 0;
     }
 
-    /* Smaller on mobile — same styling, just more compact. */
     .unmute-btn,
     .grid-toggle-btn {
       padding: 3px 6px;
       font-size: 9px;
       border-radius: 5px;
     }
-    /* Sits just above the button row instead of directly under it — the
-       Videos button lives in that same bottom-right corner, so a scrubber
-       flush with the very bottom edge would sit right underneath it. */
+
     .scrubber {
       left: 6px;
       right: 6px;
@@ -352,8 +281,6 @@
     }
     .scrubber-track { height: 3px; }
 
-    /* Closed by default (just the player), opens as a full-screen
-       overlay on top of everything when .grid-frame gets .grid-open. */
     .grid-toggle-btn { display: inline-flex; align-items: center; justify-content: center; }
     .video-grid { display: none; }
     .grid-frame.grid-open .video-grid {
@@ -371,9 +298,7 @@
 </head>
 <body>
   <div class="grid-frame" id="gridFrame">
-    <!-- Mobile only (see CSS) — opens/closes the grid as a full overlay
-         on top of the player, letting you pick a video without giving
-         up the full-size player view. -->
+
     <button class="grid-toggle-btn" id="gridToggleBtn">Videos</button>
 
     <div class="player-wrap">
@@ -395,12 +320,6 @@
     </div>
   </div>
 
-  <!-- ============================================================
-       FIREBASE — same project AND same collection/document as the
-       video player widget ("playlist"/"main"). This is read-only:
-       whatever's saved there through that widget's admin panel shows
-       up here automatically, live, with no separate list to manage.
-       ============================================================ -->
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script>
@@ -415,14 +334,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Same document the video player widget reads/writes.
     const PLAYLIST_DOC_REF = db.collection('playlist').doc('main');
   </script>
 
   <script>
-    // Fallback only, matching the video widget's own default list — used
-    // before the Firestore document has ever been saved, or if it's
-    // temporarily unreachable.
+
     const DEFAULT_VIDEO_LIST = [
       { url: "https://youtube.com/watch?v=euMJknnSSqk", title: "Video One" },
       { url: "https://youtube.com/watch?v=VuivQyVyKDM", title: "Video Two" },
@@ -440,8 +356,6 @@
     let hasLoadedInitialVideo = false;
     let gridOpen = false;
 
-    // Mobile only in practice (the button and overlay are both hidden by
-    // CSS above 480px) — toggles the grid open/closed on top of the player.
     function setGridOpen(open) {
       gridOpen = open;
       gridFrameEl.classList.toggle('grid-open', gridOpen);
@@ -452,15 +366,6 @@
       showControls(true);
     });
 
-    // ---------- Auto-hiding controls ----------
-    // Both overlay buttons stay invisible until you interact, then fade
-    // out again — hovering keeps them up on a real mouse (desktop), while
-    // a touch device has no hover, so a tap reveals them, auto-hiding
-    // after a few seconds. Since that leaves no way to dismiss them on
-    // purpose, a second tap anywhere on the video itself hides them
-    // immediately too — tapping an actual control (unmute, scrubber)
-    // never counts as that second "close" tap, it should just do its own
-    // thing instead of also yanking the bar out from under it.
     const CONTROLS_AUTO_HIDE_MS = 3000;
     const supportsHover = window.matchMedia('(hover: hover)').matches;
     let controlsHideTimer = null;
@@ -497,14 +402,9 @@
       }, { passive: true });
     }
 
-    // Real playback goes through the YouTube IFrame Player API (not a
-    // plain src iframe) — that's what lets controls be turned off
-    // entirely while still exposing our own mute/unmute toggle.
     let ytPlayer = null;
     let ytApiReady = false;
-    // playerReady is distinct from ytPlayer existing — the YT.Player
-    // instance is returned synchronously, but its methods (loadVideoById,
-    // isMuted, etc.) only actually work once onReady has fired.
+
     let playerReady = false;
     let pendingVideo = null;
     const videoLoading = document.getElementById('videoLoading');
@@ -523,19 +423,6 @@
       unmuteBtn.textContent = ytPlayer.isMuted() ? 'Unmute' : 'Mute';
     }
 
-    // Sizes the actual <iframe> (not .player-box) so it's always at least
-    // as big as the box in both directions while staying locked to 16:9 —
-    // whichever dimension that requires it to overshoot, it overshoots,
-    // and .player-box's own overflow:hidden clips the rest. That's what
-    // makes the video crop-to-fill instead of letterboxing when the box
-    // itself isn't exactly 16:9 (the mobile full-height player).
-    //
-    // OVERSCAN pushes every edge of the iframe strictly past the box's
-    // edges (instead of landing flush on the tighter dimension) — YouTube
-    // anchors its own chrome (the captions bar, the "more videos" corner
-    // tray) right at the iframe's real edges, so without this margin one
-    // edge of that chrome sits exactly on the visible boundary and still
-    // shows. Overscanning crops it out along with a small sliver of video.
     const OVERSCAN = 1.35;
     function sizePlayerToCover() {
       const box = document.querySelector('.player-box');
@@ -558,9 +445,6 @@
     }
     window.addEventListener('resize', sizePlayerToCover);
 
-    // ---------- Scrubber ----------
-    // Polls playback position rather than relying on a player event —
-    // the IFrame API has no "time update" event, just onStateChange.
     function updateScrubber() {
       if (!ytPlayer || !playerReady || typeof ytPlayer.getDuration !== 'function') return;
       const duration = ytPlayer.getDuration();
@@ -593,9 +477,6 @@
       }
     }
 
-    // Restarts the current video the instant it ends instead of letting
-    // YouTube show its own "more videos" end-screen grid — since the video
-    // never actually sits in the ENDED state, that overlay never appears.
     function onPlayerStateChange(e) {
       if (e.data === YT.PlayerState.PLAYING) {
         hideVideoLoading();
@@ -606,10 +487,7 @@
         ytPlayer.seekTo(0);
         ytPlayer.playVideo();
       } else if (e.data === YT.PlayerState.PAUSED) {
-        // This player has no visible controls and is never meant to sit
-        // paused — resuming instantly here is also what keeps YouTube's
-        // own big center pause icon (and the mobile "resume" icon under
-        // it) from lingering, since both are tied to the paused state.
+
         ytPlayer.playVideo();
       }
     }
@@ -648,9 +526,7 @@
       } else if (ytApiReady && !ytPlayer) {
         createPlayer(id);
       } else {
-        // Either the player hasn't been created yet, or it has but
-        // onReady hasn't fired — either way, queue this and let
-        // whichever fires next (API ready or player ready) pick it up.
+
         pendingVideo = { id };
       }
     }
@@ -702,15 +578,6 @@
         return;
       }
 
-      // Deliberately a <button>, not an <a href="youtube.com/watch?v=...">.
-      // These tiles always play inline in the mini player above, so the
-      // href never got used — it was only ever suppressed by the
-      // preventDefault below. That made it a loaded gun: any moment the
-      // handler didn't run (Safari replaying a queued tap when you
-      // reopen the app, the listener not attached yet, an exception
-      // earlier in this script) and the browser would just follow the
-      // link straight to youtube.com. A button has nowhere to navigate
-      // to, so that can't happen at all.
       videoListEl.innerHTML = videos.map(v => `
         <button type="button" class="video-tile" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
           <span class="video-thumb">
@@ -723,17 +590,12 @@
         </button>
       `).join('');
 
-      // Only auto-load a video the very first time the list arrives —
-      // later updates (an admin editing the list elsewhere) shouldn't
-      // interrupt whatever's currently playing.
       if (!hasLoadedInitialVideo) {
         hasLoadedInitialVideo = true;
         loadVideo(videos[0].id);
       }
     }
 
-    // Clicking a tile plays it in the mini player above instead of
-    // navigating away to YouTube.
     videoListEl.addEventListener('click', (e) => {
       const tile = e.target.closest('.video-tile');
       if (!tile) return;
@@ -741,9 +603,6 @@
       loadVideo(tile.getAttribute('data-id'));
     });
 
-    // ---------- LIVE SYNC FROM FIRESTORE ----------
-    // Same document the video player widget subscribes to — any change
-    // saved from that widget's admin panel updates this list too, live.
     PLAYLIST_DOC_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
       const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : DEFAULT_VIDEO_LIST;
@@ -754,16 +613,10 @@
     });
   </script>
 
-  <!-- YouTube IFrame Player API — required for controls:0 plus a custom
-       mute/unmute toggle to work together. -->
   <script src="https://www.youtube.com/iframe_api"></script>
 
 <script>
-  // Relays this document's own mousemove to the parent page so
-  // index.html's cursor-chasing head easter egg can track the cursor
-  // seamlessly across this iframe's boundary too — an iframe is a
-  // separate browsing context, so the parent's own mousemove listener
-  // never sees events that happen in here on its own.
+
   if (window.parent !== window) {
     document.addEventListener('mousemove', function (e) {
       window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');

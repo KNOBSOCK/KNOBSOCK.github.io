@@ -7,13 +7,7 @@
 <style>
   :root {
     --ink: #3a0a0a;
-    /* RGB triplets of --ink/--accent above, kept in lockstep so the
-       handful of rules below that need a non-default alpha (the glow,
-       the VOD-active tint, the watching-bar gradient) can composite
-       off the same live palette via rgba(var(--ink-rgb), X) instead of
-       hardcoding their own copy of the color — which would otherwise
-       silently go stale the moment .is-offline below overrides --ink/
-       --accent but not a hardcoded rgba() duplicate of them. */
+
     --ink-rgb: 58, 10, 10;
     --panel: rgba(var(--ink-rgb), 0.32);
     --panel-2: rgba(var(--ink-rgb), 0.8);
@@ -24,34 +18,17 @@
     --text: #ffffff;
     --text-dim: #f5c9c9;
     --error: #ffb3b3;
-    /* Opaque on purpose — the VODs drawer/tab sit over live chat text,
-       where the translucent --panel/--panel-2 used elsewhere lets it
-       bleed through and read as broken. This exact value is what
-       .stream-stats' old rgba(58,10,10,0.55) composited to over the
-       video pane's black; both use this now, so the watching bar and
-       the drawer extending out of it are the same colour by
-       construction rather than by two values that happen to be close. */
+
     --vods-bg: #200606;
     --font-display: Tahoma, Arial, sans-serif;
     --font-body: Tahoma, Arial, sans-serif;
     --stats-h: 38px;
-    /* Shared between .bg-glow and .layout below so the panel's edges and
-       the content's padding can never drift apart at any window size —
-       both reference the exact same values instead of two independently
-       written formulas that merely happened to match. */
+
     --inset-top: clamp(4px, 1vw, 8px);
     --inset-side: clamp(4px, 1vw, 8px);
     --inset-bottom: clamp(16px, 3vw, 32px);
   }
 
-  /* Offline dark mode — applied to <html> (see applyLiveVideoState's
-     updateOfflineTheme, below) whenever admin.html's Go Offline toggle
-     is set, so the widget doesn't sit there still looking "live" (full
-     red) while there's nothing live. Collapses the palette above down
-     to off-black/dark-grey/near-black-red; --text stays white and
-     --panel/--panel-2/the rgba(var(--ink-rgb)/--accent-rgb)) rules
-     elsewhere in this file follow automatically since they read off
-     --ink-rgb/--accent-rgb rather than duplicating a literal color. */
   html.is-offline {
     --ink: #0d0d0d;
     --ink-rgb: 13, 13, 13;
@@ -75,17 +52,10 @@
     overflow: hidden;
   }
 
-  /* body is the positioning context for .bg-glow below (absolute,
-     not fixed — position:fixed inside an iframe embed is a known
-     trouble spot in Safari). */
   body {
     position: relative;
   }
 
-  /* ---------- BACKDROP ----------
-     A padded, rounded panel with a 50% frosted backdrop blur — same blur
-     treatment as the truth zone page's card (our 1-100 scale: 100% = 20px,
-     so 50% = 10px). */
   .bg-glow {
     position: absolute;
     inset: var(--inset-bottom);
@@ -100,9 +70,6 @@
     pointer-events: none;
   }
 
-  /* ---------- PAGE LAYOUT ----------
-     Desktop: video and chat sit side by side.
-     Mobile (<= 860px wide): video sits on top, chat below. */
   .layout {
     position: relative;
     display: flex;
@@ -117,12 +84,7 @@
 
   .video-pane {
     position: relative;
-    /* Above .chat-pane (z-index:1) so the VODs tab, which extends back
-       past the layout gap, slides UNDER this pane instead of over it —
-       the pane's own black then hides the tucked-in part and fills the
-       corner curve, so the curve reads as the video sitting on top of
-       the tab rather than as a notch cut out of it. Without this, DOM
-       order alone would paint the (later) chat pane on top. */
+
     z-index: 2;
     overflow: hidden;
     background: #000;
@@ -133,21 +95,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    /* No padding-bottom reserved here — the strip it would leave room
-       for (.stream-stats) is hidden on desktop, so reserving space for
-       it would just leave the video, and the controls overlaid on it,
-       stopping short of a flush bottom edge. The mobile block below
-       re-adds this once that strip is visible again. */
+
   }
 
-  /* Sits over the video pane while the embed has nothing to show yet —
-     before the livestream's first onStateChange PLAYING, and again on a
-     rebuffer. The pane keeps its normal solid black background here
-     (unlike the other widgets' loading state) — this is live.html's own
-     stream, not something you're switching away from, so there's no
-     stale frame to worry about hiding; the iframe is still hidden below
-     just so a rebuffer doesn't leave an old frame showing under the
-     offline card. */
   .video-loading {
     position: absolute;
     inset: 0;
@@ -160,13 +110,6 @@
   .video-loading[hidden] { display: none; }
   .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
-  /* Unlike .video-frame-wrap below, deliberately NOT boxed to a centered
-     16:9 shape — that convention exists so a real embedded stream never
-     gets cropped/distorted, which doesn't apply to a decorative placeholder
-     loop with no content worth preserving edge-to-edge. Filling the whole
-     pane and letting object-fit: cover crop it reads better than black
-     bars down the sides whenever .video-pane isn't itself 16:9 (true on
-     both mobile and desktop, depending on window shape). */
   .offline-frame {
     position: absolute;
     display: block;
@@ -197,7 +140,7 @@
 
   .chat-pane {
     position: relative;
-    z-index: 1; /* below .video-pane — see the note there */
+    z-index: 1;
     flex: 1 1 38%;
     min-width: 300px;
     display: flex;
@@ -205,48 +148,20 @@
     container-name: chatbox;
   }
 
-  /* ---------- VODs DRAWER ----------
-     Reads as the video's own "N watching" bar unfolding rather than as
-     a second bar of its own: on mobile the tab is just a small nub
-     hanging off that bar's bottom edge (pulled up by .layout's own gap
-     so it looks attached to it), and on desktop it's a full-width
-     "VODS" bar butted right against the video pane. Either way the
-     viewer count itself stays where it always was, in .stream-stats —
-     this never repeats it.
-
-     DOM order is drawer-then-tab on purpose: the tab stays pinned to
-     the panel's BOTTOM edge, so opening pushes it down below the list
-     instead of stranding it above. Backgrounds are opaque (not the
-     translucent --panel-2 the rest of the chat uses) since this panel
-     sits over live chat text — anything see-through reads as a
-     rendering glitch here. */
   .vods-panel {
     position: absolute;
     top: 0;
-    /* Runs back past .layout's own 14px gap and a further ~14px behind
-       the video pane, which paints on top of it (see .video-pane's
-       z-index). So it doesn't just meet the video's edge, it disappears
-       under it: the pane's rounded corner then curves over the tab
-       rather than over page background, and there's no crescent to
-       line up in the first place. Anchored to both edges, so it
-       re-fits itself at any window width. */
+
     left: -28px;
     right: 0;
-    /* Top-right only: the left edge is tucked under the video, and the
-       bottom edge is where the drawer unrolls out of, so a curve there
-       reads as the bar being clipped short rather than as a shape that
-       opens. On the panel with overflow:hidden rather than on the tab
-       and drawer separately, so the two read as one shape with no
-       notch at the seam where they meet. */
+
     border-radius: 0 10px 0 0;
     overflow: hidden;
     z-index: 8;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    /* The panel's own box spans the full width even when the tab
-       inside it doesn't (mobile's centered nub) — without this it
-       would swallow clicks meant for the chat on either side of it. */
+
     pointer-events: none;
   }
   .vods-tab {
@@ -259,11 +174,7 @@
     justify-content: center;
     gap: clamp(6px, 1.5cqw, 10px);
     width: 100%;
-    /* No rules top or bottom — --line is a pale peach that reads as
-       two stray white lines across the bar. The opaque fill against
-       the red chat is enough of an edge on its own. (Mobile's nub
-       re-adds a border below, where it needs the outline to hold its
-       tab shape against the chat behind it.) */
+
     border: 0;
     background: var(--vods-bg);
     color: var(--text);
@@ -275,19 +186,11 @@
     cursor: pointer;
     transition: background 0.2s ease;
   }
-  /* Desktop-only in effect — mobile sets this display:none further
-     down, so there's nothing here to hover on a touch device anyway.
-     Without this the bar had zero visual feedback on hover, so it
-     never read as clickable next to the rest of this UI, which
-     highlights everything else interactive. */
+
   .vods-tab:hover {
     background: var(--accent-dim);
   }
-  /* Plain white — the accent red this used to be (matching the "N
-     watching" text it was meant to look like an extension of) reads as
-     low-contrast now that VODS became the longer "Past Streams," a
-     wordier label thin red-on-dark-red text is harder to read at a
-     glance than a short all-caps acronym was. */
+
   .vods-tab-label,
   .vods-tab-chevron {
     color: var(--text);
@@ -295,8 +198,7 @@
   .vods-tab-chevron {
     display: inline-block;
     font-size: 9px;
-    /* Pinned so the mobile nub's height is font-metric independent —
-       the chat pane's padding-top below is sized against it. */
+
     line-height: 1;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -315,13 +217,7 @@
   .vods-panel.open .vods-drawer {
     max-height: min(70cqh, 460px);
   }
-  /* Unused on both breakpoints now — desktop's own .vods-tab is already
-     labelled, and mobile's handle (.stream-stats-vods, the "Past
-     Streams ▼" bar the video's watching-count bar became) is too, so a
-     second "Past Streams" repeated immediately below it once the drawer
-     opens is just noise. Kept in the DOM/CSS rather than deleted since
-     display:none costs nothing and this could still earn its keep again
-     if the handle ever goes back to being unlabeled. */
+
   .vods-heading {
     display: none;
     flex: none;
@@ -393,55 +289,23 @@
       flex: 0 0 38vh;
       padding-bottom: var(--stats-h);
     }
-    /* Mirrors the padding-bottom above, restoring room for .stream-stats
-       now that the mobile block re-shows it — desktop's flush bottom
-       (see the base rule) doesn't apply once that strip is visible. */
+
     .video-loading {
       bottom: var(--stats-h);
     }
-    /* ".layout" prefix is load-bearing, not stylistic: the base rule it
-       overrides (bottom: 0) sits further down this stylesheet, so at
-       equal specificity it would win the cascade on mobile too and
-       cancel this override — same trap as .layout .stream-stats below. */
+
     .layout .video-controls {
       bottom: var(--stats-h);
     }
-    /* min-height:0 (not just min-width) is required here: .layout is
-       column-direction on mobile, so .chat-pane's relevant flex-shrink
-       axis is now height, not width — without this override a flex item
-       won't shrink below its content's natural height, so .messages'
-       own overflow-y:auto never gets a bounded height to actually clip
-       against and the list just grows past the widget's own visible
-       bounds instead of scrolling internally. */
+
     .chat-pane {
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
-      /* Runs UP behind the video pane — past .layout's 14px gap and on
-         under the watching bar — instead of starting below it. The
-         video pane is opaque and paints on top (z-index 2 vs 1), so
-         the message list's own top edge, and the half-cut line that
-         always sits at it, are hidden behind the bar rather than
-         showing as a slice of text under a dead strip. Chat just
-         disappears under the bar as it scrolls, which is the whole
-         point: nothing is clipped in view, so nothing needs fading. */
+
       margin-top: calc(-1 * (14px + var(--stats-h)));
     }
 
-    /* Stacked layout: the tab becomes a small nub hanging off the
-       bottom edge of the video's own "N watching" bar (the -14px
-       closes .layout's column gap so it reads as part of that bar
-       rather than a separate one), and the list unrolls down over the
-       chat from there. No label — the nub is the whole affordance;
-       the drawer's own VODS heading names it once it's open. */
-    /* The whole watching bar is the handle here, so it gets the
-       pointer, the chevron and a tap glow — and the nub below is
-       retired entirely. */
-    /* Scoped under .layout, not bare ".stream-stats", purely to outrank
-       the base rule's later, equal-specificity "display: none" on
-       source order — the exact trap .stream-stats-vods's own comment
-       below already warns about. Undoes that default: this bar still
-       does a job here (the VODs handle), just not on desktop any more. */
     .layout .stream-stats {
       display: flex;
       cursor: pointer;
@@ -451,14 +315,7 @@
       background: var(--ink);
       box-shadow: inset 0 0 26px rgba(var(--accent-rgb), 0.5);
     }
-    /* Scoped under .stream-stats purely to outrank the base
-       "display: none" — that rule lives further DOWN the file than
-       this media query, so at equal specificity it would win on source
-       order and the pill would never show at all. */
-    /* No longer sharing the bar with a viewer count (that moved to
-       .viewer-badge on the video pane), so this needs no positioning
-       of its own — .stream-stats' own justify-content:center already
-       centers it now that it's the bar's only content. */
+
     .stream-stats .stream-stats-vods {
       display: inline-flex;
       align-items: center;
@@ -466,30 +323,20 @@
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.08em;
-      /* Plain white — see .vods-tab-label's own comment on why this
-         moved off --accent now that the label reads "Past Streams". */
+
       color: var(--text);
     }
     .layout.vods-open .stream-stats-chevron { transform: rotate(180deg); }
     .vods-tab { display: none; }
 
     .vods-panel {
-      /* The pane's top now sits behind the bar (see .chat-pane's
-         margin above), so the drawer starts a bar's height down from
-         it — i.e. flush under the bar, where it used to start. */
+
       top: var(--stats-h);
       left: 0;
-      /* Stacked layout: nothing to tuck under sideways, and the
-         rounding belongs on the drawer's bottom edge instead (below). */
+
       border-radius: 0;
     }
-    /* The video pane's rounded bottom corners are what the watching bar
-       inherits, and a full-width square-cornered drawer butting up
-       under them leaves a crescent of background in each corner. While
-       the drawer is open the two are one continuous card, so the seam
-       between them goes straight and the rounding moves to the bottom
-       of the drawer instead. Closed, nothing but the centred nub is
-       down there, so the pane keeps its own corners. */
+
     .layout.vods-open .video-pane {
       border-bottom-left-radius: 0;
       border-bottom-right-radius: 0;
@@ -503,24 +350,18 @@
       border: 1px solid var(--line);
       border-top: 0;
       border-radius: 0 0 10px 10px;
-      /* Exactly .layout's column gap, which is what the -14px above
-         pulls it up by — so the nub fills that gap and stops dead at
-         the chat pane's top edge. Sizing it instead of padding it
-         means it can't reach the chat and clip a line of text no
-         matter what the font metrics do; box-sizing:border-box is
-         global here, so the border is inside the 14px. */
+
       height: 14px;
       padding: 0;
     }
     .vods-tab-chevron { font-size: 10px; }
     .vods-tab-label { display: none; }
-    /* Covers essentially the whole chat pane when open, like the mock-up */
+
     .vods-panel.open .vods-drawer {
       max-height: min(88cqh, 560px);
     }
   }
 
-  /* When chat is hidden, the video takes the whole layout */
   .layout.chat-hidden .chat-pane {
     display: none;
   }
@@ -528,82 +369,23 @@
     flex: 1 1 100%;
   }
 
-  /* Landscape phone: the mobile stack above assumes a tall portrait
-     screen (video capped to 38vh, chat scrolling below it) — on its
-     side, that same 38vh is a sliver of an already-short viewport.
-     Rather than build a third layout, this applies the same "Hide
-     Chat" treatment above unconditionally instead. Checked on
-     max-height, not max-width: that's the dimension a phone's short
-     side ends up on once rotated, and its width can be well over
-     860px lying sideways. The ".layout" prefix is load-bearing, not
-     stylistic — .video-pane above (and the mobile-only .video-pane
-     rule) are equal-specificity with this, so without it this would
-     only win when it happens to land later in the file — same trap
-     .layout .stream-stats works around elsewhere in this file. The
-     host page's own matching landscape query is what actually frees
-     up the room this then fills — see live.html.
-     hover:none + pointer:coarse (true only for touchscreens) are load-
-     bearing too: an ordinary desktop browser window is "landscape" by
-     nature and often under 860px tall as well (a laptop screen minus
-     its own chrome), so max-height + orientation alone was hiding
-     chat on regular desktop visits — confirmed by testing an actual
-     1400x900 window, not just guessing. */
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .chat-pane { display: none; }
-    /* padding-bottom: 0 reclaims the strip .stream-stats normally sits
-       in (reserved via the mobile block's .video-pane padding-bottom
-       below) — without it the video stops short of the bottom edge,
-       leaving an empty gap where that bar used to be. The VODs drawer
-       itself needs no separate handling here: it lives inside
-       .chat-pane, already hidden above, whatever its open/closed state
-       was before rotating. */
+
     .layout .video-pane { flex: 1 1 100%; padding-bottom: 0; }
     .layout .stream-stats { display: none; }
-    /* .layout's own --inset-bottom (a much bigger gap than --inset-top/
-       --inset-side — 16-32px vs 4-8px, part of the frosted .bg-glow
-       panel's general framing in every other mode) was still leaving a
-       visible strip below .video-controls even after the two rules
-       above reclaimed .stream-stats' own space — the controls bar sits
-       flush with .video-pane's bottom edge same as ever, but .video-pane
-       itself was stopping short of the real screen edge. Zeroed here
-       only (not the barely-noticeable top/side insets, and not touched
-       at all outside this landscape mode) so the controls actually
-       reach the bottom of the screen instead of just the bottom of a
-       pane with room to spare underneath it. */
+
     .layout { padding-bottom: 0; }
-    /* .bg-glow (the frosted panel's own visible background, a separate
-       absolutely-positioned element behind .layout's content) sets its
-       bottom edge from this same --inset-bottom — without matching it
-       here too, .video-pane would now extend past its own background's
-       bottom edge instead of the two staying flush together. */
+
     .bg-glow { bottom: 0; }
-    /* The mobile block above (a plain max-width query, so it applies in
-       landscape too) holds the controls bar bottom: var(--stats-h) —
-       clear of the .stream-stats strip it normally sits above. That
-       strip is hidden in this mode already, so left alone the controls
-       would float 38px short of .video-pane's now-flush-with-the-
-       screen bottom edge instead of actually reaching it. */
+
     .layout .video-controls { bottom: 0; }
   }
 
-  /* Whichever fullscreen path is active, explicitly hide the chat pane
-     rather than relying on the video simply covering it, so there's no
-     overlap even if a browser sizes fullscreen differently than
-     expected. */
   .layout.fullscreen-active .chat-pane {
     display: none;
   }
 
-  /* Live stats bar (active viewers). .video-pane reserves
-     a fixed strip at its bottom via padding-bottom, so the video itself
-     (sized via cqw/cqh above) never extends into this area — the bar
-     sits right below the video instead of overlaying it. */
-  /* Desktop has no use for this bar any more: viewer count moved onto
-     the video pane itself (.viewer-badge) and VODs already has its own
-     tucked-under-the-video tab there (.vods-tab/.vods-panel), so
-     showing it would just be an empty red stripe. Hidden here by
-     default; the mobile block re-enables it, where it's still the
-     VODs handle (see .stream-stats-vods below). */
   .stream-stats {
     display: none;
     position: absolute;
@@ -625,8 +407,7 @@
     white-space: nowrap;
     transition: background 0.2s ease, box-shadow 0.2s ease;
   }
-  /* Desktop leaves this a plain readout — it only becomes the VODs
-     handle in the stacked layout (see the mobile block below). */
+
   .stream-stats-vods {
     display: none;
   }
@@ -668,8 +449,6 @@
   .pill-btn:active:not(:disabled) { background: var(--accent-dim); }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
 
-  /* Top-left group (unmute + hide chat), side by side via flex so
-     "Unmute"/"Mute" changing width never bumps the button next to it. */
   .video-pane-actions {
     position: absolute;
     top: clamp(8px, 2cqh, 14px);
@@ -679,10 +458,6 @@
     gap: clamp(6px, 1.5cqw, 10px);
   }
 
-  /* Top-right: viewer count, icon + number instead of the "N watching"
-     text this replaces (that used to sit permanently in .stream-stats
-     below the video — see the badge's own fade rule just below, which
-     is what actually makes it come and go with tap/hover now). */
   .viewer-badge {
     position: absolute;
     top: clamp(8px, 2cqh, 14px);
@@ -710,15 +485,6 @@
     width: 100%;
   }
 
-  /* Shown/hidden by the .controls-visible class (see the JS below)
-     instead of :hover/:focus-within — a real hover still triggers it on
-     desktop (mouseenter/mouseleave), but touch devices get an actual
-     tap-to-show/tap-again-to-hide toggle instead of relying on mobile
-     browsers' sticky-:hover-after-tap quirk, which never explicitly
-     hides again on its own. Just the two top-row groups and the
-     control bar — .unmute-btn doesn't need its own entry here now that
-     it's a plain flex child of .video-pane-actions, which already
-     fades as a whole. */
   .video-pane .video-pane-actions,
   .video-pane .viewer-badge,
   .video-pane .video-controls {
@@ -733,41 +499,21 @@
     pointer-events: auto;
   }
 
-  /* Nothing configured live and no VOD picked (see updateOfflineCardState
-     near LIVE STREAM VIDEO STATE below) - the pane shows only the looping
-     placeholder, so none of these do anything meaningful (nothing to
-     play/pause/scrub, no audio to unmute) and stay hidden no matter what
-     .controls-visible says. display:none rather than another opacity:0 -
-     a different property than that rule sets, so both apply with no
-     cascade ordering to get right: an element that's actually removed
-     from rendering stays removed regardless of its opacity. */
   .video-pane.offline-card .video-pane-actions,
   .video-pane.offline-card .viewer-badge,
   .video-pane.offline-card .video-controls {
     display: none;
   }
 
-  /* .gif-loader is a sibling of .offline-frame inside #videoLoading (see
-     the HTML below) - normally that's the spinner shown while a real
-     live/VOD video is buffering, sitting over a black pane with nothing
-     else to look at yet. But #videoLoading is also what's visible for
-     the offline card itself (it's what .offline-frame lives in), and
-     unlike a genuine buffering wait, that state can sit on screen
-     indefinitely - long enough for the spinner's own translucent watermark
-     to become a distracting, permanent smudge over the offline video
-     instead of a brief "still loading" hint. */
   .video-pane.offline-card .gif-loader {
     display: none;
   }
 
-  /* ---------- CUSTOM VIDEO PLAYBACK CONTROLS ---------- */
   .video-controls {
     position: absolute;
     left: 0;
     right: 0;
-    /* Flush with the pane's own bottom edge — there's no .stream-stats
-       strip below to leave room for on desktop (see the mobile override,
-       which pulls this back up once that strip is visible again). */
+
     bottom: 0;
     z-index: 6;
     display: flex;
@@ -790,8 +536,6 @@
     flex: none;
   }
 
-  /* Fallback for browsers (iOS Safari) that don't support the real
-     Fullscreen API on non-video elements — simulate it with CSS. */
   .video-pane.pseudo-fullscreen {
     position: fixed;
     top: 0;
@@ -805,12 +549,7 @@
     border-radius: 0;
     z-index: 9999;
   }
-  /* A resize on entering/leaving fullscreen can make the YouTube embed
-     report a brief rebuffer, which applies .is-loading above — fine for
-     the small in-page pane (it's meant to show the page through), but
-     while fullscreen that pane IS the whole screen, so a transparent
-     background there means the chat behind it bleeds through instead.
-     Keep it solid black here regardless of loading state. */
+
   .video-pane.pseudo-fullscreen.is-loading {
     background: #000;
   }
@@ -870,10 +609,6 @@
     white-space: nowrap;
   }
 
-  /* Same idea as YouTube's own "seek to live" pill: grey/hollow dot
-     while behind the live edge (a VOD, or scrubbed back during live),
-     red once caught up — see updateLiveButtonState() near LIVE STREAM
-     VIDEO STATE below. */
   .live-btn {
     flex: none;
     -webkit-appearance: none;
@@ -901,9 +636,6 @@
   }
   .live-btn.at-live .live-dot { background: var(--accent); }
 
-  /* ---------- CHAT WIDGET (scales with .chat-pane's own size) ---------- */
-  /* Fully transparent shell — only the text boxes (inputs, message
-     bubbles) get a readable background. */
   .chat-card {
     width: 100%;
     height: 100%;
@@ -925,7 +657,7 @@
   }
 
   .who {
-    /* cqmin, matching .status-actions' buttons beside it - see the note there */
+
     font-size: clamp(10px, 3cqmin, 13px);
     color: var(--text-dim);
     white-space: nowrap;
@@ -933,7 +665,6 @@
 
   .who b { color: var(--text); font-weight: 600; }
 
-  /* ---------- FLAT CIRCULAR BUTTONS (Windows 98 blue, no 3D shadow) ---------- */
   .round-btn {
     -webkit-appearance: none;
     appearance: none;
@@ -958,23 +689,11 @@
   .status-actions {
     display: flex;
     align-items: center;
-    /* cqmin throughout this row (here and in .color-picker/.tapin-btn/
-       .composer/.send-btn below): using cqw and cqh separately let a
-       container whose width and height scale at different rates (a
-       wide-but-short chat pane on a big screen, or Safari zoomed way
-       out) pull them out of ratio with each other — width-sized things
-       ballooned while height-sized things stayed small, reading as
-       everything "smushed" together rather than one consistent scale.
-       cqmin keys every one of them off whichever dimension is smaller,
-       so they always grow and shrink together regardless of the pane's
-       aspect ratio. */
+
     gap: clamp(6px, 2cqmin, 10px);
     flex: none;
   }
 
-  /* Native color input — cheapest reliable cross-browser color picker,
-     just restyled down to a small round swatch matching the round
-     buttons next to it. */
   .color-picker {
     -webkit-appearance: none;
     appearance: none;
@@ -991,54 +710,28 @@
   .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
   .color-picker::-moz-color-swatch { border: none; border-radius: 50%; }
 
-  /* Registering --tapin-frac as a real animatable number (not just a
-     string substituted into calc()) is what lets the transition below
-     actually sweep smoothly between refreshTapInButtonState's once-a-
-     second updates, instead of jumping. Unsupported browsers (older
-     Firefox/Safari) just skip the transition and jump once a second —
-     still correct, just less smooth. */
   @property --tapin-frac {
     syntax: '<number>';
     inherits: false;
     initial-value: 1;
   }
 
-  /* Sits right next to the color picker in .status-actions — same round
-     button as the rest of the UI, just sized to sit comfortably beside
-     the small circular swatch. Disabled (via .round-btn:disabled above)
-     for the 5-minute cooldown between taps, same visual language as the
-     video player's own disabled controls. */
   .tapin-btn {
     width: clamp(22px, 7cqmin, 28px);
     font-size: clamp(11px, 3.4cqmin, 14px);
     flex: none;
     transition: --tapin-frac 1s linear;
   }
-  /* Countdown "sweep": a conic-gradient wedge that shrinks away to the
-     dim color as --tapin-frac (fraction of the cooldown still
-     remaining, 1 -> 0) counts down, like a pie-timer's hand sweeping
-     round — the second color-stop's position of plain "0" is a standard
-     conic-gradient trick: since it's less than the first stop's actual
-     angle, it gets clamped up to meet it, so --accent-dim fills exactly
-     the rest of the circle instead of needing its own calc(). */
+
   .tapin-btn.on-cooldown {
     background: conic-gradient(var(--accent) calc(var(--tapin-frac, 1) * 360deg), var(--accent-dim) 0);
   }
-  /* Swaps for the mm:ss label at the same cadence (see
-     refreshTapInButtonState) — smaller than the emoji it replaces so a
-     4-5 character countdown still fits inside this small a circle. */
+
   .tapin-btn-label.is-countdown {
     font-size: clamp(7px, 2.4cqmin, 9px);
     font-weight: 700;
   }
-  /* Replaces the old beer emoji glyph — cropped to a circle via
-     object-fit so it reads as a badge inside the round button rather
-     than a square photo pasted on top of it. Sized off the same
-     clamp()/cqmin scale as .tapin-btn itself (82% of it) rather than a
-     percentage of .tapin-btn-label: that label is a plain inline span,
-     which doesn't give a percentage width/height on an img anything
-     reliable to resolve against, and left the icon undersized and
-     drifted toward one corner instead of centered in the button. */
+
   .tapin-btn-icon {
     width: clamp(18px, 5.7cqmin, 23px);
     height: clamp(18px, 5.7cqmin, 23px);
@@ -1047,8 +740,6 @@
     display: block;
   }
 
-  /* Auth screen now fills the whole chat card and centers its content,
-     since the top tab/header bar has been removed on this screen. */
   .auth {
     flex: 1 1 auto;
     display: flex;
@@ -1071,15 +762,9 @@
     text-transform: uppercase;
   }
 
-  /* Readable text box — flat, no inset/bevel shadow */
   input[type="text"] {
     width: 100%;
-    /* cqmin (not cqw/cqh separately) so this can't drift out of ratio
-       with the round buttons beside it (see .status-actions etc. below)
-       on a container whose width and height grow at different rates —
-       a wide-but-short pane on a big screen, or Safari zoomed out, was
-       letting cqw-sized things and cqh-sized things scale apart from
-       each other, which read as everything "smushed" together. */
+
     padding: clamp(8px, 2.4cqmin, 11px) clamp(8px, 2.4cqmin, 12px);
     background: var(--ink);
     border: 1px solid var(--line);
@@ -1114,19 +799,10 @@
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 2.4cqh, 12px);
-    /* renderMessages() below fully replaces this list's content on every
-       single new message (up to 200 of them) rather than appending just
-       the new one — on mobile Safari specifically, repeatedly replacing
-       the content of a scrolled overflow:auto box like that can leave a
-       stale, ghosted strip of a PREVIOUS render still painted on screen
-       (with a visible seam where it doesn't quite line up with the new
-       content), because the browser reuses an old compositor tile
-       instead of fully repainting. Forcing this onto its own layer up
-       front heads that off — see renderMessages' own forced-reflow line
-       for the other half of this fix. */
+
     transform: translateZ(0);
   }
-  /* flat, thin scrollbar */
+
   .messages::-webkit-scrollbar { width: 8px; }
   .messages::-webkit-scrollbar-track { background: transparent; }
   .messages::-webkit-scrollbar-thumb {
@@ -1150,14 +826,11 @@
   }
   .msg.mine .msg-meta { color: var(--accent); }
 
-  /* Username within the meta line — bolder and a step larger than the
-     timestamp it sits next to, so it reads as the "who" at a glance. */
   .msg-name {
     font-weight: 800;
     font-size: 1.15em;
   }
 
-  /* Message bubbles are the one readable "text box" in the message list */
   .msg-bubble {
     background: var(--panel-2);
     border: 1px solid var(--line);
@@ -1181,10 +854,6 @@
     padding: 20px;
   }
 
-  /* "X has tapped in" join notice — smaller and dimmer than a real
-     message bubble, and centered rather than left/right-aligned like
-     one, so it reads as a system line rather than something someone
-     said. */
   .system-msg {
     text-align: center;
     color: var(--text-dim);
@@ -1193,33 +862,11 @@
     font-size: clamp(10px, 2.4cqw, 12px);
   }
 
-  /* ---------- TAP-IN STREAK BAR ----------
-     A small translucent readout that rises up out of the composer bar
-     for a few seconds after a successful tap-in: your own current daily
-     streak, plus how the top 3 currently-alive streaks compare (see the
-     TAP IN section's showStreakBar/fetchTopStreaks below for the data
-     side). --panel-2/--line/--text/--text-dim throughout, same as the
-     rest of this widget, so it re-tints itself along with everything
-     else when html.is-offline swaps the whole palette to grey — nothing
-     here is a hardcoded color.
-     The "rises up" motion is two layered transitions: the wrap's own
-     max-height opens up the room (same trick as .vods-drawer above),
-     while the bar inside it slides up out of that newly-opened space
-     instead of just fading into it, so it reads as climbing up from the
-     bottom of the chat rather than growing down from the composer. */
   .streak-bar-wrap {
     flex: none;
     max-height: 0;
     overflow: hidden;
-    /* Same stale-compositor-tile bug as .messages' own translateZ(0)
-       above (see its comment) — not the max-height/visibility choreography
-       this used to blame it on: a delayed visibility switch was still
-       just describing a 0-height, hidden box to the browser, on the
-       assumption that alone would force a clean repaint. It doesn't,
-       reliably, on mobile Safari — the leftover sliver just persisted
-       (confirmed by a follow-up report after that fix shipped). Its own
-       compositing layer is the actual fix; visibility is kept as a
-       harmless second line of defense, not the load-bearing part. */
+
     transform: translateZ(0);
     visibility: hidden;
     transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
@@ -1254,10 +901,7 @@
     font-size: clamp(11px, 3cqmin, 13px);
     white-space: nowrap;
   }
-  /* Replaces the old 🔥/🥇🥈🥉 emoji glyphs in .streak-bar-mine and each
-     .streak-bar-lb-entry below — sized in em off their own span's
-     font-size so they keep tracking the bar's clamp()-driven scaling
-     the same way the emoji did. */
+
   .streak-fire-icon,
   .streak-medal-icon {
     height: 1.2em;
@@ -1265,9 +909,7 @@
     vertical-align: -0.2em;
     display: inline-block;
   }
-  /* Divider only shows once there's a leaderboard segment to separate
-     from — see the template in showStreakBar, which omits both this and
-     .streak-bar-lb entirely while that fetch is still in flight/failed. */
+
   .streak-bar-divider {
     color: var(--text-dim);
     opacity: 0.5;
@@ -1280,8 +922,7 @@
     color: var(--text-dim);
     font-size: clamp(10px, 2.6cqmin, 12px);
   }
-  /* The current device's own entry, when it actually places top 3 —
-     matches .who b's treatment of your own name elsewhere in this bar. */
+
   .streak-bar-lb-entry.is-you {
     color: var(--text);
     font-weight: 700;
@@ -1297,7 +938,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* cqmin — see the note on .status-actions above */
+
     padding: clamp(5px, 1.6cqmin, 8px) clamp(10px, 3cqmin, 14px) 0;
   }
 
@@ -1310,16 +951,7 @@
   .composer input {
     flex: 1;
   }
-  /* A drawn "SEND" button graphic, not a flat circle like the rest of
-     the .round-btn family (see FLAT CIRCULAR BUTTONS below) - not built
-     from that class at all, since none of its circular shape/flat-color
-     background fit an oval image with its own baked-in coloring. Sized
-     by height alone (cqmin, matching the scale every other control in
-     this row already uses) with width left to aspect-ratio - the one
-     CSS property that guarantees the button stays in-proportion at any
-     size, screen, or resolution rather than stretching. The ratio is the
-     shipped send-button.png's own exact pixel dimensions, so there's no
-     rounding drift between the two. */
+
   .send-btn {
     -webkit-appearance: none;
     appearance: none;
@@ -1338,28 +970,16 @@
     height: 100%;
     object-fit: contain;
   }
-  /* Darkening a drawn image (rather than swapping a flat background
-     color, like every other button here does on hover/active) is a
-     brightness filter - it dims the whole graphic uniformly regardless
-     of its own colors, so it works the same way whether the art behind
-     it ever changes. */
+
   .send-btn:hover:not(:disabled) { filter: brightness(0.82); }
   .send-btn:active:not(:disabled) { filter: brightness(0.68); }
 
-  /* Wraps just the text input (not the send button beside it) so the
-     counter below can pin to ITS corner without floating out over the
-     button's own padding. */
   .composer-input-wrap {
     position: relative;
     flex: 1;
     min-width: 0;
   }
-  /* Room on the right so the counter never sits on top of typed text —
-     a single-line input scrolls its OWN text right up to the inner edge
-     of this padding once it overflows (to keep the caret visible), so
-     this has to comfortably clear the counter's widest realistic case
-     (see MAX_MSG_LEN's own comment on the "1000/400" ceiling) with a
-     few px to spare, not just its resting "0/400". */
+
   .composer-input-wrap input { padding-right: clamp(58px, 15cqmin, 72px); }
   .char-counter {
     position: absolute;
@@ -1372,13 +992,9 @@
     pointer-events: none;
     white-space: nowrap;
   }
-  /* Over the limit isn't a typing error to block outright (see
-     sendMessage's own comment) — just a heads-up, so this only recolors
-     the existing counter rather than doing anything more alarming. */
+
   .char-counter.is-over { color: var(--error); font-weight: 700; }
-  /* Hidden by default (see the composer template's `hidden` attribute) —
-     only shown for a few seconds right after a too-long send attempt,
-     never a permanent fixture like the counter above it. */
+
   .composer-limit-msg {
     color: var(--error);
     font-size: clamp(10px, 2.6cqmin, 12px);
@@ -1405,20 +1021,13 @@
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
       </div>
-      <!-- Was permanent text in the bar below the video; now lives here
-           so it shows/hides with the rest of the controls instead of
-           sitting on screen at all times. -->
+
       <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
         <span id="activeViewersCount">0</span>
       </div>
       <div class="video-frame-wrap">
-        <!-- No src here on purpose — it's set by JS once the configured
-             video id loads (see LIVE STREAM VIDEO below), so it's never
-             pointed at a stale hardcoded id even for a moment. The
-             .video-pane.is-loading overlay already hides this iframe
-             until playback actually starts, so the brief async gap
-             before src is set isn't visible. -->
+
         <iframe
           id="ytFrame"
           allowfullscreen
@@ -1429,14 +1038,7 @@
         </iframe>
       </div>
       <div class="video-loading" id="videoLoading">
-        <!-- Muted+looped, no controls attribute, and inheriting
-             pointer-events:none from .video-loading (see its own rule
-             above) - nothing about it responds to a click/tap/right-click,
-             so it reads as a moving picture rather than a video with
-             nothing wired up. disablepictureinpicture/disableRemotePlayback
-             suppress Chrome's own automatic PiP/cast overlay buttons,
-             which it can still draw over a plain <video> even without a
-             controls attribute. -->
+
         <video class="offline-frame" id="offlineVideo" src="/OFFLINE%20CARD.mp4" autoplay muted loop playsinline webkit-playsinline="true" disablepictureinpicture disableRemotePlayback preload="auto" aria-label="We are currently offline"></video>
         <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
       </div>
@@ -1444,11 +1046,7 @@
         <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
         <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
         <span class="time-label" id="timeLabel">0:00 / 0:00</span>
-        <!-- Grey dot = watching a VOD, or scrubbed behind the live edge;
-             red = caught up to live. Click jumps back to live (from a
-             VOD or a scrub), or to the offline card if nothing's live
-             right now — see updateLiveButtonState()/goLiveClicked()
-             near LIVE STREAM VIDEO STATE below. -->
+
         <button type="button" class="live-btn" id="liveBtn" title="Go to live">
           <span class="live-dot" id="liveDot" aria-hidden="true"></span>
           Live
@@ -1456,22 +1054,14 @@
         <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
       </div>
     </div>
-    <!-- Doubles as the VODs handle on mobile: the whole bar is the tap
-         target there (see the click wiring in the VODs DRAWER script),
-         which is why the chevron lives in here rather than on a
-         separate nub below. Desktop keeps its own .vods-tab and this
-         bar stays a plain readout. -->
+
     <div class="stream-stats" id="streamStats">
       <span class="stream-stats-vods" aria-hidden="true">Past Streams<span class="stream-stats-chevron">&#9660;</span></span>
     </div>
   </div>
 
   <div class="chat-pane" id="chatPane">
-    <!-- Overlays the top of the chat card. Drawer first, tab second, so
-         the tab stays on the panel's bottom edge: closed, it's a nub
-         hanging off the video's "N watching" bar (mobile) or a "VODS"
-         bar butted against the video (desktop); open, it rides down to
-         the bottom of the list. See the VODs DRAWER CSS above. -->
+
     <div class="vods-panel" id="vodsPanel">
       <div class="vods-drawer" id="vodsDrawer">
         <div class="vods-heading">Past Streams</div>
@@ -1502,15 +1092,7 @@
 })();
 
 (function () {
-  // Mobile browsers (iOS Safari especially) pause every <video> element -
-  // even a muted, looping, purely decorative one - the moment its tab/app
-  // is backgrounded, and never resume it just because the tab came back to
-  // the foreground: autoplay only ever fires once, on the initial load.
-  // Left alone, switching away for a while and coming back leaves the
-  // offline placeholder frozen on whatever frame it paused on. Resuming it
-  // by hand on every return to the foreground (only if it's actually
-  // paused - a real live/VOD stream showing instead by then is left alone)
-  // is the standard fix for this.
+
   var offlineVideo = document.getElementById('offlineVideo');
   if (offlineVideo) {
     document.addEventListener('visibilitychange', function () {
@@ -1522,10 +1104,7 @@
 })();
 
 (function () {
-  // Browsers block unmuted autoplay, so the video has to start muted.
-  // The YouTube IFrame Player API attaches to the existing #ytFrame embed
-  // (it must have enablejsapi=1 in its src, which it does) so the custom
-  // controls below can drive real playback without reloading the video.
+
   var unmuteBtn = document.getElementById('unmuteBtn');
   var playPauseBtn = document.getElementById('playPauseBtn');
   var scrubRange = document.getElementById('scrubRange');
@@ -1547,14 +1126,6 @@
     videoPane.classList.remove('is-loading');
   }
 
-  // ---------- Controls visibility ----------
-  // Real hover reveals the controls on desktop (mouseenter/mouseleave).
-  // Touch devices have no hover, so a tap shows them instead, auto-hiding
-  // after a few seconds — and, since that leaves no way to dismiss them
-  // on purpose, a second tap anywhere on the video itself hides them
-  // immediately too. Tapping an actual control (unmute, scrub bar, etc)
-  // never counts as that second "close" tap — it should just do its own
-  // thing, not also yank the bar out from under it.
   var CONTROLS_AUTO_HIDE_MS = 3000;
   var supportsHover = window.matchMedia('(hover: hover)').matches;
   var controlsHideTimer = null;
@@ -1578,10 +1149,7 @@
     videoPane.addEventListener('mouseleave', function () { hideControlsNow(); });
   } else {
     videoPane.addEventListener('touchstart', function (e) {
-      // The watching bar lives inside this pane but is its own control
-      // (it opens the VODs drawer on mobile), so it must not also count
-      // as "tapped the video" — otherwise one tap is spent toggling the
-      // player controls and the bar needs a second one to register.
+
       if (e.target.closest('.stream-stats')) return;
       if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls')) {
         showControls(true);
@@ -1661,24 +1229,6 @@
     });
   };
 
-  // ---------- LIVE STREAM VIDEO STATE ----------
-  // Bridges from the Firebase-backed admin config (videoId + isLive)
-  // watched in the main chat script further down — that script runs
-  // later, in its own IIFE, so it calls this via window instead of
-  // reaching in and touching ytPlayer directly. Keeping every actual
-  // player lifecycle call here, next to ytPlayer/showVideoLoading/
-  // hideVideoLoading, beats duplicating YT Player API calls across two
-  // separate script blocks.
-  // configuredLiveVideoId/configuredIsLive track admin.html's live
-  // config as-is; loadedVideoId is whatever #ytFrame is ACTUALLY
-  // showing right now, which diverges from the config while
-  // watchingVodId is set (a viewer picked something from the VODs
-  // drawer) — applyLiveVideoState below still runs on every config
-  // change either way (so the Live button's grey/red state and
-  // "return to live" always have a fresh target), it just skips
-  // actually touching the player while a VOD is up, same idea as a
-  // podcast app not yanking you off a downloaded episode just because
-  // a new one dropped.
   var configuredLiveVideoId = null;
   var configuredIsLive = false;
   var loadedVideoId = null;
@@ -1694,16 +1244,8 @@
     document.body.appendChild(s);
   }
 
-  // Same "behind live" threshold feel as YouTube's own player: still
-  // counts as caught up within a few seconds of the live edge (normal
-  // buffering jitter), grey once you've actually scrubbed back.
   var LIVE_EDGE_THRESHOLD_SEC = 8;
 
-  // Red whenever you're on the live slot — including when that slot is
-  // showing the offline card, since you're still "on live", there just
-  // isn't a stream in it right now. The only two things that grey it
-  // out are the two things you'd click it to undo: watching a VOD, and
-  // having scrubbed back off the live edge mid-stream.
   function updateLiveButtonState() {
     if (!liveBtn) return;
     var onLiveSlot = !watchingVodId;
@@ -1718,45 +1260,24 @@
     liveBtn.title = watchingVodId ? 'Return to live' : (atLive ? 'Live' : 'Jump to live');
   }
 
-  // Nothing configured live and no VOD picked = the pane is showing only
-  // the looping offline placeholder (see .offline-frame/#offlineVideo
-  // above), so none of play/pause, scrub, live/fullscreen, unmute, or
-  // hide-chat do anything meaningful — .offline-card (CSS above) hides
-  // that whole overlay regardless of hover/tap .controls-visible state.
-  // Deliberately its own flag rather than reusing is-loading, which also
-  // covers ordinary YT buffering of an actually-live stream/VOD — the
-  // controls must stay put through those, only this specific state hides
-  // them. Defaults to true (offline) before the first Firestore snapshot
-  // arrives, same assumption configuredIsLive's own default makes.
   function updateOfflineCardState() {
     videoPane.classList.toggle('offline-card', !watchingVodId && !configuredIsLive);
   }
   updateOfflineCardState();
 
-  // Drives the whole page's dark palette (html.is-offline, CSS above),
-  // not just this widget's own video pane — a viewer's own VOD pick
-  // doesn't affect this (unlike updateOfflineCardState), since the red
-  // palette going dark is about whether anything's live right now, not
-  // about what a given viewer happens to be watching. Also relays the
-  // state to the parent frame (live.html has no Firebase listener of
-  // its own — its background is red/dark only via this postMessage),
-  // same pattern as the tap-in effect's own message to that page.
   function updateOfflineTheme() {
     document.documentElement.classList.toggle('is-offline', !configuredIsLive);
     try { window.parent.postMessage({ type: 'knobsock-live-state', isLive: configuredIsLive }, '*'); } catch (e) {}
   }
   updateOfflineTheme();
 
-  // Called on every config change, not just page load — admin.html's
-  // "Go Offline"/"Go Live" toggle needs to take effect immediately for
-  // anyone already sitting on the page, not just on their next visit.
   window.applyLiveVideoState = function (videoId, isLive) {
     configuredLiveVideoId = isLive ? videoId : null;
     configuredIsLive = !!isLive;
     updateLiveButtonState();
     updateOfflineCardState();
     updateOfflineTheme();
-    if (watchingVodId) return; // a viewer's own VOD choice isn't interrupted by a config change alone
+    if (watchingVodId) return;
 
     if (!isLive) {
       loadedVideoId = null;
@@ -1767,7 +1288,7 @@
       return;
     }
 
-    if (videoId === loadedVideoId) return; // already showing this exact video
+    if (videoId === loadedVideoId) return;
     loadedVideoId = videoId;
 
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
@@ -1782,8 +1303,6 @@
     requestYouTubeIframeApi();
   };
 
-  // The VODs drawer (built in the main chat script further down) calls
-  // this to switch the player over to a picked-out VOD.
   window.switchToVod = function (vodId) {
     if (!vodId || (watchingVodId === vodId && loadedVideoId === vodId)) return;
     watchingVodId = vodId;
@@ -1803,13 +1322,9 @@
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(watchingVodId);
   };
 
-  // The Live button's own click handler — see below, next to
-  // unmuteBtn's — calls this. Also exposed on window since the VODs
-  // drawer's "now playing" state needs to know when the viewer has
-  // left a VOD via this path, not just by picking a different one.
   window.returnToLive = function () {
     watchingVodId = null;
-    loadedVideoId = null; // force applyLiveVideoState to actually (re)load below, even if it's the same live id as before
+    loadedVideoId = null;
     window.applyLiveVideoState(configuredLiveVideoId, configuredIsLive);
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(null);
   };
@@ -1821,9 +1336,7 @@
         return;
       }
       if (!configuredIsLive) {
-        // Nothing live right now — the "catch up" gesture just means
-        // "take me to the live slot," which is the offline card when
-        // there's nothing there.
+
         window.applyLiveVideoState(configuredLiveVideoId, false);
         return;
       }
@@ -1832,9 +1345,7 @@
         if (duration > 0) ytPlayer.seekTo(duration, true);
       }
     });
-    // Paint it once up front rather than waiting on the first Firestore
-    // snapshot or player poll — you land on the live slot, so it should
-    // already be red when the page finishes loading.
+
     updateLiveButtonState();
   }
 
@@ -1940,11 +1451,7 @@
   function updateFullscreenIcon() {
     var fs = isFullscreen();
     fullscreenBtn.title = fs ? 'Exit Fullscreen' : 'Fullscreen';
-    // Belt-and-suspenders alongside the video pane's own fullscreen
-    // sizing: explicitly hide the chat pane rather than relying solely
-    // on the video covering it, so there's no overlap even if a
-    // rebuffer briefly makes the (fullscreened) video pane's background
-    // transparent again.
+
     layoutEl.classList.toggle('fullscreen-active', fs);
   }
 
@@ -1969,11 +1476,6 @@
 })();
 </script>
 
-<!-- YouTube IFrame Player API: injected by LIVE STREAM VIDEO below, once
-     the configured video id is known — not loaded unconditionally here,
-     so it never attaches to #ytFrame before the right id is set. -->
-
-<!-- Firebase SDK (compat build, no build tools needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
@@ -1981,19 +1483,10 @@
 (function () {
   const app = document.getElementById('app');
 
-  // Looks up an element by id within the chat widget itself, instead of
-  // `document.getElementById`. Plain `document.getElementById` always
-  // searches the main page's document, which breaks once the widget is
-  // popped out into a separate window (its elements live in that
-  // window's document at that point). Searching from `app` works either
-  // way, since `app` moves along with the widget.
   function $(id) {
     return app.querySelector('#' + id);
   }
 
-  // ====================================================================
-  // Your Firebase config
-  // ====================================================================
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
     authDomain: "chat-for-website-efee2.firebaseapp.com",
@@ -2002,7 +1495,6 @@
     messagingSenderId: "509309222193",
     appId: "1:509309222193:web:f487258cfba2f7f7b00410"
   };
-  // ====================================================================
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
@@ -2011,26 +1503,11 @@
   const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
   const devicesRef = db.collection('chat_devices');
-  // Separate from usernamesRef on purpose — see logIpBestEffort below for
-  // why this collection, specifically, needs to be able to expire on its
-  // own without touching the username-ownership doc it used to live on.
+
   const ipLogRef = db.collection('chat_ip_log');
 
-  // Fixed string baked into this file, not a real secret (anyone can read
-  // this source) — it defeats a casual unsalted rainbow-table lookup, but
-  // it's not cryptographic protection against someone who reads this file
-  // and brute-forces the ~4 billion possible IPv4 addresses through the
-  // same salt. Treat hashIp()'s output as "harder to casually reverse,"
-  // not "unbreakable" — genuine secrecy would need the salt to live
-  // server-side, which this static site doesn't have.
   const IP_LOG_SALT = 'knobsock-chat-ip-v1';
-  // How long a hashed IP sticks around before admin.html stops showing it
-  // (see findSignOutGroup) and Firestore's own TTL policy deletes the doc
-  // outright (see the chat_ip_log rules comment in firestore.rules) —
-  // picked as a window long enough to still catch a ban-evader who waits
-  // a while before coming back, while staying short enough to read as
-  // "temporary" rather than indefinite. See privacy.html for the
-  // plain-language version of this.
+
   const IP_RETENTION_DAYS = 90;
 
   async function hashIp(ip) {
@@ -2041,21 +1518,6 @@
     }).join('');
   }
 
-  // ---------- LIVE STREAM VIDEO ----------
-  // Which video/stream #ytFrame embeds, and whether it's shown at all
-  // right now, is admin-configurable (see admin.html's "Live Stream
-  // Video" section — the URL field and the Go Offline/Go Live toggle)
-  // instead of hardcoded/always-on, so a changed YouTube URL doesn't
-  // need a code deploy and going offline doesn't leave the last
-  // broadcast's replay looping for anyone who loads the page. A *live*
-  // listener, not a one-time read — the offline toggle has to take
-  // effect immediately for anyone already sitting on the page, the same
-  // way a ban does elsewhere in this file. The actual player calls live
-  // in window.applyLiveVideoState (see LIVE STREAM VIDEO STATE, in the
-  // earlier video-control script block) — this just watches Firestore
-  // and hands it the result. A missing isLive field defaults to true
-  // (online), so a site that hasn't touched the new toggle yet behaves
-  // exactly as it did before this existed.
   const DEFAULT_LIVE_VIDEO_ID = '91UOOY-od88';
 
   configRef.doc('liveVideo').onSnapshot((doc) => {
@@ -2066,21 +1528,12 @@
       window.applyLiveVideoState(videoId, isLive);
     }
   }, () => {
-    // Can't confirm live-video config (offline, rules not deployed yet,
-    // etc.) — falls back to the built-in default video, online, rather
-    // than leaving the stream blank over a read error.
+
     if (typeof window.applyLiveVideoState === 'function') {
       window.applyLiveVideoState(DEFAULT_LIVE_VIDEO_ID, true);
     }
   });
 
-  // ---------- VODs DRAWER ----------
-  // Past streams the admin has added on the Live tab (see admin.html) —
-  // a simple ordered {url, title} list, unlike the single "what's live
-  // right now" doc above. The id is extracted here rather than trusted
-  // to already be a bare video id, since the admin side saves whatever
-  // URL format got pasted in, same as every other YouTube-link list on
-  // this site (see extractVideoId in admin.html for the same pattern).
   function extractVideoId(input) {
     if (!input) return null;
     const trimmed = String(input).trim();
@@ -2095,16 +1548,8 @@
   let latestVods = [];
   let activeVodId = null;
 
-  // The open state lives on .layout too, not just the panel: squaring
-  // off the video pane's bottom corners so the watching bar runs
-  // straight into the drawer needs a hook on a shared ancestor, since
-  // the pane is the chat pane's sibling rather than its child.
   const vodsLayoutEl = document.getElementById('layout');
-  // Matches .vods-drawer's max-height transition in the CSS above. The
-  // squared corners have to outlast the close animation: drop them the
-  // moment the tap lands and the video's rounded corners come back
-  // while a full-width, square-cornered drawer is still collapsing
-  // underneath them, which is the crescent flashing back mid-animation.
+
   const VODS_ANIM_MS = 400;
   let vodsCornerTimer = null;
   function setVodsOpen(open) {
@@ -2126,10 +1571,6 @@
 
   if (vodsTab) vodsTab.addEventListener('click', toggleVods);
 
-  // On mobile the whole "N watching" bar is the handle, not a separate
-  // nub. Guarded rather than always-on: on desktop that bar sits under
-  // the video while the drawer opens over on the chat side, so making
-  // it open something across the layout would just be confusing.
   const vodsBarQuery = window.matchMedia('(max-width: 860px)');
   const streamStatsEl = document.getElementById('streamStats');
   if (streamStatsEl) {
@@ -2138,11 +1579,6 @@
     });
   }
 
-  // Lets the video-control script (LIVE STREAM VIDEO STATE, in the
-  // earlier script block) tell this one when the viewer has returned
-  // to live by some path other than picking a different VOD here —
-  // clicking the Live button, most likely — so the drawer's own
-  // "now playing" highlight stays in sync either way.
   window.onVodStateChange = function (vodId) {
     activeVodId = vodId;
     renderVods();
@@ -2179,20 +1615,9 @@
     if (vodsListEl) vodsListEl.innerHTML = '<div class="vods-empty">Couldn’t load past streams.</div>';
   });
 
-  let session = null; // { username }
+  let session = null;
   let unsubscribeMessages = null;
 
-  // ---------- DEVICE ID ----------
-  // A static site with no server has no way to see (let alone block) a
-  // visitor's real network IP — that needs a server component this site
-  // doesn't have, and a client-only IP check is trivially skipped anyway.
-  // What a browser CAN carry reliably is a random ID stashed in its own
-  // localStorage: it survives a username change (unlike the username
-  // itself, which anyone can just retype as something else), and — sent
-  // with every message/join below — it's what admin.html's ban feature
-  // actually targets. Firestore's own security rules (not just this
-  // page's JS) are what make a ban on this ID stick; see admin.html's
-  // Live tab for the rest of the moderation flow.
   function getClientId() {
     try {
       let id = localStorage.getItem('chat_client_id');
@@ -2202,23 +1627,12 @@
       }
       return id;
     } catch (e) {
-      // Private/incognito mode can block localStorage entirely — falls
-      // back to a session-only id rather than failing to load chat at
-      // all; this one visit just won't be persistently recognizable
-      // across a future session on the same browser.
+
       return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
     }
   }
   const CLIENT_ID = getClientId();
 
-  // ---------- REMEMBERED USERNAME (local fast-path cache) ----------
-  // A quick local echo of this device's permanent username (see DEVICE
-  // LOCK below, which is the actual source of truth) — this is what lets
-  // an offline/slow-to-load tab resume chat immediately instead of
-  // waiting on a round trip, and it's what the very first version of
-  // this feature used on its own before device-locking existed. It is
-  // never used to grant a *different* name, only to echo the one the
-  // device lock already settled on.
   const LAST_USERNAME_KEY = 'chat_last_username';
 
   function rememberUsername(username) {
@@ -2229,45 +1643,10 @@
     try { return localStorage.getItem(LAST_USERNAME_KEY); } catch (e) { return null; }
   }
 
-  // Only ever called when the device lock itself just got cleared (see
-  // the live listener below) — there's deliberately no user-facing way
-  // to trigger this, since forgetting a name on your own is exactly the
-  // identity-switching the device lock exists to prevent.
   function forgetRememberedUsername() {
     try { localStorage.removeItem(LAST_USERNAME_KEY); } catch (e) {}
   }
 
-  // ---------- DEVICE LOCK ----------
-  // One browser, one username, forever — this is what actually stops
-  // someone from ditching a name (sign out, clear the tab, whatever) and
-  // rejoining as somebody else to impersonate another chatter. The first
-  // username a device ever successfully claims gets written to
-  // chat_devices/<CLIENT_ID>, and claimUsernameSlot() below always
-  // checks that doc before creating anything new — so even a
-  // resubmitted join form with a different typed name just hands back
-  // the device's existing name instead of creating a second one. Keyed
-  // by CLIENT_ID rather than username because the whole point is to
-  // bind the *device*, not the name.
-  //
-  // This lock is deliberately best-effort, not a hard gate: every read
-  // or write against chat_devices fails open (treated as "no lock yet")
-  // rather than blocking anything, so a problem with this one collection
-  // — Firestore rules not yet updated to allow it, an offline tab,
-  // whatever — degrades to "the anti-impersonation lock doesn't take
-  // effect this time," never to "chat stops working." See
-  // claimUsernameSlot() for where that matters most.
-  //
-  // Like CLIENT_ID itself, this only holds up as long as this browser's
-  // localStorage (which is what CLIENT_ID lives in) survives — there's
-  // no server here to check a real identity against, so a fully wiped
-  // browser/profile or a different browser is indistinguishable from a
-  // brand-new visitor. That's the same ceiling the ban system already
-  // operates under.
-  // A *live* listener rather than a one-time read: admin.html's "Free
-  // Up This Username" can delete this doc while this exact tab is
-  // sitting open and signed in, and that needs to boot the tab back to
-  // the join screen right away — same "takes effect immediately, not
-  // just on next reload" treatment the ban listener already gets.
   let deviceLockedUsername = null;
   let resolveDeviceLockReady;
   const deviceLockPromise = new Promise((resolve) => { resolveDeviceLockReady = resolve; });
@@ -2289,17 +1668,9 @@
     lastTapInAt = (data && data.lastTapInAt) || 0;
     refreshTapInButtonState();
 
-    // Mirrors lastTapInAt just above — kept in memory from this same live
-    // listener so sendTapIn() (see TAP IN below) always has this device's
-    // latest known streak/day on hand without a separate read of its own.
     myStreak = (data && data.streak) || 0;
     myStreakDay = (data && data.streakDay) || null;
 
-    // A ban screen takes priority over this — never stomp it — and only
-    // an already-open session that just lost the exact lock it was
-    // resumed from needs kicking; a lock that was never there to begin
-    // with (still-empty first read, or one that's simply moving from one
-    // name to another) isn't a free-up.
     if (!currentlyBanned && hadLock && !lockedName && session) {
       session = null;
       forgetRememberedUsername();
@@ -2307,41 +1678,15 @@
       renderAuth('An admin signed you out — pick a new username to keep chatting.');
     }
   }, () => {
-    // Can't confirm a lock (offline, rules not deployed yet, etc.) —
-    // falls back to the locally-remembered name below rather than
-    // blocking chat entirely over a read error.
+
     markDeviceLockReady();
   });
 
-  // ---------- USERNAME CLAIMING ----------
-  // Usernames are permanently unique site-wide, first come first served —
-  // once "gunoguap" is taken, it's taken; nobody else gets "gunoguap#0001"
-  // as an automatic fallback. That auto-numbering used to exist because a
-  // device had no durable identity, so two different people who both
-  // wanted "gunoguap" needed some way to both get in; now that a device
-  // is permanently locked to one name (see DEVICE LOCK above), nobody
-  // needs to share a base name in the first place — a straight rejection
-  // with a clear "try another name" is simpler and good enough.
-  //
-  // Returns { username, isNew }. isNew is false when this device already
-  // owned a name coming in — the caller uses that to skip re-announcing
-  // a "join" for a device that never actually left. Throws
-  // Error('USERNAME_TAKEN') if the requested name belongs to a different
-  // device already.
   async function claimUsernameSlot(rawUsername) {
     const baseKey = rawUsername.toLowerCase();
     const baseRef = usernamesRef.doc(baseKey);
     const deviceRef = devicesRef.doc(CLIENT_ID);
 
-    // Checked as a plain read *before* the claim transaction, and any
-    // failure here (offline, chat_devices not yet allowed by Firestore
-    // rules, whatever) is treated as "no lock yet" rather than aborting —
-    // a problem with the device lock must never be able to stop someone
-    // from joining chat at all, only from the anti-impersonation lock
-    // taking effect. This does reopen a narrow window where two tabs on
-    // a brand-new device could each claim a different name a few
-    // milliseconds apart before either lock write lands; that's an
-    // acceptable trade for never bricking chat over it.
     try {
       const deviceDoc = await deviceRef.get();
       const lockedName = deviceDoc.exists && deviceDoc.data() && deviceDoc.data().username;
@@ -2352,9 +1697,6 @@
       console.error('Device lock check failed, proceeding as a normal claim:', e);
     }
 
-    // Isolated from the lock write below on purpose — this transaction
-    // succeeding is what actually gets someone into chat, and it must
-    // not depend on chat_devices being writable.
     const finalUsername = await db.runTransaction(async (tx) => {
       const baseDoc = await tx.get(baseRef);
       if (baseDoc.exists) {
@@ -2363,19 +1705,12 @@
       tx.set(baseRef, {
         username: rawUsername,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        // Whoever claims a given username slot keeps it forever (see
-        // the comment above) — this is what lets admin.html resolve
-        // "ban this person" from a username straight to the one
-        // device that has ever actually owned it.
+
         lastDeviceId: CLIENT_ID
       });
       return rawUsername;
     });
 
-    // Best-effort lock write: never blocks on this, and a failure here
-    // (rules not updated for chat_devices yet, offline, etc.) can't undo
-    // or fail the claim above — worst case the anti-impersonation lock
-    // just doesn't take effect yet, chat still works either way.
     devicesRef.doc(CLIENT_ID).set({
       username: finalUsername,
       claimedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2384,25 +1719,6 @@
     return { username: finalUsername, isNew: true };
   }
 
-  // Fetches this browser's public IP from a keyless lookup service and
-  // logs a SALTED HASH of it — never the address itself — to chat_ip_log,
-  // keyed by username: purely a reference clue for admin.html (e.g.
-  // "these two names hash to the same IP, might be the same person"),
-  // never an enforcement point; see the CLIENT_ID comment above for why a
-  // real IP block isn't possible from a static site.
-  //
-  // Written to its own collection instead of merged onto the username doc
-  // (like this used to work) specifically so it can expire on its own:
-  // expiresAt is set IP_RETENTION_DAYS out from right now, a Firestore TTL
-  // policy on that field (see the chat_ip_log rules comment in
-  // firestore.rules) deletes the doc once it passes, and admin.html
-  // additionally ignores anything past that age on read — so the data
-  // reads as gone immediately even during the day or so the TTL sweep
-  // itself can lag by, and username ownership/device locks/streaks (all
-  // on other docs) are never at risk of expiring along with it.
-  //
-  // Best-effort and fire-and-forget: a blocked/failed lookup just means
-  // this one detail stays blank, nothing about chat itself depends on it.
   function logIpBestEffort(finalUsername) {
     fetch('https://api.ipify.org?format=json')
       .then(res => res.ok ? res.json() : null)
@@ -2428,9 +1744,6 @@
     });
   }
 
-  // Posts a "X has joined" system line to the shared message feed when
-  // someone joins. Fire-and-forget like logIpBestEffort above — a failed
-  // write here shouldn't block the person from actually joining chat.
   function sendJoinNotice(username) {
     messagesRef.add({
       type: 'join',
@@ -2441,40 +1754,15 @@
     }).catch(() => {});
   }
 
-  // ---------- TAP IN ----------
-  // A fun, low-stakes button next to the color picker: posts a "just
-  // tapped in" system line (same shared feed as join notices, just a
-  // different type/text so the two read distinctly) and tells the
-  // top-level page (see live.html) to run the fullscreen beer-can effect.
-  // One tap per device per TAPIN_COOLDOWN_MS — enforced the same
-  // best-effort way as everything else identity-related on this page
-  // (see the DEVICE LOCK comments above): lastTapInAt lives on the same
-  // chat_devices/<CLIENT_ID> doc already used for the device lock, and a
-  // determined user could bypass the client-side check entirely. Not
-  // worth a harder gate for a sound-effect button.
   const TAPIN_COOLDOWN_MS = 5 * 60 * 1000;
   let lastTapInAt = 0;
   let tapinCooldownTimer = null;
 
-  // This device's current daily tap-in streak, kept live from the same
-  // chat_devices/<CLIENT_ID> listener that already tracks lastTapInAt
-  // (see DEVICE LOCK above) — streak is how many days in a row (see
-  // utcDayKey below) include at least one tap-in from this device;
-  // streakDay is the UTC day key of the last day that counted toward it.
   let myStreak = 0;
   let myStreakDay = null;
 
-  // ts values of tap-in messages THIS TAB is actively in the middle of
-  // writing right now — lets subscribeToMessages() recognize "this is
-  // my brand new write" precisely during its own settling window (see
-  // there for why that matters), without also matching this same
-  // device's tap-ins from a past session that are simply still sitting
-  // in history (deviceId alone can't tell those apart, since CLIENT_ID
-  // persists across reloads). In-memory only and short-lived — nothing
-  // here needs to survive a reload.
   const pendingOwnTapinTimestamps = new Set();
 
-  // mm:ss, e.g. 299999ms -> "5:00", 7000ms -> "0:07".
   function formatCooldown(ms) {
     const totalSeconds = Math.ceil(ms / 1000);
     const m = Math.floor(totalSeconds / 60);
@@ -2482,23 +1770,12 @@
     return m + ':' + String(s).padStart(2, '0');
   }
 
-  const TAPIN_ICON_HTML = '<img class="tapin-btn-icon" src="/tapin-cheers.png" alt="">'; // matches the img the button starts with in the template above
+  const TAPIN_ICON_HTML = '<img class="tapin-btn-icon" src="/tapin-cheers.png" alt="">';
 
-  // "YYYY-MM-DD" in UTC. A fixed reference point every visitor's streak
-  // agrees on, rather than each browser's own local midnight — otherwise
-  // the exact same broadcast schedule would count as a different number
-  // of "days" depending on which timezone happened to be watching.
   function utcDayKey(ts) {
     return new Date(ts).toISOString().slice(0, 10);
   }
 
-  // Pure function of this device's current in-memory streak state (see
-  // myStreak/myStreakDay above) plus a tap-in timestamp — never touches
-  // Firestore itself, so sendTapIn can call it before writing anything.
-  // Same day as last time: streak is unchanged (the cooldown above makes
-  // this the common case for a second tap-in today). The day right
-  // before: extends it by one. Anything else — a gap, or no prior
-  // tap-in at all — restarts it at 1.
   function nextStreakAfterTapIn(ts) {
     const todayKey = utcDayKey(ts);
     if (myStreakDay === todayKey) return { streak: myStreak, day: todayKey };
@@ -2506,22 +1783,6 @@
     return { streak: myStreakDay === yesterdayKey ? myStreak + 1 : 1, day: todayKey };
   }
 
-  // Reads the top currently-alive streaks — "alive" meaning a tap-in
-  // landed today or yesterday, not just whatever the raw streak number
-  // says — rather than trusting stored streak values alone, since
-  // nothing ever resets a device's streak back to 0 once its owner stops
-  // tapping in; a device that streaked for a month once and never came
-  // back would otherwise sit at the top of this list forever. A one-off
-  // get() (not a live listener), since this only needs to be current as
-  // of the tap-in that triggered it, not kept in sync afterward.
-  //
-  // Depends on chat_devices allowing a collection query (list), not just
-  // a get-by-own-id — that collection's rules live only in the Firebase
-  // console (see firestore.rules' own top-of-file warning), not in this
-  // repo, so if this silently never shows a leaderboard, that's the
-  // first thing to check there. Failing closed (empty array) either way
-  // is deliberate: the tap-in itself, and this device's own streak
-  // shown alongside it, must never depend on this succeeding.
   function fetchTopStreaks() {
     return devicesRef.orderBy('streak', 'desc').limit(15).get().then((snap) => {
       const todayKey = utcDayKey(Date.now());
@@ -2538,13 +1799,8 @@
 
   const STREAK_BAR_VISIBLE_MS = 8000;
   let streakBarHideTimer = null;
-  let streakBarToken = 0; // lets a slow/late leaderboard fetch recognize it's been superseded — see the check inside showStreakBar
+  let streakBarToken = 0;
 
-  // Renders your own streak immediately (no network wait — it's already
-  // in memory), then fills in the top-3 comparison once fetchTopStreaks
-  // resolves. Re-triggering (a second tap-in before this one's timer or
-  // fetch finished) just restarts the whole thing cleanly via the token
-  // check below and a fresh clearTimeout/setTimeout pair.
   function showStreakBar(streak) {
     const wrap = $('streakBarWrap');
     const bar = $('streakBar');
@@ -2556,18 +1812,12 @@
     wrap.classList.add('is-visible');
     streakBarHideTimer = setTimeout(() => {
       wrap.classList.remove('is-visible');
-      // Forces a synchronous repaint right as the collapse kicks off —
-      // same fix, same reasoning, as renderMessages' own forced-reflow
-      // line (see .messages/.streak-bar-wrap's own comments): mobile
-      // Safari can otherwise leave a stale painted sliver of the bar's
-      // border on screen even once its real geometry is back to 0.
+
       void wrap.offsetHeight;
     }, STREAK_BAR_VISIBLE_MS);
 
     fetchTopStreaks().then((top) => {
-      // Stale by the time this resolves — a newer tap-in already replaced
-      // this content, or the bar already auto-hid — so appending now
-      // would look like a glitch rather than a comparison for THIS tap-in.
+
       if (token !== streakBarToken || !wrap.classList.contains('is-visible') || !top.length) return;
       const medals = ['/streak-rank-1.png', '/streak-rank-2.png', '/streak-rank-3.png'];
       const entries = top.map((row, i) =>
@@ -2593,9 +1843,7 @@
         label.textContent = formatCooldown(remaining);
         label.classList.add('is-countdown');
       }
-      // Reruns every second (not just once at the very end) so the
-      // sweep and mm:ss label actually count down instead of only
-      // flipping the button back on when the cooldown finally expires.
+
       tapinCooldownTimer = setTimeout(refreshTapInButtonState, Math.min(remaining, 1000));
     } else {
       btn.disabled = false;
@@ -2609,16 +1857,12 @@
   }
 
   async function sendTapIn() {
-    if (TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt) > 0) return; // button should already be disabled — belt & suspenders
+    if (TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt) > 0) return;
     lastTapInAt = Date.now();
     refreshTapInButtonState();
     const ts = Date.now();
     pendingOwnTapinTimestamps.add(ts);
 
-    // Computed and shown immediately, before the write below even lands —
-    // it's derived from this device's own already-in-memory state (see
-    // nextStreakAfterTapIn), so there's no reason to make the streak bar
-    // wait on a round trip the same way the chat message below has to.
     const next = nextStreakAfterTapIn(ts);
     myStreak = next.streak;
     myStreakDay = next.day;
@@ -2640,38 +1884,17 @@
     } catch (e) {
       console.error('Tap in failed:', e);
     } finally {
-      // Generous cleanup window — well past any realistic settling
-      // delay, just here so this doesn't grow forever across a long
-      // chat session with lots of tap-ins.
+
       setTimeout(() => pendingOwnTapinTimestamps.delete(ts), 30000);
     }
   }
 
-  // Tells live.html (this widget's parent page, not itself — see the
-  // "position:fixed inside an iframe" note near the top of this file) to
-  // run the actual fullscreen sound+animation. The effect has to live up
-  // there: this widget only ever fills the iframe box live.html gives it,
-  // which on desktop sits below a header logo, so anything "fullscreen"
-  // drawn in here could never actually cover the real browser viewport.
   function triggerTapInEffect(username) {
     try {
       window.parent.postMessage({ type: 'knobsock-tapin', username: username }, '*');
     } catch (e) {}
   }
 
-  // ---------- SPAM AUTO-TIMEOUT ----------
-  // More than SPAM_MESSAGE_THRESHOLD messages from the same device within
-  // a rolling SPAM_WINDOW_MS gets a SPAM_TIMEOUT_MS timeout — written as
-  // an ordinary expiring chat_bans doc, so every existing ban code path
-  // (the ban-gate listener below, admin.html's ban list/unban button)
-  // handles it with zero changes. Every connected tab independently
-  // watches the same live message feed and can be the one to notice and
-  // write the ban — including the spamming tab's own — the same
-  // "whoever notices first cleans it up" pattern already used for stale
-  // presence docs, so this doesn't depend on trusting the spamming
-  // client to police itself. spamActionedDeviceIds just stops one tab
-  // from re-writing the same ban on every subsequent message while
-  // already over the threshold.
   const SPAM_MESSAGE_THRESHOLD = 10;
   const SPAM_WINDOW_MS = 60 * 1000;
   const SPAM_TIMEOUT_MS = 10 * 60 * 1000;
@@ -2702,13 +1925,6 @@
     }[c]));
   }
 
-  // ---------- SLUR / PROFANITY FILTER ----------
-  // Words are censored wherever they appear (own word boundaries), case-insensitive,
-  // and tolerant of a few common letter substitutions (0 for o, 1 for i, etc).
-  // This default list is what the filter uses until chat_config/censoredWords
-  // loads (and what it falls back to if that doc is ever missing/emptied) —
-  // admin.html's "Censored Words" section is where the live list is actually
-  // edited from here on; see the onSnapshot listener below.
   const DEFAULT_CENSORED_WORDS = [
     'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
     'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
@@ -2716,7 +1932,7 @@
   ];
 
   function buildCensorRegex(word) {
-    // Map each letter to itself plus common leetspeak substitutes.
+
     const subs = {
       a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
       s: '[s$5]', g: '[g9]', t: '[t7]'
@@ -2724,16 +1940,10 @@
     const pattern = word
       .split('')
       .map(ch => subs[ch] || ch)
-      .join('[\\W_]*'); // allow stray symbols/spaces slipped between letters
+      .join('[\\W_]*');
     return new RegExp('\\b' + pattern + '\\b', 'gi');
   }
 
-  // Same letter-substitution pattern as buildCensorRegex, but without the
-  // \b word-boundary anchors — "the glass shattered" shouldn't get
-  // censored in chat just for containing "ass", but someone picking a
-  // username tends to embed a banned word between other characters
-  // specifically to dodge a boundary-anchored filter (e.g. "xXslurXx"),
-  // so the username check has to match anywhere in the string instead.
   function buildUsernameCensorRegex(word) {
     const subs = {
       a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]',
@@ -2754,21 +1964,16 @@
     const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
     CENSOR_REGEXES = words.map(buildCensorRegex);
     USERNAME_CENSOR_REGEXES = words.map(buildUsernameCensorRegex);
-  }, () => {}); // offline/blocked read just keeps whatever list is already loaded
+  }, () => {});
 
   function usernameContainsCensoredWord(name) {
     return USERNAME_CENSOR_REGEXES.some(re => re.test(name));
   }
 
-  // Set by admin.html's "Clear Chat" button — see subscribeToMessages()
-  // further down, which is what actually applies this cutoff to the
-  // messages query.
   configRef.doc('clear').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
-    // Re-subscribe with the new cutoff immediately for anyone already
-    // sitting in the chat — same "takes effect right away" treatment as
-    // a ban, rather than only on their next reload.
+
     if (session) subscribeToMessages();
   }, () => {});
 
@@ -2785,13 +1990,6 @@
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  // ---------- USERNAME COLORS ----------
-  // Every username gets a stable color derived from its own text (so the
-  // same name always lands on the same color for everyone, with no
-  // shared state needed) unless its claimant has picked a custom one from
-  // the composer bar below — that choice lives on the same chat_usernames
-  // doc the username claim itself already created, since that's the one
-  // place this app has anything resembling "this slot belongs to me."
   function hashHue(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
@@ -2807,17 +2005,10 @@
     return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
   }
 
-  // Bright, readable-on-dark hues at fixed saturation/lightness — only
-  // the hue varies per username.
   function defaultColorFor(username) {
     return hslToHex(hashHue(username.toLowerCase()), 70, 72);
   }
 
-  // key -> resolved hex color, or the string 'pending' while a lookup for
-  // that username's custom color choice is in flight. Populated lazily —
-  // only usernames actually seen in the rendered message list ever get
-  // looked up, rather than subscribing to the whole chat_usernames
-  // collection just for this.
   const usernameColorCache = {};
 
   function colorForUsername(username, onResolved) {
@@ -2836,24 +2027,16 @@
         if (onResolved) onResolved();
       });
     }
-    return defaultColorFor(username); // shown immediately; onResolved repaints if a custom pick exists
+    return defaultColorFor(username);
   }
 
-  // ---------- RENDER: AUTH ----------
-  // No top tab/header bar here — the whole card centers the join form.
   function renderAuth(errorMsg) {
     app.innerHTML = `
       <div class="chat-screen">
         <div class="auth">
           <div class="auth-inner">
             <label for="chatHandle">what are you gonna call yourself?</label>
-            <!-- Safari ignores autocomplete="off" on a field it pattern-matches
-                 as a login/contact field by id/name alone (a known, long-
-                 standing WebKit quirk) — the id was literally "username",
-                 which is exactly the pattern it's watching for. Renaming it
-                 away from that (id, name, and autocomplete's own value) is
-                 what actually stops the AutoFill prompt in Safari; plain
-                 autocomplete="off" alone wasn't enough. -->
+
             <input type="text" id="chatHandle" name="chatHandle" autocomplete="off" placeholder="e.g. gunoguap" />
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="authSubmit" title="Join Chat">Join Chat</button>
@@ -2896,9 +2079,7 @@
       session = { username: claim.username };
       rememberUsername(claim.username);
       deviceLockedUsername = claim.username;
-      // A device that already owned a name never actually "joins" again
-      // here — claimUsernameSlot just handed back its existing identity
-      // regardless of what was typed, so there's nothing new to announce.
+
       if (claim.isNew) {
         logIpBestEffort(claim.username);
         sendJoinNotice(claim.username);
@@ -2914,17 +2095,6 @@
     }
   }
 
-  // ---------- RENDER: CHAT ----------
-  // Not enforced with the input's own maxlength attribute — that would
-  // silently swallow keystrokes (or truncate a paste) with no feedback
-  // at all. sendMessage() below checks this instead, so someone who
-  // types/pastes past it still sees exactly what they typed, plus the
-  // counter and (only on an actual send attempt) composerLimitMsg
-  // telling them why nothing happened. The input's maxlength (see its
-  // template below) is set much higher than this, purely as a backstop
-  // against a pathological paste (megabytes into a single Firestore
-  // message field, or a counter so wide it can't fit its own corner) —
-  // it should never actually be what stops a normal over-limit send.
   const MAX_MSG_LEN = 400;
   const MSG_INPUT_HARD_CAP = 1000;
 
@@ -2947,11 +2117,7 @@
   }
 
   function renderChatShell() {
-    // Own color resolves the same lazy way everyone else's does (see
-    // colorForUsername) — usernameColorCache already has it "pending" or
-    // resolved by the time this runs in the common case (colorForUsername
-    // is called for every visible message, including your own), so this
-    // just reads whatever that returns rather than doing a second lookup.
+
     const myColor = colorForUsername(session.username, () => {
       const picker = $('colorPicker');
       if (picker) picker.value = usernameColorCache[session.username.toLowerCase()];
@@ -2988,7 +2154,7 @@
     $('colorPicker').addEventListener('input', (e) => {
       const color = e.target.value;
       const key = session.username.toLowerCase();
-      usernameColorCache[key] = color; // repaints this tab immediately, no round trip needed
+      usernameColorCache[key] = color;
       usernamesRef.doc(key).set({ color: color }, { merge: true }).catch((err) => console.error(err));
       if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
     });
@@ -3004,9 +2170,6 @@
     refreshTapInButtonState();
   }
 
-  // Kept around so a username color that resolves (or gets picked) after
-  // the fact can trigger a repaint of the list already on screen, without
-  // renderMessages' every caller needing to also remember the last batch.
   let lastRenderedMsgs = null;
 
   function renderMessages(msgs) {
@@ -3026,11 +2189,7 @@
         return `<div class="system-msg">${escapeHtml(m.username)} just tapped in</div>`;
       }
       const mine = m.username === session.username;
-      // Own messages get their real picked/auto color too now, same as
-      // everyone else's — "mine" still stands out on its own via the
-      // accent-colored bubble and right-aligned layout, so this doesn't
-      // lose that distinction, it just stops overriding your own name
-      // color specifically with a flat red regardless of what you chose.
+
       const nameHtml = `<span class="msg-name" style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
       return `
         <div class="msg ${mine ? 'mine' : ''}">
@@ -3040,13 +2199,6 @@
       `;
     }).join('');
 
-    // Forces a synchronous layout/paint right after the wholesale
-    // replace above, rather than letting the browser coalesce it with
-    // whatever comes next (the scrollTop write included) — see
-    // .messages' own comment on why a skipped repaint here is what
-    // leaves stale ghosted content on mobile Safari. Reading a layout
-    // property is the standard way to force this; the value itself is
-    // never used for anything.
     void container.offsetHeight;
 
     container.scrollTop = container.scrollHeight;
@@ -3079,12 +2231,6 @@
     }
   }
 
-  // Set by admin.html's "Clear Chat" button (chat_config/clear) — the
-  // messages themselves are never deleted (admin.html's own chat log and
-  // search still see everything), this just moves the cutoff every
-  // visitor's own message query starts from. Kept live (see
-  // subscribeToConfig below) so an in-progress clear takes effect for an
-  // already-open tab immediately, the same way a ban does.
   let clearedAt = 0;
 
   function subscribeToMessages() {
@@ -3093,55 +2239,8 @@
     let query = messagesRef.orderBy('ts', 'asc');
     if (clearedAt) query = query.where('ts', '>', clearedAt);
 
-    // The initial callback reports every doc in the batch as an "added"
-    // change (normal Firestore behavior) — skipping docChanges on that
-    // first batch is what stops a page load from retroactively
-    // "spam-banning" someone or replaying every past tap-in's
-    // sound/animation. But "the first callback" isn't reliably "the
-    // real initial batch": Firestore can deliver an incomplete snapshot
-    // from LOCAL CACHE first (snapshot.metadata.fromCache === true) —
-    // e.g. on a slow/flaky connection — before the real, server-
-    // confirmed one arrives a moment later. A flag that latches false
-    // after only the very first callback treats that second, larger,
-    // server-confirmed batch as "not initial", so every message that
-    // was merely missing from the smaller cached batch (which can
-    // easily include a tap-in still within the last 200 messages) looks
-    // like it was just newly added — this was the bug behind the gif
-    // sometimes playing itself on login with nobody having clicked
-    // anything. Waiting for an actual non-cached snapshot before ever
-    // touching docChanges closes that gap.
-    //
-    // But that gate has its own edge: the composer (tap-in button
-    // included) is clickable the instant renderChatShell() runs, which
-    // can easily be before this SAME listener's first real snapshot
-    // has come back — someone trying the new button right away, the
-    // moment they see it, races straight into that window. A tap-in
-    // THIS tab is actively in the middle of sending right now (tracked
-    // in pendingOwnTapinTimestamps, see sendTapIn) is never "historical
-    // catch-up" by definition, so it's let through regardless of the
-    // settling gate — checking deviceId alone wouldn't be enough, since
-    // CLIENT_ID persists across reloads and would just as easily match
-    // this same device's tap-ins from a past session still sitting in
-    // history. Only other devices' (or this device's own OLD) messages
-    // arriving mid-settling are held back as possibly-stale.
     let sawServerSnapshot = false;
 
-    // The settling gate above only covers the listener's very first
-    // snapshot(s) - it says nothing about a gap opening back up *after*
-    // that, any time this same listener goes quiet for a while and
-    // reconnects: the tab backgrounded on mobile (both iOS/Android
-    // aggressively suspend a hidden tab's network), a laptop sleeping, or
-    // just a network blip. Firestore then delivers everything that
-    // changed in the meantime as one catch-up snapshot, and every doc in
-    // it is STILL reported as an "added" change - indistinguishable, as
-    // far as docChanges() is concerned, from something that just
-    // happened live. checkSpam already sidesteps this by keying its
-    // window off each message's own ts rather than trusting "added" to
-    // mean "just now"; the tap-in effect had no equivalent guard, so
-    // stepping away for a while and coming back would replay (sound and
-    // fullscreen animation both) every tap-in that landed while gone,
-    // one after another - the exact "leave for a bit, get spammed with a
-    // backlog on return" the age check below closes off.
     const TAPIN_EFFECT_MAX_AGE_MS = 15000;
 
     function handleAddedChange(change, stillSettling) {
@@ -3181,11 +2280,6 @@
     $('msgInput').focus();
   }
 
-  // ---------- BAN GATE ----------
-  // A permanent ban has no expiresAt at all; a timeout has one in the
-  // future. Checked against a *live* listener (not a one-time read) so a
-  // ban placed while this exact tab is sitting open takes effect right
-  // away instead of only on the next reload.
   function isBanActive(ban) {
     if (!ban) return false;
     if (!ban.expiresAt) return true;
@@ -3208,21 +2302,13 @@
     `;
   }
 
-  // Goes straight back into chat under the last remembered username
-  // instead of the join form, whenever there's no more pressing reason
-  // (like an active ban) to make someone type a name again.
   async function enterAuthOrRestore() {
-    await deviceLockPromise; // near-instant once resolved; only waits on first check
+    await deviceLockPromise;
 
-    // A ban can land while the check above was still in flight (this only
-    // ever has a real network wait on the very first call) — don't let a
-    // slow-resolving restore stomp the ban screen it raced against.
     if (currentlyBanned) return;
 
     if (deviceLockedUsername) {
-      // Authoritative: this device already has a permanent identity, so
-      // it always resumes as that name — never a way to become someone
-      // else, whatever a stale local cache might otherwise suggest.
+
       session = { username: deviceLockedUsername };
       rememberUsername(deviceLockedUsername);
       startChat();
@@ -3232,8 +2318,7 @@
     const saved = getRememberedUsername();
     if (saved) {
       session = { username: saved };
-      // Backfills a device that picked its name before device-locking
-      // existed, so it's pinned from here on same as a fresh claim.
+
       deviceLockedUsername = saved;
       devicesRef.doc(CLIENT_ID).set({
         username: saved,
@@ -3246,7 +2331,6 @@
     renderAuth();
   }
 
-  // ---------- INIT ----------
   let currentlyBanned = false;
   let banExpiryTimer = null;
 
@@ -3254,27 +2338,15 @@
     if (banExpiryTimer) { clearTimeout(banExpiryTimer); banExpiryTimer = null; }
   }
 
-  // onSnapshot only re-fires on an actual WRITE to this doc — it has no
-  // way to notice that a timeout's own expiresAt has quietly slipped into
-  // the past just because time went by. Without this, someone auto-timed-
-  // out for spamming stayed stuck on the banned screen well past their 10
-  // minutes — not actually re-banned, just never re-checked — until some
-  // unrelated write happened to touch this same doc (another spam
-  // timeout, an admin action) or they reloaded the tab. This arms a
-  // same-tab recheck for the exact moment the current ban is due to
-  // lapse; handleBanDoc (below) rearms it every time the doc actually
-  // changes, so it's always set for whatever expiresAt is current.
   function scheduleBanExpiryRecheck(ban) {
     clearBanExpiryTimer();
-    if (!ban || !ban.expiresAt) return; // permanent ban, or nothing active to recheck
+    if (!ban || !ban.expiresAt) return;
     const msUntilExpiry = ban.expiresAt - Date.now();
-    if (msUntilExpiry <= 0) return; // already lapsed — handleBanDoc deals with that synchronously
+    if (msUntilExpiry <= 0) return;
     banExpiryTimer = setTimeout(() => {
-      // A plain get() (not a new listener) — this only needs to fire once,
-      // and re-reads rather than trusting local state in case an admin
-      // action landed in the same window.
+
       bansRef.doc(CLIENT_ID).get().then(handleBanDoc).catch(() => {});
-    }, msUntilExpiry + 250); // small pad past the exact boundary, never before it
+    }, msUntilExpiry + 250);
   }
 
   function handleBanDoc(doc) {
@@ -3289,20 +2361,12 @@
       return;
     }
     clearBanExpiryTimer();
-    // A lapsed TIMEOUT (unlike a permanent ban, which has no expiresAt to
-    // lapse) otherwise sits in Firestore forever once expiresAt passes —
-    // nothing here ever deleted it on its own. Cleaning it up the moment
-    // any client notices, the same "whoever notices first" pattern the
-    // spam filter above already relies on, matches exactly what
-    // admin.html's own Unban button does (a plain .delete()) and rules
-    // out anything downstream ever mistaking "a ban doc still exists for
-    // this device" for "still banned".
+
     if (ban && ban.expiresAt) {
       bansRef.doc(CLIENT_ID).delete().catch(() => {});
     }
     if (currentlyBanned) {
-      // The ban was lifted, or a timeout expired, while this tab was
-      // already sitting on the banned screen.
+
       currentlyBanned = false;
       enterAuthOrRestore();
     } else if (!session) {
@@ -3311,35 +2375,25 @@
   }
 
   bansRef.doc(CLIENT_ID).onSnapshot(handleBanDoc, () => {
-    // Can't confirm ban status (offline, rules not yet deployed, etc.) —
-    // fails open to the normal join screen (or a remembered session)
-    // rather than locking everyone out over a read error.
+
     if (!session) enterAuthOrRestore();
   });
 })();
 </script>
 
-<!-- ---------- LIVE STATS (active viewers) ----------
-     Reuses the same Firebase app/project the chat above already
-     initialized — no separate config needed. "Watching now" is a
-     lightweight presence system: each open tab writes a heartbeat
-     every 15s, and every client independently counts how many
-     heartbeats are still fresh to get a live concurrent-viewer count,
-     with no extra backend. -->
 <script>
 (function () {
   const activeEl = document.getElementById('activeViewersCount');
   if (!activeEl) return;
 
-  const db = firebase.firestore(); // reuses the app the chat widget already initialized
+  const db = firebase.firestore();
   const presenceId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
   const presenceRef = db.collection('chat_presence').doc(presenceId);
 
-  const HEARTBEAT_MS = 15000;      // how often this tab refreshes its own presence
-  const ACTIVE_WINDOW_MS = 40000;  // a presence doc counts as "active" if newer than this
-  const STALE_CLEANUP_MS = 120000; // opportunistically delete very old presence docs
+  const HEARTBEAT_MS = 15000;
+  const ACTIVE_WINDOW_MS = 40000;
+  const STALE_CLEANUP_MS = 120000;
 
-  // ---- active viewers: heartbeat presence, counted client-side ----
   let presenceById = {};
 
   function writeHeartbeat() {
@@ -3363,8 +2417,7 @@
         const data = doc.data();
         const lastSeen = data && typeof data.lastSeen === 'number' ? data.lastSeen : 0;
         next[doc.id] = lastSeen;
-        // Opportunistic cleanup so this collection doesn't grow forever —
-        // any client that notices a very stale doc removes it.
+
         if (now - lastSeen > STALE_CLEANUP_MS) {
           doc.ref.delete().catch(() => {});
         }

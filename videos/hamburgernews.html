@@ -21,36 +21,9 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* Standalone page, same rebuild approach as videos.html/music.html/
-     live.html, but with a drawn-scene background — two of them, actually
-     (see VARIANTS in the script below): hamburger-news-bg.webp is an
-     8000x8000 illustrated room (door, window, floor, spotlight, burger),
-     drawn edge-to-edge at that huge size specifically so cover-fit crop
-     always has room to spare before it could ever reach the door/window/
-     burger/plate; hamburger-news-bg-mobile.webp is the same burger art
-     recomposited onto its own 9:16 phone-shaped canvas instead of a crop
-     of the square one, so a phone screen doesn't waste most of its width
-     on transparent padding the square version needs for wide desktop
-     windows. Both leave the video's slot transparent — drawn with its
-     own brown border frame on all four sides, and (like the lettuce
-     fringe over the top edge) a few px of intentional overlap where the
-     border/lettuce/condiment art dips into the slot rather than butting
-     flush against it, so each variant's HOLE_RECT is sized to the FULL
-     reach of that transparency (the shallowest point on each edge, not
-     the safe common core) — the video is meant to peek out from
-     underneath those overlapping bits, not sit inset from them.
 
-     #stageBg and #pattySlot (the video) are both positioned by the same
-     JS layout() below rather than CSS object-fit:cover — see that
-     function's own comment for why a plain CSS cover-fit can't also
-     guarantee the video a legible minimum size, which this needs on top
-     of the base cover math (confirmed: without a floor, the video renders
-     under 150px tall on an ordinary desktop window against a canvas this
-     size — technically "not cropped", but unreadably small in practice). */
   * { box-sizing: border-box; }
 
-  /* Site's display font — used here for the Back to Videos link and the
-     Games pickle's empty-state message. */
   @font-face {
     font-family: 'Gratis Neue';
     src: url('/Gratis%20Neue.otf') format('opentype');
@@ -62,23 +35,17 @@
     padding: 0;
     height: 100%;
     overflow: hidden;
-    /* Sampled from the art's own floor color. Cover-fit means this
-       should never actually show, but it's the fallback for the instant
-       before the background image loads, and stops Safari's elastic
-       overscroll bounce from flashing white in the meantime. */
+
     background: #1e1e1e;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* Positioned by layout() below — no CSS width/height/object-fit here,
-     since those would fight the JS for control of this element's size. */
   .stage-bg {
     position: fixed;
     z-index: 2;
     pointer-events: none;
   }
 
-  /* The video, likewise positioned by layout(). */
   .patty-slot {
     position: fixed;
     z-index: 1;
@@ -103,26 +70,12 @@
     font-weight: 700;
     text-decoration: none;
     opacity: 0.85;
-    /* Same black-outline technique as store.html's size selector
-       (-webkit-text-stroke + 4-direction text-shadow) — the page behind
-       this link is illustrated art, not a flat color, so it still needs
-       its own legibility net; a crisp outline reads against both the
-       light bun art and the dark room just as well as the old soft
-       drop-shadow did. */
+
     -webkit-text-stroke: 0.5px #000;
     text-shadow: -0.5px -0.5px 0 #000, 0.5px -0.5px 0 #000, -0.5px 0.5px 0 #000, 0.5px 0.5px 0 #000;
   }
   .back-link:hover { opacity: 1; }
 
-  /* ---------- PICKLE BUTTONS ----------
-     Two pickle-shaped buttons sitting on the scene — Episodes on the
-     plate's left edge, Games out on the ketchup. Both are positioned by
-     layout() from a rect held in the background art's OWN pixel space
-     (VARIANTS[].pickles, same idea as the video slot's hole), so they
-     stay welded to the artwork at every window size instead of drifting
-     around as viewport percentages. Desktop and mobile carry their own
-     rects because the two background variants frame the scene
-     differently. */
   .pickle-btn {
     position: fixed;
     z-index: 3;
@@ -144,51 +97,21 @@
   }
   .pickle-btn:hover { transform: scale(1.06); }
   .pickle-btn:active { transform: scale(0.97); }
-  /* Only ever set while the video widget is fullscreen — the zoom leaves
-     the pickles alone and lets them ride the stage in and out with the
-     rest of the scene (see openZoom). */
+
   .pickle-btn[hidden] { display: none; }
 
-  /* Everything that makes up the un-zoomed scene, wrapped so the zoom can
-     push the whole thing in at once. Full-viewport and fixed, so giving it
-     a transform doesn't move its position:fixed children — their
-     containing block becomes this element, which occupies exactly the
-     viewport anyway. */
   .stage-wrap {
     position: fixed;
     inset: 0;
     transform-origin: 50% 50%;
   }
-  /* Same curve and duration as the overlay's own transform below — the two
-     halves of the push-in have to stay locked together, and any mismatch
-     between them shows up as the scene visibly sliding out from under the
-     close-up. will-change promotes the stage to its own layer for the
-     duration, so the browser rasterises it once and GPU-scales it instead
-     of re-rendering an 8000px illustration every frame (which is what made
-     the push-in stutter). It's set only while the class is on, since a
-     permanent will-change would keep that layer around forever. */
+
   .stage-wrap.is-zooming {
     transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
     will-change: transform;
     backface-visibility: hidden;
   }
 
-  /* ---------- PICKLE ZOOM OVERLAY ----------
-     Clicking a pickle reads as the camera pushing in on it: the scene
-     above scales up about that pickle, while this overlay grows out of the
-     pickle's own on-screen position to full frame. The close-up art is a
-     separate drawing of the same scene, positioned by the same cover-fit +
-     focus-point maths layout() uses for everything else (see
-     PICKLE_ART/zoomFrame), so it lands identically at any window size.
-
-     Deliberately has NO background colour of its own. It used to be a flat
-     dark panel, which is what made the zoom "blink": mid-animation the
-     close-up is still scaled down to pickle size, so everywhere it doesn't
-     reach was that dark fill washing over the scene as the overlay faded
-     up. Transparent, the only thing crossing the frame is the close-up
-     itself growing over a scene that's still fully opaque underneath, and
-     once it settles the art covers the viewport on its own (its layout is
-     cover-fit, so that's guaranteed at any window size). */
   .pickle-zoom {
     position: fixed;
     inset: 0;
@@ -206,13 +129,7 @@
     will-change: transform;
     backface-visibility: hidden;
   }
-  /* Opacity is eased separately from the transform on purpose. While the
-     close-up is small it's a mismatched patch of a DIFFERENT drawing
-     sitting over the scene, so it wants to stay faint until it's big
-     enough to read as the same pickle; the curve below holds it low for
-     the first half and brings it up late. is-closing flips to a curve that
-     drops it early instead, so the patch is gone well before it shrinks
-     back down to pickle size. */
+
   .pickle-zoom.is-animating { transition: opacity 0.46s cubic-bezier(0.62, 0, 0.86, 0.42); }
   .pickle-zoom.is-animating.is-closing { transition: opacity 0.34s cubic-bezier(0.2, 0.7, 0.4, 1); }
   .pickle-zoom-art {
@@ -220,15 +137,6 @@
     pointer-events: none;
   }
 
-  /* The slot area, positioned in the CLOSE-UP art's pixel space and
-     warped (a full perspective matrix3d, JS) onto a quad measured
-     straight off each pickle's own drawn face, so it reads as sitting on
-     the pickle rather than pasted flat over it. One slot per page
-     now (SLOTS_PER_PAGE, JS) rather than the 3x3 this started as — still
-     a 1x1 "grid" rather than switching .pickle-slot-box back to plain
-     block layout, so every other rule written against this element
-     (padding, gap, etc.) keeps working unchanged regardless of how many
-     cells it ever actually holds. */
   .pickle-slots {
     position: absolute;
     display: grid;
@@ -236,12 +144,7 @@
     grid-template-rows: 1fr;
     transform-origin: 50% 50%;
   }
-  /* Thumbnail on top, title underneath — so a long episode name never
-     covers the picture it belongs to. The split is driven from JS (--thumb-h,
-     set in layoutZoom) rather than hard-coded here, because the same
-     fraction also decides how tall each cell has to be for its thumbnail to
-     come out square, and the grid's own height is derived from that. One
-     number, one place. */
+
   .pickle-slot {
     position: relative;
     display: flex;
@@ -255,26 +158,13 @@
     transition: transform 0.15s ease;
     -webkit-tap-highlight-color: transparent;
   }
-  /* 16:9, cropped to fill via object-fit:cover on the thumbnail itself
-     (below) rather than letterboxed. --thumb-h (set in layoutZoom, JS) is
-     the thumbnail's own share of the cell's height; the 66.6% fallback
-     here is only what's visible for an instant before that first runs.
-     Only gets its own #000 backdrop when a thumbnail is actually loaded
-     into it (the :has() rule right below) — an empty slot has nothing
-     drawn behind it at all, on purpose (see renderSlots' own comment on
-     why an unfilled slot no longer shows a placeholder box). */
+
   .pickle-slot-box {
     position: relative;
     flex: 0 0 var(--thumb-h, 66.6%);
     overflow: hidden;
     border-radius: 18px;
-    /* Sits flush with no shadow at rest — only cast on hover/press (below),
-       so it reads as the thumbnail lifting off the pickle's face rather
-       than a card that's always floating over it. Rides along with the
-       card's own perspective tilt for free: this element is flattened
-       into #pickleSlots' tilted plane (no transform-style:preserve-3d
-       anywhere in the chain), so the shadow skews with the card instead
-       of sitting flat against the screen. */
+
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
     transition: box-shadow 0.18s ease;
   }
@@ -291,8 +181,7 @@
     object-fit: cover;
     display: block;
   }
-  /* Spills a little past its own cell's sides, so titles read across the
-     pickle rather than being boxed into a column-wide strip. */
+
   .pickle-slot-label {
     flex: 1 1 auto;
     min-height: 0;
@@ -303,22 +192,14 @@
     color: #ffffff;
     font-family: 'Gratis Neue', Arial, Helvetica, sans-serif;
     font-weight: 700;
-    /* Tight, because the strip is only as tall as LABEL_FRAC makes it and
-       a two-line title has to clear its descenders inside that — any
-       looser and the clamped second line gets sliced in half. */
+
     line-height: 1.02;
     letter-spacing: 0.02em;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    /* Sits on the pickle's own busy checkered texture, not a flat panel —
-       a thin crisp outline alone (what the back link uses, against much
-       calmer art) still gets lost wherever it lines up with a same-tone
-       square in the pattern. A heavier stroke plus a soft blurred dark
-       halo behind it covers both cases: the halo carries contrast where
-       the hard edge doesn't, and the stroke keeps letterforms crisp up
-       close. */
+
     -webkit-text-stroke: 1.1px #000;
     text-shadow:
       0 0 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.85),
@@ -328,9 +209,6 @@
   .pickle-slot:not(:disabled):active { transform: scale(0.96); }
   .pickle-slot:disabled { cursor: default; }
 
-  /* Games with nothing in it yet. Takes over the grid's own rect (and its
-     rotation), so the message lands on the pickle's face exactly where the
-     slots would have been. */
   .pickle-slots.is-empty {
     display: flex;
     align-items: center;
@@ -341,23 +219,13 @@
     text-align: center;
     color: #ffffff;
     font-family: 'Gratis Neue', Arial, sans-serif;
-    /* --empty-font (set in layoutZoom, JS) is a share of the CARD'S OWN
-       full height — this message fills the whole card, not just the
-       label strip the slot title's em-inherited size is tuned for, so it
-       can't share that base. 0.5em is only the fallback for the instant
-       before JS first runs. */
+
     font-size: var(--empty-font, 0.5em);
     line-height: 1.15;
     -webkit-text-stroke: 0.5px #000;
     text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
   }
 
-  /* ---------- PAGE ARROWS ----------
-     Only rendered when there's more than one page of something — the grid
-     itself is fixed at the nine slots the art was drawn with. Sat either
-     side of the zoomed pickle by layoutZoom, in the same close-up art space
-     everything else up there uses, then clamped into the viewport so they
-     stay reachable on a phone where the pickle runs off both edges. */
   .pickle-arrow {
     position: fixed;
     z-index: 21;
@@ -368,16 +236,7 @@
     -webkit-appearance: none;
     appearance: none;
     transform-origin: 50% 50%;
-    /* --arrow-rot (set in layoutZoom, JS) is the quad's own width-edge
-       angle — the same direction the thumbnail card itself sits along —
-       so the arrow art actually points the way the card is tilted
-       instead of staying screen-upright while only its POSITION follows
-       the pickle. Every rule below that sets `transform` re-includes it
-       (as the outermost/leftmost function, so it rotates whatever
-       scale/translate the state itself contributes) rather than relying
-       on inheritance, since transform doesn't compose across separate
-       declarations — dropping it from any one state would snap the
-       arrow back upright for just that state. */
+
     transform: rotate(var(--arrow-rot, 0deg));
     transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
     -webkit-tap-highlight-color: transparent;
@@ -394,13 +253,7 @@
   .pickle-arrow:not(:disabled):hover { transform: rotate(var(--arrow-rot, 0deg)) scale(1.12); }
   .pickle-arrow:not(:disabled):active { transform: rotate(var(--arrow-rot, 0deg)) scale(0.95); }
   .pickle-arrow:disabled { opacity: 0.3; cursor: default; }
-  /* The "jump out" on a tap. Runs as a keyframe rather than a class-swapped
-     transform so it always plays to completion and resets itself, even when
-     the pointer is still sitting on the button (where a :hover transform
-     would otherwise hold it mid-pop). Each arrow leans the way it pages —
-     translateX moves along the LOCAL (pre-rotation) axis, so with rotate
-     applied outermost here too, that lean follows the arrow's own rotated
-     pointing direction rather than the screen's bare horizontal. */
+
   .pickle-arrow.is-jump { animation: pickleArrowJump 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
   #pickleNext.is-jump { animation-name: pickleArrowJumpNext; }
   @keyframes pickleArrowJump {
@@ -417,18 +270,6 @@
     .pickle-arrow.is-jump { animation: none; }
   }
 
-  /* Real-viewport fullscreen fallback for hamburger-news-widget.html's
-     own fullscreen button. That widget lives in an iframe, and on iOS
-     Safari — which has no Fullscreen API at all for non-video elements —
-     it falls back to a CSS position:fixed trick that can only ever cover
-     the IFRAME'S OWN box, not the actual phone screen (position:fixed's
-     containing block is the iframe's own viewport). The widget posts a
-     message here instead, and this class — applied to the real iframe
-     element in THIS top-level document — takes over the actual screen;
-     the iframe's own contents (already 100% width/height inside it) grow
-     to fill it right along with it. Needs its own z-index above
-     #stageBg's 2, or the illustrated art would paint over the fullscreen
-     video. */
   .patty-slot.hn-fullscreen iframe {
     position: fixed;
     inset: 0;
@@ -437,14 +278,7 @@
     height: 100dvh;
     z-index: 9999;
   }
-  /* Belt-and-suspenders alongside the z-index above: reported as not
-     actually covering the art on mobile, most likely the classic 100vh-
-     vs-real-visible-height gap while iOS Safari's address bar is
-     animating in/out — 100dvh should already account for that, but
-     hiding the art outright removes any chance of it peeking through
-     during that transition (or from any other stacking quirk) rather
-     than relying solely on it staying strictly behind the fullscreen
-     iframe. Toggled in lockstep with .hn-fullscreen itself, below. */
+
   .stage-bg.hn-bg-hidden {
     visibility: hidden;
   }
@@ -485,12 +319,6 @@
   <img src="/hamburger-arrow-next.webp" alt="">
 </button>
 
-<!-- ============================================================
-     FIREBASE — read-only here: this page only ever reads the Hamburger
-     News episode list and the Games list (both admin.html-authored) to
-     fill the pickles' slot grids. Same project every other page uses, and
-     guarded the same way — if it fails to load, the pickles just come up
-     with empty slots rather than the page breaking. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
@@ -519,33 +347,12 @@
     episodes: document.getElementById('pickleEpisodes'),
     games: document.getElementById('pickleGames')
   };
-  // null while the scene is showing; 'episodes' / 'games' once zoomed in.
+
   var openPickle = null;
   var pickleItems = { episodes: [], games: [] };
   var picklePage = { episodes: 0, games: 0 };
   var SLOTS_PER_PAGE = 1;
-  // Relayed from hamburger-news-widget.html's own fullscreen fallback —
-  // see .patty-slot.hn-fullscreen's own comment above for why this has
-  // to happen up here rather than inside that iframe. Also hides #stageBg
-  // itself (see .stage-bg.hn-bg-hidden's own comment) and un-hides it
-  // again on exit — easy to forget the reverse side of a toggle like
-  // this, so it's written as one toggle() call per element rather than
-  // as separate add/remove branches that could drift out of sync.
-  //
-  // The pickles need the same treatment for the same reason: they're
-  // position:fixed siblings of the video, so hiding the art alone still
-  // leaves two pickles floating over a fullscreen video. They're the only
-  // thing that sets [hidden] on those buttons — the zoom deliberately
-  // doesn't (see openZoom).
-  //
-  // The privacy footer link is the same story again: also position:fixed
-  // against the real viewport, not scoped to .patty-slot at all, so it
-  // was floating on top of the fullscreen video same as the pickles were.
-  // Looked up fresh here rather than cached alongside pattySlot/stageBg
-  // above — the footer div sits right before </body>, hundreds of lines
-  // below this script tag, so a cached reference grabbed this early
-  // would just be null (this script runs before that div's even been
-  // parsed yet) and silently never do anything.
+
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
     var active = !!e.data.active;
@@ -556,71 +363,8 @@
     if (privacyFooterEl) privacyFooterEl.hidden = active;
   });
 
-  // ---------- STAGE LAYOUT ----------
-  // #stageBg and #pattySlot are positioned by hand rather than via CSS
-  // object-fit:cover, for two reasons: cover's own scale formula has no
-  // notion of "never smaller than X" (see MIN_VIDEO_FRAC below), and the
-  // background used object-fit:cover while the video used a floored
-  // scale, they'd zoom at different rates and drift apart. A pure-CSS
-  // version of "cover this box, but never go below a minimum size, while
-  // keeping a sibling element's own coordinates locked to it" isn't
-  // reliably solvable with aspect-ratio/min-width tricks across
-  // browsers, so this is plain JS.
-  //
-  // Two separate source images, not one — a phone-shaped (9:16) canvas
-  // wastes far less of itself on transparent padding than the square
-  // desktop one does once actually cropped to a phone's own aspect
-  // ratio, so mobile gets its own art drawn directly at that shape
-  // rather than a crop of the square version. Both are the same burger
-  // graphic at the same size (the video slot is pixel-for-pixel
-  // identical, 1560x845, in both source files) — only the surrounding
-  // canvas differs. IMG_W/IMG_H/HOLE_RECT below are each in their own
-  // source file's own pixel space — easiest to re-derive from those
-  // files directly if the art ever changes; the saved (smaller) .webp
-  // files don't matter since this is all aspect-ratio math.
-  //
-  // 860px matches this site's own existing mobile breakpoint (see
-  // videos.html/music.html/live.html's identical
-  // `@media (max-width: 860px)`), reused here for the same "narrow
-  // enough to count as a phone" cutoff rather than inventing a new one.
   var MOBILE_MAX_WIDTH = 860;
-  // minVideoFrac floors the video's own size at a fraction of the
-  // viewport on whichever axis binds, even if that means scaling past
-  // plain cover-fit (and cropping further into whatever margin the art
-  // has to spare) — desktop's square canvas genuinely needs this: plain
-  // cover alone renders the video too small to read on an ordinary
-  // desktop window once the background is this much bigger than the
-  // video slot cut into it.
-  //
-  // Mobile's canvas doesn't have that problem, because it isn't a
-  // generic oversized square being cropped down to a phone's shape — the
-  // artist drew it AT roughly a phone's own aspect ratio on purpose, so
-  // plain cover-fit already lands close to right on its own. A shared
-  // floor value was tried across both variants (twice) and, each time,
-  // ended up zooming mobile in far past what the art needed — confirmed
-  // by checking the exact numbers: on a canvas already this close to a
-  // real phone's shape, that floor's minimum-size guarantee was
-  // routinely demanding MORE scale than cover-fit alone would ever
-  // produce, not just topping it up when cover-fit fell short. minVideoFrac:
-  // 0 for mobile means pure cover-fit, no artificial zoom via minVideoFrac
-  // — zoom (below) is a separate, flat multiplier on top of whichever
-  // scale (cover or floor) wins, for "just nudge it in/out a bit" asks
-  // that aren't about guaranteeing a minimum size the way minVideoFrac
-  // is. Mobile's zoom was requested directly, after pure cover-fit (1.0)
-  // read as slightly too far zoomed OUT once seen live: first a nudge to
-  // 1.15, then "25% more" on top of that (1.15 * 1.25 = 1.4375).
-  //
-  // pickles/zoomFrames are measured the same way HOLE_RECT was: by
-  // registering the approved placement/zoom mockups against the art itself
-  // (flat-colour landmarks — the door's glass strip, the window, the bun —
-  // solved for uniform scale + translation), then expressing the result in
-  // the art's own pixels. Desktop and mobile carry separate numbers on
-  // purpose: the two variants frame the scene differently, and the mockups
-  // put the pickles in deliberately different spots on each.
-  //
-  // zoomFrames are in the CLOSE-UP art's pixel space instead (see
-  // PICKLE_ART) — a zoom multiplier over plain cover-fit, plus the point
-  // that should sit dead centre of the viewport.
+
   var VARIANTS = {
     desktop: {
       src: '/hamburger-news-bg.webp',
@@ -654,41 +398,6 @@
     }
   };
 
-  // Per-pickle facts that don't change with the breakpoint, all in the
-  // CLOSE-UP art's own 3000x3000 pixel space.
-  //
-  // centre/faceW describe where the pickle actually sits inside that
-  // drawing (measured off its green pixels) — the zoom animation needs
-  // them to line the close-up's pickle up with the little button's pickle
-  // at the moment it starts, so one grows out of the other instead of
-  // cross-fading.
-  //
-  // btnGreen is the same thing for the BUTTON art: those PNGs carry
-  // transparent padding, so the visible pickle is only a sub-rect of the
-  // element, given here as fractions of it.
-  //
-  // quad is where the thumbnail+label card's four corners (TL,TR,BR,BL,
-  // in that order) land in the close-up art's own 3000x3000 pixel space —
-  // a genuine perspective quad, not an axis-aligned box, so the card
-  // reads as artwork lying flat on the pickle's own tilted face rather
-  // than a flat sticker rotated on top of it. Sourced directly from the
-  // artist: they warped a rectangle over each pickle in iOS Photos'
-  // Transform tool to where they wanted the card to sit, exported that
-  // with a reference grid overlaid, and it was measured back pixel-by-
-  // pixel from the four corner markers against that grid. That export was
-  // itself a rotated, uniformly-scaled crop of this same close-up art
-  // (not a 1:1 crop) — resolved back to this file's own coordinates by
-  // matching two unambiguous landmarks (the pickle silhouette's own top
-  // and bottom extremities) between the two images and solving the
-  // rotation+scale+offset that carries one onto the other, rather than
-  // trusting the reference export's pixel bbox/centroid directly (tried
-  // first — thrown off by a thin stray tapered tip and the reference
-  // grid's own overlay skewing the green mask enough to disagree with
-  // itself between bbox- and area-based estimates).
-  // Fed straight into a 2D-homography-as-CSS-matrix3d (see
-  // solveHomography/quadMatrix3d below) rather than any rotate/skew
-  // approximation, so it lands on those exact four points at every
-  // viewport size.
   var PICKLE_ART = {
     episodes: {
       closeup: '/hamburger-pickle-episodes-zoom.webp',
@@ -704,14 +413,7 @@
     }
   };
   var CLOSEUP_SIZE = 3000;
-  // Every short UI sound on this page is built once up front (rather than
-  // a fresh Audio per play) so the file is already fetched and decoded by
-  // the time it's actually needed and the sound lands WITH whatever
-  // triggered it instead of arriving late, and shares one play function:
-  // rewind so a repeat trigger re-plays rather than doing nothing, and
-  // swallow both failure modes — currentTime throws if the file never
-  // loaded, play() rejects under an autoplay policy. Neither is worth
-  // breaking the zoom over.
+
   function loadSound(src, volume) {
     var a = new Audio(src);
     a.preload = 'auto';
@@ -724,64 +426,22 @@
     var p = a.play();
     if (p && p.catch) p.catch(function () {});
   }
-  // A splat as each pickle is hit, at the same half volume videos.html
-  // plays its own click sounds at.
+
   var PICKLE_SOUNDS = {
     episodes: loadSound('/splat1.mp3', 0.5),
     games: loadSound('/splat2.mp3', 0.5)
   };
   function playSplat(name) { playSound(PICKLE_SOUNDS[name]); }
-  // A squish for picking a specific episode/game (chooseItem), and a
-  // woosh for the camera zooming back out (closeZoom) — the latter fires
-  // whether that's a genuine cancel (back link, Escape, tapping the art
-  // outside the grid) or the zoom-out that follows a pick on its way to
-  // handing off to the player, since it's the same zoom-out animation
-  // either way.
+
   var PICK_SOUND = loadSound('/squish3.m4a', 0.5);
   var ZOOM_OUT_SOUND = loadSound('/woosh.m4a', 0.5);
-  // LABEL_FRAC is the title strip's height, as a share of the whole
-  // card's height (quad-derived — see layoutZoom) rather than of its
-  // width: the card's own aspect now comes straight from each pickle's
-  // measured quad instead of a fixed 16:9-plus-strip formula, so tying
-  // the label to width would drift out of sync per pickle. The thumbnail
-  // takes whatever's left; object-fit:cover on the <img> (CSS above)
-  // handles it not being exactly 16:9 by cropping, same as it always did.
+
   var LABEL_FRAC = 0.22;
-  // Arrow art's own aspect ratio, for sizing them from a width alone, plus
-  // that width and the gap out to it — both as shares of the grid's width,
-  // so the arrows scale with the pickle rather than with the window.
+
   var ARROW_RATIO = 473 / 560;
   var ARROW_FRAC = 0.42;
   var ARROW_GAP_FRAC = 0.18;
 
-  // ---------- QUAD HOMOGRAPHY ----------
-  // Solves the 2D projective transform (8 DOF: a,b,c,d,e,f,g,h below)
-  // that carries the 4 corners of `src` onto the 4 corners of `dst`
-  // (same winding order in both), then hands it back as a CSS matrix3d
-  // string. This is the general "warp a flat rectangle onto an arbitrary
-  // quadrilateral" transform — the same operation as dragging all four
-  // corners independently in a photo editor's perspective/transform
-  // tool — which a plain rotate+skew (or rotateX/rotateY) can only ever
-  // approximate, since those keep opposite edges parallel and this
-  // doesn't need to.
-  //
-  // Derivation: a homography maps (x,y,1) to (x',y',w') up to scale, with
-  // the on-screen point being (x'/w', y'/w'). Writing that out per axis:
-  //   x' = a*x + b*y + c        dstX = x' / w'
-  //   y' = d*x + e*y + f        dstY = y' / w'
-  //   w' = g*x + h*y + 1
-  // gives two linear equations per correspondence (8 total for 4 points),
-  // solved by Gaussian elimination for the 8 unknowns.
-  //
-  // To use it as a CSS transform, that 3x3 sits inside a 4x4 matrix3d
-  // that leaves z alone (the card stays a flat plane, just no longer a
-  // flat RECTANGLE in screen space) — row-major:
-  //   [a b 0 c]   [x]
-  //   [d e 0 f] * [y]
-  //   [0 0 1 0]   [0]
-  //   [g h 0 1]   [1]
-  // and CSS's matrix3d(...) argument order is that matrix's COLUMNS, not
-  // rows.
   function solveHomography(src, dst) {
     var A = [], B = [];
     for (var i = 0; i < 4; i++) {
@@ -815,21 +475,11 @@
       [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, c, f, 0, 1].join(',') + ')';
   }
 
-  // window.innerWidth/innerHeight lag behind on iOS Safari while the
-  // address bar is animating in/out of view — visualViewport tracks the
-  // actual visible area live and fires its own resize event when that
-  // chrome changes, which plain 'resize' doesn't always do reliably.
-  // Falls back to window sizing on browsers without the API.
   function viewportSize() {
     var vv = window.visualViewport;
     return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
   }
 
-  // Tracks which variant's src is currently loaded so layout() (called
-  // on every resize/scroll tick) only ever touches stageBg.src when the
-  // viewport actually crosses the mobile/desktop breakpoint, not on
-  // every call — reassigning the same src repeatedly would otherwise
-  // restart the image request/decode each time.
   var currentVariantName = null;
 
   function layout() {
@@ -857,8 +507,6 @@
     pattySlot.style.width = (hole.w * scale) + 'px';
     pattySlot.style.height = (hole.h * scale) + 'px';
 
-    // Pickles ride the same scale/offset as everything else, so they stay
-    // pinned to their spots on the plate and the ketchup.
     Object.keys(PICKLE_BTNS).forEach(function (name) {
       var r = variant.pickles[name];
       var el = PICKLE_BTNS[name];
@@ -871,10 +519,6 @@
     if (openPickle) layoutZoom(vp, variantName);
   }
 
-  // ---------- ZOOM LAYOUT ----------
-  // Cover-fit the close-up art, multiply by this variant's zoom, then put
-  // the frame's focus point dead centre — the same shape of maths as
-  // layout() above, just against the close-up's 3000x3000 space.
   function zoomFrame(vp, variantName, name) {
     var f = VARIANTS[variantName].zoomFrames[name];
     var scale = Math.max(vp.w / CLOSEUP_SIZE, vp.h / CLOSEUP_SIZE) * f.zoom;
@@ -893,9 +537,6 @@
     zoomArt.style.width = (CLOSEUP_SIZE * fr.scale) + 'px';
     zoomArt.style.height = (CLOSEUP_SIZE * fr.scale) + 'px';
 
-    // Project the quad's 4 art-space corners into the current screen
-    // space (same offX/offY/scale as everything else this frame), in
-    // TL,TR,BR,BL order to match PICKLE_ART[name].quad.
     var q = art.quad;
     var sq = q.map(function (p) {
       return [fr.offX + p[0] * fr.scale, fr.offY + p[1] * fr.scale];
@@ -903,10 +544,7 @@
     var cx = (sq[0][0] + sq[1][0] + sq[2][0] + sq[3][0]) / 4;
     var cy = (sq[0][1] + sq[1][1] + sq[2][1] + sq[3][1]) / 4;
     function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
-    // The card's own (undistorted) box size: averaging each pair of
-    // opposite edges keeps it close to the quad's own proportions, so
-    // the homography below is mostly doing rotation/perspective rather
-    // than also stretching a mismatched box into shape.
+
     var gw = (dist(sq[0], sq[1]) + dist(sq[3], sq[2])) / 2;
     var gh = (dist(sq[0], sq[3]) + dist(sq[1], sq[2])) / 2;
     var labelH = gh * LABEL_FRAC;
@@ -919,25 +557,11 @@
     var dstRect = sq.map(function (p) { return [p[0] - cx, p[1] - cy]; });
     slotsEl.style.transform = quadMatrix3d(localRect, dstRect);
     slotsEl.style.setProperty('--thumb-h', (100 * thumbH / gh).toFixed(3) + '%');
-    // Sized off the label strip's own height (not the card's width, which
-    // no longer has a fixed relationship to it now that the card's shape
-    // comes from the quad) — 0.42 leaves two clamped lines room for
-    // descenders and the strip's top padding.
+
     slotsEl.style.fontSize = Math.max(8, labelH * 0.42) + 'px';
-    // The empty-state paragraph (renderSlots) fills the WHOLE card, not
-    // just the label strip, so it needs its own size off the card's full
-    // height rather than inheriting the label's — labelH-based sizing
-    // here made it render as a single tiny sliver of text.
+
     slotsEl.style.setProperty('--empty-font', Math.max(8, gh * 0.085) + 'px');
 
-    // Arrows sit just off the ends of the card, along the quad's own
-    // width axis (the average of its top and bottom edges) rather than
-    // the viewport's — so they land at the two ends of the pickle the
-    // way it was drawn, AND are rotated to point along that same axis
-    // (--arrow-rot, CSS above) rather than sitting screen-upright — both
-    // arrow assets are pre-drawn pointing their own resting direction
-    // (prev left, next right) at 0deg, so the identical angle rotates
-    // each into pointing along/against the card's own tilt correctly.
     var aw = Math.max(40, gw * ARROW_FRAC);
     var ah = aw * ARROW_RATIO;
     var off = gw / 2 + gw * ARROW_GAP_FRAC + aw / 2;
@@ -952,10 +576,6 @@
     placeArrow(arrowNext, cx + ox, cy + oy, aw, ah, vp);
   }
 
-  // Centred on the point worked out above, then nudged back inside the
-  // viewport if the framing pushed it past an edge — on a phone the Games
-  // pickle runs off both sides, which would otherwise leave half of an
-  // arrow's tap target off-screen.
   function placeArrow(el, cx, cy, w, h, vp) {
     el.style.width = w + 'px';
     el.style.height = h + 'px';
@@ -981,17 +601,12 @@
     window.visualViewport.addEventListener('scroll', scheduleLayout);
   }
 
-  // ---------- THE SLOT GRID ----------
-  // Nine slots, because nine is what the art was drawn with. Anything past
-  // that pages rather than shrinking the grid to fit.
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
-  // Same shapes of YouTube link admin.html accepts, reduced to the id so a
-  // slot can show that episode's thumbnail (cropped square by the CSS).
   function extractVideoId(input) {
     if (!input) return null;
     var t = String(input).trim();
@@ -1004,11 +619,6 @@
     if (!openPickle) return;
     var items = pickleItems[openPickle];
 
-    // Games ships with nothing in it until admin.html has something to
-    // point at, and nine dead slots read as broken rather than as empty.
-    // Episodes keeps the plain grid — it's never actually empty, and an
-    // unfilled slot there just renders as nothing at all (no thumbnail,
-    // no placeholder box, no title) rather than a visible empty-slot cue.
     var empty = openPickle === 'games' && !items.length;
     slotsEl.classList.toggle('is-empty', empty);
     if (empty) {
@@ -1038,9 +648,6 @@
     setArrows(pages);
   }
 
-  // With no page counter left on screen, the disabled states are the only
-  // thing telling you where you are in the run, so they matter more than
-  // they did when there was a "2 / 3" between them.
   function setArrows(pages) {
     var page = picklePage[openPickle] || 0;
     arrowPrev.hidden = arrowNext.hidden = pages < 2;
@@ -1060,9 +667,6 @@
     chooseItem(openPickle, item);
   });
 
-  // Restarting the keyframe needs the class off, a reflow, then on again —
-  // re-adding a class that's already there doesn't replay an animation, so
-  // rapid paging would only pop the first press without this.
   function jump(el) {
     el.classList.remove('is-jump');
     void el.offsetWidth;
@@ -1082,13 +686,10 @@
     picklePage[openPickle] = next;
     renderSlots();
   }
-  // Click covers both a mouse click and a tap (touch has no hover, which
-  // the CSS :hover pop handles on its own for pointers that do).
+
   arrowPrev.addEventListener('click', function () { turnPage(-1, arrowPrev); });
   arrowNext.addEventListener('click', function () { turnPage(1, arrowNext); });
 
-  // Picking something zooms back out first, then hands it to the player —
-  // the selection shouldn't happen behind a full-screen overlay.
   function chooseItem(kind, item) {
     playSound(PICK_SOUND);
     closeZoom(function () {
@@ -1098,41 +699,24 @@
         frame.contentWindow.postMessage(
           { type: 'knobsock-hamburger-play', index: item.index }, '*');
       } else {
-        // The game player isn't built yet; this is the handoff point for
-        // when it is, and posting it now keeps that a one-sided change.
+
         frame.contentWindow.postMessage(
           { type: 'knobsock-hamburger-game', url: item.url, title: item.title }, '*');
       }
     });
   }
 
-  // ---------- ZOOM IN / OUT ----------
-  // The illusion is one continuous push-in: the scene scales up about the
-  // pickle that was clicked, while the overlay starts life scaled down and
-  // parked exactly over that same pickle, then settles to full frame. Both
-  // halves are driven off the same factor, so they move together rather
-  // than merely cross-fading.
-  //
-  // The scene deliberately does NOT fade out underneath. Fading both halves
-  // at once left a window where neither was opaque and the page's own
-  // background showed through the middle of the move — the "blink". Left at
-  // full opacity it's simply overtaken by the close-up, which covers the
-  // frame by the time it's done, and the stage is then hidden outright
-  // rather than faded. That also keeps the pickles themselves on screen for
-  // the whole of the way back out, since they ride the stage: they're
-  // visible again the instant a zoom-out starts, rather than popping back
-  // once it finishes.
   function openTransform(name) {
     var vp = viewportSize();
     var variantName = vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop';
     var art = PICKLE_ART[name];
     var btn = PICKLE_BTNS[name].getBoundingClientRect();
     var g = art.btnGreen;
-    // where the button's own pickle actually is on screen right now
+
     var fromX = btn.left + g.cx * btn.width;
     var fromY = btn.top + g.cy * btn.height;
     var fromW = g.w * btn.width;
-    // where that same pickle ends up once the close-up is full frame
+
     var fr = zoomFrame(vp, variantName, name);
     var toX = fr.offX + art.centre.x * fr.scale;
     var toY = fr.offY + art.centre.y * fr.scale;
@@ -1140,19 +724,14 @@
     var k = toW > 0 ? fromW / toW : 0.2;
     return {
       k: k,
-      // transform-origin is 0 0, so translate first, then scale about the
-      // pickle's landing point
+
       inner: 'translate(' + (fromX - toX * k) + 'px, ' + (fromY - toY * k) + 'px) scale(' + k + ')',
       stage: { originX: fromX, originY: fromY, scale: 1 / k }
     };
   }
 
   var zoomAnimTimer = null;
-  // The tap that opens the overlay can land a second time on whatever the
-  // overlay just put under the pointer — a real touch-device behaviour (the
-  // synthesised mouse click arrives after the element has appeared), not
-  // just an automation quirk. Without this, opening a pickle could dismiss
-  // it again, or worse, pick whichever slot happened to be under the thumb.
+
   var zoomReadyAt = 0;
 
   function openZoom(name) {
@@ -1174,13 +753,6 @@
     stageWrap.classList.remove('is-zooming');
     stageWrap.style.transformOrigin = t.stage.originX + 'px ' + t.stage.originY + 'px';
 
-    // Commit the "from" state with a forced reflow rather than waiting on
-    // requestAnimationFrame — rAF doesn't fire at all in a backgrounded
-    // tab, which would strand the overlay mid-animation (invisible, still
-    // scaled down) instead of just skipping the animation. Reading
-    // offsetWidth flushes style synchronously, so the transition below
-    // always has a previous value to run from, and the end state is
-    // correct even where transitions never run at all.
     void zoomEl.offsetWidth;
 
     zoomEl.classList.add('is-animating');
@@ -1195,16 +767,9 @@
 
     clearTimeout(zoomAnimTimer);
     zoomAnimTimer = setTimeout(function () {
-      // once settled, drop the overlay's transition so a resize repositions
-      // it instantly rather than sliding to the new spot. The stage keeps
-      // is-zooming: nothing else ever transforms it, and holding its
-      // compositor layer means the way back out starts moving immediately
-      // instead of spending its first frames being promoted again.
+
       zoomEl.classList.remove('is-animating');
-      // Hidden rather than faded — the overlay covers it by now anyway, and
-      // this is what stops the pickles underneath from taking a stray tap
-      // while zoomed (visibility:hidden kills pointer events too), which is
-      // why they don't need [hidden] of their own here.
+
       stageWrap.style.visibility = 'hidden';
     }, 500);
   }
@@ -1213,7 +778,7 @@
     if (!openPickle) return;
     playSound(ZOOM_OUT_SOUND);
     var name = openPickle;
-    // Back on screen for the whole way out, pickles included.
+
     stageWrap.style.visibility = '';
     var t = openTransform(name);
 
@@ -1242,11 +807,7 @@
 
   function onZoomKey(e) {
     if (e.key === 'Escape' || e.key === 'Esc') { closeZoom(); return; }
-    // Mirrors the on-screen arrows (same store.html pattern) — turnPage
-    // already no-ops when there's nothing to page to (a single page, or
-    // already at the end), so no extra disabled/hidden check is needed
-    // here, and reusing it also gets the same jump-pop animation a click
-    // gets for free.
+
     if (e.key === 'ArrowLeft') { e.preventDefault(); turnPage(-1, arrowPrev); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); turnPage(1, arrowNext); }
   }
@@ -1255,26 +816,17 @@
     PICKLE_BTNS[name].addEventListener('click', function () { openZoom(name); });
   });
 
-  // Tapping the art around the grid backs out, same as Escape — without
-  // this the only way out of a zoom would be to pick something.
   zoomEl.addEventListener('click', function (e) {
     if (Date.now() < zoomReadyAt) return;
     if (e.target === zoomEl || e.target === zoomInner || e.target === zoomArt) closeZoom();
   });
 
-  // The back link doubles as the way out while zoomed (it has nothing else
-  // to do up there, and adding a second chip would just be more chrome).
   backLink.addEventListener('click', function (e) {
     if (!openPickle) return;
     e.preventDefault();
     closeZoom();
   });
 
-  // ---------- LIVE DATA ----------
-  // Episodes come from the same playlist/hamburgerNews doc the player
-  // itself reads (admin.html's Hamburger News list); games from the Games
-  // tab added alongside it. Both live-update, matching how every other
-  // admin-fed surface on this site behaves.
   if (window.firebase) {
     var db = firebase.firestore(
       firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG));

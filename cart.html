@@ -22,16 +22,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-  /* A standalone page rather than the usual shell+iframe-widget split the
-     rest of this site uses (videos.html/live.html/etc.) — cart and
-     confirmation are one-off transactional pages with no reuse case for
-     the "widget embeddable elsewhere" split those are built for, and
-     checkout is exactly the wrong place to add cross-frame postMessage
-     plumbing just to stay consistent.
 
-     Re-themed to match store.html's white/black/yellow/pink comic look
-     (see that file's own top-of-file comment) — same header-logo asset,
-     same --ks-* palette, same sticker-style bordered buttons. */
   :root {
     --ks-pink: #ff4fa8;
     --ks-yellow: #f5e94a;
@@ -44,9 +35,7 @@
   html, body {
     margin: 0;
     min-height: 100%;
-    /* Same tiled cloud background as store.html (see that file's own
-       comment) — the underlying color is the cloud gif's own sky blue,
-       not white, for the same iOS Safari overscroll reason. */
+
     background: #A5C6DE url('/store-clouds-bg.gif') repeat;
     color: var(--ks-ink);
     font-family: Arial, Helvetica, sans-serif;
@@ -249,9 +238,6 @@
   </div>
 </div>
 
-<!-- Only firebase-functions here — cart.html doesn't read Firestore
-     directly at all, it just calls createCheckoutSession (see
-     functions/index.js) once the customer is ready to pay. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-functions-compat.js"></script>
 <script>
@@ -293,7 +279,7 @@
   }
 
   function saveCart(cart) {
-    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) { /* storage full/blocked */ }
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (err) {  }
     render();
   }
 
@@ -307,10 +293,6 @@
     return '$' + (Math.max(0, cents | 0) / 100).toFixed(2);
   }
 
-  // A line's "meta" row (size/color) — store.html only ever writes
-  // `color` today (see its Add to Cart handler); `size` is kept here too
-  // since admin.html already has a per-product Sizes field that isn't
-  // wired into store.html's UI yet.
   function lineMeta(line) {
     var parts = [];
     if (line.color) parts.push('Color: ' + escapeHtml(line.color));
@@ -354,8 +336,6 @@
     subtotalValue.textContent = formatCents(subtotal);
   }
 
-  // Delegated so a single listener covers every line, including ones
-  // re-rendered after a qty change or removal.
   cartLines.addEventListener('click', function (e) {
     var lineEl = e.target.closest('.cart-line');
     if (!lineEl) return;
@@ -402,13 +382,7 @@
       }
     }).catch(function (err) {
       console.error('Checkout failed', err);
-      // invalid-argument is the one code this app throws itself (see
-      // createCheckoutSession in functions/index.js) for a real, specific
-      // reason (empty cart, or every item in it got removed from the
-      // store) — worth showing as-is. Anything else — the function not
-      // being deployed yet, a network hiccup, Stripe not configured —
-      // isn't something a customer can act on, so it gets one generic,
-      // non-alarming message instead of a raw error code.
+
       if (err && err.code === 'functions/invalid-argument' && err.message) {
         showCheckoutFailure(err.message);
       } else {
