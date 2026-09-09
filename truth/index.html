@@ -65,13 +65,10 @@
   }
   .site-header img {
     display: block;
-    max-height: 90px;
-    max-width: 100%;
-    width: auto;
+    width: min(70vw, 480px);
     height: auto;
-  }
-  @media (min-width: 768px) {
-    .site-header img { max-height: 162px; }
+    aspect-ratio: 50 / 19;
+    object-fit: contain;
   }
 
   .page-wrapper {
