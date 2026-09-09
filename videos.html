@@ -21,15 +21,10 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-
-  :root {
-    --ink: #0a2a4a;
-    --panel-2: rgba(10, 42, 74, 0.8);
-    --line: rgba(150, 200, 255, 0.6);
-    --accent-dim: #1c4e8a;
-    --accent-yellow: #ffdd00;
-    --text: #ffffff;
-    --text-dim: #c9dcf5;
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
   }
 
   * { box-sizing: border-box; }
@@ -38,167 +33,228 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    background: var(--ink);
+    overflow: hidden;
+    background: #935b8a;
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  .page {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
-    gap: 2px;
-    padding: clamp(8px, 2vw, 20px) 0 0;
+  .room-bg {
+    position: fixed;
+    z-index: 1;
+    transform-origin: 50% 50%;
+    pointer-events: none;
   }
 
-  .logo-link {
-    flex: 0 0 auto;
-    display: block;
-    text-align: center;
-    padding: 0 clamp(10px, 3vw, 24px);
-  }
-  .logo-link img {
-    display: block;
-    margin: 0 auto;
-    width: 100%;
-    max-width: 760px;
-    max-height: 18vh;
-    height: auto;
-    object-fit: contain;
-  }
-
-  .picker-wrap {
-    flex: 1 1 auto;
-    min-height: min(560px, 68vh);
+  .tv-slot {
+    position: fixed;
+    z-index: 2;
+    transform-origin: 50% 50%;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    padding: clamp(12px, 3vw, 28px);
-    overflow-y: auto;
+    flex-wrap: nowrap;
+  }
+
+  .tv-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease;
+  }
+  .tv-btn img {
+    display: block;
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .tv-btn-static { cursor: default; }
+  .tv-btn:not(.tv-btn-static):hover,
+  .tv-btn:not(.tv-btn-static):focus-visible {
+    transform: scale(1.07);
+    filter: drop-shadow(0 var(--pop-y, 10px) var(--pop-blur, 18px) rgba(0, 0, 0, 0.6));
+  }
+  .tv-btn:not(.tv-btn-static):active {
+    transform: scale(0.97);
+    filter: drop-shadow(0 calc(var(--pop-y, 10px) * 0.45) calc(var(--pop-blur, 18px) * 0.6) rgba(0, 0, 0, 0.55));
+  }
+
+  .tv-message {
+    color: #ffffff;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    text-align: center;
+    line-height: 1.15;
+    padding: 0 6%;
+  }
+
+  .videos-logo {
+    position: fixed;
+    z-index: 3;
+    transform-origin: 50% 50%;
+    display: block;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+  }
+  .videos-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
   .privacy-footer {
-    flex: 0 0 auto;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 6px;
     text-align: center;
-    padding: 3px 0;
+    z-index: 4;
+    pointer-events: none;
   }
   .privacy-footer a {
+    pointer-events: auto;
     display: inline-block;
     text-decoration: underline;
     color: #fff;
     font-size: 9px;
-    opacity: 0.75;
-  }
-  .privacy-footer a:hover { opacity: 1; }
-
-  .picker-grid {
-    width: 100%;
-    max-width: 900px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(10px, 2.5vw, 18px);
-  }
-
-  .picker-btn {
-    display: block;
-    padding: 0;
-    border: none;
-    background: none;
-    line-height: 0;
-    cursor: pointer;
-  }
-
-  .picker-btn-image {
-    display: block;
-    width: auto;
-    height: auto;
-    max-width: min(46vw, 260px);
-    max-height: 34vh;
-  }
-
-  .picker-btn:hover .picker-btn-image,
-  .picker-btn:active .picker-btn-image {
-    filter: brightness(0.82);
-  }
-
-  .picker-empty {
-    color: var(--text-dim);
-    text-align: center;
-    font-size: clamp(13px, 2.4vw, 16px);
-    padding: 20px;
-  }
-
-  @media (max-width: 860px) {
-    html, body { overflow: hidden; }
-    .page {
-      height: 100vh;
-      height: 100dvh;
-    }
-    .picker-wrap {
-      min-height: 0;
-    }
-  }
-
-  @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
-    html, body { overflow: hidden; }
-    .page {
-      height: 100vh;
-      height: 100dvh;
-      padding: 0;
-      gap: 0;
-    }
-    .logo-link { display: none; }
-    .picker-wrap { min-height: 0; }
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
 </style>
 </head>
 <body>
 
-<div class="page">
-  <a class="logo-link" href="/">
-    <img src="/knobsock-videos-logo.png" alt="KNOBSOCK VIDEOS">
-  </a>
+<img class="room-bg" id="roomBg" src="/videos-room-bg.webp" alt="">
 
-  <div class="picker-wrap">
-    <div class="picker-grid" id="pickerGrid">
-      <div class="picker-empty">Loading creators…</div>
-    </div>
-  </div>
+<a class="videos-logo" id="videosLogo" href="/">
+  <img src="/knobsock-videos-logo.png" alt="KNOBSOCK VIDEOS">
+</a>
 
-  <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
-</div>
+<div class="tv-slot" id="tvSlot"></div>
+
+<div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 (function () {
-  const firebaseConfig = {
-    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
-    authDomain: "chat-for-website-efee2.firebaseapp.com",
-    projectId: "chat-for-website-efee2",
-    storageBucket: "chat-for-website-efee2.firebasestorage.app",
-    messagingSenderId: "509309222193",
-    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  var ART = 8000;
+  var ROT_DEG = 2.7;
+  var MOBILE_MAX_WIDTH = 860;
+  var VARIANTS = {
+    desktop: { zoom: 1.006, focusX: 4084, focusY: 3896 },
+    mobile: { zoom: 1.003, focusX: 4099, focusY: 4101 }
   };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const VIDEO_DOC_REF = db.collection('playlist').doc('main');
+  var TV = { cx: 3938, cy: 2843, w: 3400, h: 900 };
+  var TV_TOP_Y = 2070;
+  var LOGO_ASPECT = 4080 / 1221;
 
-  function escapeHtml(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+  var RAD = ROT_DEG * Math.PI / 180;
+  var COS = Math.cos(RAD);
+  var SIN = Math.sin(RAD);
+
+  var bg = document.getElementById('roomBg');
+  var slot = document.getElementById('tvSlot');
+  var logo = document.getElementById('videosLogo');
+
+  function viewportSize() {
+    var vv = window.visualViewport;
+    return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
   }
 
-  const gridEl = document.getElementById('pickerGrid');
+  function layout() {
+    var vp = viewportSize();
+    var v = VARIANTS[vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop'];
+    var fdx = Math.abs(v.focusX - ART / 2);
+    var fdy = Math.abs(v.focusY - ART / 2);
+    var s = Math.max(
+      (vp.w * COS + vp.h * SIN) / (ART - 2 * fdx),
+      (vp.w * SIN + vp.h * COS) / (ART - 2 * fdy)
+    ) * v.zoom;
+    var size = ART * s;
+
+    var fx = s * (v.focusX - ART / 2);
+    var fy = s * (v.focusY - ART / 2);
+    var cx = vp.w / 2 - (fx * COS - fy * SIN);
+    var cy = vp.h / 2 - (fx * SIN + fy * COS);
+
+    bg.style.width = size + 'px';
+    bg.style.height = size + 'px';
+    bg.style.left = (cx - size / 2) + 'px';
+    bg.style.top = (cy - size / 2) + 'px';
+    bg.style.transform = 'rotate(' + ROT_DEG + 'deg)';
+
+    var bw = TV.w * s;
+    var bh = TV.h * s;
+    var ox = s * (TV.cx - ART / 2);
+    var oy = s * (TV.cy - ART / 2);
+    var tx = cx + (ox * COS - oy * SIN);
+    var ty = cy + (ox * SIN + oy * COS);
+
+    slot.style.width = bw + 'px';
+    slot.style.height = bh + 'px';
+    slot.style.left = (tx - bw / 2) + 'px';
+    slot.style.top = (ty - bh / 2) + 'px';
+    slot.style.transform = 'rotate(' + ROT_DEG + 'deg)';
+    slot.style.gap = (bh * 0.14) + 'px';
+    slot.style.fontSize = Math.max(11, bh * 0.15) + 'px';
+    slot.style.setProperty('--pop-y', (bh * 0.05) + 'px');
+    slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
+
+    var lx = s * (TV.cx - ART / 2);
+    var ly = s * (TV_TOP_Y - ART / 2);
+    var topX = cx + (lx * COS - ly * SIN);
+    var topY = cy + (lx * SIN + ly * COS);
+    var lw = Math.min(topY * 0.62 * LOGO_ASPECT, vp.w * 0.72, 620);
+    var lh = lw / LOGO_ASPECT;
+    var gap = lh * 0.2;
+    var lt = Math.max(6, topY - lh - gap);
+    logo.style.width = lw + 'px';
+    logo.style.height = lh + 'px';
+    logo.style.left = (topX - lw / 2) + 'px';
+    logo.style.top = lt + 'px';
+    logo.style.transform = 'rotate(' + ROT_DEG + 'deg)';
+  }
+
+  var rafPending = false;
+  function scheduleLayout() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function () {
+      rafPending = false;
+      layout();
+    });
+  }
+
+  layout();
+  window.addEventListener('resize', scheduleLayout);
+  window.addEventListener('orientationchange', scheduleLayout);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleLayout);
+    window.visualViewport.addEventListener('scroll', scheduleLayout);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
 
   function playThenNavigate(soundSrc, href) {
-    const audio = new Audio(soundSrc);
+    var audio = new Audio(soundSrc);
     audio.volume = 0.5;
-    let navigated = false;
+    var navigated = false;
     function go() {
       if (navigated) return;
       navigated = true;
@@ -209,66 +265,43 @@
     audio.play().catch(go);
   }
 
-  function renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds, creatorPhotos2) {
-    if (!creatorOrder.length) {
-      gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
-      return;
-    }
-
-    const withPhoto = creatorOrder.filter(function (name) { return (creatorPhotos[name] || ''); });
+  function renderCreators(order, links, photos, sounds, photos2) {
+    var withPhoto = order.filter(function (name) { return (photos[name] || '').trim(); });
     if (!withPhoto.length) {
-      gridEl.innerHTML = '<div class="picker-empty">No creators yet — check back soon!</div>';
+      slot.innerHTML = '<div class="tv-message">no videos yet :( come back later</div>';
       return;
     }
-    gridEl.innerHTML = withPhoto.map(function (name) {
-      const photo = creatorPhotos[name];
-      const imgHtml = '<img class="picker-btn-image" src="' + escapeHtml(photo) + '" alt="">';
-      const link = (creatorLinks[name] || '').trim();
-      const sound = creatorSounds[name] || '';
-
-      const photo2 = (creatorPhotos2[name] || '').trim();
-      const photo2Attr = photo2 ? ' data-photo2="' + escapeHtml(photo2) + '"' : '';
-      if (!link && !sound) {
-
-        return imgHtml;
-      }
-      if (link && !sound) {
-        if (!photo2) {
-
-          return '<a class="picker-btn" href="' + escapeHtml(link) + '">' + imgHtml + '</a>';
-        }
-
-        return '<a class="picker-btn" href="' + escapeHtml(link) + '"' + photo2Attr + '>' + imgHtml + '</a>';
-      }
-      if (sound && !link) {
-
-        return '<button type="button" class="picker-btn" data-sound="' + escapeHtml(sound) + '"' + photo2Attr + '>' + imgHtml + '</button>';
-      }
-
-      return '<a class="picker-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '"' + photo2Attr + '>' + imgHtml + '</a>';
+    slot.innerHTML = withPhoto.map(function (name) {
+      var img = '<img src="' + escapeHtml(photos[name]) + '" alt="' + escapeHtml(name) + '" draggable="false">';
+      var link = (links[name] || '').trim();
+      var sound = (sounds[name] || '').trim();
+      var photo2 = (photos2[name] || '').trim();
+      var extra = photo2 ? ' data-photo2="' + escapeHtml(photo2) + '"' : '';
+      if (!link && !sound) return '<span class="tv-btn tv-btn-static">' + img + '</span>';
+      if (link && !sound) return '<a class="tv-btn" href="' + escapeHtml(link) + '"' + extra + '>' + img + '</a>';
+      if (sound && !link) return '<button type="button" class="tv-btn" data-sound="' + escapeHtml(sound) + '"' + extra + '>' + img + '</button>';
+      return '<a class="tv-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '"' + extra + '>' + img + '</a>';
     }).join('');
 
-    gridEl.querySelectorAll('.picker-btn[data-sound], .picker-btn[data-photo2]').forEach(function (el) {
+    slot.querySelectorAll('.tv-btn[data-sound], .tv-btn[data-photo2]').forEach(function (el) {
       el.addEventListener('click', function (e) {
-
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        const photo2 = el.dataset.photo2;
+        var photo2 = el.dataset.photo2;
         if (photo2) {
-          const img = el.querySelector('img');
+          var img = el.querySelector('img');
           if (img) img.src = photo2;
         }
-        const href = el.getAttribute('href');
-        const soundSrc = el.dataset.sound;
+        var href = el.getAttribute('href');
+        var soundSrc = el.dataset.sound;
         if (href) {
           e.preventDefault();
           if (soundSrc) {
             playThenNavigate(soundSrc, href);
           } else {
-
             setTimeout(function () { window.location.href = href; }, 400);
           }
         } else if (soundSrc) {
-          const audio = new Audio(soundSrc);
+          var audio = new Audio(soundSrc);
           audio.volume = 0.5;
           audio.play().catch(function () {});
         }
@@ -276,34 +309,38 @@
     });
   }
 
-  VIDEO_DOC_REF.onSnapshot(function (doc) {
-    const data = doc.exists ? doc.data() : null;
-    const creatorOrder = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
-    const creatorLinks = (data && data.creatorLinks) || {};
-    const creatorSounds = (data && data.creatorSounds) || {};
-    const creatorPhotos = (data && data.creatorPhotos) || {};
-    const creatorPhotos2 = (data && data.creatorPhotos2) || {};
-    renderGrid(creatorOrder, creatorLinks, creatorPhotos, creatorSounds, creatorPhotos2);
-  }, function (err) {
-    console.error('Could not load creators:', err);
-    gridEl.innerHTML = '<div class="picker-empty">Could not load creators.</div>';
-  });
+  if (window.firebase) {
+    var db = firebase.firestore(
+      firebase.apps.length ? firebase.apps[0] : firebase.initializeApp({
+        apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+        authDomain: "chat-for-website-efee2.firebaseapp.com",
+        projectId: "chat-for-website-efee2",
+        storageBucket: "chat-for-website-efee2.firebasestorage.app",
+        messagingSenderId: "509309222193",
+        appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+      }));
+
+    db.collection('playlist').doc('main').onSnapshot(function (doc) {
+      var data = doc.exists ? doc.data() : null;
+      renderCreators(
+        (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [],
+        (data && data.creatorLinks) || {},
+        (data && data.creatorPhotos) || {},
+        (data && data.creatorSounds) || {},
+        (data && data.creatorPhotos2) || {}
+      );
+    }, function (err) {
+      console.error('Could not load creators:', err);
+      slot.innerHTML = '<div class="tv-message">could not load videos</div>';
+    });
+  }
 })();
 </script>
 
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 (function () {
-  var firebaseConfig = {
-    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
-    authDomain: "chat-for-website-efee2.firebaseapp.com",
-    projectId: "chat-for-website-efee2",
-    storageBucket: "chat-for-website-efee2.firebasestorage.app",
-    messagingSenderId: "509309222193",
-    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
-  };
-  var db = firebase.firestore(firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig));
+  if (!window.firebase || !firebase.apps.length) return;
+  var db = firebase.firestore(firebase.apps[0]);
   function setMeta(selector, value) {
     var el = document.querySelector(selector);
     if (el) el.setAttribute('content', value);
