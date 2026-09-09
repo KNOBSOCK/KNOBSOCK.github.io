@@ -221,8 +221,9 @@
   }
 
   /* The slot area, positioned in the CLOSE-UP art's pixel space and
-     rotated to sit square on the pickle's own face — level for Games,
-     tilted for Episodes, matching how each was drawn. One slot per page
+     warped (a full perspective matrix3d, JS) onto a quad measured
+     straight off each pickle's own drawn face, so it reads as sitting on
+     the pickle rather than pasted flat over it. One slot per page
      now (SLOTS_PER_PAGE, JS) rather than the 3x3 this started as — still
      a 1x1 "grid" rather than switching .pickle-slot-box back to plain
      block layout, so every other rule written against this element
@@ -287,7 +288,7 @@
     padding-top: 2%;
     text-align: center;
     color: #ffffff;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Gratis Neue', Arial, Helvetica, sans-serif;
     font-weight: 700;
     /* Tight, because the strip is only as tall as LABEL_FRAC makes it and
        a two-line title has to clear its descenders inside that — any
@@ -327,12 +328,12 @@
     text-align: center;
     color: #ffffff;
     font-family: 'Gratis Neue', Arial, sans-serif;
-    /* Was 2.1em against the same base the (much smaller) slot title text
-       uses — massively oversized for a multi-line paragraph filling the
-       whole grid area, and it overflowed past the pickle's edges. This
-       message needs to wrap into several lines within the pickle's face,
-       not read as a single huge headline. */
-    font-size: 0.5em;
+    /* --empty-font (set in layoutZoom, JS) is a share of the CARD'S OWN
+       full height — this message fills the whole card, not just the
+       label strip the slot title's em-inherited size is tuned for, so it
+       can't share that base. 0.5em is only the fallback for the instant
+       before JS first runs. */
+    font-size: var(--empty-font, 0.5em);
     line-height: 1.15;
     -webkit-text-stroke: 0.5px #000;
     text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
@@ -639,50 +640,40 @@
   // transparent padding, so the visible pickle is only a sub-rect of the
   // element, given here as fractions of it.
   //
-  // grid is the slot area, rotated to sit square on the pickle's face —
-  // level for Games, tilted for Episodes, matching how each was drawn.
-  // Only its WIDTH is given: the height falls out of LABEL_FRAC/THUMB_RATIO
-  // below, since the one cell has to be tall enough for its thumbnail plus
-  // its title underneath.
-  //
-  // This has gone through a few sizes as the grid itself changed shape —
-  // 3x3, then a 3-wide single row, now a single cell (SLOTS_PER_PAGE,
-  // below) holding one full-size thumbnail per page. Each reshape frees up
-  // room the previous width didn't need to reach for, so the width was
-  // bumped up each time rather than carried over unchanged: for Episodes
-  // (rotated), the new width is solved the same way the very first 3x3 fit
-  // was — mask the pickle's own green face out of the close-up, erode it
-  // for a margin, then take the largest shape whose ROTATED bounding box
-  // still lands inside that margin — and Games' (unrotated, so it doesn't
-  // get the same free trade between row-count and width that rotation
-  // gives Episodes) was bumped by roughly the same proportion for a
-  // matching size increase between the two pickles. Both were checked live
-  // — screenshotted zoomed in, all the way to a single filled slot — to
-  // confirm the rotated corners still land inside the green face. Expect
-  // these two numbers to keep moving if the grid's shape ever changes
-  // again; nothing else here depends on their exact values.
+  // quad is where the thumbnail+label card's four corners (TL,TR,BR,BL,
+  // in that order) land in the close-up art's own 3000x3000 pixel space —
+  // a genuine perspective quad, not an axis-aligned box, so the card
+  // reads as artwork lying flat on the pickle's own tilted face rather
+  // than a flat sticker rotated on top of it. Sourced directly from the
+  // artist: they warped a rectangle over each pickle in iOS Photos'
+  // Transform tool to where they wanted the card to sit, exported that
+  // with a reference grid overlaid, and it was measured back pixel-by-
+  // pixel from the four corner markers against that grid. That export was
+  // itself a rotated, uniformly-scaled crop of this same close-up art
+  // (not a 1:1 crop) — resolved back to this file's own coordinates by
+  // matching two unambiguous landmarks (the pickle silhouette's own top
+  // and bottom extremities) between the two images and solving the
+  // rotation+scale+offset that carries one onto the other, rather than
+  // trusting the reference export's pixel bbox/centroid directly (tried
+  // first — thrown off by a thin stray tapered tip and the reference
+  // grid's own overlay skewing the green mask enough to disagree with
+  // itself between bbox- and area-based estimates).
+  // Fed straight into a 2D-homography-as-CSS-matrix3d (see
+  // solveHomography/quadMatrix3d below) rather than any rotate/skew
+  // approximation, so it lands on those exact four points at every
+  // viewport size.
   var PICKLE_ART = {
     episodes: {
       closeup: '/hamburger-pickle-episodes-zoom.webp',
       centre: { x: 1378, y: 1514 }, faceW: 1472,
       btnGreen: { cx: 0.5190, cy: 0.4675, w: 0.9490 },
-      grid: { cx: 1454, cy: 1457, w: 680, rot: -25.2 }
+      quad: [[975, 1382], [1649, 1074], [1993, 1477], [1305, 1841]]
     },
     games: {
       closeup: '/hamburger-pickle-games-zoom.webp',
       centre: { x: 1664, y: 1558 }, faceW: 2085,
       btnGreen: { cx: 0.5168, cy: 0.4907, w: 0.9433 },
-      // Widened from 1050 (was under half the pickle's own green face) and
-      // recentred: measured the face's actual green bounds directly off
-      // the art (a flood-filled pixel mask of hamburger-pickle-games-zoom
-      // .webp, since eyeballing it against the rotated/zoomed preview was
-      // how the old numbers ended up small and off-centre) — its
-      // bounding box is roughly x:[536,2706] y:[786,2266], centre
-      // (1621,1526). 1450 leaves a deliberate, forgiving margin inside
-      // that (rather than the exact inscribed-rectangle max) since the
-      // thumbnail/label sit ON the pickle as foreground content, not
-      // cropped by it.
-      grid: { cx: 1600, cy: 1600, w: 1450, rot: 0 }
+      quad: [[1358, 735], [2719, 1136], [2453, 1905], [1079, 1478]]
     }
   };
   var CLOSEUP_SIZE = 3000;
@@ -721,36 +712,81 @@
   // either way.
   var PICK_SOUND = loadSound('/squish3.m4a', 0.5);
   var ZOOM_OUT_SOUND = loadSound('/woosh.m4a', 0.5);
-  // LABEL_FRAC is the title strip's height, expressed as a share of a
-  // SQUARE cell's height (cw/(1-LABEL_FRAC) tall) — kept in those terms,
-  // rather than as a plain fraction of cw, only because that's the units
-  // the original tuning pass measured it in. THUMB_RATIO is the thumbnail
-  // box's own real aspect (height / width) — a 16:9 crop via
-  // object-fit:cover, not the square crop this briefly used. Both are read
-  // back by layoutZoom and also reach the CSS as --thumb-h, so nothing
-  // here can drift out of sync with what's on screen. (No GAP_FRAC
-  // anymore — that was the gutter between cells in a multi-cell row; one
-  // slot per page, below, means there's only ever one cell.)
+  // LABEL_FRAC is the title strip's height, as a share of the whole
+  // card's height (quad-derived — see layoutZoom) rather than of its
+  // width: the card's own aspect now comes straight from each pickle's
+  // measured quad instead of a fixed 16:9-plus-strip formula, so tying
+  // the label to width would drift out of sync per pickle. The thumbnail
+  // takes whatever's left; object-fit:cover on the <img> (CSS above)
+  // handles it not being exactly 16:9 by cropping, same as it always did.
   var LABEL_FRAC = 0.22;
-  var THUMB_RATIO = 9 / 16;
-  // Tilts the thumbnail+label card back in 3D so it reads as artwork
-  // lying flat on the pickle's own face rather than a flat sticker
-  // pasted over it — a rotateX under a perspective() of its own, scaled
-  // to the grid's current on-screen width (gw) so the illusion holds at
-  // any viewport size rather than looking flatter/steeper as the pickle
-  // scales. Applied INSIDE the existing in-plane rotate(g.rot) (see the
-  // transform line in layoutZoom) so the tilt happens in the grid's own
-  // canonical (unrotated) frame first and then gets carried along with
-  // it into the pickle's tilt — otherwise Episodes' rotated grid would
-  // tip back around the viewport's horizontal axis instead of its own.
-  var GRID_TILT_DEG = 34;
-  var GRID_PERSPECTIVE_MULT = 1.4;
   // Arrow art's own aspect ratio, for sizing them from a width alone, plus
   // that width and the gap out to it — both as shares of the grid's width,
   // so the arrows scale with the pickle rather than with the window.
   var ARROW_RATIO = 473 / 560;
   var ARROW_FRAC = 0.42;
   var ARROW_GAP_FRAC = 0.18;
+
+  // ---------- QUAD HOMOGRAPHY ----------
+  // Solves the 2D projective transform (8 DOF: a,b,c,d,e,f,g,h below)
+  // that carries the 4 corners of `src` onto the 4 corners of `dst`
+  // (same winding order in both), then hands it back as a CSS matrix3d
+  // string. This is the general "warp a flat rectangle onto an arbitrary
+  // quadrilateral" transform — the same operation as dragging all four
+  // corners independently in a photo editor's perspective/transform
+  // tool — which a plain rotate+skew (or rotateX/rotateY) can only ever
+  // approximate, since those keep opposite edges parallel and this
+  // doesn't need to.
+  //
+  // Derivation: a homography maps (x,y,1) to (x',y',w') up to scale, with
+  // the on-screen point being (x'/w', y'/w'). Writing that out per axis:
+  //   x' = a*x + b*y + c        dstX = x' / w'
+  //   y' = d*x + e*y + f        dstY = y' / w'
+  //   w' = g*x + h*y + 1
+  // gives two linear equations per correspondence (8 total for 4 points),
+  // solved by Gaussian elimination for the 8 unknowns.
+  //
+  // To use it as a CSS transform, that 3x3 sits inside a 4x4 matrix3d
+  // that leaves z alone (the card stays a flat plane, just no longer a
+  // flat RECTANGLE in screen space) — row-major:
+  //   [a b 0 c]   [x]
+  //   [d e 0 f] * [y]
+  //   [0 0 1 0]   [0]
+  //   [g h 0 1]   [1]
+  // and CSS's matrix3d(...) argument order is that matrix's COLUMNS, not
+  // rows.
+  function solveHomography(src, dst) {
+    var A = [], B = [];
+    for (var i = 0; i < 4; i++) {
+      var sx = src[i][0], sy = src[i][1], dx = dst[i][0], dy = dst[i][1];
+      A.push([sx, sy, 1, 0, 0, 0, -dx * sx, -dx * sy]); B.push(dx);
+      A.push([0, 0, 0, sx, sy, 1, -dy * sx, -dy * sy]); B.push(dy);
+    }
+    var n = B.length;
+    var M = A.map(function (row, i) { return row.concat([B[i]]); });
+    for (var col = 0; col < n; col++) {
+      var pivot = col;
+      for (var r = col + 1; r < n; r++) {
+        if (Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r;
+      }
+      var tmp = M[col]; M[col] = M[pivot]; M[pivot] = tmp;
+      var pv = M[col][col];
+      for (var c = col; c <= n; c++) M[col][c] /= pv;
+      for (var r2 = 0; r2 < n; r2++) {
+        if (r2 === col) continue;
+        var factor = M[r2][col];
+        if (factor === 0) continue;
+        for (var c2 = col; c2 <= n; c2++) M[r2][c2] -= factor * M[col][c2];
+      }
+    }
+    return M.map(function (row) { return row[n]; });
+  }
+  function quadMatrix3d(src, dst) {
+    var s = solveHomography(src, dst);
+    var a = s[0], b = s[1], c = s[2], d = s[3], e = s[4], f = s[5], g = s[6], h = s[7];
+    return 'matrix3d(' +
+      [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, c, f, 0, 1].join(',') + ')';
+  }
 
   // window.innerWidth/innerHeight lag behind on iOS Safari while the
   // address bar is animating in/out of view — visualViewport tracks the
@@ -830,51 +866,57 @@
     zoomArt.style.width = (CLOSEUP_SIZE * fr.scale) + 'px';
     zoomArt.style.height = (CLOSEUP_SIZE * fr.scale) + 'px';
 
-    // One cell, sized from the grid's width alone: a 16:9 thumbnail, then
-    // grown taller by LABEL_FRAC (in square-cell terms — see labelH
-    // below) to make room for the title underneath. The grid's height is
-    // whatever that comes to, which is why only the width is a tuned
-    // constant.
-    var g = art.grid;
-    var gw = g.w * fr.scale;
-    var cw = gw;
-    // Label height stays in the units it was originally tuned in (a share
-    // of a SQUARE cell) even though the thumbnail itself no longer is one
-    // — that's what keeps the two-line-fit math the font-size formula
-    // below relies on valid without re-tuning it just because the
-    // thumbnail's own height changed underneath it.
-    var labelH = cw * LABEL_FRAC / (1 - LABEL_FRAC);
-    var thumbH = cw * THUMB_RATIO;
-    var ch = thumbH + labelH;
-    var gh = ch;
+    // Project the quad's 4 art-space corners into the current screen
+    // space (same offX/offY/scale as everything else this frame), in
+    // TL,TR,BR,BL order to match PICKLE_ART[name].quad.
+    var q = art.quad;
+    var sq = q.map(function (p) {
+      return [fr.offX + p[0] * fr.scale, fr.offY + p[1] * fr.scale];
+    });
+    var cx = (sq[0][0] + sq[1][0] + sq[2][0] + sq[3][0]) / 4;
+    var cy = (sq[0][1] + sq[1][1] + sq[2][1] + sq[3][1]) / 4;
+    function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+    // The card's own (undistorted) box size: averaging each pair of
+    // opposite edges keeps it close to the quad's own proportions, so
+    // the homography below is mostly doing rotation/perspective rather
+    // than also stretching a mismatched box into shape.
+    var gw = (dist(sq[0], sq[1]) + dist(sq[3], sq[2])) / 2;
+    var gh = (dist(sq[0], sq[3]) + dist(sq[1], sq[2])) / 2;
+    var labelH = gh * LABEL_FRAC;
+    var thumbH = gh - labelH;
     slotsEl.style.width = gw + 'px';
     slotsEl.style.height = gh + 'px';
-    slotsEl.style.left = (fr.offX + g.cx * fr.scale - gw / 2) + 'px';
-    slotsEl.style.top = (fr.offY + g.cy * fr.scale - gh / 2) + 'px';
-    slotsEl.style.transform =
-      'perspective(' + (GRID_PERSPECTIVE_MULT * gw) + 'px) ' +
-      'rotate(' + g.rot + 'deg) rotateX(' + GRID_TILT_DEG + 'deg)';
-    slotsEl.style.setProperty('--thumb-h', (100 * thumbH / ch).toFixed(3) + '%');
-    // Sized off the CELL, not the whole grid, and specifically so that two
-    // clamped lines still fit the strip under the thumbnail: that strip is
-    // labelH tall, and 0.118 leaves room for two lines of it plus the
-    // padding and descenders.
-    slotsEl.style.fontSize = Math.max(8, cw * 0.118) + 'px';
+    slotsEl.style.left = (cx - gw / 2) + 'px';
+    slotsEl.style.top = (cy - gh / 2) + 'px';
+    var localRect = [[-gw / 2, -gh / 2], [gw / 2, -gh / 2], [gw / 2, gh / 2], [-gw / 2, gh / 2]];
+    var dstRect = sq.map(function (p) { return [p[0] - cx, p[1] - cy]; });
+    slotsEl.style.transform = quadMatrix3d(localRect, dstRect);
+    slotsEl.style.setProperty('--thumb-h', (100 * thumbH / gh).toFixed(3) + '%');
+    // Sized off the label strip's own height (not the card's width, which
+    // no longer has a fixed relationship to it now that the card's shape
+    // comes from the quad) — 0.42 leaves two clamped lines room for
+    // descenders and the strip's top padding.
+    slotsEl.style.fontSize = Math.max(8, labelH * 0.42) + 'px';
+    // The empty-state paragraph (renderSlots) fills the WHOLE card, not
+    // just the label strip, so it needs its own size off the card's full
+    // height rather than inheriting the label's — labelH-based sizing
+    // here made it render as a single tiny sliver of text.
+    slotsEl.style.setProperty('--empty-font', Math.max(8, gh * 0.085) + 'px');
 
-    // Arrows sit just off the ends of the grid, along the GRID'S own
-    // rotated axis rather than the viewport's — so they land at the two
-    // ends of the pickle the way it was drawn: level either side for
-    // Games, and up-right / down-left following the tilt for Episodes.
-    // Only the placement rotates; the arrow art itself stays upright.
+    // Arrows sit just off the ends of the card, along the quad's own
+    // width axis (the average of its top and bottom edges) rather than
+    // the viewport's — so they land at the two ends of the pickle the
+    // way it was drawn. Only the placement follows that axis; the arrow
+    // art itself stays upright.
     var aw = Math.max(40, gw * ARROW_FRAC);
     var ah = aw * ARROW_RATIO;
     var off = gw / 2 + gw * ARROW_GAP_FRAC + aw / 2;
-    var rad = g.rot * Math.PI / 180;
-    var ox = Math.cos(rad) * off, oy = Math.sin(rad) * off;
-    var gcx = fr.offX + g.cx * fr.scale;
-    var gcy = fr.offY + g.cy * fr.scale;
-    placeArrow(arrowPrev, gcx - ox, gcy - oy, aw, ah, vp);
-    placeArrow(arrowNext, gcx + ox, gcy + oy, aw, ah, vp);
+    var edgeX = (sq[1][0] - sq[0][0] + sq[2][0] - sq[3][0]) / 2;
+    var edgeY = (sq[1][1] - sq[0][1] + sq[2][1] - sq[3][1]) / 2;
+    var angle = Math.atan2(edgeY, edgeX);
+    var ox = Math.cos(angle) * off, oy = Math.sin(angle) * off;
+    placeArrow(arrowPrev, cx - ox, cy - oy, aw, ah, vp);
+    placeArrow(arrowNext, cx + ox, cy + oy, aw, ah, vp);
   }
 
   // Centred on the point worked out above, then nudged back inside the
