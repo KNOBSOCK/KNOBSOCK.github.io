@@ -615,6 +615,13 @@
     return m ? m[1] : null;
   }
 
+  function thumbForUrl(url) {
+    var id = extractVideoId(url);
+    if (id) return 'https://img.youtube.com/vi/' + id + '/mqdefault.jpg';
+    var m = String(url || '').match(/^(https?:\/\/.+\/)playlist\.m3u8(\?.*)?$/i);
+    return m ? (m[1] + 'thumbnail.jpg') : '';
+  }
+
   function renderSlots() {
     if (!openPickle) return;
     var items = pickleItems[openPickle];
@@ -841,12 +848,11 @@
       var data = doc.exists ? doc.data() : null;
       var raw = (data && Array.isArray(data.videos)) ? data.videos : [];
       pickleItems.episodes = raw.map(function (v, i) {
-        var id = extractVideoId(v.url);
         return {
           index: i,
           title: (v.title && v.title.trim()) ? v.title.trim() : ('Episode ' + (i + 1)),
           url: v.url || '',
-          thumb: id ? ('https://img.youtube.com/vi/' + id + '/mqdefault.jpg') : ''
+          thumb: thumbForUrl(v.url)
         };
       });
       if (openPickle === 'episodes') renderSlots();
