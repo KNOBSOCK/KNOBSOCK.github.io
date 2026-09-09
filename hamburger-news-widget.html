@@ -172,9 +172,8 @@
   }
   .round-btn:hover { background: #e0590f; }
   .round-btn:active { background: #a3390b; }
-  /* Without this, the [hidden] attribute (set via JS on nextBtn and
-     pickerToggleBtn — see renderNowPlaying/updatePickerToggleVisibility)
-     does nothing on a .round-btn: the browser's own [hidden]{display:
+  /* Without this, the [hidden] attribute (set via JS on nextBtn — see
+     renderNowPlaying) does nothing on a .round-btn: the browser's own [hidden]{display:
      none} rule lives in the UA stylesheet, and an author-origin rule
      always wins a tie against UA origin regardless of specificity — so
      .round-btn's own display:flex above was silently overriding it,
@@ -228,140 +227,6 @@
     font-weight: 700;
   }
 
-  /* ---------- VIDEO PICKER DRAWER ----------
-     Jump straight to any saved video, not just step through them one at
-     a time via Next — built right into the stage itself, same as
-     everything else here, so it reads as part of the burger rather than
-     a bolted-on page element. Takes over the whole stage when open
-     (inset:0, same as .picker-panel itself) and slides down from the
-     top via a single transform, rather than growing up from the bottom
-     into a capped-height strip like the first version of this did —
-     simpler than that version's layered max-height + translateY combo
-     needed to be, since there's no longer a "partial reveal" height to
-     animate open, just the one property. translateZ(0) plus a forced
-     reflow on close (see the JS) still guard against the exact stale-
-     compositor-tile bug that turned up on live.html's tap-in streak bar
-     on mobile Safari — cheap insurance, same "frequently toggled
-     overlay on a mobile-heavy page" shape of element.
-     Horizontal scroll below a rough phone/desktop threshold, vertical
-     above it — not just a stylistic flourish: a horizontal strip reads
-     as a natural thumb-swipe on a phone, while a vertical list uses a
-     wide desktop window's own taller-than-wide video area better. The
-     threshold is checked against THIS IFRAME's own rendered width (set
-     by videos/hamburgernews.html's .burger-stack, capped at 780px), not
-     the phone's raw screen width — which already lines up correctly:
-     a phone's ~92vw-wide burger-stack keeps this well under the
-     threshold, a desktop's 780px-capped one clears it. */
-  .picker-panel {
-    position: absolute;
-    inset: 0;
-    z-index: 6;
-    pointer-events: none;
-  }
-  .picker-drawer {
-    pointer-events: auto;
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    background: rgba(20, 8, 0, 0.96);
-    transform: translateY(-100%) translateZ(0);
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .picker-panel.open .picker-drawer {
-    transform: translateY(0) translateZ(0);
-  }
-  .picker-drawer-head {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 10px 10px 6px;
-  }
-  .picker-drawer-title {
-    color: #ffd479;
-    font-weight: 700;
-    font-size: clamp(12px, 3.4cqw, 15px);
-  }
-  .picker-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    gap: 8px;
-    padding: 0 10px 10px;
-    /* Mobile default: horizontal strip, vertically centered in the now
-       full-height drawer instead of sitting flush against its top. */
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  @media (min-width: 640px) {
-    .picker-list {
-      flex-direction: column;
-      align-items: stretch;
-      overflow-x: hidden;
-      overflow-y: auto;
-    }
-  }
-  .picker-item {
-    -webkit-appearance: none;
-    appearance: none;
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: clamp(140px, 40cqw, 180px);
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    padding: 6px;
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-  }
-  @media (min-width: 640px) {
-    .picker-item { width: 100%; }
-  }
-  .picker-item:hover { background: rgba(255, 255, 255, 0.12); }
-  .picker-item.active { border-color: #ffb400; background: rgba(255, 180, 0, 0.18); }
-  .picker-thumb {
-    flex: none;
-    width: 64px;
-    aspect-ratio: 16 / 9;
-    border-radius: 4px;
-    object-fit: cover;
-    background: #000;
-  }
-  .picker-title {
-    min-width: 0;
-    color: #ffd479;
-    font-size: 12px;
-    line-height: 1.3;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-  }
-  /* Hamburger-menu glyph doubling as the Hamburger News video picker's
-     own icon — top-right of the stage now rather than inside the
-     bottom button row, since opening it takes over the whole player
-     instead of sharing space down there. Fades with the same
-     .controls-visible group as everything else (hover on desktop, tap
-     on touch), and is hidden outright (see the JS) while the drawer's
-     actually open — .picker-close-btn inside the drawer itself takes
-     over as the dismiss control at that point, rather than this same
-     button trying to do double duty as both opener and closer. */
-  .picker-toggle-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 7;
-    opacity: 0;
-    transition: opacity 0.25s ease;
-  }
-  .stage.controls-visible .picker-toggle-btn { opacity: 1; }
 </style>
 </head>
 <body>
@@ -372,16 +237,6 @@
     <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
   </div>
   <div class="empty-state" id="emptyState" hidden>No Hamburger News yet — check back soon!</div>
-  <div class="picker-panel" id="pickerPanel">
-    <div class="picker-drawer" id="pickerDrawer">
-      <div class="picker-drawer-head">
-        <span class="picker-drawer-title">Pick a video</span>
-        <button type="button" class="round-btn" id="pickerCloseBtn" title="Close">&#10005;</button>
-      </div>
-      <div class="picker-list" id="pickerList"></div>
-    </div>
-  </div>
-  <button type="button" class="round-btn picker-toggle-btn" id="pickerToggleBtn" title="Pick a video" hidden><span class="picker-toggle-label">&#9776;</span></button>
   <div class="controls-bar" id="controlsBar" hidden>
     <div class="scrubber" id="scrubber">
       <div class="scrubber-track">
@@ -427,12 +282,6 @@
     const m = trimmed.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     return m ? m[1] : null;
   }
-  function escapeHtml(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
-
   const stageEl = document.getElementById('stage');
   const stageLoadingEl = document.getElementById('stageLoading');
   const emptyStateEl = document.getElementById('emptyState');
@@ -441,11 +290,6 @@
   const playBtn = document.getElementById('playBtn');
   const nextBtn = document.getElementById('nextBtn');
   const nowPlayingTitleEl = document.getElementById('nowPlayingTitle');
-  const pickerPanelEl = document.getElementById('pickerPanel');
-  const pickerDrawerEl = document.getElementById('pickerDrawer');
-  const pickerListEl = document.getElementById('pickerList');
-  const pickerToggleBtn = document.getElementById('pickerToggleBtn');
-  const pickerCloseBtn = document.getElementById('pickerCloseBtn');
   const scrubberEl = document.getElementById('scrubber');
   const scrubberFillEl = document.getElementById('scrubberFill');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -453,7 +297,6 @@
   let videos = [];       // [{id, title}]
   let activeIndex = 0;
   let hasLoadedInitialVideo = false;
-  let pickerOpen = false;
 
   function showLoading() { stageLoadingEl.hidden = false; }
   function hideLoading() { stageLoadingEl.hidden = true; }
@@ -481,7 +324,7 @@
     stageEl.addEventListener('mouseleave', () => hideControlsNow());
   } else {
     stageEl.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.controls-bar, .picker-panel, .picker-toggle-btn')) { showControls(true); return; }
+      if (e.target.closest('.controls-bar')) { showControls(true); return; }
       if (stageEl.classList.contains('controls-visible')) hideControlsNow();
       else showControls(true);
     }, { passive: true });
@@ -546,60 +389,7 @@
     const v = videos[activeIndex];
     nowPlayingTitleEl.textContent = v ? (v.title || 'Untitled') : '';
     nextBtn.hidden = videos.length < 2;
-    updatePickerToggleVisibility();
-    pickerListEl.querySelectorAll('.picker-item').forEach((el) => {
-      el.classList.toggle('active', parseInt(el.dataset.index, 10) === activeIndex);
-    });
   }
-
-  // Nothing to pick between with 0 or 1 video, and hidden outright
-  // while the drawer's already open (see togglePicker) — the close
-  // button inside the drawer is the only dismiss control at that point.
-  function updatePickerToggleVisibility() {
-    pickerToggleBtn.hidden = videos.length < 2 || pickerOpen;
-  }
-
-  // ---------- VIDEO PICKER DRAWER ----------
-  function renderPickerList() {
-    pickerListEl.innerHTML = videos.map((v, i) => `
-      <button type="button" class="picker-item${i === activeIndex ? ' active' : ''}" data-index="${i}">
-        <img class="picker-thumb" src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy">
-        <span class="picker-title">${escapeHtml(v.title)}</span>
-      </button>
-    `).join('');
-  }
-
-  function togglePicker(open) {
-    pickerOpen = open;
-    pickerPanelEl.classList.toggle('open', open);
-    updatePickerToggleVisibility();
-    if (open) {
-      showControls(false); // stays up alongside the open drawer, no auto-hide fighting it
-    } else {
-      // Forces a synchronous repaint right as the drawer starts closing
-      // — same fix, same reasoning, as live.html's tap-in streak bar
-      // (see .picker-drawer's own comment): mobile Safari can otherwise
-      // leave a stale painted sliver of the drawer's own border on
-      // screen even once its real geometry is back to 0.
-      void pickerDrawerEl.offsetHeight;
-      showControls(true);
-    }
-  }
-
-  pickerToggleBtn.addEventListener('click', () => togglePicker(true));
-  pickerCloseBtn.addEventListener('click', () => togglePicker(false));
-
-  pickerListEl.addEventListener('click', (e) => {
-    const item = e.target.closest('.picker-item');
-    if (!item) return;
-    // A real click on this document (unlike a pick relayed in from the
-    // Episodes pickle over in videos/hamburgernews.html) — same reasoning
-    // as the scrubber's own click handler.
-    wantsUnmute = true;
-    playIndex(parseInt(item.dataset.index, 10));
-    applyUnmute();
-    togglePicker(false);
-  });
 
   // ---------- SCRUBBER ----------
   // Polls playback position rather than relying on a player event — the
@@ -744,9 +534,8 @@
   // ---------- FULLSCREEN ----------
   // Same real-Fullscreen-API-with-a-CSS-fallback approach as live.html's
   // own fullscreen button (livestream-chat-widget.html) — fullscreens
-  // the whole .stage (video + controls + picker drawer all live inside
-  // it), not just the bare video, so every control keeps working once
-  // fullscreened.
+  // the whole .stage (video + controls live inside it), not just the
+  // bare video, so every control keeps working once fullscreened.
   let usingPseudoFullscreen = false;
 
   function hasNativeFullscreenSupport(el) {
@@ -860,12 +649,10 @@
     videos = rawList
       .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled' }))
       .filter(v => v.id);
-    renderPickerList();
 
     if (!videos.length) {
       emptyStateEl.hidden = false;
       controlsBarEl.hidden = true;
-      togglePicker(false);
       hideLoading();
       return;
     }
