@@ -458,7 +458,11 @@
           applyUnmute();
           updateMuteBtn();
           updatePlayBtn(true);
-          showControls(true);
+          // Deliberately no showControls() here — the bar should only ever
+          // appear from a real hover/tap (see showControls' own call
+          // sites), not automatically the moment a video becomes ready,
+          // whether that's the page's first load or a freshly picked
+          // episode loading into an already-open player.
           if (pendingVideoId) {
             showLoading();
             ytPlayer.loadVideoById(pendingVideoId);
