@@ -558,7 +558,7 @@
     // own clamp() just below. Also guards the opposite failure on a very
     // wide/short desktop window, where the same hole.y-based math can
     // go negative and push the header off the top of the screen.
-    hdrTop = Math.max(6, Math.min(hdrTop, vp.h * 0.045));
+    hdrTop = Math.max(6, Math.min(hdrTop, vp.h * 0.045)) + 15;
     hnHeader.style.width = hdrW + 'px';
     hnHeader.style.height = hdrH + 'px';
     hnHeader.style.left = (offX + (hole.x + hole.w / 2) * scale - hdrW / 2) + 'px';
