@@ -76,6 +76,19 @@
   }
   .back-link:hover { opacity: 1; }
 
+  .hn-header {
+    position: fixed;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .hn-header img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
   .pickle-btn {
     position: fixed;
     z-index: 3;
@@ -298,6 +311,10 @@
 
   <img class="stage-bg" id="stageBg" alt="">
 
+  <div class="hn-header" id="hnHeader">
+    <img src="/hamburger-news-header.webp" alt="Hamburger News with Joe Medina">
+  </div>
+
   <button type="button" class="pickle-btn" id="pickleEpisodes" aria-label="Episodes">
     <img src="/hamburger-pickle-episodes.webp" alt="">
   </button>
@@ -334,6 +351,7 @@
   };
   var pattySlot = document.getElementById('pattySlot');
   var stageBg = document.getElementById('stageBg');
+  var hnHeader = document.getElementById('hnHeader');
   var stageWrap = document.getElementById('stageWrap');
   var backLink = document.getElementById('backLink');
   var zoomEl = document.getElementById('pickleZoom');
@@ -358,6 +376,7 @@
     var active = !!e.data.active;
     pattySlot.classList.toggle('hn-fullscreen', active);
     stageBg.classList.toggle('hn-bg-hidden', active);
+    hnHeader.hidden = active;
     Object.keys(PICKLE_BTNS).forEach(function (n) { PICKLE_BTNS[n].hidden = active; });
     var privacyFooterEl = document.getElementById('privacyFooter');
     if (privacyFooterEl) privacyFooterEl.hidden = active;
@@ -398,12 +417,25 @@
     }
   };
 
+  // hole.y/w/h are identical between desktop and mobile (only hole.x
+  // shifts), so the header is sized/placed purely off hole.w and the
+  // gap up from hole.y, in the SAME art-space scale/offset layout()
+  // already computes for everything else — no separate per-variant
+  // measurement needed. Ratios were measured directly off the artist's
+  // own placement mockup (title top / subtitle bottom relative to the
+  // hole) rather than guessed.
+  var HEADER = {
+    aspect: 3945 / 959,
+    widthFrac: 1.72,
+    bottomGapFrac: 0.2205
+  };
+
   var PICKLE_ART = {
     episodes: {
       closeup: '/hamburger-pickle-episodes-zoom.webp',
       centre: { x: 1378, y: 1514 }, faceW: 1472,
       btnGreen: { cx: 0.5190, cy: 0.4675, w: 0.9490 },
-      quad: [[975, 1382], [1649, 1074], [1993, 1477], [1305, 1841]]
+      quad: [[948, 1348], [1622, 1040], [1966, 1443], [1278, 1807]]
     },
     games: {
       closeup: '/hamburger-pickle-games-zoom.webp',
@@ -506,6 +538,14 @@
     pattySlot.style.top = (offY + hole.y * scale) + 'px';
     pattySlot.style.width = (hole.w * scale) + 'px';
     pattySlot.style.height = (hole.h * scale) + 'px';
+
+    var hdrW = hole.w * HEADER.widthFrac * scale;
+    var hdrH = hdrW / HEADER.aspect;
+    var hdrBottomArt = hole.y - hole.w * HEADER.bottomGapFrac;
+    hnHeader.style.width = hdrW + 'px';
+    hnHeader.style.height = hdrH + 'px';
+    hnHeader.style.left = (offX + (hole.x + hole.w / 2) * scale - hdrW / 2) + 'px';
+    hnHeader.style.top = (offY + hdrBottomArt * scale - hdrH) + 'px';
 
     Object.keys(PICKLE_BTNS).forEach(function (name) {
       var r = variant.pickles[name];
