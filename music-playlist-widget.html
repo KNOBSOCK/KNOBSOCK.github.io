@@ -274,7 +274,6 @@
   .round-btn {
     -webkit-appearance: none;
     appearance: none;
-    border-radius: 50%;
     aspect-ratio: 1 / 1;
     padding: 0;
     display: inline-flex;
@@ -284,12 +283,12 @@
     font-family: var(--font-body);
     font-weight: 700;
     line-height: 1;
-    background: var(--accent);
-    border: 1px solid var(--line);
-    color: #1a1200;
+    background: none;
+    border: 0;
+    color: var(--accent);
   }
-  .round-btn:hover:not(:disabled) { background: var(--accent-dim); color: #ffffff; }
-  .round-btn:active:not(:disabled) { background: var(--accent-dim); color: #ffffff; }
+  .round-btn:hover:not(:disabled) { color: var(--accent-dim); }
+  .round-btn:active:not(:disabled) { color: var(--accent-dim); }
   .round-btn:disabled { opacity: 0.5; cursor: default; }
 
   .play-pause-btn {
