@@ -773,6 +773,7 @@
   <div class="tab-panel" id="tab-videos">
     <h2 class="panel-heading">Videos</h2>
     <p class="panel-sub">Reorder, add, or remove videos on the Videos page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
+    <div class="note">For Bunny Stream videos: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
     <div class="editor-grid">
       <div class="card">
         <div class="card-head">
@@ -796,6 +797,7 @@
     </div>
 
     <div class="note">Feeds the burger-themed player at /videos/hamburgernews.html — a separate list from the main Video List above, its own player, its own creators.</div>
+    <div class="note">For Bunny Stream videos: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste below is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
     <div class="editor-grid">
       <div class="card">
         <div class="card-head">
@@ -1991,9 +1993,10 @@
       resetBtn: document.getElementById('videosResetBtn'),
       statusEl: document.getElementById('videosStatus'),
       defaultList: DEFAULT_VIDEO_LIST,
-      urlPlaceholder: 'Paste a YouTube link',
+      urlPlaceholder: 'Paste a YouTube link, or a direct Bunny .m3u8 link (see note above)',
       singular: 'Video',
       plural: 'videos',
+      allowDirectVideo: true,
 
       showCreatorLinks: true,
       showThumb: true
@@ -2026,7 +2029,7 @@
       resetBtn: document.getElementById('hamburgerNewsResetBtn'),
       statusEl: document.getElementById('hamburgerNewsStatus'),
       defaultList: DEFAULT_HAMBURGER_NEWS_LIST,
-      urlPlaceholder: 'Paste a YouTube or Bunny Stream link',
+      urlPlaceholder: 'Paste a YouTube link, or a direct Bunny .m3u8 link (see note above)',
       singular: 'Video',
       plural: 'videos',
       allowDirectVideo: true,
