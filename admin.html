@@ -842,7 +842,8 @@
   <div class="tab-panel" id="tab-music" hidden>
     <h2 class="panel-heading">Music</h2>
     <p class="panel-sub">Reorder, add, or remove YouTube tracks on the Music page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
-    <div class="note">SoundCloud tracks aren't managed here — they're pulled in automatically from the linked SoundCloud profile and merged into the list live. This only covers the YouTube side of the playlist.</div>
+    <div class="note">SoundCloud tracks aren't managed here — they're pulled in automatically from the linked SoundCloud profile and merged into the list live. This only covers the YouTube and Bunny Stream side of the playlist.</div>
+    <div class="note">For Bunny Stream tracks: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
     <div class="editor-grid">
       <div class="card">
         <div class="card-head">
@@ -2013,10 +2014,12 @@
       resetBtn: document.getElementById('musicResetBtn'),
       statusEl: document.getElementById('musicStatus'),
       defaultList: DEFAULT_MUSIC_LIST,
-      urlPlaceholder: 'Paste a YouTube link',
+      urlPlaceholder: 'Paste a YouTube link, or a direct Bunny .m3u8 link (see note above)',
       singular: 'Track',
       plural: 'tracks',
-      showAlbums: true
+      allowDirectVideo: true,
+      showAlbums: true,
+      showThumb: true
     }).load();
 
     createPlaylistEditor({
