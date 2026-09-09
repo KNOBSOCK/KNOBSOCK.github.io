@@ -135,7 +135,12 @@
 </head>
 <body>
 
-<img class="room-bg" id="roomBg" src="/videos-room-bg.webp" alt="">
+<img class="room-bg" id="roomBg" alt="">
+<script>
+  document.getElementById('roomBg').src = window.innerWidth <= 860
+    ? '/videos-room-mobile.webp'
+    : '/videos-room-desktop.webp';
+</script>
 
 <a class="videos-logo" id="videosLogo" href="/">
   <img src="/knobsock-videos-logo.png" alt="KNOBSOCK VIDEOS">
@@ -149,24 +154,27 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 (function () {
-  var ART = 8000;
-  var ROT_DEG = 2.7;
   var MOBILE_MAX_WIDTH = 860;
   var VARIANTS = {
-    desktop: { zoom: 1.006, focusX: 4084, focusY: 3896 },
-    mobile: { zoom: 1.003, focusX: 4099, focusY: 4101 }
+    desktop: {
+      src: '/videos-room-desktop.webp',
+      w: 7456, h: 4194,
+      tv: { cx: 3609, cy: 1414, w: 1882, h: 500 },
+      tvTopY: 995
+    },
+    mobile: {
+      src: '/videos-room-mobile.webp',
+      w: 4511, h: 8000,
+      tv: { cx: 2198, cy: 3271, w: 2047, h: 546 },
+      tvTopY: 2820
+    }
   };
-  var TV = { cx: 3938, cy: 2843, w: 3400, h: 900 };
-  var TV_TOP_Y = 2070;
   var LOGO_ASPECT = 4080 / 1221;
-
-  var RAD = ROT_DEG * Math.PI / 180;
-  var COS = Math.cos(RAD);
-  var SIN = Math.sin(RAD);
 
   var bg = document.getElementById('roomBg');
   var slot = document.getElementById('tvSlot');
   var logo = document.getElementById('videosLogo');
+  var currentVariant = null;
 
   function viewportSize() {
     var vv = window.visualViewport;
@@ -175,56 +183,42 @@
 
   function layout() {
     var vp = viewportSize();
-    var v = VARIANTS[vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop'];
-    var fdx = Math.abs(v.focusX - ART / 2);
-    var fdy = Math.abs(v.focusY - ART / 2);
-    var s = Math.max(
-      (vp.w * COS + vp.h * SIN) / (ART - 2 * fdx),
-      (vp.w * SIN + vp.h * COS) / (ART - 2 * fdy)
-    ) * v.zoom;
-    var size = ART * s;
+    var name = vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop';
+    var v = VARIANTS[name];
+    if (name !== currentVariant) {
+      currentVariant = name;
+      bg.src = v.src;
+    }
 
-    var fx = s * (v.focusX - ART / 2);
-    var fy = s * (v.focusY - ART / 2);
-    var cx = vp.w / 2 - (fx * COS - fy * SIN);
-    var cy = vp.h / 2 - (fx * SIN + fy * COS);
+    var s = Math.max(vp.w / v.w, vp.h / v.h);
+    var aw = v.w * s;
+    var ah = v.h * s;
+    var ox = (vp.w - aw) / 2;
+    var oy = (vp.h - ah) / 2;
 
-    bg.style.width = size + 'px';
-    bg.style.height = size + 'px';
-    bg.style.left = (cx - size / 2) + 'px';
-    bg.style.top = (cy - size / 2) + 'px';
-    bg.style.transform = 'rotate(' + ROT_DEG + 'deg)';
+    bg.style.width = aw + 'px';
+    bg.style.height = ah + 'px';
+    bg.style.left = ox + 'px';
+    bg.style.top = oy + 'px';
 
-    var bw = TV.w * s;
-    var bh = TV.h * s;
-    var ox = s * (TV.cx - ART / 2);
-    var oy = s * (TV.cy - ART / 2);
-    var tx = cx + (ox * COS - oy * SIN);
-    var ty = cy + (ox * SIN + oy * COS);
-
+    var bw = v.tv.w * s;
+    var bh = v.tv.h * s;
     slot.style.width = bw + 'px';
     slot.style.height = bh + 'px';
-    slot.style.left = (tx - bw / 2) + 'px';
-    slot.style.top = (ty - bh / 2) + 'px';
-    slot.style.transform = 'rotate(' + ROT_DEG + 'deg)';
+    slot.style.left = (ox + v.tv.cx * s - bw / 2) + 'px';
+    slot.style.top = (oy + v.tv.cy * s - bh / 2) + 'px';
     slot.style.gap = (bh * 0.14) + 'px';
     slot.style.fontSize = Math.max(11, bh * 0.15) + 'px';
     slot.style.setProperty('--pop-y', (bh * 0.05) + 'px');
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
 
-    var lx = s * (TV.cx - ART / 2);
-    var ly = s * (TV_TOP_Y - ART / 2);
-    var topX = cx + (lx * COS - ly * SIN);
-    var topY = cy + (lx * SIN + ly * COS);
-    var lw = Math.min(topY * 0.62 * LOGO_ASPECT, vp.w * 0.72, 620);
+    var topY = oy + v.tvTopY * s;
+    var lw = Math.min(Math.max(topY, 0) * 0.75 * LOGO_ASPECT, vp.w * 0.78, 820);
     var lh = lw / LOGO_ASPECT;
-    var gap = lh * 0.2;
-    var lt = Math.max(6, topY - lh - gap);
     logo.style.width = lw + 'px';
     logo.style.height = lh + 'px';
-    logo.style.left = (topX - lw / 2) + 'px';
-    logo.style.top = lt + 'px';
-    logo.style.transform = 'rotate(' + ROT_DEG + 'deg)';
+    logo.style.left = (ox + v.tv.cx * s - lw / 2) + 'px';
+    logo.style.top = Math.max(6, (topY - lh) / 2) + 'px';
   }
 
   var rafPending = false;
