@@ -70,7 +70,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 8; // footer link: in-flow instead of fixed, smaller text
+const TEMPLATE_VERSION = 9; // bg-video: 100dvh fallback fixes the iOS Safari toolbar gap
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -219,7 +219,14 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
     color: #fff;
     min-height: 100vh;
   }
-  .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+  /* height:100% alone locks to iOS Safari's LARGE viewport size and
+     doesn't track its toolbar collapsing/expanding on scroll — leaving
+     a gap of html's own background color showing below the video once
+     the toolbar shrinks and the real visible area grows past this
+     element's stale height. dvh tracks the actual dynamic viewport,
+     closing that gap; the plain % stays as a fallback for browsers
+     that don't support dvh. */
+  .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; object-fit: cover; z-index: -1; }
   h1, h2, h3 { color: yellow; }
   a { text-decoration: none; color: inherit; }
 

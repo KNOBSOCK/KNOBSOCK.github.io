@@ -484,12 +484,23 @@
   // leaves two pickles floating over a fullscreen video. They're the only
   // thing that sets [hidden] on those buttons — the zoom deliberately
   // doesn't (see openZoom).
+  //
+  // The privacy footer link is the same story again: also position:fixed
+  // against the real viewport, not scoped to .patty-slot at all, so it
+  // was floating on top of the fullscreen video same as the pickles were.
+  // Looked up fresh here rather than cached alongside pattySlot/stageBg
+  // above — the footer div sits right before </body>, hundreds of lines
+  // below this script tag, so a cached reference grabbed this early
+  // would just be null (this script runs before that div's even been
+  // parsed yet) and silently never do anything.
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
     var active = !!e.data.active;
     pattySlot.classList.toggle('hn-fullscreen', active);
     stageBg.classList.toggle('hn-bg-hidden', active);
     Object.keys(PICKLE_BTNS).forEach(function (n) { PICKLE_BTNS[n].hidden = active; });
+    var privacyFooterEl = document.getElementById('privacyFooter');
+    if (privacyFooterEl) privacyFooterEl.hidden = active;
   });
 
   // ---------- STAGE LAYOUT ----------
@@ -1136,6 +1147,6 @@
 })();
 </script>
 
-<div style="position:fixed;left:0;right:0;bottom:6px;text-align:center;z-index:999;pointer-events:none;"><a href="/privacy" style="pointer-events:auto;display:inline-block;text-decoration:underline;color:#fff;font-size:9px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:rgba(0,0,0,0.55);padding:2px 7px;border-radius:7px;">Privacy Policy &amp; User Agreement</a></div>
+<div id="privacyFooter" style="position:fixed;left:0;right:0;bottom:6px;text-align:center;z-index:999;pointer-events:none;"><a href="/privacy" style="pointer-events:auto;display:inline-block;text-decoration:underline;color:#fff;font-size:9px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:rgba(0,0,0,0.55);padding:2px 7px;border-radius:7px;">Privacy Policy &amp; User Agreement</a></div>
 </body>
 </html>
