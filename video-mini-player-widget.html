@@ -119,6 +119,15 @@
 
     pointer-events: none;
   }
+  .player-box video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+  .player-box.is-loading video { visibility: hidden; }
 
   .unmute-btn {
     position: absolute;
@@ -304,6 +313,7 @@
     <div class="player-wrap">
       <div class="player-box is-loading">
         <div id="ytPlayer"></div>
+        <video id="videoEl" playsinline webkit-playsinline muted disablePictureInPicture disableRemotePlayback controlsList="nodownload noplaybackrate noremoteplayback" style="display:none;"></video>
         <div class="video-loading" id="videoLoading">
           <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
         </div>
@@ -351,10 +361,22 @@
     const gridToggleBtn = document.getElementById('gridToggleBtn');
     const scrubberEl = document.getElementById('scrubber');
     const scrubberFillEl = document.getElementById('scrubberFill');
+    const videoEl = document.getElementById('videoEl');
 
     let currentVideos = [];
     let hasLoadedInitialVideo = false;
     let gridOpen = false;
+    let backend = 'youtube';
+    let videoReady = false;
+    let hlsInstance = null;
+    let wantsUnmute = false;
+    let isUnmutedIntent = false;
+
+    function isDirectVideoUrl(input) {
+      if (!input) return false;
+      const trimmed = input.trim();
+      return /^https?:\/\//i.test(trimmed) && /\.(m3u8|mp4|webm|mov)(\?.*)?$/i.test(trimmed);
+    }
 
     function setGridOpen(open) {
       gridOpen = open;
@@ -419,9 +441,69 @@
     }
 
     function updateMuteBtnLabel() {
+      if (backend === 'video') {
+        unmuteBtn.textContent = videoEl.muted ? 'Unmute' : 'Mute';
+        return;
+      }
       if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
       unmuteBtn.textContent = ytPlayer.isMuted() ? 'Unmute' : 'Mute';
     }
+
+    function showBackendEl(kind) {
+      document.getElementById('ytPlayer').style.display = kind === 'youtube' ? '' : 'none';
+      videoEl.style.display = kind === 'video' ? '' : 'none';
+    }
+
+    function stopDirectVideo() {
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      videoEl.pause();
+      videoEl.removeAttribute('src');
+      videoEl.load();
+      videoReady = false;
+    }
+
+    function applyUnmute() {
+      if (!wantsUnmute) return;
+      if (backend === 'video') {
+        if (!videoReady) return;
+        videoEl.muted = false;
+        videoEl.volume = 1;
+      } else {
+        if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return;
+        ytPlayer.unMute();
+        ytPlayer.setVolume(100);
+      }
+      updateMuteBtnLabel();
+      wantsUnmute = false;
+    }
+
+    function loadDirectVideo(url) {
+      backend = 'video';
+      showBackendEl('video');
+      showVideoLoading();
+      videoReady = false;
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      if (/\.m3u8($|\?)/i.test(url) && window.Hls && Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(videoEl);
+      } else {
+        videoEl.src = url;
+      }
+      videoEl.muted = true;
+      videoEl.play().catch(() => {});
+    }
+
+    videoEl.addEventListener('loadedmetadata', () => {
+      videoReady = true;
+      updateMuteBtnLabel();
+      sizePlayerToCover();
+      showControls(true);
+      applyUnmute();
+    });
+    videoEl.addEventListener('waiting', () => { if (backend === 'video') showVideoLoading(); });
+    videoEl.addEventListener('playing', () => { if (backend === 'video') hideVideoLoading(); });
+    videoEl.addEventListener('ended', () => { if (backend === 'video') { videoEl.currentTime = 0; videoEl.play().catch(() => {}); } });
 
     const OVERSCAN = 1.35;
     function sizePlayerToCover() {
@@ -446,6 +528,14 @@
     window.addEventListener('resize', sizePlayerToCover);
 
     function updateScrubber() {
+      if (backend === 'video') {
+        if (!videoReady) return;
+        const duration = videoEl.duration || 0;
+        if (!duration || !isFinite(duration)) return;
+        const pct = Math.min(100, Math.max(0, (videoEl.currentTime / duration) * 100));
+        scrubberFillEl.style.width = pct + '%';
+        return;
+      }
       if (!ytPlayer || !playerReady || typeof ytPlayer.getDuration !== 'function') return;
       const duration = ytPlayer.getDuration();
       if (!duration) return;
@@ -456,11 +546,19 @@
 
     scrubberEl.addEventListener('click', (e) => {
       showControls(true);
+      const rect = scrubberEl.getBoundingClientRect();
+      const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      if (backend === 'video') {
+        if (!videoReady) return;
+        const duration = videoEl.duration || 0;
+        if (!duration || !isFinite(duration)) return;
+        videoEl.currentTime = fraction * duration;
+        scrubberFillEl.style.width = (fraction * 100) + '%';
+        return;
+      }
       if (!ytPlayer || !playerReady || typeof ytPlayer.getDuration !== 'function') return;
       const duration = ytPlayer.getDuration();
       if (!duration) return;
-      const rect = scrubberEl.getBoundingClientRect();
-      const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
       ytPlayer.seekTo(fraction * duration, true);
       scrubberFillEl.style.width = (fraction * 100) + '%';
     });
@@ -470,6 +568,7 @@
       updateMuteBtnLabel();
       sizePlayerToCover();
       showControls(true);
+      applyUnmute();
       if (pendingVideo) {
         showVideoLoading();
         ytPlayer.loadVideoById(pendingVideo.id);
@@ -478,8 +577,10 @@
     }
 
     function onPlayerStateChange(e) {
+      if (backend !== 'youtube') return;
       if (e.data === YT.PlayerState.PLAYING) {
         hideVideoLoading();
+        applyUnmute();
       } else if (e.data === YT.PlayerState.BUFFERING) {
         showVideoLoading();
       }
@@ -491,6 +592,10 @@
         ytPlayer.playVideo();
       }
     }
+
+    videoEl.addEventListener('pause', () => {
+      if (backend === 'video' && videoReady) videoEl.play().catch(() => {});
+    });
 
     function createPlayer(id) {
       ytPlayer = new YT.Player('ytPlayer', {
@@ -513,13 +618,24 @@
       });
     }
 
-    function loadVideo(id) {
+    function loadVideo(video) {
+      const id = video.id;
       document.querySelectorAll('.video-tile').forEach((el) => {
         el.classList.toggle('active', el.getAttribute('data-id') === id);
       });
       setGridOpen(false);
       scrubberFillEl.style.width = '0%';
 
+      if (video.type === 'direct') {
+        if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+        wantsUnmute = isUnmutedIntent;
+        loadDirectVideo(video.url);
+        return;
+      }
+
+      backend = 'youtube';
+      showBackendEl('youtube');
+      stopDirectVideo();
       if (ytPlayer && playerReady) {
         showVideoLoading();
         ytPlayer.loadVideoById(id);
@@ -542,12 +658,21 @@
 
     unmuteBtn.addEventListener('click', () => {
       showControls(true);
+      if (backend === 'video') {
+        if (!videoReady) return;
+        if (videoEl.muted) { videoEl.muted = false; videoEl.volume = 1; isUnmutedIntent = true; }
+        else { videoEl.muted = true; isUnmutedIntent = false; }
+        updateMuteBtnLabel();
+        return;
+      }
       if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
       if (ytPlayer.isMuted()) {
         ytPlayer.unMute();
         ytPlayer.setVolume(100);
+        isUnmutedIntent = true;
       } else {
         ytPlayer.mute();
+        isUnmutedIntent = false;
       }
       updateMuteBtnLabel();
     });
@@ -568,8 +693,20 @@
 
     function renderList(list) {
       const videos = list
-        .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled', thumb: (v.thumb && v.thumb.trim()) ? v.thumb.trim() : '' }))
-        .filter(v => v.id);
+        .map(v => {
+          const ytId = extractVideoId(v.url);
+          const directUrl = !ytId && isDirectVideoUrl(v.url) ? v.url.trim() : null;
+          const id = ytId || directUrl;
+          if (!id) return null;
+          return {
+            id,
+            type: ytId ? 'youtube' : 'direct',
+            url: directUrl,
+            title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled',
+            thumb: (v.thumb && v.thumb.trim()) ? v.thumb.trim() : ''
+          };
+        })
+        .filter(Boolean);
 
       currentVideos = videos;
 
@@ -578,21 +715,24 @@
         return;
       }
 
-      videoListEl.innerHTML = videos.map(v => `
-        <button type="button" class="video-tile" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
+      videoListEl.innerHTML = videos.map(v => {
+        const thumbSrc = v.thumb || (v.type === 'youtube' ? `https://img.youtube.com/vi/${v.id}/mqdefault.jpg` : '');
+        return `
+        <button type="button" class="video-tile" data-id="${escapeHtml(v.id)}" data-title="${escapeHtml(v.title)}">
           <span class="video-thumb">
-            <img src="${escapeHtml(v.thumb || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`)}" alt="" loading="lazy">
+            ${thumbSrc ? `<img src="${escapeHtml(thumbSrc)}" alt="" loading="lazy">` : ''}
             <span class="play-icon">
               <svg viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.45)"/><polygon points="10 8 17 12 10 16"></polygon></svg>
             </span>
           </span>
           <span class="video-title">${escapeHtml(v.title)}</span>
         </button>
-      `).join('');
+      `;
+      }).join('');
 
       if (!hasLoadedInitialVideo) {
         hasLoadedInitialVideo = true;
-        loadVideo(videos[0].id);
+        loadVideo(videos[0]);
       }
     }
 
@@ -600,7 +740,9 @@
       const tile = e.target.closest('.video-tile');
       if (!tile) return;
       e.preventDefault();
-      loadVideo(tile.getAttribute('data-id'));
+      const id = tile.getAttribute('data-id');
+      const video = currentVideos.find(v => v.id === id);
+      if (video) loadVideo(video);
     });
 
     PLAYLIST_DOC_REF.onSnapshot(function (doc) {
@@ -614,6 +756,7 @@
   </script>
 
   <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.6.15/hls.min.js"></script>
 
 <script>
 
