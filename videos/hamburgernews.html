@@ -220,14 +220,17 @@
     pointer-events: none;
   }
 
-  /* The 3x3 slot grid, positioned in the CLOSE-UP art's pixel space and
+  /* The slot grid, positioned in the CLOSE-UP art's pixel space and
      rotated to sit square on the pickle's own face — level for Games,
-     tilted for Episodes, matching how each was drawn. */
+     tilted for Episodes, matching how each was drawn. One row of 3 (see
+     SLOTS_PER_PAGE, JS) rather than the 3x3 this started as — grid-auto-
+     flow packs items left to right, so a single explicit row is all this
+     needs now. */
   .pickle-slots {
     position: absolute;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
+    grid-template-rows: 1fr;
     transform-origin: 50% 50%;
   }
   /* Thumbnail on top, title underneath — so a long episode name never
@@ -484,7 +487,7 @@
   var openPickle = null;
   var pickleItems = { episodes: [], games: [] };
   var picklePage = { episodes: 0, games: 0 };
-  var SLOTS_PER_PAGE = 9;
+  var SLOTS_PER_PAGE = 3;
   // Relayed from hamburger-news-widget.html's own fullscreen fallback —
   // see .patty-slot.hn-fullscreen's own comment above for why this has
   // to happen up here rather than inside that iframe. Also hides #stageBg
@@ -628,38 +631,49 @@
   // transparent padding, so the visible pickle is only a sub-rect of the
   // element, given here as fractions of it.
   //
-  // grid is the 3x3 slot area, rotated to sit square on the pickle's face
-  // — level for Games, tilted for Episodes, matching how each was drawn.
+  // grid is the slot area, rotated to sit square on the pickle's face —
+  // level for Games, tilted for Episodes, matching how each was drawn.
   // Only its WIDTH is given: the height falls out of LABEL_FRAC/THUMB_RATIO/
   // GAP_FRAC below, since each cell has to be tall enough for its
   // thumbnail plus its title underneath. Moving the titles out from
   // inside the thumbnails once made every cell taller, which pushed the
-  // old grids (800/980 wide, and square-cropped thumbnails at the time
-  // too) over the pickle's outline — Episodes visibly so, at the
+  // old 3x3 grids (800/980 wide, and square-cropped thumbnails at the
+  // time too) over the pickle's outline — Episodes visibly so, at the
   // bottom-left, because rotating a now-tall block swings its corners
   // further out than a square one. So these were re-solved rather than
   // nudged: mask the pickle's own green face out of the close-up, erode
   // it for a margin, then take the largest grid whose rotated corners all
   // still land inside, backed off a little and re-centred on the face.
   // Hence the odd-looking exact numbers.
-  // Thumbnails later went back to a real 16:9 crop — shorter than the
-  // square crop this was fitted against, so every cell only got smaller
-  // and it stays safely inside that same fit. These widths were
-  // deliberately NOT re-maximized to fill the extra room that freed up:
-  // doing that properly means redoing the same mask-and-measure pass
-  // against the art, not just nudging a number.
+  //
+  // Two changes since: thumbnails went back to a real 16:9 crop (shorter
+  // than the square crop the 3x3 numbers above were fitted against), and
+  // the grid dropped from 3 rows to 1 (SLOTS_PER_PAGE, below) — both only
+  // ever make each cell SHORTER for the same width, so on their own
+  // they'd just leave the now-much-shorter single row rattling around
+  // inside a footprint sized for a 3-row grid. These widths were bumped
+  // back up to use that freed room: for Episodes, solved the same way as
+  // the original fit — the new width is whatever keeps the ROTATED
+  // bounding box of a single-row grid within the rotated bounding box the
+  // 3-row grid at the old width already had (i.e. no bigger a footprint
+  // than what was already known to fit, just reshaped) — and Games' was
+  // bumped by roughly the same proportion for a matching size bump
+  // between the two, since Games' own rotation is 0 so a taller-vs-wider
+  // trade doesn't apply to it the same way. Both were then checked live
+  // (screenshotted zoomed in, same as every other pass on this grid) to
+  // confirm the rotated corners still land inside the green face.
   var PICKLE_ART = {
     episodes: {
       closeup: '/hamburger-pickle-episodes-zoom.webp',
       centre: { x: 1378, y: 1514 }, faceW: 1472,
       btnGreen: { cx: 0.5190, cy: 0.4675, w: 0.9490 },
-      grid: { cx: 1454, cy: 1457, w: 560, rot: -25.2 }
+      grid: { cx: 1454, cy: 1457, w: 690, rot: -25.2 }
     },
     games: {
       closeup: '/hamburger-pickle-games-zoom.webp',
       centre: { x: 1664, y: 1558 }, faceW: 2085,
       btnGreen: { cx: 0.5168, cy: 0.4907, w: 0.9433 },
-      grid: { cx: 1644, cy: 1444, w: 761, rot: 0 }
+      grid: { cx: 1644, cy: 1444, w: 940, rot: 0 }
     }
   };
   var CLOSEUP_SIZE = 3000;
@@ -788,7 +802,8 @@
     // across, then each cell grown taller by LABEL_FRAC (in square-cell
     // terms — see labelH below) to make room for the title underneath.
     // The grid's height is whatever that comes to, which is why only the
-    // width is a tuned constant.
+    // width is a tuned constant. Single row now (SLOTS_PER_PAGE below),
+    // so the grid's own height is just one cell's — no row-gap term.
     var g = art.grid;
     var gw = g.w * fr.scale;
     var gap = gw * GAP_FRAC;
@@ -801,7 +816,7 @@
     var labelH = cw * LABEL_FRAC / (1 - LABEL_FRAC);
     var thumbH = cw * THUMB_RATIO;
     var ch = thumbH + labelH;
-    var gh = 3 * ch + 2 * gap;
+    var gh = ch;
     slotsEl.style.width = gw + 'px';
     slotsEl.style.height = gh + 'px';
     slotsEl.style.left = (fr.offX + g.cx * fr.scale - gw / 2) + 'px';
