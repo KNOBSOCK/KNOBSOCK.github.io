@@ -268,6 +268,19 @@
     flex: 0 0 var(--thumb-h, 66.6%);
     overflow: hidden;
     border-radius: 18px;
+    /* Sits flush with no shadow at rest — only cast on hover/press (below),
+       so it reads as the thumbnail lifting off the pickle's face rather
+       than a card that's always floating over it. Rides along with the
+       card's own perspective tilt for free: this element is flattened
+       into #pickleSlots' tilted plane (no transform-style:preserve-3d
+       anywhere in the chain), so the shadow skews with the card instead
+       of sitting flat against the screen. */
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    transition: box-shadow 0.18s ease;
+  }
+  .pickle-slot:not(:disabled):hover .pickle-slot-box,
+  .pickle-slot:not(:disabled):active .pickle-slot-box {
+    box-shadow: 0 22px 34px rgba(0, 0, 0, 0.55), 0 8px 14px rgba(0, 0, 0, 0.4);
   }
   .pickle-slot-box:has(.pickle-slot-thumb) {
     background: #000;
@@ -355,6 +368,17 @@
     -webkit-appearance: none;
     appearance: none;
     transform-origin: 50% 50%;
+    /* --arrow-rot (set in layoutZoom, JS) is the quad's own width-edge
+       angle — the same direction the thumbnail card itself sits along —
+       so the arrow art actually points the way the card is tilted
+       instead of staying screen-upright while only its POSITION follows
+       the pickle. Every rule below that sets `transform` re-includes it
+       (as the outermost/leftmost function, so it rotates whatever
+       scale/translate the state itself contributes) rather than relying
+       on inheritance, since transform doesn't compose across separate
+       declarations — dropping it from any one state would snap the
+       arrow back upright for just that state. */
+    transform: rotate(var(--arrow-rot, 0deg));
     transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
     -webkit-tap-highlight-color: transparent;
     filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
@@ -367,24 +391,27 @@
     -webkit-user-drag: none;
     user-select: none;
   }
-  .pickle-arrow:not(:disabled):hover { transform: scale(1.12); }
-  .pickle-arrow:not(:disabled):active { transform: scale(0.95); }
+  .pickle-arrow:not(:disabled):hover { transform: rotate(var(--arrow-rot, 0deg)) scale(1.12); }
+  .pickle-arrow:not(:disabled):active { transform: rotate(var(--arrow-rot, 0deg)) scale(0.95); }
   .pickle-arrow:disabled { opacity: 0.3; cursor: default; }
   /* The "jump out" on a tap. Runs as a keyframe rather than a class-swapped
      transform so it always plays to completion and resets itself, even when
      the pointer is still sitting on the button (where a :hover transform
-     would otherwise hold it mid-pop). Each arrow leans the way it pages. */
+     would otherwise hold it mid-pop). Each arrow leans the way it pages —
+     translateX moves along the LOCAL (pre-rotation) axis, so with rotate
+     applied outermost here too, that lean follows the arrow's own rotated
+     pointing direction rather than the screen's bare horizontal. */
   .pickle-arrow.is-jump { animation: pickleArrowJump 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
   #pickleNext.is-jump { animation-name: pickleArrowJumpNext; }
   @keyframes pickleArrowJump {
-    0%   { transform: translateX(0) scale(1); }
-    38%  { transform: translateX(-14%) scale(1.3); }
-    100% { transform: translateX(0) scale(1); }
+    0%   { transform: rotate(var(--arrow-rot, 0deg)) translateX(0) scale(1); }
+    38%  { transform: rotate(var(--arrow-rot, 0deg)) translateX(-14%) scale(1.3); }
+    100% { transform: rotate(var(--arrow-rot, 0deg)) translateX(0) scale(1); }
   }
   @keyframes pickleArrowJumpNext {
-    0%   { transform: translateX(0) scale(1); }
-    38%  { transform: translateX(14%) scale(1.3); }
-    100% { transform: translateX(0) scale(1); }
+    0%   { transform: rotate(var(--arrow-rot, 0deg)) translateX(0) scale(1); }
+    38%  { transform: rotate(var(--arrow-rot, 0deg)) translateX(14%) scale(1.3); }
+    100% { transform: rotate(var(--arrow-rot, 0deg)) translateX(0) scale(1); }
   }
   @media (prefers-reduced-motion: reduce) {
     .pickle-arrow.is-jump { animation: none; }
@@ -906,8 +933,11 @@
     // Arrows sit just off the ends of the card, along the quad's own
     // width axis (the average of its top and bottom edges) rather than
     // the viewport's — so they land at the two ends of the pickle the
-    // way it was drawn. Only the placement follows that axis; the arrow
-    // art itself stays upright.
+    // way it was drawn, AND are rotated to point along that same axis
+    // (--arrow-rot, CSS above) rather than sitting screen-upright — both
+    // arrow assets are pre-drawn pointing their own resting direction
+    // (prev left, next right) at 0deg, so the identical angle rotates
+    // each into pointing along/against the card's own tilt correctly.
     var aw = Math.max(40, gw * ARROW_FRAC);
     var ah = aw * ARROW_RATIO;
     var off = gw / 2 + gw * ARROW_GAP_FRAC + aw / 2;
@@ -915,6 +945,9 @@
     var edgeY = (sq[1][1] - sq[0][1] + sq[2][1] - sq[3][1]) / 2;
     var angle = Math.atan2(edgeY, edgeX);
     var ox = Math.cos(angle) * off, oy = Math.sin(angle) * off;
+    var angleDeg = (angle * 180 / Math.PI).toFixed(2) + 'deg';
+    arrowPrev.style.setProperty('--arrow-rot', angleDeg);
+    arrowNext.style.setProperty('--arrow-rot', angleDeg);
     placeArrow(arrowPrev, cx - ox, cy - oy, aw, ah, vp);
     placeArrow(arrowNext, cx + ox, cy + oy, aw, ah, vp);
   }
@@ -1208,7 +1241,14 @@
   }
 
   function onZoomKey(e) {
-    if (e.key === 'Escape' || e.key === 'Esc') closeZoom();
+    if (e.key === 'Escape' || e.key === 'Esc') { closeZoom(); return; }
+    // Mirrors the on-screen arrows (same store.html pattern) — turnPage
+    // already no-ops when there's nothing to page to (a single page, or
+    // already at the end), so no extra disabled/hidden check is needed
+    // here, and reusing it also gets the same jump-pop animation a click
+    // gets for free.
+    if (e.key === 'ArrowLeft') { e.preventDefault(); turnPage(-1, arrowPrev); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); turnPage(1, arrowNext); }
   }
 
   Object.keys(PICKLE_BTNS).forEach(function (name) {
