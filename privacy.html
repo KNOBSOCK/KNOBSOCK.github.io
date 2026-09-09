@@ -31,7 +31,6 @@
   }
   h1, h2 { color: yellow; }
   a { color: #fff; }
-  a.plain { text-decoration: none; }
 
   .bg-video {
     position: fixed;
@@ -51,24 +50,6 @@
     height: 100dvh;
     object-fit: cover;
     object-position: center;
-  }
-
-  .site-header {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 0 12px;
-  }
-  .site-header img {
-    display: block;
-    max-height: 90px;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-  }
-  @media (min-width: 768px) {
-    .site-header img { max-height: 140px; }
   }
 
   /* Same values as the truth-zone article template's own .page-wrapper
@@ -117,12 +98,6 @@
   <video class="bg-video" muted playsinline autoplay loop>
     <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
   </video>
-
-  <header class="site-header">
-    <a href="/" class="plain">
-      <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
-    </a>
-  </header>
 
   <div class="page-wrapper">
     <a class="back-link" href="/">&larr; Back to knobsock.net</a>

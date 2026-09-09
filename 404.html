@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Knobsock</title>
-<meta name="theme-color" content="#0a0e2a">
+<title>Page not found — Knobsock</title>
+<meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
 <!-- GitHub Pages serves this file for any path it has no file for.
@@ -16,27 +16,22 @@
      .github/workflows/sync-articles.yml next runs. Without this, every
      freshly published post would 404 for up to an hour.
 
-     So: if the path looks like an article, render it client-side from
-     the same API the generator uses — the visitor sees the article at
-     its real URL, and once the sync runs the static file takes over and
-     this page stops being involved. Anything else gets a plain
-     not-found message.
+     So: if the path looks like an article, fetch it client-side from
+     the same API the generator uses and switch over to #article-view,
+     styled to match the generated page (scripts/build-articles.mjs) —
+     change the two together. The visitor sees the article at its real
+     URL, and once the sync runs the static file takes over and this
+     page stops being involved.
 
-     The styles below are a copy of the generator's template
-     (scripts/build-articles.mjs) so the two render identically; change
-     them together. Note this page is still served with a 404 status, so
-     it renders for people but won't be indexed — that's why the real
-     generated file matters and this is only a stopgap. -->
+     Anything else — a genuine wrong URL — stays on #notfound-view,
+     themed like the site's own index page rather than the Truth Zone,
+     since most 404s have nothing to do with an article. Note this page
+     is still served with a 404 status, so it renders for people but
+     won't be indexed. -->
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  /* The fallback color goes on html ONLY, never on body. An opaque body
-     background paints OVER the fixed video behind it: a z-index:-1
-     element paints beneath block-level backgrounds, so body's own
-     background hid the video everywhere except the strip below body's
-     box, where its collapsed bottom margin left a gap. html's background
-     is propagated to the canvas instead, which paints under everything. */
   html {
-    background: #0a0e2a;
+    background: #000;
   }
   html, body {
     color-scheme: dark;
@@ -49,12 +44,59 @@
     color: #fff;
     min-height: 100vh;
   }
-  .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-  h1, h2, h3 { color: yellow; }
   a { text-decoration: none; color: inherit; }
+
+  /* ---------- NOT FOUND (default) ---------- */
+  /* Themed like index.html: same tiled repeating background and the
+     same site header logo, rather than the Truth Zone's video/blue-card
+     look. The background lives on this container (not body) so it
+     can't interfere with #article-view's own fixed bg-video below —
+     see that section's comment for why body itself never gets an
+     opaque background on this page. */
+  #notfound-view {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #000 url("https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/IMG_0661.GIF") repeat;
+  }
+  #notfound-view[hidden] { display: none; }
 
   .site-header { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
   .site-header img { display: block; max-height: 90px; max-width: 100%; width: auto; height: auto; }
+
+  .notfound-image-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px clamp(16px, 4vw, 40px) clamp(24px, 5vw, 56px);
+  }
+  .notfound-image-wrap img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(100%, 1100px);
+    max-height: 100%;
+  }
+
+  /* ---------- ARTICLE FALLBACK (hidden unless a fetch succeeds) ---------- */
+  /* Styles below are a copy of the generator's template
+     (scripts/build-articles.mjs) so the two render identically; change
+     them together.
+     The fallback color goes on html ONLY, never on body — see the note
+     at the top of this file. An opaque body background paints OVER the
+     fixed video behind it: a z-index:-1 element paints beneath
+     block-level backgrounds, so body's own background would hide the
+     video everywhere except the strip below body's box, where its
+     collapsed bottom margin left a gap. html's background is propagated
+     to the canvas instead, which paints under everything — and
+     #notfound-view above only ever paints its OWN box, never body's, so
+     it can't cause that same problem while sitting hidden underneath. */
+  #article-view[hidden] { display: none; }
+  .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+  #article-view h1, #article-view h2, #article-view h3 { color: yellow; }
 
   .page-wrapper {
     width: calc(100% - 24px);
@@ -149,28 +191,40 @@
   .back-btn:hover { background: rgba(255,255,255,0.1); }
 </style></head>
 <body>
-  <video class="bg-video" autoplay muted loop playsinline aria-hidden="true">
-    <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
-  </video>
-  <header class="site-header">
-    <a href="/">
-      <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
-    </a>
-  </header>
+  <div id="notfound-view">
+    <header class="site-header">
+      <a href="/">
+        <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/knobsock-main.PNG" alt="Knobsock">
+      </a>
+    </header>
+    <div class="notfound-image-wrap">
+      <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/404-error.png" alt="Error 404: the page you are looking for does not exist. Type it in correctly next time.">
+    </div>
+  </div>
 
-  <div class="page-wrapper">
-    <a class="back-link" href="/truth/">&larr; Back to Knobsock</a>
-    <main id="article-wrap">
-      <p class="loading">Loading&hellip;</p>
-    </main>
+  <div id="article-view" hidden>
+    <video class="bg-video" autoplay muted loop playsinline aria-hidden="true">
+      <source src="https://onuniverse-assets.imgix.net/487354D6-DD76-4A92-9846-20C085F6252C.mp4" type="video/mp4">
+    </video>
+    <header class="site-header">
+      <a href="/">
+        <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_23C00EE8-DE7A-43B0-AE17-4BDA7C3DA392.png" alt="Knobsock">
+      </a>
+    </header>
+
+    <div class="page-wrapper">
+      <a class="back-link" href="/truth/">&larr; Back to Knobsock</a>
+      <main id="article-wrap"></main>
+    </div>
   </div>
 
 <script>
   const SITE = "knobsock4.wordpress.com";
   const API_BASE = "https://public-api.wordpress.com/rest/v1.1/sites/" + SITE;
-  const HOME_URL = "/truth/";
   const NO_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27900%27%20height=%27500%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23222%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20fill=%27%2339ff14%27%20font-family=%27sans-serif%27%20font-size=%2728%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3ENo%20Image%3C/text%3E%3C/svg%3E";
 
+  const notfoundView = document.getElementById("notfound-view");
+  const articleView = document.getElementById("article-view");
   const wrap = document.getElementById("article-wrap");
 
   function esc(s) {
@@ -190,9 +244,9 @@
     return first ? cats[first].name : "";
   }
 
-  function showMessage(text) {
-    wrap.innerHTML = '<p class="loading">' + esc(text) +
-      ' <a href="' + HOME_URL + '">Go to Knobsock &rarr;</a></p>';
+  function showArticleView() {
+    notfoundView.hidden = true;
+    articleView.hidden = false;
   }
 
   // Matches /article/<slug>/ and /article/<slug>, and keeps working if
@@ -205,25 +259,19 @@
 
   async function load() {
     const slug = slugFromPath();
-    if (!slug) {
-      document.title = "Page not found — Knobsock";
-      showMessage("That page doesn't exist.");
-      return;
-    }
+    // No article-shaped path: this is a genuine 404, so #notfound-view
+    // (already showing by default) is the whole story — no need to hit
+    // the WordPress API at all.
+    if (!slug) return;
 
     let post;
     try {
       const res = await fetch(API_BASE + "/posts/slug:" + encodeURIComponent(slug));
       post = await res.json();
     } catch (e) {
-      showMessage("Something went wrong loading this article.");
-      return;
+      return; // Can't confirm the article exists — stay on #notfound-view.
     }
-    if (!post || post.error) {
-      document.title = "Article not found — Knobsock";
-      showMessage("That article doesn't exist.");
-      return;
-    }
+    if (!post || post.error) return;
 
     const title = toText(post.title) || "Untitled";
     const image = post.featured_image || NO_IMAGE_PLACEHOLDER;
@@ -252,8 +300,10 @@
       '</div>' +
       '<div class="bottom-actions">' +
         '<a href="' + esc(post.URL || "#") + '" target="_blank" rel="noopener" class="wp-link">View original post &rarr;</a>' +
-        '<a class="back-btn" href="' + HOME_URL + '">&larr; Back to Knobsock</a>' +
+        '<a class="back-btn" href="/truth/">&larr; Back to Knobsock</a>' +
       '</div>';
+
+    showArticleView();
 
     document.getElementById("copy-link-btn").addEventListener("click", function () {
       const url = window.location.href;
@@ -262,7 +312,7 @@
         msg.style.display = "inline";
         setTimeout(function () { msg.style.display = "none"; }, 2000);
       }).catch(function () {
-        alert("Couldn't copy automatically \u2014 link: " + url);
+        alert("Couldn't copy automatically — link: " + url);
       });
     });
   }
