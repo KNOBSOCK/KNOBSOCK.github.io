@@ -76,6 +76,25 @@
   }
   .back-link:hover { opacity: 1; }
 
+  .hn-copy-link {
+    position: fixed;
+    top: clamp(10px, 2.5vw, 20px);
+    right: clamp(10px, 2.5vw, 20px);
+    z-index: 3;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    color: #ffd479;
+    font-size: clamp(14px, 2.8vw, 16.5px);
+    font-weight: 700;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    opacity: 0.85;
+    -webkit-text-stroke: 0.5px #000;
+    text-shadow: -0.5px -0.5px 0 #000, 0.5px -0.5px 0 #000, -0.5px 0.5px 0 #000, 0.5px 0.5px 0 #000;
+  }
+  .hn-copy-link:hover { opacity: 1; }
+  .hn-copy-link[hidden] { display: none; }
+
   .hn-header {
     position: fixed;
     z-index: 3;
@@ -301,6 +320,7 @@
 <body>
 
 <a class="back-link" id="backLink" href="/videos">&larr; Back to Videos</a>
+<button type="button" class="hn-copy-link" id="copyLinkBtn" hidden>Copy Link</button>
 
 <div class="stage-wrap" id="stageWrap">
   <div class="patty-slot" id="pattySlot">
@@ -355,6 +375,7 @@
   var hnHeader = document.getElementById('hnHeader');
   var stageWrap = document.getElementById('stageWrap');
   var backLink = document.getElementById('backLink');
+  var copyLinkBtn = document.getElementById('copyLinkBtn');
   var zoomEl = document.getElementById('pickleZoom');
   var zoomInner = document.getElementById('pickleZoomInner');
   var zoomArt = document.getElementById('pickleZoomArt');
@@ -371,6 +392,22 @@
   var pickleItems = { episodes: [], games: [] };
   var picklePage = { episodes: 0, games: 0 };
   var SLOTS_PER_PAGE = 1;
+  var currentPlayingId = null;
+
+  function updateCopyLinkVisibility() {
+    copyLinkBtn.hidden = !currentPlayingId;
+  }
+  copyLinkBtn.addEventListener('click', function () {
+    if (!currentPlayingId) return;
+    var url = location.origin + '/videos/hamburgernews/v/' + currentPlayingId + '/';
+    var restoreLabel = copyLinkBtn.textContent;
+    navigator.clipboard.writeText(url).then(function () {
+      copyLinkBtn.textContent = 'Copied!';
+      setTimeout(function () { copyLinkBtn.textContent = restoreLabel; }, 1500);
+    }).catch(function () {
+      window.prompt('Copy this link:', url);
+    });
+  });
 
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'knobsock-hamburger-fullscreen') return;
@@ -758,6 +795,8 @@
 
   function chooseItem(kind, item) {
     playSound(PICK_SOUND);
+    currentPlayingId = item.id || null;
+    updateCopyLinkVisibility();
     closeZoom(function () {
       var frame = pattySlot.querySelector('iframe');
       if (!frame || !frame.contentWindow) return;
@@ -903,18 +942,38 @@
     var db = firebase.firestore(
       firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG));
 
+    var deepLinkId = new URLSearchParams(location.search).get('v');
+    var episodesLoaded = false, gamesLoaded = false, deepLinkHandled = !deepLinkId;
+
+    function tryDeepLink() {
+      if (deepLinkHandled || !episodesLoaded || !gamesLoaded) return;
+      deepLinkHandled = true;
+      var found = pickleItems.episodes.find(function (v) { return v.id === deepLinkId; });
+      var kind = 'episodes';
+      if (!found) {
+        found = pickleItems.games.find(function (g) { return g.id === deepLinkId; });
+        kind = 'games';
+      }
+      if (!found) return;
+      openZoom(kind);
+      chooseItem(kind, found);
+    }
+
     db.collection('playlist').doc('hamburgerNews').onSnapshot(function (doc) {
       var data = doc.exists ? doc.data() : null;
       var raw = (data && Array.isArray(data.videos)) ? data.videos : [];
       pickleItems.episodes = raw.map(function (v, i) {
         return {
           index: i,
+          id: v.id || '',
           title: (v.title && v.title.trim()) ? v.title.trim() : ('Episode ' + (i + 1)),
           url: v.url || '',
           thumb: (v.thumb && v.thumb.trim()) ? v.thumb.trim() : thumbForUrl(v.url)
         };
       });
       if (openPickle === 'episodes') renderSlots();
+      episodesLoaded = true;
+      tryDeepLink();
     }, function (err) { console.error('Hamburger News episodes sync failed', err); });
 
     db.collection('playlist').doc('hamburgerGames').onSnapshot(function (doc) {
@@ -925,12 +984,15 @@
         .map(function (g, i) {
           return {
             index: i,
+            id: g.id || '',
             title: (g.title && g.title.trim()) ? g.title.trim() : ('Game ' + (i + 1)),
             url: g.url,
             thumb: (g.thumb && g.thumb.trim()) ? g.thumb.trim() : ''
           };
         });
       if (openPickle === 'games') renderSlots();
+      gamesLoaded = true;
+      tryDeepLink();
     }, function (err) { console.error('Hamburger News games sync failed', err); });
   }
 })();
