@@ -1591,6 +1591,7 @@
   window.onVodStateChange = function (vodId) {
     activeVodId = vodId;
     renderVods();
+    try { window.parent.postMessage({ type: 'knobsock-vod-state', vodId: vodId }, '*'); } catch (e) {}
   };
 
   function renderVods() {
@@ -1615,11 +1616,21 @@
     });
   }
 
+  let vodDeepLinkAttempted = false;
   configRef.doc('vods').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const items = (data && Array.isArray(data.items)) ? data.items : [];
     latestVods = items.map((v) => ({ id: extractVideoId(v.url), title: v.title })).filter((v) => v.id);
     renderVods();
+
+    if (!vodDeepLinkAttempted) {
+      vodDeepLinkAttempted = true;
+      let wantVod = null;
+      try { wantVod = new URLSearchParams(window.parent.location.search).get('vod'); } catch (e) {}
+      if (wantVod && latestVods.some((v) => v.id === wantVod) && typeof window.switchToVod === 'function') {
+        window.switchToVod(wantVod);
+      }
+    }
   }, () => {
     if (vodsListEl) vodsListEl.innerHTML = '<div class="vods-empty">Couldn’t load past streams.</div>';
   });

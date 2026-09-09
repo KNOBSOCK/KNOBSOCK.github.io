@@ -88,6 +88,13 @@ function isSafeSlug(s) {
   return typeof s === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s);
 }
 
+// YouTube ids are mixed-case and can contain _/-, unlike the lowercase
+// hex ids this script generates itself — a separate check since isSafeId
+// above would wrongly reject a real one.
+function isSafeYoutubeId(id) {
+  return typeof id === "string" && /^[a-zA-Z0-9_-]{11}$/.test(id);
+}
+
 function authedFirestore() {
   const keyJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
   if (!keyJson) {
@@ -429,6 +436,60 @@ async function syncStore(db) {
 }
 
 // ---------------------------------------------------------------
+// LIVE PAST STREAMS (VODs)
+// ---------------------------------------------------------------
+
+const LIVE_OUT_DIR = "live/v";
+const LIVE_MANIFEST_PATH = path.join(LIVE_OUT_DIR, "_manifest.json");
+const LIVE_TEMPLATE_VERSION = 1;
+
+/**
+ * Unlike the other two sources, VODs need no id/slug backfill at all —
+ * each one's YouTube video id (already required at save time, see
+ * admin.html's vodsSaveBtn handler) IS the permalink id, exactly the
+ * same value livestream-chat-widget.html's own switchToVod() already
+ * takes. Nothing gets written back to Firestore here.
+ */
+async function syncLiveVods(db) {
+  const doc = await db.collection("chat_config").doc("vods").get();
+  const rawItems = doc.exists && Array.isArray(doc.data().items) ? doc.data().items : [];
+
+  const byId = new Map();
+  for (const v of rawItems) {
+    const id = extractVideoId(v && v.url);
+    if (!isSafeYoutubeId(id)) continue;
+    byId.set(id, (v.title || "").trim() || "Past Stream");
+  }
+
+  const items = Array.from(byId, ([id, title]) => {
+    const dir = path.join(LIVE_OUT_DIR, id);
+    return {
+      key: id,
+      dir,
+      record: { title },
+      render: () =>
+        redirectPageShell({
+          canonical: `${SITE_ORIGIN}/${LIVE_OUT_DIR}/${id}/`,
+          redirectTo: `/live.html?vod=${id}`,
+          title,
+          siteLabel: "KNOBSOCK Live",
+          description: `Watch "${title}" — a past KNOBSOCK Live stream.`,
+          image: `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
+          linkLabel: "Watch on KNOBSOCK Live",
+        }),
+    };
+  });
+
+  return syncManifestDir({
+    label: "Live VODs",
+    outDir: LIVE_OUT_DIR,
+    manifestPath: LIVE_MANIFEST_PATH,
+    templateVersion: LIVE_TEMPLATE_VERSION,
+    items,
+  });
+}
+
+// ---------------------------------------------------------------
 // MAIN
 // ---------------------------------------------------------------
 
@@ -437,8 +498,9 @@ async function main() {
 
   const hnChanges = await syncHamburgerNews(db);
   const storeChanges = await syncStore(db);
+  const liveChanges = await syncLiveVods(db);
 
-  const total = hnChanges + storeChanges;
+  const total = hnChanges + storeChanges + liveChanges;
   console.log(`${DRY_RUN ? "[dry run] " : ""}${total} total change(s).`);
 }
 

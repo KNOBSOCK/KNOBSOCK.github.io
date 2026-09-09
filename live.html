@@ -248,6 +248,13 @@
     if (e.data && e.data.type === 'knobsock-live-state') {
       document.body.classList.toggle('is-live', !!e.data.isLive);
     }
+    if (e.data && e.data.type === 'knobsock-vod-state') {
+      if (e.data.vodId) {
+        history.replaceState(null, '', '/live/v/' + e.data.vodId + '/');
+      } else {
+        history.replaceState(null, '', '/live');
+      }
+    }
   });
 
   window.addEventListener('load', function () {
