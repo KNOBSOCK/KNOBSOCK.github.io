@@ -29,6 +29,7 @@
     color: var(--text);
     font-family: var(--font);
     min-height: 100%;
+    overflow-x: hidden;
   }
   button, input {
     font-family: var(--font);
@@ -182,7 +183,7 @@
 
   @media (max-width: 640px) {
     .topbar { flex-wrap: wrap; row-gap: 8px; }
-    .tabs { order: 1; flex: 1 1 100%; overflow-x: visible; }
+    .tabs { order: 1; flex: 1 1 100%; flex-wrap: wrap; overflow-x: visible; }
   }
 
   .tab-panel { padding: 20px; max-width: 1200px; margin: 0 auto; }
