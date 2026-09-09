@@ -1272,6 +1272,38 @@
     return /^https?:\/\//i.test(trimmed) && /\.(m3u8|mp4|webm|mov)(\?.*)?$/i.test(trimmed);
   }
 
+  // Bunny's "Direct URL Link" (player/iframe.mediadelivery.net/play/<library>/<videoId>)
+  // is just another embed page — the real .m3u8 lives on a per-account CDN hostname
+  // (vz-xxxxxxxx-xxx.b-cdn.net) that isn't derivable from the library/video IDs, only
+  // discoverable by viewing that embed page's source once. Since every video in the
+  // same Bunny library shares that one hostname, we remember it (in this browser only)
+  // the first time a real .b-cdn.net/.../playlist.m3u8 link is typed anywhere on this
+  // page, then silently rewrite any later-pasted "Direct URL Link" into the working
+  // .m3u8 form the instant it's pasted — no network request needed.
+  const BUNNY_HOST_STORAGE_KEY = 'knobsock-admin-bunny-host';
+  const BUNNY_PLAY_URL_RE = /^https?:\/\/(?:player|iframe)\.mediadelivery\.net\/(?:play|embed)\/\d+\/([0-9a-fA-F-]{10,})\/?(?:\?.*)?$/i;
+  const BUNNY_CDN_URL_RE = /^https?:\/\/([a-z0-9.-]+\.b-cdn\.net)\/([0-9a-fA-F-]{10,})\/playlist\.m3u8(?:\?.*)?$/i;
+
+  function rememberBunnyHost(url) {
+    const m = String(url || '').trim().match(BUNNY_CDN_URL_RE);
+    if (!m) return;
+    try { localStorage.setItem(BUNNY_HOST_STORAGE_KEY, m[1]); } catch (e) {}
+  }
+
+  function autoConvertBunnyInput(inputEl) {
+    const val = inputEl.value.trim();
+    rememberBunnyHost(val);
+    const m = val.match(BUNNY_PLAY_URL_RE);
+    if (!m) return false;
+    let host = '';
+    try { host = localStorage.getItem(BUNNY_HOST_STORAGE_KEY) || ''; } catch (e) {}
+    if (!host) return false;
+    const converted = 'https://' + host + '/' + m[1] + '/playlist.m3u8';
+    if (converted === val) return false;
+    inputEl.value = converted;
+    return true;
+  }
+
   function extractSoundcloudProfileUrl(input) {
     if (!input) return null;
     let trimmed = input
@@ -1640,6 +1672,7 @@
         const urlInput = row.querySelector('.url-input');
         let debounceTimer = null;
         urlInput.addEventListener('input', function () {
+          autoConvertBunnyInput(urlInput);
           const item = draftList[idx];
           item.url = urlInput.value;
           clearTimeout(debounceTimer);
@@ -2788,6 +2821,10 @@
         .catch(function (err) { alert('Failed to update live status: ' + err.message); });
     });
 
+    document.getElementById('liveVideoUrlInput').addEventListener('input', function () {
+      autoConvertBunnyInput(this);
+    });
+
     document.getElementById('saveLiveVideoBtn').addEventListener('click', function () {
       const input = document.getElementById('liveVideoUrlInput');
       const statusEl = document.getElementById('liveVideoStatus');
@@ -2854,6 +2891,7 @@
         const urlInput = row.querySelector('.url-input');
         let debounceTimer = null;
         urlInput.addEventListener('input', function () {
+          autoConvertBunnyInput(urlInput);
           const item = vodDraftList[idx];
           item.url = urlInput.value;
           clearTimeout(debounceTimer);
@@ -2894,6 +2932,10 @@
     }, function (err) {
       const root = document.getElementById('vodsList');
       if (root) root.innerHTML = '<div class="empty-state">Could not load VODs: ' + escapeAttr(err.message) + '</div>';
+    });
+
+    document.getElementById('vodsAddInput').addEventListener('input', function () {
+      autoConvertBunnyInput(this);
     });
 
     document.getElementById('vodsAddBtn').addEventListener('click', function () {
