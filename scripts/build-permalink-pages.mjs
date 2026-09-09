@@ -1,33 +1,42 @@
 #!/usr/bin/env node
 /**
- * Firestore -> static per-video permalink pages, for Hamburger News.
+ * Firestore -> static per-item permalink pages.
  *
  * Same idea as build-articles.mjs, but the source is Firestore instead of
  * WordPress, read via the Admin SDK (same service-account access
  * purge-expired-ip-logs.mjs already uses — bypasses Firestore rules
  * entirely, see firestore.rules).
  *
- * playlist/hamburgerNews.videos[] and playlist/hamburgerGames.games[]
- * don't carry a stable per-item id today — this script is what assigns
- * one. On every run, any item missing an `id` gets a random one
- * generated and written back to Firestore, so the same run both
- * backfills every existing episode/game once and keeps handling new ones
- * the admin adds later. Nothing else about those documents is touched.
+ * Two sources today:
  *
- * For every item that has an id, writes
- * videos/hamburgernews/v/<id>/index.html: a small static page with real
+ *   Hamburger News — playlist/hamburgerNews.videos[] and
+ *   playlist/hamburgerGames.games[] don't carry a stable per-item id;
+ *   this script assigns one (a random opaque string) to any item missing
+ *   one and writes it back, then generates
+ *   videos/hamburgernews/v/<id>/index.html per item, redirecting into
+ *   videos/hamburgernews.html?v=<id>.
+ *
+ *   Store — store_products docs don't carry a URL slug; this script
+ *   assigns one (from the product's title, unique within its category)
+ *   to any doc missing one and writes it back, then generates
+ *   store/<category-slug>/<item-slug>/index.html per active product,
+ *   redirecting into store.html?category=<slug>&item=<slug>.
+ *
+ * Either way the generated page is a small static file with real
  * <title>/OG tags (so link previews work) whose body just redirects into
- * videos/hamburgernews.html?v=<id>, which resolves the id back to the
- * matching episode/game and starts it playing.
+ * the real interactive page, which resolves the id/slug back to the
+ * matching item and jumps straight to it.
  *
- * WHY THERE IS A MANIFEST
+ * WHY THERE IS A MANIFEST (one per source)
  * ----------------------
  * Firestore items have no equivalent of WordPress's `modified` timestamp
- * to diff against, so the manifest itself is the "did this change" check
- * here — it stores the exact title/url/thumb an id's page was last built
- * with. It's also what makes deletes work: a video removed from Firestore
- * disappears from what we fetch, but its page would otherwise stay on
- * disk forever with no signal that it should go.
+ * to diff against, so each manifest is itself the "did this change"
+ * check — it records the exact fields (and output directory) an item's
+ * page was last built with. Recording the directory is what makes a
+ * store item's page move correctly when its category or title changes
+ * the slug — the old directory gets removed, not left behind — and
+ * comparing against what Firestore returns now is what makes deleted
+ * items' pages go away instead of staying live forever.
  *
  * Run by .github/workflows/sync-permalink-pages.yml on a schedule.
  *
@@ -47,14 +56,10 @@ import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 const DRY_RUN = process.argv.includes("--dry-run");
-
 const SITE_ORIGIN = "https://knobsock.net";
-const OUT_DIR = "videos/hamburgernews/v";
-const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
-const TEMPLATE_VERSION = 1;
 
 // ---------------------------------------------------------------
-// HELPERS
+// SHARED HELPERS
 // ---------------------------------------------------------------
 
 function esc(s) {
@@ -71,26 +76,17 @@ function isSafeId(id) {
   return typeof id === "string" && /^[a-z0-9]{6,32}$/.test(id);
 }
 
-// Ported from videos/hamburgernews.html's own extractVideoId/thumbForUrl
-// so the OG image matches what the page itself would show.
-function extractVideoId(input) {
-  if (!input) return null;
-  const t = String(input).trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(t)) return t;
-  const m = t.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : null;
+function slugify(s) {
+  return String(s ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-function thumbForUrl(url) {
-  const id = extractVideoId(url);
-  if (id) return `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
-  const m = String(url || "").match(/^(https?:\/\/.+\/)playlist\.m3u8(\?.*)?$/i);
-  return m ? `${m[1]}thumbnail.jpg` : "";
+function isSafeSlug(s) {
+  return typeof s === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s);
 }
-
-// ---------------------------------------------------------------
-// FIRESTORE
-// ---------------------------------------------------------------
 
 function authedFirestore() {
   const keyJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
@@ -103,45 +99,13 @@ function authedFirestore() {
   return getFirestore();
 }
 
-/**
- * Ensures every item in `list` has an `id`, generating+persisting new
- * ones where missing. Returns the (possibly updated) list; writes back
- * to `docRef`'s `field` only if anything actually changed.
- */
-async function ensureIds(docRef, field, list) {
-  const seen = new Set(list.map((v) => v.id).filter(Boolean));
-  let changed = false;
-  const next = list.map((v) => {
-    if (v.id && isSafeId(v.id)) return v;
-    let id = newId();
-    while (seen.has(id)) id = newId();
-    seen.add(id);
-    changed = true;
-    return { ...v, id };
-  });
-  if (changed && !DRY_RUN) {
-    await docRef.set({ [field]: next }, { merge: true });
-  }
-  return next;
-}
-
-// ---------------------------------------------------------------
-// PAGE TEMPLATE
-// ---------------------------------------------------------------
-
-function renderPage(item) {
-  const canonical = `${SITE_ORIGIN}/${OUT_DIR}/${item.id}/`;
-  const redirectTo = `/videos/hamburgernews.html?v=${item.id}`;
-  const title = item.title || "Hamburger News";
-  const image = item.thumb || "";
-  const description = `Watch "${title}" — Hamburger News with Joe Medina, on KNOBSOCK.`;
-
+function redirectPageShell({ canonical, redirectTo, title, siteLabel, description, image, linkLabel }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(title)} &mdash; Hamburger News &mdash; KNOBSOCK</title>
+<title>${esc(title)} &mdash; ${esc(siteLabel)}</title>
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="description" content="${esc(description)}">
@@ -178,20 +142,154 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
 </head>
 <body>
   <noscript>
-    <p>${esc(title)} &mdash; <a href="${esc(redirectTo)}">Watch on Hamburger News</a></p>
+    <p>${esc(title)} &mdash; <a href="${esc(redirectTo)}">${esc(linkLabel)}</a></p>
   </noscript>
 </body>
 </html>
 `;
 }
 
+/**
+ * Generic manifest-diffed sync for one output directory. `items` is an
+ * array of { key, dir, record, render }: `key` identifies the item
+ * across runs, `dir` is its output directory *this* run, `record` is
+ * the plain-object snapshot to diff against next run (a mismatch means
+ * rewrite), `render()` produces the page content (only called for
+ * entries that actually need writing).
+ */
+async function syncManifestDir({ label, outDir, manifestPath, templateVersion, items }) {
+  let manifest = {};
+  let builtWithVersion = null;
+  if (existsSync(manifestPath)) {
+    try {
+      const parsed = JSON.parse(await readFile(manifestPath, "utf8"));
+      manifest = parsed.items || {};
+      builtWithVersion = parsed.templateVersion ?? null;
+    } catch {
+      console.warn(`${label}: manifest unreadable — treating every item as new.`);
+    }
+  }
+  const templateChanged = builtWithVersion !== templateVersion;
+
+  const created = [], updated = [], deleted = [], skipped = [];
+  const nextManifest = {};
+
+  for (const item of items) {
+    const prev = manifest[item.key];
+    const isNew = !prev;
+    const pathChanged = !!prev && prev.dir !== item.dir;
+    const contentChanged =
+      !!prev && !pathChanged && JSON.stringify(prev.record) !== JSON.stringify(item.record);
+
+    nextManifest[item.key] = { dir: item.dir, record: item.record };
+
+    if (prev && pathChanged && prev.dir && existsSync(prev.dir) && !DRY_RUN) {
+      await rm(prev.dir, { recursive: true, force: true });
+    }
+
+    const file = path.join(item.dir, "index.html");
+    if (!isNew && !pathChanged && !contentChanged && !templateChanged && existsSync(file)) {
+      skipped.push(item.key);
+      continue;
+    }
+
+    if (!DRY_RUN) {
+      await mkdir(item.dir, { recursive: true });
+      await writeFile(file, item.render(), "utf8");
+    }
+    (isNew ? created : updated).push(item.key);
+  }
+
+  for (const key of Object.keys(manifest)) {
+    if (nextManifest[key]) continue;
+    const dir = manifest[key].dir;
+    if (dir && existsSync(dir) && !DRY_RUN) {
+      await rm(dir, { recursive: true, force: true });
+    }
+    deleted.push(key);
+  }
+
+  if (!DRY_RUN) {
+    await mkdir(outDir, { recursive: true });
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          _comment:
+            "Generated by scripts/build-permalink-pages.mjs. Records what was " +
+            "built last run so deletes, moves, and updates can be detected. Do not edit.",
+          templateVersion,
+          generated: new Date().toISOString(),
+          count: Object.keys(nextManifest).length,
+          items: nextManifest,
+        },
+        null,
+        2
+      ) + "\n",
+      "utf8"
+    );
+  }
+
+  const line = (l, arr) =>
+    arr.length ? `  ${l}: ${arr.length} (${arr.slice(0, 8).join(", ")}${arr.length > 8 ? ", …" : ""})` : `  ${l}: 0`;
+
+  console.log(`${DRY_RUN ? "[dry run] " : ""}${label}: synced ${items.length} item(s)`);
+  console.log(line("created", created));
+  console.log(line("updated", updated));
+  console.log(line("deleted", deleted));
+  console.log(line("unchanged", skipped));
+
+  return created.length + updated.length + deleted.length;
+}
+
 // ---------------------------------------------------------------
-// MAIN
+// HAMBURGER NEWS
 // ---------------------------------------------------------------
 
-async function main() {
-  const db = authedFirestore();
+const HN_OUT_DIR = "videos/hamburgernews/v";
+const HN_MANIFEST_PATH = path.join(HN_OUT_DIR, "_manifest.json");
+const HN_TEMPLATE_VERSION = 1;
 
+// Ported from videos/hamburgernews.html's own extractVideoId/thumbForUrl
+// so the OG image matches what the page itself would show.
+function extractVideoId(input) {
+  if (!input) return null;
+  const t = String(input).trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(t)) return t;
+  const m = t.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function thumbForUrl(url) {
+  const id = extractVideoId(url);
+  if (id) return `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+  const m = String(url || "").match(/^(https?:\/\/.+\/)playlist\.m3u8(\?.*)?$/i);
+  return m ? `${m[1]}thumbnail.jpg` : "";
+}
+
+/**
+ * Ensures every item in `list` has an `id`, generating+persisting new
+ * ones where missing. Returns the (possibly updated) list; writes back
+ * to `docRef`'s `field` only if anything actually changed.
+ */
+async function ensureIds(docRef, field, list) {
+  const seen = new Set(list.map((v) => v.id).filter(Boolean));
+  let changed = false;
+  const next = list.map((v) => {
+    if (v.id && isSafeId(v.id)) return v;
+    let id = newId();
+    while (seen.has(id)) id = newId();
+    seen.add(id);
+    changed = true;
+    return { ...v, id };
+  });
+  if (changed && !DRY_RUN) {
+    await docRef.set({ [field]: next }, { merge: true });
+  }
+  return next;
+}
+
+async function syncHamburgerNews(db) {
   const newsRef = db.collection("playlist").doc("hamburgerNews");
   const gamesRef = db.collection("playlist").doc("hamburgerGames");
 
@@ -202,7 +300,7 @@ async function main() {
   const videos = await ensureIds(newsRef, "videos", rawVideos);
   const games = await ensureIds(gamesRef, "games", rawGames);
 
-  const items = [
+  const raw = [
     ...videos.map((v) => ({
       id: v.id,
       title: (v.title || "").trim() || "Episode",
@@ -217,85 +315,131 @@ async function main() {
     })),
   ].filter((it) => isSafeId(it.id));
 
-  let manifest = {};
-  let builtWithVersion = null;
-  if (existsSync(MANIFEST_PATH)) {
-    try {
-      const parsed = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
-      manifest = parsed.items || {};
-      builtWithVersion = parsed.templateVersion ?? null;
-    } catch {
-      console.warn("Manifest unreadable — treating every item as new.");
+  const items = raw.map((it) => {
+    const dir = path.join(HN_OUT_DIR, it.id);
+    return {
+      key: it.id,
+      dir,
+      record: { title: it.title, url: it.url, thumb: it.thumb },
+      render: () =>
+        redirectPageShell({
+          canonical: `${SITE_ORIGIN}/${HN_OUT_DIR}/${it.id}/`,
+          redirectTo: `/videos/hamburgernews.html?v=${it.id}`,
+          title: it.title,
+          siteLabel: "Hamburger News — KNOBSOCK",
+          description: `Watch "${it.title}" — Hamburger News with Joe Medina, on KNOBSOCK.`,
+          image: it.thumb,
+          linkLabel: "Watch on Hamburger News",
+        }),
+    };
+  });
+
+  return syncManifestDir({
+    label: "Hamburger News",
+    outDir: HN_OUT_DIR,
+    manifestPath: HN_MANIFEST_PATH,
+    templateVersion: HN_TEMPLATE_VERSION,
+    items,
+  });
+}
+
+// ---------------------------------------------------------------
+// STORE
+// ---------------------------------------------------------------
+
+const STORE_OUT_DIR = "store";
+const STORE_MANIFEST_PATH = path.join(STORE_OUT_DIR, "_manifest.json");
+const STORE_TEMPLATE_VERSION = 1;
+
+/**
+ * Ensures every active product has a `slug`, unique within its category,
+ * generating+persisting one from the title where missing. Firestore
+ * writes happen one doc at a time (rather than a single batch) since
+ * there's no shared array to overwrite the way the Hamburger News docs
+ * have — each product is its own document.
+ */
+async function ensureProductSlugs(db) {
+  const snap = await db.collection("store_products").where("active", "==", true).get();
+  const byCategory = new Map();
+  const items = [];
+
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    const category = (d.category || "").trim();
+    const categorySlug = slugify(category) || "uncategorized";
+    const bucket = byCategory.get(categorySlug) || new Set();
+
+    let slug = isSafeSlug(d.slug) ? d.slug : "";
+    if (!slug) {
+      const base = slugify(d.title || "") || "item";
+      slug = base;
+      let n = 2;
+      while (bucket.has(slug)) { slug = `${base}-${n}`; n++; }
+      if (!DRY_RUN) await doc.ref.set({ slug }, { merge: true });
     }
-  }
-  const templateChanged = builtWithVersion !== TEMPLATE_VERSION;
+    bucket.add(slug);
+    byCategory.set(categorySlug, bucket);
 
-  const created = [], updated = [], deleted = [], skipped = [];
-  const nextManifest = {};
-
-  for (const item of items) {
-    const prev = manifest[item.id];
-    const isNew = !prev;
-    const changed = prev && (prev.title !== item.title || prev.url !== item.url || prev.thumb !== item.thumb);
-
-    nextManifest[item.id] = { title: item.title, url: item.url, thumb: item.thumb };
-
-    const dir = path.join(OUT_DIR, item.id);
-    const file = path.join(dir, "index.html");
-
-    if (!isNew && !changed && !templateChanged && existsSync(file)) {
-      skipped.push(item.id);
-      continue;
-    }
-
-    if (!DRY_RUN) {
-      await mkdir(dir, { recursive: true });
-      await writeFile(file, renderPage(item), "utf8");
-    }
-    (isNew ? created : updated).push(item.id);
+    items.push({
+      docId: doc.id,
+      category,
+      categorySlug,
+      slug,
+      title: (d.title || "Untitled").trim(),
+      image: (Array.isArray(d.images) && d.images[0]) || "",
+      material: (d.material || "").trim(),
+    });
   }
 
-  for (const id of Object.keys(manifest)) {
-    if (nextManifest[id]) continue;
-    const dir = path.join(OUT_DIR, id);
-    if (existsSync(dir) && !DRY_RUN) {
-      await rm(dir, { recursive: true, force: true });
-    }
-    deleted.push(id);
-  }
+  return items;
+}
 
-  if (!DRY_RUN) {
-    await mkdir(OUT_DIR, { recursive: true });
-    await writeFile(
-      MANIFEST_PATH,
-      JSON.stringify(
-        {
-          _comment:
-            "Generated by scripts/build-permalink-pages.mjs. Records what was " +
-            "built last run so deletes and updates can be detected. Do not edit.",
-          templateVersion: TEMPLATE_VERSION,
-          generated: new Date().toISOString(),
-          count: Object.keys(nextManifest).length,
-          items: nextManifest,
-        },
-        null,
-        2
-      ) + "\n",
-      "utf8"
-    );
-  }
+async function syncStore(db) {
+  const products = await ensureProductSlugs(db);
 
-  const line = (label, arr) =>
-    arr.length ? `  ${label}: ${arr.length} (${arr.slice(0, 8).join(", ")}${arr.length > 8 ? ", …" : ""})` : `  ${label}: 0`;
+  const items = products.map((p) => {
+    const dir = path.join(STORE_OUT_DIR, p.categorySlug, p.slug);
+    const description = p.material
+      ? `${p.title} — ${p.material}, on the KNOBSOCK store.`
+      : `${p.title} — on the KNOBSOCK store.`;
+    return {
+      key: p.docId,
+      dir,
+      record: { category: p.category, categorySlug: p.categorySlug, slug: p.slug, title: p.title, image: p.image, material: p.material },
+      render: () =>
+        redirectPageShell({
+          canonical: `${SITE_ORIGIN}/${STORE_OUT_DIR}/${p.categorySlug}/${p.slug}/`,
+          redirectTo: `/store.html?category=${p.categorySlug}&item=${p.slug}`,
+          title: p.title,
+          siteLabel: "KNOBSOCK Store",
+          description,
+          image: p.image,
+          linkLabel: "View in the KNOBSOCK Store",
+        }),
+    };
+  });
 
-  console.log(`${DRY_RUN ? "[dry run] " : ""}Synced ${items.length} Hamburger News item(s)`);
-  console.log(line("created", created));
-  console.log(line("updated", updated));
-  console.log(line("deleted", deleted));
-  console.log(line("unchanged", skipped));
+  return syncManifestDir({
+    label: "Store",
+    outDir: STORE_OUT_DIR,
+    manifestPath: STORE_MANIFEST_PATH,
+    templateVersion: STORE_TEMPLATE_VERSION,
+    items,
+  });
+}
 
-  const changedCount = created.length + updated.length + deleted.length;
-  console.log(`${DRY_RUN ? "[dry run] " : ""}${changedCount} change(s).`);
+// ---------------------------------------------------------------
+// MAIN
+// ---------------------------------------------------------------
+
+async function main() {
+  const db = authedFirestore();
+
+  const hnChanges = await syncHamburgerNews(db);
+  const storeChanges = await syncStore(db);
+
+  const total = hnChanges + storeChanges;
+  console.log(`${DRY_RUN ? "[dry run] " : ""}${total} total change(s).`);
 }
 
 main().catch((err) => {

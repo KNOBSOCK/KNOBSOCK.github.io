@@ -256,6 +256,20 @@
   }
   .info-material:empty { display: none; }
 
+  .info-copy-link {
+    display: inline-block;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin-top: 6px;
+    font-size: clamp(11px, 1.2vw, 13px);
+    font-weight: 700;
+    color: var(--ks-pink);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .info-copy-link[hidden] { display: none; }
+
   .next-item-btn {
     flex: 0 0 auto;
     width: clamp(60px, 8vw, 140px);
@@ -483,6 +497,7 @@
       <div class="info-title" id="infoTitle"></div>
       <div class="info-price" id="infoPrice"></div>
       <div class="info-material" id="infoMaterial"></div>
+      <button type="button" class="info-copy-link" id="copyLinkBtn" hidden>Copy Link</button>
     </div>
 
     <button type="button" class="next-item-btn" id="nextItemBtn" aria-label="Next merch item">
@@ -539,9 +554,18 @@
       priceCents: d.priceCents || 0,
       material: d.material || '',
       category: d.category || '',
+      slug: d.slug || '',
       colors: Array.isArray(d.colors) ? d.colors.filter(function (c) { return c && c.hex; }) : [],
       sizes: Array.isArray(d.sizes) ? d.sizes.filter(Boolean) : []
     };
+  }
+
+  function slugify(s) {
+    return String(s || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   function formatCents(cents) {
@@ -582,6 +606,7 @@
   var infoTitle = document.getElementById('infoTitle');
   var infoPrice = document.getElementById('infoPrice');
   var infoMaterial = document.getElementById('infoMaterial');
+  var copyLinkBtn = document.getElementById('copyLinkBtn');
   var addToCartBtn = document.getElementById('addToCartBtn');
   var addToCartImg = document.getElementById('addToCartImg');
   var cartBtn = document.querySelector('.cart-btn');
@@ -658,7 +683,24 @@
     infoTitle.textContent = product.title || '';
     infoPrice.textContent = product.priceCents ? formatCents(product.priceCents) : '';
     infoMaterial.textContent = product.material || '';
+    copyLinkBtn.hidden = !product.slug;
+    copyLinkBtn.textContent = 'Copy Link';
+    copyLinkBtn.dataset.category = slugify(product.category);
+    copyLinkBtn.dataset.slug = product.slug || '';
   }
+
+  copyLinkBtn.addEventListener('click', function () {
+    var category = copyLinkBtn.dataset.category || 'uncategorized';
+    var slug = copyLinkBtn.dataset.slug;
+    if (!slug) return;
+    var url = location.origin + '/store/' + category + '/' + slug + '/';
+    navigator.clipboard.writeText(url).then(function () {
+      copyLinkBtn.textContent = 'Copied!';
+      setTimeout(function () { copyLinkBtn.textContent = 'Copy Link'; }, 1500);
+    }).catch(function () {
+      window.prompt('Copy this link:', url);
+    });
+  });
 
   function wireZoom(img) {
     img.addEventListener('click', function () {
@@ -898,7 +940,17 @@
 
   loadProducts().then(function (products) {
     PRODUCTS = products;
-    showProduct(0, 1);
+    var params = new URLSearchParams(location.search);
+    var wantCategory = params.get('category');
+    var wantItem = params.get('item');
+    var startIndex = 0;
+    if (wantItem) {
+      var found = PRODUCTS.findIndex(function (p) {
+        return p.slug === wantItem && (!wantCategory || slugify(p.category) === wantCategory);
+      });
+      if (found !== -1) startIndex = found;
+    }
+    showProduct(startIndex, 1);
   });
 })();
 </script>
