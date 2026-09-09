@@ -1,0 +1,61 @@
+name: Purge expired chat IP logs
+
+# Deletes chat_ip_log documents past their own expiresAt — the same
+# 90-day window logIpBestEffort() in livestream-chat-widget.html sets at
+# write time, matching what privacy.html's Live Chat section promises.
+#
+# Firestore's own TTL feature would normally do this automatically, but
+# turning it on requires the Blaze (pay-as-you-go) plan just to unlock
+# TTL *policy management*, regardless of whether the tiny delete volume
+# here would ever actually cost anything. This runs the same cleanup on
+# a free schedule instead, via a service account key (Admin SDK access
+# bypasses security rules entirely, same as functions/index.js's own
+# stripeWebhook — see firestore.rules).
+#
+# One-time setup this workflow depends on, done outside this repo:
+#   1. Firebase console -> Project Settings -> Service Accounts ->
+#      Generate new private key. Free on any plan, no Blaze needed.
+#   2. Add its full JSON contents as a repo secret named
+#      FIREBASE_SERVICE_ACCOUNT_KEY (Settings -> Secrets and variables ->
+#      Actions) -- or `gh secret set FIREBASE_SERVICE_ACCOUNT_KEY <
+#      path/to/key.json` from a terminal. Never commit that file.
+
+on:
+  schedule:
+    # Daily is plenty for a 90-day window — nothing here is as
+    # time-sensitive as the hourly WordPress article sync.
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would be deleted without deleting anything"
+        type: boolean
+        default: false
+
+# Least privilege: this job only talks to Firestore, never the repo.
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install --prefix scripts
+
+      - name: Purge expired chat_ip_log documents
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN_INPUT" = "true" ]; then
+            node scripts/purge-expired-ip-logs.mjs --dry-run
+          else
+            node scripts/purge-expired-ip-logs.mjs
+          fi

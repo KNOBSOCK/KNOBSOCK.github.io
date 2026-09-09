@@ -2,6 +2,7 @@
 # actual source. Everything else in this repo is served as-is by GitHub
 # Pages, so there was nothing worth ignoring before functions/ existed.
 functions/node_modules/
+scripts/node_modules/
 .firebase/
 firebase-debug.log
 firestore-debug.log
