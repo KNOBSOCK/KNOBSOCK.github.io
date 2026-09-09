@@ -435,7 +435,13 @@
       closeup: '/hamburger-pickle-episodes-zoom.webp',
       centre: { x: 1378, y: 1514 }, faceW: 1472,
       btnGreen: { cx: 0.5190, cy: 0.4675, w: 0.9490 },
-      quad: [[948, 1348], [1622, 1040], [1966, 1443], [1278, 1807]]
+      quad: [[948, 1348], [1622, 1040], [1966, 1443], [1278, 1807]],
+      // Episode thumbnails are always YouTube's mqdefault.jpg (a true
+      // 16:9 image), unlike Games' admin-supplied cover art which can be
+      // any shape - so only Episodes forces the thumbnail box to this
+      // ratio rather than letting it fall out of the quad's own measured
+      // proportions (labelH just absorbs whatever height that leaves).
+      thumbAspect: 16 / 9
     },
     games: {
       closeup: '/hamburger-pickle-games-zoom.webp',
@@ -542,10 +548,21 @@
     var hdrW = hole.w * HEADER.widthFrac * scale;
     var hdrH = hdrW / HEADER.aspect;
     var hdrBottomArt = hole.y - hole.w * HEADER.bottomGapFrac;
+    var hdrTop = offY + hdrBottomArt * scale - hdrH;
+    // The bun-overlap position above is tied to hole.y, which cover-fit
+    // can push well down the viewport on a narrow/tall phone (a much
+    // bigger crop of a SQUARE image is needed to cover a tall aspect,
+    // and that crop's own math leaves more wall showing above the bun
+    // there than on desktop's wider aspect) — clamped so the header
+    // never sits lower than a small top inset, same idea as back-link's
+    // own clamp() just below. Also guards the opposite failure on a very
+    // wide/short desktop window, where the same hole.y-based math can
+    // go negative and push the header off the top of the screen.
+    hdrTop = Math.max(6, Math.min(hdrTop, vp.h * 0.045));
     hnHeader.style.width = hdrW + 'px';
     hnHeader.style.height = hdrH + 'px';
     hnHeader.style.left = (offX + (hole.x + hole.w / 2) * scale - hdrW / 2) + 'px';
-    hnHeader.style.top = (offY + hdrBottomArt * scale - hdrH) + 'px';
+    hnHeader.style.top = hdrTop + 'px';
 
     Object.keys(PICKLE_BTNS).forEach(function (name) {
       var r = variant.pickles[name];
@@ -587,8 +604,14 @@
 
     var gw = (dist(sq[0], sq[1]) + dist(sq[3], sq[2])) / 2;
     var gh = (dist(sq[0], sq[3]) + dist(sq[1], sq[2])) / 2;
-    var labelH = gh * LABEL_FRAC;
-    var thumbH = gh - labelH;
+    var thumbH, labelH;
+    if (art.thumbAspect) {
+      thumbH = gw / art.thumbAspect;
+      labelH = Math.max(0, gh - thumbH);
+    } else {
+      labelH = gh * LABEL_FRAC;
+      thumbH = gh - labelH;
+    }
     slotsEl.style.width = gw + 'px';
     slotsEl.style.height = gh + 'px';
     slotsEl.style.left = (cx - gw / 2) + 'px';
