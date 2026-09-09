@@ -568,7 +568,7 @@
 
     function renderList(list) {
       const videos = list
-        .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled' }))
+        .map(v => ({ id: extractVideoId(v.url), title: (v.title && v.title.trim()) ? v.title.trim() : 'Untitled', thumb: (v.thumb && v.thumb.trim()) ? v.thumb.trim() : '' }))
         .filter(v => v.id);
 
       currentVideos = videos;
@@ -581,7 +581,7 @@
       videoListEl.innerHTML = videos.map(v => `
         <button type="button" class="video-tile" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
           <span class="video-thumb">
-            <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy">
+            <img src="${escapeHtml(v.thumb || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`)}" alt="" loading="lazy">
             <span class="play-icon">
               <svg viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.45)"/><polygon points="10 8 17 12 10 16"></polygon></svg>
             </span>

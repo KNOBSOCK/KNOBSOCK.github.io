@@ -1615,12 +1615,16 @@
         const albumFieldHtml = opts.showAlbums
           ? '<input type="text" class="album-input" list="' + albumListId + '" placeholder="Album (optional)" value="' + escapeAttr(v.album || '') + '">'
           : '';
+        const thumbFieldHtml = opts.showThumb
+          ? '<input type="text" class="thumb-input" placeholder="Thumbnail image URL (optional — falls back to the normal thumbnail)" value="' + escapeAttr(v.thumb || '') + '">'
+          : '';
         return '<div class="row" data-draggable data-index="' + i + '">' +
           '<span class="grip" title="Drag to reorder">&#10303;</span>' +
           '<div class="row-fields">' +
             '<input type="text" class="url-input" placeholder="' + opts.urlPlaceholder + '" value="' + escapeAttr(v.url) + '">' +
             '<input type="text" class="title-input" placeholder="' + opts.singular + ' title" value="' + escapeAttr(v.title || '') + '">' +
             albumFieldHtml +
+            thumbFieldHtml +
           '</div>' +
           '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
         '</div>';
@@ -1650,6 +1654,12 @@
           draftList[idx].title = titleInput.value;
           draftList[idx]._titleTouched = true;
         });
+        const thumbInput = row.querySelector('.thumb-input');
+        if (thumbInput) {
+          thumbInput.addEventListener('input', function () {
+            draftList[idx].thumb = thumbInput.value;
+          });
+        }
         const albumInput = row.querySelector('.album-input');
         if (albumInput) {
           albumInput.addEventListener('input', function () {
@@ -1824,7 +1834,7 @@
     }
 
     opts.addBtn.addEventListener('click', function () {
-      draftList.unshift({ url: '', title: '', addedAt: Date.now(), publishedAt: 0, author: null, album: '' });
+      draftList.unshift({ url: '', title: '', addedAt: Date.now(), publishedAt: 0, author: null, album: '', thumb: '' });
       renderList();
     });
 
@@ -1834,7 +1844,7 @@
     });
 
     opts.resetBtn.addEventListener('click', function () {
-      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, publishedAt: 0, author: null, album: '' }; });
+      draftList = opts.defaultList.map(function (v) { return { url: v.url, title: v.title || '', addedAt: 0, publishedAt: 0, author: null, album: '', thumb: '' }; });
       renderList();
       fetchAllAuthors();
       fetchAllPublishedDates();
@@ -1850,6 +1860,7 @@
         .map(function (v) {
           const item = { url: (v.url || '').trim(), title: (v.title || '').trim(), addedAt: v.addedAt || Date.now(), publishedAt: v.publishedAt || 0 };
           if (opts.showAlbums) item.album = (v.album || '').trim();
+          if (opts.showThumb) item.thumb = (v.thumb || '').trim();
           return item;
         })
         .filter(function (v) { return v.url; });
@@ -1929,7 +1940,7 @@
         const data = doc.data();
         const list = (data && Array.isArray(data.videos) && data.videos.length) ? data.videos : opts.defaultList;
         draftList = list.map(function (v) {
-          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, publishedAt: v.publishedAt || 0, author: null, album: v.album || '' };
+          return { url: v.url, title: v.title || '', addedAt: v.addedAt || 0, publishedAt: v.publishedAt || 0, author: null, album: v.album || '', thumb: v.thumb || '' };
         });
         creatorAliases = (data && data.creatorAliases) || {};
         creatorOrder = (data && data.creatorOrder) || [];
@@ -1984,7 +1995,8 @@
       singular: 'Video',
       plural: 'videos',
 
-      showCreatorLinks: true
+      showCreatorLinks: true,
+      showThumb: true
     }).load();
 
     createPlaylistEditor({
@@ -2017,7 +2029,8 @@
       urlPlaceholder: 'Paste a YouTube or Bunny Stream link',
       singular: 'Video',
       plural: 'videos',
-      allowDirectVideo: true
+      allowDirectVideo: true,
+      showThumb: true
     }).load();
 
     initGamesEditor();

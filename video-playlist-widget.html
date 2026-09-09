@@ -612,7 +612,7 @@ function buildPlaylist(list, previousPlaylist) {
         id,
         title: manualTitle || (prev ? prev.title : null),
         author: prev ? prev.author : null,
-
+        thumb: (v.thumb && v.thumb.trim()) ? v.thumb.trim() : '',
         publishedAt: v.publishedAt || 0
       };
     })
@@ -816,7 +816,7 @@ let PLAYLIST = buildPlaylist(currentVideoList);
       return heading + `
       <button class="playlist-item${i === activeIndex ? ' active' : ''}" data-index="${i}" title="${escapeHtml(title)}">
         <div class="playlist-thumb-wrap">
-          <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="${escapeHtml(title)}" loading="lazy" />
+          <img src="${escapeHtml(v.thumb || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`)}" alt="${escapeHtml(title)}" loading="lazy" />
           <span class="now-playing-badge">Now Playing</span>
         </div>
         <div class="playlist-meta">

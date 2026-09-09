@@ -852,7 +852,7 @@
           index: i,
           title: (v.title && v.title.trim()) ? v.title.trim() : ('Episode ' + (i + 1)),
           url: v.url || '',
-          thumb: thumbForUrl(v.url)
+          thumb: (v.thumb && v.thumb.trim()) ? v.thumb.trim() : thumbForUrl(v.url)
         };
       });
       if (openPickle === 'episodes') renderSlots();
