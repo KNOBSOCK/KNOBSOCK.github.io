@@ -498,7 +498,6 @@
       videoReady = true;
       updateMuteBtnLabel();
       sizePlayerToCover();
-      showControls(true);
       applyUnmute();
     });
     videoEl.addEventListener('waiting', () => { if (backend === 'video') showVideoLoading(); });
@@ -567,7 +566,6 @@
       playerReady = true;
       updateMuteBtnLabel();
       sizePlayerToCover();
-      showControls(true);
       applyUnmute();
       if (pendingVideo) {
         showVideoLoading();
