@@ -214,7 +214,21 @@
     return m ? decodeURIComponent(m[1]) : null;
   }
 
+  // scripts/build-permalink-pages.mjs only generates live/v/<id>/index.html
+  // on its next scheduled/manual run, so a VOD added moments ago 404s here
+  // until then — redirect straight into live.html instead of waiting.
+  function liveVodIdFromPath() {
+    const m = window.location.pathname.match(/^\/live\/v\/([^\/]+)\/?$/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
   async function load() {
+    const vodId = liveVodIdFromPath();
+    if (vodId) {
+      location.replace("/live.html?vod=" + encodeURIComponent(vodId));
+      return;
+    }
+
     const slug = slugFromPath();
 
     if (!slug) return;
