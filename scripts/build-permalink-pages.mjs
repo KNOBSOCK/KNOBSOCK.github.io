@@ -443,12 +443,33 @@ const LIVE_OUT_DIR = "live/v";
 const LIVE_MANIFEST_PATH = path.join(LIVE_OUT_DIR, "_manifest.json");
 const LIVE_TEMPLATE_VERSION = 1;
 
+// Ported from livestream-chat-widget.html's own isDirectVideoUrl/
+// extractDirectVideoId so a Bunny/.m3u8 VOD's permalink id matches the
+// id the widget puts in the URL bar via history.replaceState.
+function isDirectVideoUrl(input) {
+  if (!input) return false;
+  const trimmed = String(input).trim();
+  return /^https?:\/\//i.test(trimmed) && /\.(m3u8|mp4|webm|mov)(\?.*)?$/i.test(trimmed);
+}
+
+function extractDirectVideoId(input) {
+  const trimmed = String(input || "").trim();
+  const m = trimmed.match(/\/([0-9a-fA-F-]{10,})\/playlist\.m3u8(?:\?.*)?$/i);
+  if (m) return m[1];
+  let hash = 0;
+  for (let i = 0; i < trimmed.length; i++) hash = ((hash << 5) - hash + trimmed.charCodeAt(i)) | 0;
+  return "v" + Math.abs(hash).toString(36);
+}
+
+function isSafeDirectId(id) {
+  return typeof id === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(id);
+}
+
 /**
- * Unlike the other two sources, VODs need no id/slug backfill at all —
- * each one's YouTube video id (already required at save time, see
- * admin.html's vodsSaveBtn handler) IS the permalink id, exactly the
- * same value livestream-chat-widget.html's own switchToVod() already
- * takes. Nothing gets written back to Firestore here.
+ * VODs need no id/slug backfill at all — each one's YouTube video id, or
+ * (for a direct Bunny/.m3u8 link) its extracted id, IS the permalink id,
+ * exactly the same value livestream-chat-widget.html's own switchToVod()
+ * already takes. Nothing gets written back to Firestore here.
  */
 async function syncLiveVods(db) {
   const doc = await db.collection("chat_config").doc("vods").get();
@@ -456,17 +477,22 @@ async function syncLiveVods(db) {
 
   const byId = new Map();
   for (const v of rawItems) {
-    const id = extractVideoId(v && v.url);
-    if (!isSafeYoutubeId(id)) continue;
-    byId.set(id, (v.title || "").trim() || "Past Stream");
+    const url = v && v.url;
+    const ytId = extractVideoId(url);
+    const id = isSafeYoutubeId(ytId) ? ytId : (isDirectVideoUrl(url) ? extractDirectVideoId(url) : null);
+    if (!isSafeYoutubeId(id) && !isSafeDirectId(id)) continue;
+    const title = (v.title || "").trim() || "Past Stream";
+    const image = (v.thumb || "").trim() || thumbForUrl(url) ||
+      (isSafeYoutubeId(id) ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : "");
+    byId.set(id, { title, image });
   }
 
-  const items = Array.from(byId, ([id, title]) => {
+  const items = Array.from(byId, ([id, { title, image }]) => {
     const dir = path.join(LIVE_OUT_DIR, id);
     return {
       key: id,
       dir,
-      record: { title },
+      record: { title, image },
       render: () =>
         redirectPageShell({
           canonical: `${SITE_ORIGIN}/${LIVE_OUT_DIR}/${id}/`,
@@ -474,7 +500,7 @@ async function syncLiveVods(db) {
           title,
           siteLabel: "KNOBSOCK Live",
           description: `Watch "${title}" — a past KNOBSOCK Live stream.`,
-          image: `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
+          image,
           linkLabel: "Watch on KNOBSOCK Live",
         }),
     };
