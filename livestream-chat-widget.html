@@ -1531,6 +1531,10 @@
 
   var usingPseudoFullscreen = false;
 
+  var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
+    /iP(hone|od|ad)/.test(navigator.platform) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
   function hasNativeFullscreenSupport(el) {
     return !!(
       el.requestFullscreen ||
@@ -1603,6 +1607,10 @@
     if (isFullscreen()) {
       if (usingPseudoFullscreen) exitPseudoFullscreen();
       else exitFs();
+      return;
+    }
+    if (isIOS && backend === 'video' && typeof videoEl.webkitEnterFullscreen === 'function') {
+      videoEl.webkitEnterFullscreen();
       return;
     }
     if (hasNativeFullscreenSupport(videoPane)) {
