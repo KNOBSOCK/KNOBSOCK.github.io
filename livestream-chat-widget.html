@@ -1775,7 +1775,7 @@
     latestVods = items.map((v) => {
       const ytId = extractVideoId(v.url);
       if (ytId) return { id: ytId, type: 'youtube', title: v.title, thumb: v.thumb || '' };
-      if (isDirectVideoUrl(v.url)) return { id: v.url, type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '' };
+      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '' };
       return null;
     }).filter(Boolean);
     renderVods();
