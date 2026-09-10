@@ -1444,7 +1444,11 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
       const fraction = max > 0 ? parseFloat(scrubRange.value) / max : 0;
       seekScToFraction(fraction);
     } else if (isDirectKey(activeKey)) {
-      if (videoReady) videoEl.currentTime = parseFloat(scrubRange.value);
+      if (videoReady) {
+        const shouldResume = !videoEl.paused;
+        videoEl.currentTime = parseFloat(scrubRange.value);
+        if (shouldResume) videoEl.play().catch(() => {});
+      }
     } else if (ytPlayer) {
       ytPlayer.seekTo(parseFloat(scrubRange.value), true);
     }

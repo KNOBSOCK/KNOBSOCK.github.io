@@ -551,7 +551,9 @@
         if (!videoReady) return;
         const duration = videoEl.duration || 0;
         if (!duration || !isFinite(duration)) return;
+        const shouldResume = !videoEl.paused;
         videoEl.currentTime = fraction * duration;
+        if (shouldResume) videoEl.play().catch(() => {});
         scrubberFillEl.style.width = (fraction * 100) + '%';
         return;
       }

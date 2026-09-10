@@ -1445,11 +1445,13 @@
         return;
       }
       if (backend === 'video') {
+        var shouldResume = !videoEl.paused;
         if (hlsInstance && typeof hlsInstance.liveSyncPosition === 'number') {
           videoEl.currentTime = hlsInstance.liveSyncPosition;
         } else if (videoReady && isFinite(videoEl.duration)) {
           videoEl.currentTime = videoEl.duration;
         }
+        if (shouldResume) videoEl.play().catch(function () {});
         return;
       }
       if (ytPlayer && typeof ytPlayer.getDuration === 'function') {
@@ -1516,7 +1518,11 @@
 
   scrubRange.addEventListener('change', function () {
     if (backend === 'video') {
-      if (videoReady) videoEl.currentTime = parseFloat(scrubRange.value);
+      if (videoReady) {
+        var shouldResume = !videoEl.paused;
+        videoEl.currentTime = parseFloat(scrubRange.value);
+        if (shouldResume) videoEl.play().catch(function () {});
+      }
     } else if (ytPlayer) {
       ytPlayer.seekTo(parseFloat(scrubRange.value), true);
     }

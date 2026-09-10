@@ -322,7 +322,11 @@
     },
     seekTo(t) {
       if (backend === 'youtube') { if (ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(t, true); }
-      else videoEl.currentTime = t;
+      else {
+        const shouldResume = !videoEl.paused;
+        videoEl.currentTime = t;
+        if (shouldResume) videoEl.play().catch(() => {});
+      }
     }
   };
 
