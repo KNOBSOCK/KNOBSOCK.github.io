@@ -1291,13 +1291,28 @@
     try { localStorage.setItem(BUNNY_HOST_STORAGE_KEY, m[1]); } catch (e) {}
   }
 
+  function findKnownBunnyHost() {
+    try {
+      const stored = localStorage.getItem(BUNNY_HOST_STORAGE_KEY);
+      if (stored) return stored;
+    } catch (e) {}
+    const inputs = document.querySelectorAll('input[type="text"], input[type="url"]');
+    for (let i = 0; i < inputs.length; i++) {
+      const m = inputs[i].value.trim().match(BUNNY_CDN_URL_RE);
+      if (m) {
+        try { localStorage.setItem(BUNNY_HOST_STORAGE_KEY, m[1]); } catch (e) {}
+        return m[1];
+      }
+    }
+    return '';
+  }
+
   function autoConvertBunnyInput(inputEl) {
     const val = inputEl.value.trim();
     rememberBunnyHost(val);
     const m = val.match(BUNNY_PLAY_URL_RE);
     if (!m) return false;
-    let host = '';
-    try { host = localStorage.getItem(BUNNY_HOST_STORAGE_KEY) || ''; } catch (e) {}
+    const host = findKnownBunnyHost();
     if (!host) return false;
     const converted = 'https://' + host + '/' + m[1] + '/playlist.m3u8';
     if (converted === val) return false;

@@ -1692,6 +1692,15 @@
     return /^https?:\/\//i.test(trimmed) && /\.(m3u8|mp4|webm|mov)(\?.*)?$/i.test(trimmed);
   }
 
+  function extractDirectVideoId(input) {
+    const trimmed = String(input || '').trim();
+    const m = trimmed.match(/\/([0-9a-fA-F-]{10,})\/playlist\.m3u8(?:\?.*)?$/i);
+    if (m) return m[1];
+    let hash = 0;
+    for (let i = 0; i < trimmed.length; i++) hash = ((hash << 5) - hash + trimmed.charCodeAt(i)) | 0;
+    return 'v' + Math.abs(hash).toString(36);
+  }
+
   const vodsPanel = document.getElementById('vodsPanel');
   const vodsTab = document.getElementById('vodsTab');
   const vodsListEl = document.getElementById('vodsList');
