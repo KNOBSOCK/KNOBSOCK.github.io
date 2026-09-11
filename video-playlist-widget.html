@@ -92,8 +92,9 @@
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
-  .video-pane.is-loading .video-frame-wrap iframe,
-  .video-pane.is-loading .video-frame-wrap video { visibility: hidden; }
+  /* Keep native HLS video rendered while buffering. Safari suspends a video
+     that becomes invisible during a seek, which leaves it stuck on `waiting`. */
+  .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .gif-loader {
     display: block;
@@ -725,38 +726,29 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   let hlsInstance = null;
   let videoReady = false;
   let wantsUnmute = false;
-  let seekGen = 0;
+  let resumeAfterDirectSeek = false;
+  let directSeekRecoveryTimer = null;
+
+  function resumeDirectVideoAfterSeek() {
+    if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
+    resumeAfterDirectSeek = false;
+    clearTimeout(directSeekRecoveryTimer);
+    videoEl.play().catch(() => {});
+  }
+
+  // This covers both our scrubber and Safari's native fullscreen scrubber.
+  // Native HLS on iOS can otherwise remain stalled after a forward seek.
+  videoEl.addEventListener('seeking', function () {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+    clearTimeout(directSeekRecoveryTimer);
+    if (resumeAfterDirectSeek) {
+      directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
+    }
+  });
+  videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
 
   function seekDirectVideo(t) {
-    const myGen = ++seekGen;
-    const wasPlaying = !videoEl.paused;
     videoEl.currentTime = t;
-    if (!wasPlaying) return;
-
-    let resumed = false;
-    function resume() {
-      if (resumed || myGen !== seekGen) return;
-      resumed = true;
-      videoEl.removeEventListener('seeked', onSeeked);
-      videoEl.play().catch(() => {});
-    }
-    function onSeeked() { resume(); }
-    videoEl.addEventListener('seeked', onSeeked);
-    setTimeout(resume, 300);
-
-    setTimeout(() => {
-      if (myGen !== seekGen || videoEl.paused || videoEl.ended) return;
-      if (Math.abs(videoEl.currentTime - t) > 0.75) return;
-      if (hlsInstance) return;
-      const resumeTarget = videoEl.currentTime;
-      function onLoaded() {
-        videoEl.removeEventListener('loadedmetadata', onLoaded);
-        videoEl.currentTime = resumeTarget;
-        videoEl.play().catch(() => {});
-      }
-      videoEl.addEventListener('loadedmetadata', onLoaded);
-      videoEl.load();
-    }, 2000);
   }
 
   unmuteBtn.disabled = true;

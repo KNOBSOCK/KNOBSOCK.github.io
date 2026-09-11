@@ -127,7 +127,6 @@
     object-fit: cover;
     pointer-events: none;
   }
-  .player-box.is-loading video { visibility: hidden; }
 
   .unmute-btn {
     position: absolute;
@@ -371,38 +370,29 @@
     let hlsInstance = null;
     let wantsUnmute = false;
     let isUnmutedIntent = false;
-    let seekGen = 0;
+    let resumeAfterDirectSeek = false;
+    let directSeekRecoveryTimer = null;
+
+    function resumeDirectVideoAfterSeek() {
+      if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
+      resumeAfterDirectSeek = false;
+      clearTimeout(directSeekRecoveryTimer);
+      videoEl.play().catch(() => {});
+    }
+
+    // This covers both our scrubber and Safari's native fullscreen scrubber.
+    // Native HLS on iOS can otherwise remain stalled after a forward seek.
+    videoEl.addEventListener('seeking', () => {
+      resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+      clearTimeout(directSeekRecoveryTimer);
+      if (resumeAfterDirectSeek) {
+        directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
+      }
+    });
+    videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
 
     function seekDirectVideo(t) {
-      const myGen = ++seekGen;
-      const wasPlaying = !videoEl.paused;
       videoEl.currentTime = t;
-      if (!wasPlaying) return;
-
-      let resumed = false;
-      function resume() {
-        if (resumed || myGen !== seekGen) return;
-        resumed = true;
-        videoEl.removeEventListener('seeked', onSeeked);
-        videoEl.play().catch(() => {});
-      }
-      function onSeeked() { resume(); }
-      videoEl.addEventListener('seeked', onSeeked);
-      setTimeout(resume, 300);
-
-      setTimeout(() => {
-        if (myGen !== seekGen || videoEl.paused || videoEl.ended) return;
-        if (Math.abs(videoEl.currentTime - t) > 0.75) return;
-        if (hlsInstance) return;
-        const resumeTarget = videoEl.currentTime;
-        function onLoaded() {
-          videoEl.removeEventListener('loadedmetadata', onLoaded);
-          videoEl.currentTime = resumeTarget;
-          videoEl.play().catch(() => {});
-        }
-        videoEl.addEventListener('loadedmetadata', onLoaded);
-        videoEl.load();
-      }, 2000);
     }
 
     function isDirectVideoUrl(input) {
@@ -584,9 +574,7 @@
         if (!videoReady) return;
         const duration = videoEl.duration || 0;
         if (!duration || !isFinite(duration)) return;
-        const shouldResume = !videoEl.paused;
-        videoEl.currentTime = fraction * duration;
-        if (shouldResume) videoEl.play().catch(() => {});
+        seekDirectVideo(fraction * duration);
         scrubberFillEl.style.width = (fraction * 100) + '%';
         return;
       }

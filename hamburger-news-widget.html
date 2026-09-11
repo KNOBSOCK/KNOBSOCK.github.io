@@ -278,38 +278,29 @@
   let pendingVideoId = null;
   let videoReady = false;
   let hlsInstance = null;
-  let seekGen = 0;
+  let resumeAfterDirectSeek = false;
+  let directSeekRecoveryTimer = null;
+
+  function resumeDirectVideoAfterSeek() {
+    if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
+    resumeAfterDirectSeek = false;
+    clearTimeout(directSeekRecoveryTimer);
+    videoEl.play().catch(() => {});
+  }
+
+  // This covers both our scrubber and Safari's native fullscreen scrubber.
+  // Native HLS on iOS can otherwise remain stalled after a forward seek.
+  videoEl.addEventListener('seeking', () => {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+    clearTimeout(directSeekRecoveryTimer);
+    if (resumeAfterDirectSeek) {
+      directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
+    }
+  });
+  videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
 
   function seekDirectVideo(t) {
-    const myGen = ++seekGen;
-    const wasPlaying = !videoEl.paused;
     videoEl.currentTime = t;
-    if (!wasPlaying) return;
-
-    let resumed = false;
-    function resume() {
-      if (resumed || myGen !== seekGen) return;
-      resumed = true;
-      videoEl.removeEventListener('seeked', onSeeked);
-      videoEl.play().catch(() => {});
-    }
-    function onSeeked() { resume(); }
-    videoEl.addEventListener('seeked', onSeeked);
-    setTimeout(resume, 300);
-
-    setTimeout(() => {
-      if (myGen !== seekGen || videoEl.paused || videoEl.ended) return;
-      if (Math.abs(videoEl.currentTime - t) > 0.75) return;
-      if (hlsInstance) return;
-      const resumeTarget = videoEl.currentTime;
-      function onLoaded() {
-        videoEl.removeEventListener('loadedmetadata', onLoaded);
-        videoEl.currentTime = resumeTarget;
-        videoEl.play().catch(() => {});
-      }
-      videoEl.addEventListener('loadedmetadata', onLoaded);
-      videoEl.load();
-    }, 2000);
   }
 
   const MUTE_ICON_UNMUTED = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M4 9v6h4l5 5V4L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34zM14 4.45v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>';

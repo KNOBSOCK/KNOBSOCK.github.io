@@ -108,8 +108,9 @@
     pointer-events: none;
   }
   .video-loading[hidden] { display: none; }
-  .video-pane.is-loading .video-frame-wrap iframe,
-  .video-pane.is-loading .video-frame-wrap video { visibility: hidden; }
+  /* Keep native HLS video rendered while buffering. Safari suspends a video
+     that becomes invisible during a seek, which leaves it stuck on `waiting`. */
+  .video-pane.is-loading .video-frame-wrap iframe { visibility: hidden; }
 
   .offline-frame {
     position: absolute;
@@ -1142,6 +1143,26 @@
   var apiReady = false;
   var videoReady = false;
   var hlsInstance = null;
+  var resumeAfterDirectSeek = false;
+  var directSeekRecoveryTimer = null;
+
+  function resumeDirectVideoAfterSeek() {
+    if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
+    resumeAfterDirectSeek = false;
+    clearTimeout(directSeekRecoveryTimer);
+    videoEl.play().catch(function () {});
+  }
+
+  // This covers both our scrubber and Safari's native fullscreen scrubber.
+  // Native HLS on iOS can otherwise remain stalled after a forward seek.
+  videoEl.addEventListener('seeking', function () {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+    clearTimeout(directSeekRecoveryTimer);
+    if (resumeAfterDirectSeek) {
+      directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
+    }
+  });
+  videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
 
   function isDirectVideoUrl(input) {
     if (!input) return false;
@@ -1519,9 +1540,7 @@
   scrubRange.addEventListener('change', function () {
     if (backend === 'video') {
       if (videoReady) {
-        var shouldResume = !videoEl.paused;
         videoEl.currentTime = parseFloat(scrubRange.value);
-        if (shouldResume) videoEl.play().catch(function () {});
       }
     } else if (ytPlayer) {
       ytPlayer.seekTo(parseFloat(scrubRange.value), true);
