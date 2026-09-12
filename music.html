@@ -44,6 +44,10 @@
     transform: scale(var(--scene-zoom-scale, 2));
     pointer-events: none;
   }
+  .music-scene.is-returning {
+    opacity: 1;
+    transition: opacity 0.08s linear;
+  }
 
   .scene-canvas {
     position: absolute;
@@ -127,13 +131,19 @@
     z-index: 10;
     inset: 0;
     overflow: hidden;
-    opacity: 1;
+    opacity: 0;
     pointer-events: none;
+    transition: opacity 0.08s linear 0.38s;
   }
   .music-zoom[hidden] { display: none; }
   .music-zoom.is-open {
     opacity: 1;
     pointer-events: auto;
+  }
+  .music-zoom.is-closing {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.08s linear;
   }
   .music-zoom .scene-canvas {
     transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
@@ -200,14 +210,12 @@
     var boombox = document.getElementById('boomboxOverlay');
     var scene = document.getElementById('musicScene');
     var zoom = document.getElementById('musicZoom');
-    var zoomCanvas = document.getElementById('musicZoomCanvas');
     var zoomArt = document.getElementById('musicZoomArt');
     var zoomClose = document.getElementById('musicZoomClose');
-    if (!boombox || !scene || !zoom || !zoomCanvas || !zoomArt || !zoomClose) return;
+    if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
     var isZoomed = false;
-    var zoomStartTransform = '';
     function popBoombox() {
       boombox.classList.remove('is-popping');
       void boombox.offsetWidth;
@@ -216,62 +224,47 @@
     function zoomSource() {
       return mobileQuery.matches ? '/music-boombox-zoom-mobile.png' : '/music-boombox-zoom-desktop.png';
     }
-    function setZoomOrigin() {
-      var rect = boombox.getBoundingClientRect();
-      scene.style.transformOrigin = (rect.left + rect.width / 2) + 'px ' + (rect.top + rect.height / 2) + 'px';
-    }
-    function zoomFrame() {
+    function cameraFrame() {
       if (mobileQuery.matches) {
-        return { width: 4511, height: 8000, focusX: 2260, focusY: 3125, startScale: 0.62, xOffset: '-50.8%' };
+        return { width: 4511, height: 8000, scale: 4.51, anchorX: 2345.09, anchorY: 2357.91 };
       }
-      return { width: 8000, height: 4511, focusX: 4000, focusY: 1700, startScale: 0.45, xOffset: '-50%' };
+      return { width: 8000, height: 4511, scale: 4.4, anchorX: 4115.29, anchorY: 1591.76 };
     }
-    function transformForFrame(frame, scale, dx, dy) {
-      return 'translate(' + frame.xOffset + ', -50%) translate(' + dx + 'px, ' + dy + 'px) scale(' + scale + ')';
-    }
-    function placeZoomAtBoombox() {
-      var frame = zoomFrame();
-      var boomboxRect = boombox.getBoundingClientRect();
-      var targetX = boomboxRect.left + boomboxRect.width / 2;
-      var targetY = boomboxRect.top + boomboxRect.height / 2;
-      zoomCanvas.style.transition = 'none';
-      zoomCanvas.style.transform = transformForFrame(frame, 1, 0, 0);
-      var rect = zoomCanvas.getBoundingClientRect();
-      var focusX = frame.focusX * rect.width / frame.width;
-      var focusY = frame.focusY * rect.height / frame.height;
-      var scale = frame.startScale;
-      var dx = targetX - (rect.left + (1 - scale) * rect.width / 2 + focusX * scale);
-      var dy = targetY - (rect.top + (1 - scale) * rect.height / 2 + focusY * scale);
-      zoomStartTransform = transformForFrame(frame, scale, dx, dy);
-      zoomCanvas.style.transform = zoomStartTransform;
-      scene.style.setProperty('--scene-zoom-scale', (1 / scale).toFixed(4));
-      return frame;
+    function setCameraAnchor() {
+      var frame = cameraFrame();
+      var canvas = scene.querySelector('.scene-canvas');
+      var rect = canvas.getBoundingClientRect();
+      scene.style.transformOrigin =
+        (rect.left + frame.anchorX * rect.width / frame.width) + 'px ' +
+        (rect.top + frame.anchorY * rect.height / frame.height) + 'px';
+      scene.style.setProperty('--scene-zoom-scale', frame.scale);
     }
     function openZoom() {
       if (isZoomed) return;
       isZoomed = true;
       popBoombox();
-      setZoomOrigin();
+      setCameraAnchor();
       zoomArt.src = zoomSource();
       zoom.hidden = false;
       zoom.setAttribute('aria-hidden', 'false');
-      var frame = placeZoomAtBoombox();
       void zoom.offsetWidth;
+      zoom.classList.remove('is-closing');
       zoom.classList.add('is-open');
       scene.classList.add('is-zooming');
-      zoomCanvas.style.transition = '';
-      zoomCanvas.style.transform = transformForFrame(frame, 1, 0, 0);
     }
     function closeZoom() {
       if (!isZoomed) return;
       isZoomed = false;
       zoom.classList.remove('is-open');
-      scene.classList.remove('is-zooming');
-      zoomCanvas.style.transition = '';
-      zoomCanvas.style.transform = zoomStartTransform;
+      zoom.classList.add('is-closing');
+      scene.classList.add('is-returning');
       zoom.setAttribute('aria-hidden', 'true');
       clearTimeout(zoomTimer);
-      zoomTimer = setTimeout(function () { zoom.hidden = true; }, 470);
+      zoomTimer = setTimeout(function () {
+        scene.classList.remove('is-zooming', 'is-returning');
+        zoom.classList.remove('is-closing');
+      }, 90);
+      setTimeout(function () { zoom.hidden = true; }, 560);
     }
     boombox.addEventListener('click', openZoom);
     boombox.addEventListener('animationend', function () {
@@ -282,7 +275,10 @@
       if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
     });
     mobileQuery.addEventListener('change', function () {
-      if (isZoomed) zoomArt.src = zoomSource();
+      if (isZoomed) {
+        zoomArt.src = zoomSource();
+        setCameraAnchor();
+      }
     });
   })();
 </script>
