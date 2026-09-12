@@ -59,10 +59,10 @@
   .music-logo-link {
     position: absolute;
     z-index: 2;
-    top: clamp(44px, 5vh, 64px);
+    top: -20px;
     left: 50%;
     display: block;
-    width: min(40vw, 580px);
+    width: min(30vw, 440px);
     transform: translateX(-50%);
     line-height: 0;
   }
@@ -78,6 +78,8 @@
     .scene-canvas {
       width: max(100vw, calc(100vh * 4511 / 8000));
       height: max(100vh, calc(100vw * 8000 / 4511));
+      /* The mobile illustration's boombox sits slightly right of center. */
+      transform: translateX(-3.5%);
     }
     .scene-art { content: url('/music-room-mobile.png'); }
     .music-logo-link {
