@@ -17,8 +17,7 @@
 .lcd-row { display: flex; width: 100%; text-align: left; justify-content: space-between; gap: .5em; line-height: 1.02 !important; }
 .lcd-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music-lcd .lcd-row.is-selected { background: #14270e; color: #a2ba77; }
-#lcdFooter { border-top: 1px solid; padding-top: .04em; font-size: .82em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#lcdFooter.lcd-footer--now { display: none; }
+#lcdFooter { display: none; }
 .lcd-now { display: flex; height: 100%; flex-direction: column; justify-content: space-evenly; text-align: center; }
 .lcd-track-name { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .lcd-detail { font-size: .85em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
