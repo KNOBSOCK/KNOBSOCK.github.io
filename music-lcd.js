@@ -7,6 +7,7 @@
   let page = { kind: 'home', label: 'KNOBSOCK' }, history = [], cursor = 0;
   let current = null, playing = false, wantsPlay = false, shuffle = false, elapsed = 0, duration = 0;
   let message = 'Loading SoundCloud...', widget = null, scUrl = '', generation = 0, loadTimer, profileVersion = 0, scPromise;
+  let lastCompletedUrl = '', autoplayLockUntil = 0;
   const scripts = new Map();
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
   function script(url) {
@@ -67,6 +68,7 @@
   function failed(text) { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); state(false); message = text; render(); }
   async function play(track, autoplay = true) {
     if (!track) return; stop(); const token = generation; current = track; elapsed = 0; duration = track.duration || 0;
+    lastCompletedUrl = '';
     if (page.kind !== 'now') { history.push({ page, cursor }); page = { kind: 'now', label: 'Now Playing' }; }
     wantsPlay = autoplay; if (wantsPlay) document.dispatchEvent(new CustomEvent('music-playback-state', { detail: 'play' })); message = 'Loading SoundCloud...'; render();
     loadTimer = setTimeout(() => { if (token === generation) failed('Press PLAY to retry'); }, 15000);
@@ -94,19 +96,27 @@
     wantsPlay = true;
     play(next, true);
   }
+  function completeTrack() {
+    const endedUrl = current?.url;
+    if (!endedUrl || endedUrl === lastCompletedUrl || Date.now() < autoplayLockUntil) return;
+    lastCompletedUrl = endedUrl;
+    /* Ignore the old widget's trailing events while the next source is loading. */
+    autoplayLockUntil = Date.now() + 1500;
+    setTimeout(() => { if (current?.url === endedUrl) autoplayNext(); }, 40);
+  }
   function soundcloud(initialUrl) {
     if (!scPromise) scPromise = script('https://w.soundcloud.com/player/api.js').then(() => new Promise((resolve, reject) => {
       const frame = node('iframe'); frame.className = 'music-engine'; frame.title = 'SoundCloud audio engine'; frame.allow = 'autoplay'; frame.tabIndex = -1; frame.setAttribute('aria-hidden', 'true'); frame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(initialUrl) + '&auto_play=false&show_artwork=false'; document.body.append(frame); widget = SC.Widget(frame);
       const timer = setTimeout(() => reject(new Error('SoundCloud timed out')), 20000);
       widget.bind(SC.Widget.Events.READY, () => { clearTimeout(timer); resolve(widget); });
       widget.bind(SC.Widget.Events.PLAY, () => { if (current && wantsPlay) state(true); else widget.pause(); });
-      widget.bind(SC.Widget.Events.PAUSE, () => { if (current) state(false); });
-      widget.bind(SC.Widget.Events.PLAY_PROGRESS, data => { if (current) { elapsed = data.currentPosition / 1000; if (page.kind === 'now') render(); } });
-      widget.bind(SC.Widget.Events.FINISH, () => {
+      widget.bind(SC.Widget.Events.PAUSE, () => {
         if (!current) return;
-        /* Let SoundCloud finish its own cleanup, then begin the next track as an autoplay load. */
-        setTimeout(autoplayNext, 0);
+        if (wantsPlay && duration && elapsed >= duration - 2) completeTrack();
+        else state(false);
       });
+      widget.bind(SC.Widget.Events.PLAY_PROGRESS, data => { if (current) { elapsed = data.currentPosition / 1000; if (page.kind === 'now') render(); } });
+      widget.bind(SC.Widget.Events.FINISH, completeTrack);
       widget.bind(SC.Widget.Events.ERROR, () => { if (current) failed('SoundCloud track unavailable'); });
     })); return scPromise;
   }
