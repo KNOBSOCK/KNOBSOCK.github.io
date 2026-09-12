@@ -74,24 +74,6 @@
     user-select: none;
   }
 
-  .boombox-screen {
-    position: absolute;
-    /* Inner LCD opening in the 8000 × 4511 desktop illustration. */
-    left: 47.73%;
-    top: 28.10%;
-    width: 5.90%;
-    height: 4.10%;
-    overflow: hidden;
-    background: #365e2c;
-  }
-  .boombox-screen iframe {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: #000;
-  }
-
   @media (max-width: 860px) and (orientation: portrait) {
     .scene-canvas {
       width: max(100vw, calc(100vh * 4511 / 8000));
@@ -101,13 +83,6 @@
     .music-logo-link {
       top: 48px;
       width: min(78vw, 580px);
-    }
-    .boombox-screen {
-      /* Inner LCD opening in the 4511 × 8000 mobile illustration. */
-      left: 46.90%;
-      top: 32.10%;
-      width: 10.90%;
-      height: 2.45%;
     }
   }
 </style>
@@ -120,11 +95,6 @@
     <a class="music-logo-link" href="/index.html" aria-label="KNOBSOCK home">
       <img src="/knobsock-music-scene-logo.png" alt="KNOBSOCK Music">
     </a>
-    <div class="boombox-screen">
-      <iframe src="/music-playlist-widget.html?boombox=1"
-              title="KNOBSOCK Music player"
-              allow="autoplay; encrypted-media; picture-in-picture"></iframe>
-    </div>
   </div>
 </main>
 
