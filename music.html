@@ -385,6 +385,14 @@
     var selectButton = document.getElementById('musicSelectButton');
     var actionBar = document.getElementById('musicActionBar');
     var actionArt = document.getElementById('musicActionArt');
+    var controlClickSound = new Audio('/buttonclick.mp3');
+    controlClickSound.preload = 'auto';
+    function playControlClick() {
+      var effect = controlClickSound.cloneNode();
+      effect.volume = 0.7;
+      effect.play().catch(function () {});
+      if (navigator.vibrate) navigator.vibrate(8);
+    }
     if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
@@ -493,8 +501,15 @@
     });
     zoomClose.addEventListener('click', closeZoom);
     controls.forEach(function (control) {
-      control.addEventListener('click', function () {
-        if (!control.getAttribute('data-control')) return;
+      function isClickControl() {
+        return ['artist', 'album', 'shuffle'].indexOf(control.getAttribute('data-control')) !== -1;
+      }
+      control.addEventListener('pointerdown', function () {
+        if (isClickControl()) playControlClick();
+      });
+      control.addEventListener('click', function (event) {
+        if (!isClickControl()) return;
+        if (event.detail === 0) playControlClick();
         if (control.getAttribute('data-control') !== 'shuffle') {
           var image = control.querySelector('img');
           image.src = image.getAttribute('data-active-src');
@@ -507,7 +522,9 @@
       });
     });
     if (selectButton) {
-      selectButton.addEventListener('click', function () {
+      selectButton.addEventListener('pointerdown', playControlClick);
+      selectButton.addEventListener('click', function (event) {
+        if (event.detail === 0) playControlClick();
         var image = selectButton.querySelector('img');
         image.src = image.getAttribute('data-active-src');
         setTimeout(function () { image.src = image.getAttribute('data-idle-src'); }, 150);
