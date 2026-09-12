@@ -37,6 +37,12 @@
     display: grid;
     place-items: center;
     overflow: hidden;
+    transition: opacity 0.46s cubic-bezier(0.62, 0, 0.86, 0.42), transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+  }
+  .music-scene.is-zooming {
+    opacity: 0;
+    transform: scale(0.88);
+    pointer-events: none;
   }
 
   .scene-canvas {
@@ -116,6 +122,39 @@
     100% { transform: scale(1); }
   }
 
+  .music-zoom {
+    position: fixed;
+    z-index: 10;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+  }
+  .music-zoom[hidden] { display: none; }
+  .music-zoom.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .music-zoom .scene-canvas {
+    transform: translate(-50%, -50%) scale(0.88);
+    transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+  }
+  .music-zoom.is-open .scene-canvas { transform: translate(-50%, -50%) scale(1); }
+  .music-zoom-close {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 18%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   @media (max-width: 860px) and (orientation: portrait) {
     .scene-canvas {
       width: max(100vw, calc(100vh * 4511 / 8000));
@@ -133,12 +172,15 @@
       top: 23.875%;
       width: 70.828%;
     }
+    .music-zoom-close { height: 20%; }
+    .music-zoom .scene-canvas { transform: translate(-50.8%, -50%) scale(0.88); }
+    .music-zoom.is-open .scene-canvas { transform: translate(-50.8%, -50%) scale(1); }
   }
 </style>
 </head>
 <body>
 
-<main class="music-scene">
+<main class="music-scene" id="musicScene">
   <div class="scene-canvas">
     <img class="scene-art" src="/music-room-desktop.png" alt="A boombox on a table between two windows">
     <button class="boombox-overlay" id="boomboxOverlay" type="button" aria-label="Animated boombox">
@@ -150,19 +192,67 @@
   </div>
 </main>
 
+<div class="music-zoom" id="musicZoom" hidden aria-hidden="true">
+  <div class="scene-canvas">
+    <img class="scene-art" id="musicZoomArt" src="/music-boombox-zoom-desktop.png" alt="Close-up of a boombox">
+  </div>
+  <button class="music-zoom-close" id="musicZoomClose" type="button" aria-label="Zoom out to the full music room"></button>
+</div>
+
 <script>
   (function () {
     var boombox = document.getElementById('boomboxOverlay');
-    if (!boombox) return;
+    var scene = document.getElementById('musicScene');
+    var zoom = document.getElementById('musicZoom');
+    var zoomArt = document.getElementById('musicZoomArt');
+    var zoomClose = document.getElementById('musicZoomClose');
+    if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
+    var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
+    var zoomTimer = null;
+    var isZoomed = false;
     function popBoombox() {
       boombox.classList.remove('is-popping');
       void boombox.offsetWidth;
       boombox.classList.add('is-popping');
     }
-    boombox.addEventListener('pointerdown', popBoombox);
-    boombox.addEventListener('click', popBoombox);
+    function zoomSource() {
+      return mobileQuery.matches ? '/music-boombox-zoom-mobile.png' : '/music-boombox-zoom-desktop.png';
+    }
+    function setZoomOrigin() {
+      var rect = boombox.getBoundingClientRect();
+      scene.style.transformOrigin = (rect.left + rect.width / 2) + 'px ' + (rect.top + rect.height / 2) + 'px';
+    }
+    function openZoom() {
+      if (isZoomed) return;
+      isZoomed = true;
+      popBoombox();
+      setZoomOrigin();
+      zoomArt.src = zoomSource();
+      zoom.hidden = false;
+      zoom.setAttribute('aria-hidden', 'false');
+      void zoom.offsetWidth;
+      zoom.classList.add('is-open');
+      scene.classList.add('is-zooming');
+    }
+    function closeZoom() {
+      if (!isZoomed) return;
+      isZoomed = false;
+      zoom.classList.remove('is-open');
+      scene.classList.remove('is-zooming');
+      zoom.setAttribute('aria-hidden', 'true');
+      clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(function () { zoom.hidden = true; }, 470);
+    }
+    boombox.addEventListener('click', openZoom);
     boombox.addEventListener('animationend', function () {
       boombox.classList.remove('is-popping');
+    });
+    zoomClose.addEventListener('click', closeZoom);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
+    });
+    mobileQuery.addEventListener('change', function () {
+      if (isZoomed) zoomArt.src = zoomSource();
     });
   })();
 </script>
