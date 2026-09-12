@@ -20,6 +20,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="preload" as="image" href="/music-boombox-zoom-desktop.png">
+<link rel="preload" as="image" href="/music-boombox-zoom-mobile.png">
 <style>
   * { box-sizing: border-box; }
 
@@ -216,6 +218,7 @@
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
     var isZoomed = false;
+    var isOpening = false;
     function popBoombox() {
       boombox.classList.remove('is-popping');
       void boombox.offsetWidth;
@@ -239,18 +242,35 @@
         (rect.top + frame.anchorY * rect.height / frame.height) + 'px';
       scene.style.setProperty('--scene-zoom-scale', frame.scale);
     }
-    function openZoom() {
+    function beginZoom(source) {
       if (isZoomed) return;
       isZoomed = true;
+      isOpening = false;
       popBoombox();
       setCameraAnchor();
-      zoomArt.src = zoomSource();
       zoom.hidden = false;
       zoom.setAttribute('aria-hidden', 'false');
       void zoom.offsetWidth;
       zoom.classList.remove('is-closing');
       zoom.classList.add('is-open');
       scene.classList.add('is-zooming');
+    }
+    function openZoom() {
+      if (isZoomed || isOpening) return;
+      isOpening = true;
+      var source = zoomSource();
+      function start() { beginZoom(source); }
+      if (zoomArt.getAttribute('src') === source && zoomArt.complete) {
+        start();
+        return;
+      }
+      zoomArt.src = source;
+      if (zoomArt.decode) {
+        zoomArt.decode().then(start).catch(start);
+      } else {
+        zoomArt.addEventListener('load', start, { once: true });
+        zoomArt.addEventListener('error', start, { once: true });
+      }
     }
     function closeZoom() {
       if (!isZoomed) return;
@@ -279,6 +299,10 @@
         zoomArt.src = zoomSource();
         setCameraAnchor();
       }
+    });
+    ['/music-boombox-zoom-desktop.png', '/music-boombox-zoom-mobile.png'].forEach(function (source) {
+      var image = new Image();
+      image.src = source;
     });
   })();
 </script>
