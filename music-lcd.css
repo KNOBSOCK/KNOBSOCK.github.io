@@ -32,5 +32,5 @@
   /* Now Playing has four stacked controls in the shorter portrait LCD. */
   .music-lcd .lcd-now { font-size: .72em; }
   .music-lcd .lcd-now .lcd-progress { margin-top: .12em; }
-  .music-lcd #lcdFooter.lcd-footer--now { font-size: .74em; }
+  .music-lcd #lcdFooter.lcd-footer--now { font-size: .70em; padding-bottom: .10em; }
 }
