@@ -683,6 +683,9 @@
         effect.play().catch(function () {});
         if (navigator.vibrate) navigator.vibrate(8);
       }
+      document.addEventListener('music-select-play', function () {
+        playButtonSound('play');
+      });
       var actionArtSources = {
         '': '/music-NoneClicked.png',
         play: '/music-PlayButtonClicked.png',

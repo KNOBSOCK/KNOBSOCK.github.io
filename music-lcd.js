@@ -68,7 +68,7 @@
     const moved = beforePage === page.kind ? Math.abs(cursor - beforeCursor) : Math.abs(step);
     if (moved) document.dispatchEvent(new CustomEvent('music-wheel-selection', { detail: moved }));
   }
-  function select() { const entry = rows()[cursor]; if (!entry) return; if (entry.track) { queue = rows().map(row => row.track); play(entry.track, true); } else visit({ ...entry, label: entry.label }); }
+  function select() { const entry = rows()[cursor]; if (!entry) return; if (entry.track) { queue = rows().map(row => row.track); document.dispatchEvent(new CustomEvent('music-select-play')); play(entry.track, true); } else visit({ ...entry, label: entry.label }); }
   function state(value) { playing = value; if (value) { message = ''; clearTimeout(loadTimer); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
   function stop() { wantsPlay = false; generation++; clearTimeout(loadTimer); widget?.pause(); state(false); }
   function failed(text) { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); state(false); message = text; render(); }
