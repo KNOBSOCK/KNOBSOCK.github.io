@@ -25,6 +25,8 @@
 <link rel="preload" as="image" href="/music-button-artist.png">
 <link rel="preload" as="image" href="/music-button-album.png">
 <link rel="preload" as="image" href="/music-button-shuffle.png">
+<link rel="preload" as="image" href="/music-wheel-tracks.png">
+<link rel="preload" as="image" href="/music-button-select.png">
 <style>
   * { box-sizing: border-box; }
 
@@ -194,10 +196,18 @@
     outline-offset: 2px;
   }
   .music-control:active img { transform: scale(0.998); }
+  .music-wheel {
+    touch-action: none;
+    --control-aspect: 1 / 1;
+  }
+  .music-wheel.is-dragging { cursor: grabbing; }
+  .music-wheel.is-dragging img { animation: none; }
   /* Coordinates are in the 8000 × 4511 close-up artwork. */
   .music-control--artist { left: 27.4375%; top: 21.125%; --control-width: 7.4%; }
   .music-control--album { left: 27.54%; top: 29.18%; --control-width: 7.575%; }
   .music-control--shuffle { left: 27.30%; top: 36.13%; --control-width: 7.875%; }
+  .music-wheel { left: 63.3625%; top: 24.25%; --control-width: 8.30%; }
+  .music-control--select { left: 70.6625%; top: 18.40%; --control-width: 6.875%; --control-aspect: 1 / 1; }
   .music-zoom-close {
     position: absolute;
     z-index: 1;
@@ -239,6 +249,8 @@
     .music-control--shuffle {
       left: 13.345%; top: 39.850%; --control-width: 13.057%;
     }
+    .music-wheel { left: 73.154%; top: 33.563%; --control-width: 13.767%; }
+    .music-control--select { left: 85.212%; top: 30.475%; --control-width: 11.394%; }
     .music-zoom-close { height: 20%; }
   }
 </style>
@@ -270,6 +282,12 @@
       <button class="music-control music-control--shuffle" type="button" data-control="shuffle" aria-label="Shuffle" aria-pressed="false">
         <img src="/music-button-shuffle.png" data-idle-src="/music-button-shuffle.png" data-active-src="/music-button-shuffle-active.png" alt="">
       </button>
+      <button class="music-control music-wheel" id="musicTracksWheel" type="button" aria-label="Scroll tracks wheel" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0">
+        <img src="/music-wheel-tracks.png" data-idle-src="/music-wheel-tracks.png" data-active-src="/music-wheel-tracks-active.png" alt="">
+      </button>
+      <button class="music-control music-control--select" id="musicSelectButton" type="button" aria-label="Select">
+        <img src="/music-button-select.png" data-idle-src="/music-button-select.png" data-active-src="/music-button-select-active.png" alt="">
+      </button>
     </div>
   </div>
   <button class="music-zoom-close" id="musicZoomClose" type="button" aria-label="Zoom out to the full music room"></button>
@@ -283,6 +301,8 @@
     var zoomArt = document.getElementById('musicZoomArt');
     var zoomClose = document.getElementById('musicZoomClose');
     var controls = Array.prototype.slice.call(document.querySelectorAll('.music-control'));
+    var tracksWheel = document.getElementById('musicTracksWheel');
+    var selectButton = document.getElementById('musicSelectButton');
     if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
@@ -374,6 +394,7 @@
     zoomClose.addEventListener('click', closeZoom);
     controls.forEach(function (control) {
       control.addEventListener('click', function () {
+        if (!control.getAttribute('data-control')) return;
         var pressed = control.getAttribute('aria-pressed') !== 'true';
         /* Artist and album are two ways of browsing the same music library. */
         if (control.getAttribute('data-control') !== 'shuffle' && pressed) {
@@ -384,6 +405,56 @@
         setControlPressed(control, pressed);
       });
     });
+    if (selectButton) {
+      selectButton.addEventListener('click', function () {
+        var image = selectButton.querySelector('img');
+        image.src = image.getAttribute('data-active-src');
+        setTimeout(function () { image.src = image.getAttribute('data-idle-src'); }, 150);
+      });
+    }
+    if (tracksWheel) {
+      var wheelImage = tracksWheel.querySelector('img');
+      var wheelRotation = 0;
+      var wheelStartAngle = 0;
+      var wheelStartRotation = 0;
+      var wheelDragging = false;
+      var wheelStep = 0;
+      function wheelAngle(event) {
+        var rect = tracksWheel.getBoundingClientRect();
+        return Math.atan2(event.clientY - rect.top - rect.height / 2, event.clientX - rect.left - rect.width / 2) * 180 / Math.PI;
+      }
+      function showWheelRotation() {
+        wheelImage.style.transform = 'rotate(' + wheelRotation + 'deg)';
+        tracksWheel.setAttribute('aria-valuenow', String(((wheelRotation / 15) % 24 + 24) % 24));
+      }
+      tracksWheel.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
+        wheelDragging = true;
+        wheelStartAngle = wheelAngle(event);
+        wheelStartRotation = wheelRotation;
+        tracksWheel.setPointerCapture(event.pointerId);
+        tracksWheel.classList.add('is-dragging');
+        wheelImage.src = wheelImage.getAttribute('data-active-src');
+      });
+      tracksWheel.addEventListener('pointermove', function (event) {
+        if (!wheelDragging) return;
+        var nextRotation = Math.round((wheelStartRotation + wheelAngle(event) - wheelStartAngle) / 15) * 15;
+        var nextStep = nextRotation / 15;
+        if (nextStep !== wheelStep && navigator.vibrate) navigator.vibrate(8);
+        wheelStep = nextStep;
+        wheelRotation = nextRotation;
+        showWheelRotation();
+      });
+      function releaseWheel(event) {
+        if (!wheelDragging) return;
+        wheelDragging = false;
+        tracksWheel.classList.remove('is-dragging');
+        wheelImage.src = wheelImage.getAttribute('data-idle-src');
+        if (tracksWheel.hasPointerCapture(event.pointerId)) tracksWheel.releasePointerCapture(event.pointerId);
+      }
+      tracksWheel.addEventListener('pointerup', releaseWheel);
+      tracksWheel.addEventListener('pointercancel', releaseWheel);
+    }
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
     });
