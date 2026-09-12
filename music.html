@@ -22,6 +22,9 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="preload" as="image" href="/music-boombox-zoom-desktop.png">
 <link rel="preload" as="image" href="/music-boombox-zoom-mobile.png">
+<link rel="preload" as="image" href="/music-button-artist.png">
+<link rel="preload" as="image" href="/music-button-album.png">
+<link rel="preload" as="image" href="/music-button-shuffle.png">
 <style>
   * { box-sizing: border-box; }
 
@@ -148,6 +151,50 @@
     transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
     will-change: transform;
   }
+  .music-controls {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .music-zoom.is-open .music-controls {
+    opacity: 1;
+    transition-delay: 0.42s;
+  }
+  .music-control {
+    position: absolute;
+    display: block;
+    width: var(--control-width);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    pointer-events: auto;
+    line-height: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .music-control img {
+    display: block;
+    width: 100%;
+    height: auto;
+    -webkit-user-drag: none;
+    user-select: none;
+    transition: transform 0.16s ease;
+  }
+  @media (hover: hover) {
+    .music-control:hover img { transform: scale(1.002); }
+  }
+  .music-control:focus-visible {
+    outline: 3px solid #fff45a;
+    outline-offset: 2px;
+  }
+  .music-control:active img { transform: scale(0.998); }
+  /* Coordinates are in the 8000 × 4511 close-up artwork. */
+  .music-control--artist { left: 27.4375%; top: 21.125%; --control-width: 7.4%; }
+  .music-control--album { left: 27.54%; top: 29.18%; --control-width: 7.575%; }
+  .music-control--shuffle { left: 27.30%; top: 36.13%; --control-width: 7.875%; }
   .music-zoom-close {
     position: absolute;
     z-index: 1;
@@ -179,6 +226,10 @@
       top: 23.875%;
       width: 70.828%;
     }
+    /* Matched independently to the 4511 × 8000 portrait close-up artwork. */
+    .music-control--artist { left: 13.50%; top: 30.75%; --control-width: 13.25%; }
+    .music-control--album { left: 13.44%; top: 34.92%; --control-width: 13.42%; }
+    .music-control--shuffle { left: 13.32%; top: 38.13%; --control-width: 13.97%; }
     .music-zoom-close { height: 20%; }
   }
 </style>
@@ -200,6 +251,17 @@
 <div class="music-zoom" id="musicZoom" hidden aria-hidden="true">
   <div class="scene-canvas" id="musicZoomCanvas">
     <img class="scene-art" id="musicZoomArt" src="/music-boombox-zoom-desktop.png" alt="Close-up of a boombox">
+    <div class="music-controls" aria-label="Boombox controls">
+      <button class="music-control music-control--artist" type="button" data-control="artist" aria-label="Artist view" aria-pressed="false">
+        <img src="/music-button-artist.png" data-idle-src="/music-button-artist.png" data-active-src="/music-button-artist-active.png" alt="">
+      </button>
+      <button class="music-control music-control--album" type="button" data-control="album" aria-label="Album view" aria-pressed="false">
+        <img src="/music-button-album.png" data-idle-src="/music-button-album.png" data-active-src="/music-button-album-active.png" alt="">
+      </button>
+      <button class="music-control music-control--shuffle" type="button" data-control="shuffle" aria-label="Shuffle" aria-pressed="false">
+        <img src="/music-button-shuffle.png" data-idle-src="/music-button-shuffle.png" data-active-src="/music-button-shuffle-active.png" alt="">
+      </button>
+    </div>
   </div>
   <button class="music-zoom-close" id="musicZoomClose" type="button" aria-label="Zoom out to the full music room"></button>
 </div>
@@ -211,6 +273,7 @@
     var zoom = document.getElementById('musicZoom');
     var zoomArt = document.getElementById('musicZoomArt');
     var zoomClose = document.getElementById('musicZoomClose');
+    var controls = Array.prototype.slice.call(document.querySelectorAll('.music-control'));
     if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
@@ -290,11 +353,28 @@
       }, 90);
       setTimeout(function () { zoom.hidden = true; }, 560);
     }
+    function setControlPressed(control, pressed) {
+      var image = control.querySelector('img');
+      control.setAttribute('aria-pressed', String(pressed));
+      image.src = pressed ? image.getAttribute('data-active-src') : image.getAttribute('data-idle-src');
+    }
     boombox.addEventListener('click', openZoom);
     boombox.addEventListener('animationend', function () {
       boombox.classList.remove('is-popping');
     });
     zoomClose.addEventListener('click', closeZoom);
+    controls.forEach(function (control) {
+      control.addEventListener('click', function () {
+        var pressed = control.getAttribute('aria-pressed') !== 'true';
+        /* Artist and album are two ways of browsing the same music library. */
+        if (control.getAttribute('data-control') !== 'shuffle' && pressed) {
+          controls.forEach(function (other) {
+            if (other !== control && other.getAttribute('data-control') !== 'shuffle') setControlPressed(other, false);
+          });
+        }
+        setControlPressed(control, pressed);
+      });
+    });
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
     });
