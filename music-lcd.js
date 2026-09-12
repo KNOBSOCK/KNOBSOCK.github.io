@@ -88,7 +88,7 @@
       widget.bind(SC.Widget.Events.PLAY, () => { if (current && wantsPlay) state(true); else widget.pause(); });
       widget.bind(SC.Widget.Events.PAUSE, () => { if (current) state(false); });
       widget.bind(SC.Widget.Events.PLAY_PROGRESS, data => { if (current) { elapsed = data.currentPosition / 1000; if (page.kind === 'now') render(); } });
-      widget.bind(SC.Widget.Events.FINISH, () => { if (current) { wantsPlay = false; state(false); } });
+      widget.bind(SC.Widget.Events.FINISH, () => { if (current) navigate(1, true); });
       widget.bind(SC.Widget.Events.ERROR, () => { if (current) failed('SoundCloud track unavailable'); });
     })); return scPromise;
   }
