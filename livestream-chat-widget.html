@@ -1670,8 +1670,10 @@
       else exitFs();
       return;
     }
-    if (isIOS && backend === 'video' && typeof videoEl.webkitEnterFullscreen === 'function') {
-      videoEl.webkitEnterFullscreen();
+    // Keep Bunny HLS in this document on iOS. The native video fullscreen
+    // player has its own seek pipeline and can stall after a scrub.
+    if (isIOS && backend === 'video') {
+      enterPseudoFullscreen();
       return;
     }
     if (hasNativeFullscreenSupport(videoPane)) {
