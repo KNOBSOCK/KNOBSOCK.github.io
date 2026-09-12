@@ -19,12 +19,18 @@
   function soundCloudUrl(value) { try { const url = new URL(value); return /^https?:$/.test(url.protocol) && /(^|\.)soundcloud\.com$/i.test(url.hostname) ? url.href : ''; } catch (_) { return ''; } }
   function groups(key) { return [...new Set(library.map(track => track[key]))].sort((a, b) => a.localeCompare(b)); }
   function syncMediaSession(track, isPlaying) {
-    if (!mediaSession || !track) return;
+    if (!track) return;
     const metadata = {
       title: String(track.title || 'Untitled'),
       artist: String(track.artist || track.rawArtist || 'SoundCloud'),
       album: String(track.album || 'SoundCloud')
     };
+    if (window.parent !== window) {
+      try {
+        window.parent.postMessage({ type: 'knobsock-music-track', title: metadata.title, artist: metadata.artist, artwork: track.artwork_url || '' }, window.location.origin);
+      } catch (_) {}
+    }
+    if (!mediaSession) return;
     if (track.artwork_url) metadata.artwork = [{ src: track.artwork_url, sizes: '500x500', type: 'image/jpeg' }];
     try {
       mediaSession.metadata = new MediaMetadata(metadata);

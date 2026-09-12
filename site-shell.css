@@ -1,0 +1,144 @@
+/* Persistent site shell and mini music player. */
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+body.site-shell {
+  position: relative;
+}
+
+.site-route-frame,
+.site-music-frame {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: #000;
+  transition: opacity 360ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.site-music-frame {
+  z-index: 1;
+}
+
+.site-route-frame {
+  z-index: 2;
+}
+
+.site-route-frame.is-active,
+.site-music-frame.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.site-shell.is-route-transitioning .site-route-frame,
+.site-shell.is-route-transitioning .site-music-frame {
+  pointer-events: none;
+}
+
+.site-mini-player {
+  position: fixed;
+  z-index: 20;
+  left: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: block;
+  width: clamp(180px, 24vw, 420px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 220ms ease;
+}
+
+.site-mini-player[hidden] {
+  display: none;
+}
+
+.site-mini-player.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.site-shell.is-route-transitioning .site-mini-player {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.site-mini-player img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.site-mini-player.is-playing img {
+  animation: site-boombox-party 760ms ease-in-out infinite alternate;
+  transform-origin: 50% 85%;
+}
+
+.site-mini-player:focus-visible {
+  outline: 3px solid #fff45a;
+  outline-offset: 5px;
+}
+
+@keyframes site-boombox-party {
+  0% {
+    transform: rotate(-2deg) translateY(0) scale(1);
+  }
+
+  25% {
+    transform: rotate(2deg) translateY(-5px) scale(1.015);
+  }
+
+  50% {
+    transform: rotate(-1deg) translateY(2px) scale(0.995);
+  }
+
+  75% {
+    transform: rotate(3deg) translateY(-3px) scale(1.01);
+  }
+
+  100% {
+    transform: rotate(-3deg) translateY(0) scale(1);
+  }
+}
+
+@media (orientation: portrait) {
+  .site-mini-player {
+    width: min(62vw, 310px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-route-frame,
+  .site-music-frame {
+    transition: none;
+  }
+
+  .site-mini-player {
+    transition: none;
+  }
+
+  .site-mini-player.is-playing img {
+    animation: none;
+  }
+}

@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  (function () {
+    if (window.top !== window.self) return;
+    var route = window.location.pathname + window.location.search + window.location.hash;
+    window.location.replace('/app-shell.html?route=' + encodeURIComponent(route));
+  })();
+</script>
 <title>Music - KNOBSOCK</title>
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://knobsock.net/music">
@@ -570,7 +577,12 @@
       danceResumeTimer = setTimeout(function () {
         if (!isZoomed && musicIsPlaying) boombox.classList.add('is-playing');
       }, 100);
-      setTimeout(function () { zoom.hidden = true; }, 560);
+      setTimeout(function () {
+        zoom.hidden = true;
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: 'knobsock-music-zoom-closed' }, window.location.origin);
+        }
+      }, 560);
     }
     function setControlPressed(control, pressed) {
       var image = control.querySelector('img');
@@ -775,6 +787,9 @@
       document.addEventListener('music-playback-state', function (event) {
         setPlaybackAction(event.detail);
         musicIsPlaying = event.detail === 'play';
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: 'knobsock-music-state', playing: musicIsPlaying }, window.location.origin);
+        }
         if (!isZoomed && !isOpening) boombox.classList.toggle('is-playing', musicIsPlaying);
       });
       Array.prototype.slice.call(actionBar.querySelectorAll('.music-action-hit')).forEach(function (button) {
@@ -809,6 +824,14 @@
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
     });
+    window.addEventListener('message', function (event) {
+      if (event.source !== window.parent || event.origin !== window.location.origin || !event.data) return;
+      if (event.data.type === 'knobsock-shell-open-music') openZoom();
+      if (event.data.type === 'knobsock-shell-transport') {
+        document.dispatchEvent(new CustomEvent('music-transport', { detail: event.data.action }));
+      }
+    });
+    document.addEventListener('music-shell-open', openZoom);
     mobileQuery.addEventListener('change', function () {
       if (isZoomed) {
         zoomArt.src = zoomSource();
