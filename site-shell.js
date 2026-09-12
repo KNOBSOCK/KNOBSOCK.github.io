@@ -294,8 +294,8 @@
       document.body.classList.remove('is-route-transitioning');
       updateMiniPlayer();
     }, 480);
-    window.history.back();
-    /* Switch the already-mounted destination frame now; popstate catches up to it. */
+    /* Avoid history.back(): iOS can traverse the SoundCloud iframe's joint history. */
+    window.history.replaceState({ knobsockRoute: destination }, '', destination);
     renderRoute(destination, false);
   }
 
@@ -492,12 +492,13 @@
     }
 
     if (!isMusicRoute(activeRoute)) returnRoute = activeRoute;
-    navigate('/music.html', false, true);
+    /* Keep the mini-player round trip out of the browser history stack. */
+    navigate('/music.html', true, true);
   });
 
   attachFrame(routeFrame);
   attachFrame(musicFrame);
-  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-2';
+  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-6';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';
