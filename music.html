@@ -21,114 +21,83 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <style>
-
   * { box-sizing: border-box; }
 
   html, body {
-    margin: 0;
-    padding: 0;
+    width: 100%;
     height: 100%;
-
-    background: #f5e94a;
-    font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    overflow: hidden;
+    background: #a69af2;
   }
 
-  html { overflow-x: hidden; }
+  .music-scene {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
 
-  .page {
+  .scene-canvas {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
-    gap: 2px;
-
-    padding: clamp(8px, 2vw, 20px) 0 12px;
+    width: min(100vw, calc(100vh * 8000 / 4511));
+    height: min(100vh, calc(100vw * 4511 / 8000));
   }
 
-  .logo-link {
-    flex: 0 0 auto;
-    display: block;
-    width: min(70vw, 480px);
-    margin: 0 auto;
-  }
-  .logo-link img {
+  .scene-art {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 50 / 19;
-    object-fit: contain;
+    height: 100%;
+    object-fit: fill;
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
   }
 
-  .player-wrap {
-    flex: 1 1 auto;
-    min-height: min(560px, 68vh);
-    display: flex;
+  .boombox-screen {
+    position: absolute;
+    left: 47.45%;
+    top: 28.65%;
+    width: 4.82%;
+    height: 3.78%;
+    overflow: hidden;
+    background: #365e2c;
   }
-
-  .player-wrap iframe {
+  .boombox-screen iframe {
     display: block;
-    flex: 1 1 auto;
     width: 100%;
-    height: auto;
-    min-height: 0;
+    height: 100%;
     border: 0;
-    background: transparent;
+    background: #000;
   }
 
-  .privacy-footer {
-    flex: 0 0 auto;
-    text-align: center;
-    padding: 3px 0;
-  }
-  .privacy-footer a {
-    display: inline-block;
-    text-decoration: underline;
-    color: #fff;
-    font-size: 9px;
-    opacity: 0.75;
-  }
-  .privacy-footer a:hover { opacity: 1; }
-
-  @media (max-width: 860px) {
-    html, body { overflow: hidden; }
-    .page {
-      height: 100vh;
-      height: 100dvh;
+  @media (max-width: 860px) and (orientation: portrait) {
+    .scene-canvas {
+      width: min(100vw, calc(100vh * 4511 / 8000));
+      height: min(100vh, calc(100vw * 8000 / 4511));
     }
-    .player-wrap {
-      min-height: 0;
+    .scene-art { content: url('/music-room-mobile.png'); }
+    .boombox-screen {
+      left: 47.4%;
+      top: 32.42%;
+      width: 10.62%;
+      height: 2.32%;
     }
-  }
-
-  @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
-    html, body { overflow: hidden; }
-    .page {
-      height: 100vh;
-      height: 100dvh;
-      padding: 0;
-      gap: 0;
-    }
-    .logo-link { display: none; }
-    .player-wrap { min-height: 0; }
   }
 </style>
 </head>
 <body>
 
-<div class="page">
-  <a class="logo-link" href="/" target="_top">
-    <img src="/knobsock-music-logo.png" alt="KNOBSOCK MUSIC">
-  </a>
-
-  <div class="player-wrap">
-    <iframe src="/music-playlist-widget.html"
-            title="KNOBSOCK Music"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowfullscreen></iframe>
+<main class="music-scene">
+  <div class="scene-canvas">
+    <img class="scene-art" src="/music-room-desktop.png" alt="A boombox on a table between two windows">
+    <div class="boombox-screen">
+      <iframe src="/music-playlist-widget.html?boombox=1"
+              title="KNOBSOCK Music player"
+              allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+    </div>
   </div>
-
-  <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
+</main>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
