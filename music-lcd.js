@@ -87,8 +87,26 @@
       if (!current) box.append(node('div', 'Choose a song'), node('div', 'ARTIST / ALBUM to browse', 'lcd-detail'));
       else {
         box.append(node('div', current.title, 'lcd-track-name'), node('div', current.artist + ' / ' + current.album, 'lcd-detail'));
-        const progress = node('progress', undefined, 'lcd-progress'); progress.max = duration || 1; progress.value = elapsed;
-        progress.setAttribute('aria-label', 'Playback progress');
+        const progress = node('button', undefined, 'lcd-progress');
+        progress.type = 'button'; progress.setAttribute('aria-label', 'Seek within this track');
+        const fill = node('span', undefined, 'lcd-progress-fill');
+        fill.style.width = (duration ? Math.min(100, elapsed / duration * 100) : 0) + '%';
+        progress.append(fill);
+        let scrubbing = false;
+        const scrub = event => {
+          if (!duration || !current || !/Audio|SoundCloud/.test(current.provider)) return;
+          const rect = progress.getBoundingClientRect();
+          const fraction = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+          elapsed = duration * fraction;
+          if (current.provider === 'SoundCloud') widget?.seekTo(elapsed * 1000);
+          else audio.currentTime = elapsed;
+          fill.style.width = (fraction * 100) + '%';
+          render();
+        };
+        progress.addEventListener('pointerdown', event => { event.preventDefault(); scrubbing = true; progress.setPointerCapture(event.pointerId); scrub(event); });
+        progress.addEventListener('pointermove', event => { if (scrubbing) scrub(event); });
+        progress.addEventListener('pointerup', event => { scrubbing = false; if (progress.hasPointerCapture(event.pointerId)) progress.releasePointerCapture(event.pointerId); });
+        progress.addEventListener('pointercancel', () => { scrubbing = false; });
         const times = node('div', undefined, 'lcd-times');
         times.append(node('span', clock(elapsed)), node('span', current.provider), node('span', '-' + clock(duration - elapsed)));
         box.append(progress, times);

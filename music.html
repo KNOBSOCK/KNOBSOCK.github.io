@@ -538,11 +538,13 @@
       tracksWheel.addEventListener('wheel', function (event) {
         event.preventDefault();
         var amount = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
-        amount *= event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 120 : 1;
         if (!amount) return;
+        if (event.deltaMode === 1) amount *= 40;
+        else if (event.deltaMode === 2) amount *= 500;
+        else if (Math.abs(amount) >= 80) amount = Math.sign(amount) * 120;
         wheelScrollRemainder += amount;
-        var steps = wheelScrollRemainder > 0 ? Math.floor(wheelScrollRemainder / 35) : Math.ceil(wheelScrollRemainder / 35);
-        wheelScrollRemainder -= steps * 35;
+        var steps = wheelScrollRemainder > 0 ? Math.floor(wheelScrollRemainder / 120) : Math.ceil(wheelScrollRemainder / 120);
+        wheelScrollRemainder -= steps * 120;
         if (steps) advanceTrack(steps);
         wheelDisplayRotation += -amount * 0.12;
         setWheelVisual(wheelDisplayRotation, false);
