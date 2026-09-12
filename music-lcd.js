@@ -30,8 +30,8 @@
   function visit(next) { history.push({ page, cursor }); page = next; cursor = 0; message = ''; render(); }
   function back() { const previous = history.pop(); page = previous ? previous.page : { kind: 'home', label: 'KNOBSOCK' }; cursor = previous ? previous.cursor : 0; message = ''; render(); }
   function clock(value) { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0'); }
-  /* Portrait has room for two enlarged rows; the wider desktop LCD fits three. */
-  function visibleRows() { return window.matchMedia('(max-width: 860px) and (orientation: portrait)').matches ? 2 : 3; }
+  /* The footer is gone, leaving room for three portrait rows and at least four-and-a-half desktop rows. */
+  function visibleRows() { return window.matchMedia('(max-width: 860px) and (orientation: portrait)').matches ? 3 : 5; }
   function render() {
     title.textContent = page.label; indicator.textContent = (shuffle ? 'S ' : '') + (playing ? '▶' : 'Ⅱ'); footer.classList.toggle('lcd-footer--now', page.kind === 'now'); body.replaceChildren();
     if (page.kind === 'now') {
