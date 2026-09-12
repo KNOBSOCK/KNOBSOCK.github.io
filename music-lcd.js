@@ -33,7 +33,7 @@
   /* Portrait has room for two enlarged rows; the wider desktop LCD fits three. */
   function visibleRows() { return window.matchMedia('(max-width: 860px) and (orientation: portrait)').matches ? 2 : 3; }
   function render() {
-    title.textContent = page.label; indicator.textContent = (shuffle ? 'S ' : '') + (playing ? '▶' : 'Ⅱ'); body.replaceChildren();
+    title.textContent = page.label; indicator.textContent = (shuffle ? 'S ' : '') + (playing ? '▶' : 'Ⅱ'); footer.classList.toggle('lcd-footer--now', page.kind === 'now'); body.replaceChildren();
     if (page.kind === 'now') {
       const box = node('div', undefined, 'lcd-now');
       if (!current) box.append(node('div', 'Choose a song'), node('div', 'ARTIST / ALBUM to browse', 'lcd-detail'));
