@@ -56,7 +56,7 @@ body.site-shell {
   left: 16px;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   display: block;
-  width: clamp(180px, 24vw, 420px);
+  width: clamp(45px, 6vw, 105px);
   padding: 0;
   border: 0;
   background: transparent;
@@ -125,7 +125,7 @@ body.site-shell {
 
 @media (orientation: portrait) {
   .site-mini-player {
-    width: min(62vw, 310px);
+    width: min(15.5vw, 77.5px);
   }
 }
 
