@@ -473,6 +473,15 @@
   }
 
   function loadVideoSource(url) {
+    // Safari's native HLS path can lose the requested segment after a seek.
+    // Bunny also publishes an MP4 rendition, whose byte-range seeking is
+    // reliable on iOS; leave every other source untouched.
+    if (isIOS) {
+      const bunnyVod = url.match(/^(https:\/\/[^/]+\/[0-9a-f-]+)\/playlist\.m3u8(\?.*)?$/i);
+      if (bunnyVod && /\.b-cdn\.net$/i.test(new URL(url).hostname)) {
+        url = bunnyVod[1] + '/play_720p.mp4' + (bunnyVod[2] || '');
+      }
+    }
     videoReady = false;
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     if (/\.m3u8($|\?)/i.test(url) && window.Hls && Hls.isSupported()) {
