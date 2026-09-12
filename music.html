@@ -131,15 +131,17 @@
     100% { transform: scale(1); }
   }
   .boombox-overlay.is-playing img {
-    animation: boombox-party 0.34s cubic-bezier(.18, .01, .4, 1) infinite alternate;
+    animation: boombox-party 0.72s linear infinite;
     transform-origin: 50% 88%;
   }
   @keyframes boombox-party {
-    0% { transform: translate(-5%, 5%) rotate(-7deg) scale(.92, 1.12); }
-    28% { transform: translate(4%, -3%) rotate(5deg) scale(1.12, .88); }
-    58% { transform: translate(-3%, -10%) rotate(-5deg) scale(.9, 1.14); }
-    78% { transform: translate(5%, -5%) rotate(7deg) scale(1.14, .86); }
-    100% { transform: translate(2%, -18%) rotate(9deg) scale(1.17, .82); }
+    0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+    12% { transform: translateY(-11%) rotate(-1.2deg) scale(1.025, .975); }
+    24% { transform: translateY(2%) rotate(0) scale(.985, 1.02); }
+    38% { transform: translateY(-8%) rotate(1deg) scale(1.02, .98); }
+    50% { transform: translateY(1%) rotate(0) scale(.99, 1.015); }
+    66% { transform: translateY(-4%) rotate(-.5deg) scale(1.01, .99); }
+    78% { transform: translateY(0) rotate(0) scale(1); }
   }
   @media (prefers-reduced-motion: reduce) {
     .boombox-overlay.is-playing img { animation: none; }
