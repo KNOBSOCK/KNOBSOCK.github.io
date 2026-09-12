@@ -137,7 +137,7 @@
   function select() {
     const entry = rows()[cursor];
     if (!entry) return;
-    if (entry.track) { queue = rows().map(row => row.track); play(entry.track); }
+    if (entry.track) { queue = rows().map(row => row.track); play(entry.track, true); }
     else visit({ ...entry, label: entry.label });
   }
   function state(value) {
@@ -160,13 +160,14 @@
       message = 'Audio version coming soon'; render(); return;
     }
     wantsPlay = autoplay;
+    if (wantsPlay) document.dispatchEvent(new CustomEvent('music-playback-state', { detail: 'play' }));
     message = 'Loading audio...'; render();
     loadTimer = setTimeout(() => { if (token === generation) failed('Press PLAY to retry · source may be unavailable'); }, 15000);
     try {
       if (track.provider === 'SoundCloud') {
         await soundcloud(track.url); if (token !== generation) return;
         scUrl = track.url;
-        widget.load(track.url, { auto_play: false, show_artwork: false, callback: () => {
+        widget.load(track.url, { auto_play: wantsPlay, show_artwork: false, callback: () => {
           if (token !== generation) return;
           widget.getDuration(ms => { if (token === generation) duration = ms / 1000; });
           if (wantsPlay) widget.play();
