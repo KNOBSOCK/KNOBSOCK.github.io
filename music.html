@@ -184,7 +184,13 @@
     transition: transform 0.16s ease;
   }
   @media (hover: hover) {
-    .music-control:hover img { transform: scale(1.002); }
+    .music-control:hover img {
+      animation: music-control-glow 0.68s ease-in-out infinite alternate;
+    }
+  }
+  @keyframes music-control-glow {
+    from { filter: drop-shadow(0 0 1px rgba(255, 244, 90, 0.2)); }
+    to { filter: drop-shadow(0 0 7px rgba(255, 244, 90, 0.92)) drop-shadow(0 0 12px rgba(80, 235, 155, 0.52)); }
   }
   .music-control:focus-visible {
     outline: 3px solid #fff45a;
