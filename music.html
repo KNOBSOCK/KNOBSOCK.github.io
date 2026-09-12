@@ -517,14 +517,33 @@
       var wheelImage = tracksWheel.querySelector('img');
       var wheelClickSound = new Audio('/Rotatingclicks.mp3');
       wheelClickSound.preload = 'auto';
+      var wheelUnlockSound = new Audio('/Rotatingclicks.mp3');
+      wheelUnlockSound.preload = 'auto';
+      wheelUnlockSound.volume = 0;
+      var wheelSoundPrimed = false;
+      function primeWheelSound() {
+        if (wheelSoundPrimed) return;
+        wheelSoundPrimed = true;
+        wheelUnlockSound.play().then(function () {
+          wheelUnlockSound.pause();
+          wheelUnlockSound.currentTime = 0;
+        }).catch(function () { wheelSoundPrimed = false; });
+      }
+      function fireWheelClick() {
+        var effect = wheelClickSound.cloneNode();
+        effect.volume = 0.65;
+        effect.play().catch(function () {});
+      }
       function playWheelClicks(count) {
         count = Math.min(8, Math.max(0, Number(count) || 0));
-        for (var i = 0; i < count; i++) {
+        if (!count) return;
+        primeWheelSound();
+        /* The first click stays in the input event's call stack so mobile Safari permits it. */
+        fireWheelClick();
+        for (var i = 1; i < count; i++) {
           (function (delay) {
             setTimeout(function () {
-              var effect = wheelClickSound.cloneNode();
-              effect.volume = 0.65;
-              effect.play().catch(function () {});
+              fireWheelClick();
             }, delay * 75);
           })(i);
         }
@@ -567,6 +586,7 @@
       }
       tracksWheel.addEventListener('pointerdown', function (event) {
         event.preventDefault();
+        primeWheelSound();
         wheelDragging = true;
         wheelLastAngle = wheelAngle(event);
         wheelDragRemainder = 0;
@@ -604,6 +624,7 @@
       tracksWheel.addEventListener('lostpointercapture', releaseWheel);
       tracksWheel.addEventListener('wheel', function (event) {
         event.preventDefault();
+        primeWheelSound();
         var amount = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
         if (!amount) return;
         if (event.deltaMode === 1) amount *= 40;
