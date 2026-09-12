@@ -18,6 +18,7 @@
 .lcd-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music-lcd .lcd-row.is-selected { background: #14270e; color: #a2ba77; }
 #lcdFooter { border-top: 1px solid; padding-top: .04em; font-size: .82em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#lcdFooter.lcd-footer--now { display: none; }
 .lcd-now { display: flex; height: 100%; flex-direction: column; justify-content: space-evenly; text-align: center; }
 .lcd-track-name { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .lcd-detail { font-size: .85em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -32,5 +33,4 @@
   /* Now Playing has four stacked controls in the shorter portrait LCD. */
   .music-lcd .lcd-now { font-size: .72em; }
   .music-lcd .lcd-now .lcd-progress { margin-top: .12em; }
-  .music-lcd #lcdFooter.lcd-footer--now { font-size: .70em; padding-bottom: .10em; }
 }
