@@ -388,8 +388,10 @@
 
   soundcloudConfigRef.get().then((doc) => {
     const data = doc.exists ? doc.data() : null;
-    if (data && data.profileUrl) {
-      startPlayer(data.profileUrl);
+    const profiles = data && Array.isArray(data.profileUrls) && data.profileUrls.length ? data.profileUrls : [data && data.profileUrl];
+    const profileUrl = profiles.find((url) => !!url);
+    if (profileUrl) {
+      startPlayer(profileUrl);
     } else {
       showNoAccountState();
     }

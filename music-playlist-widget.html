@@ -1649,8 +1649,10 @@ activeKey = VIDEO_PLAYLIST.length ? VIDEO_PLAYLIST[0].id : null;
 
   db.collection('chat_config').doc('soundcloud').get().then(function (doc) {
     const data = doc.exists ? doc.data() : null;
-    if (!data || !data.profileUrl) return;
-    scFrame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(data.profileUrl) + '&auto_play=false&show_artwork=false';
+    const profiles = data && Array.isArray(data.profileUrls) && data.profileUrls.length ? data.profileUrls : [data && data.profileUrl];
+    const profileUrl = profiles.find(function (url) { return !!url; });
+    if (!profileUrl) return;
+    scFrame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(profileUrl) + '&auto_play=false&show_artwork=false';
     scWidget = SC.Widget(scFrame);
     bindScWidgetEvents();
   }).catch(function () {});

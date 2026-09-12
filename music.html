@@ -31,6 +31,7 @@
 <link rel="preload" as="image" href="/music-button-shuffle.png">
 <link rel="preload" as="image" href="/music-wheel-tracks.png">
 <link rel="preload" as="image" href="/music-button-select.png">
+<link rel="preload" as="image" href="/music-button-back.png">
 <link rel="preload" as="image" href="/music-NoneClicked.png">
 <link rel="stylesheet" href="/music-lcd.css">
 <style>
@@ -244,6 +245,7 @@
   .music-control--album { left: 27.54%; top: 29.18%; --control-width: 7.575%; }
   .music-control--shuffle { left: 27.30%; top: 36.13%; --control-width: 7.875%; }
   .music-wheel { left: 63.3625%; top: 24.25%; --control-width: 8.30%; }
+  .music-control--back { left: 70.30%; top: 35.20%; --control-width: 7.75%; --control-aspect: 1 / 1; }
   .music-control--select { left: 70.6625%; top: 18.40%; --control-width: 6.875%; --control-aspect: 1 / 1; }
   .music-action-bar {
     position: absolute;
@@ -319,6 +321,7 @@
       left: 13.345%; top: 39.850%; --control-width: 13.057%;
     }
     .music-wheel { left: 73.154%; top: 33.563%; --control-width: 13.767%; }
+    .music-control--back { left: 84.20%; top: 40.20%; --control-width: 10.00%; --control-aspect: 1 / 1; }
     .music-control--select { left: 85.212%; top: 30.475%; --control-width: 11.394%; }
     .music-action-bar { left: 11.815%; top: 44.50%; width: 78.72%; }
     .music-zoom-close { height: 20%; }
@@ -355,6 +358,9 @@
       <button class="music-control music-control--shuffle" type="button" data-control="shuffle" aria-label="Shuffle" aria-pressed="false">
         <img src="/music-button-shuffle.png" data-idle-src="/music-button-shuffle.png" data-active-src="/music-button-shuffle-active.png" alt="">
       </button>
+      <button class="music-control music-control--back" id="musicBackButton" type="button" data-control="back" aria-label="Back">
+        <img src="/music-button-back.png" data-idle-src="/music-button-back.png" data-active-src="/music-button-back-active.png" alt="">
+      </button>
       <button class="music-control music-wheel" id="musicTracksWheel" type="button" aria-label="Scroll library; use arrow keys or drag to browse">
         <img src="/music-wheel-tracks.png" data-idle-src="/music-wheel-tracks.png" data-active-src="/music-wheel-tracks-active.png" alt="">
       </button>
@@ -385,12 +391,89 @@
     var selectButton = document.getElementById('musicSelectButton');
     var actionBar = document.getElementById('musicActionBar');
     var actionArt = document.getElementById('musicActionArt');
-    var controlClickSound = new Audio('/buttonclick.mp3');
-    controlClickSound.preload = 'auto';
+    var effectUrls = {
+      buttonclick: '/buttonclick.mp3',
+      singleclick: '/singleclick.mp3',
+      woosh: '/woosh.m4a',
+      play: '/PlayButtonSound.mp3',
+      pause: '/PauseButtonSound.mp3',
+      previous: '/Forward%20and%20Backward%20button%20sound.mp3',
+      forward: '/Forward%20and%20Backward%20button%20sound.mp3'
+    };
+    var effectContext = null;
+    var effectBuffers = {};
+    var effectLoads = {};
+    var legacyEffects = {};
+    function getEffectContext() {
+      if (effectContext && effectContext.state !== 'closed') return effectContext;
+      var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) return null;
+      try { effectContext = new AudioContextCtor(); } catch (_) { effectContext = null; }
+      return effectContext;
+    }
+    function loadEffect(name) {
+      var context = getEffectContext();
+      var url = effectUrls[name];
+      if (!context || !url) return Promise.reject(new Error('Audio effects unavailable'));
+      if (effectBuffers[url]) return Promise.resolve(effectBuffers[url]);
+      if (!effectLoads[url]) {
+        effectLoads[url] = fetch(url, { cache: 'force-cache' })
+          .then(function (response) {
+            if (!response.ok) throw new Error('Audio effect unavailable');
+            return response.arrayBuffer();
+          })
+          .then(function (data) { return context.decodeAudioData(data); })
+          .then(function (buffer) { effectBuffers[url] = buffer; return buffer; })
+          .catch(function (error) { delete effectLoads[url]; throw error; });
+      }
+      return effectLoads[url];
+    }
+    function primeEffect(name) {
+      var context = getEffectContext();
+      if (!context) return;
+      if (context.state === 'suspended') context.resume().catch(function () {});
+      loadEffect(name).catch(function () {});
+    }
+    function playLegacyEffect(name, volume) {
+      if (!effectUrls[name]) return;
+      var source = legacyEffects[name] || (legacyEffects[name] = new Audio(effectUrls[name]));
+      source.preload = 'none';
+      try { source.pause(); source.currentTime = 0; } catch (_) {}
+      source.volume = volume;
+      var playback = source.play();
+      if (playback && playback.catch) playback.catch(function () {});
+    }
+    function startEffect(context, buffer, volume) {
+      try {
+        var source = context.createBufferSource();
+        var gain = context.createGain();
+        source.buffer = buffer;
+        gain.gain.value = volume;
+        source.connect(gain);
+        gain.connect(context.destination);
+        source.start(0);
+      } catch (_) {}
+    }
+    function playEffect(name, volume) {
+      var context = getEffectContext();
+      if (!context) {
+        playLegacyEffect(name, volume);
+        return;
+      }
+      if (context.state === 'suspended') context.resume().catch(function () {});
+      var url = effectUrls[name];
+      if (effectBuffers[url]) {
+        startEffect(context, effectBuffers[url], volume);
+        return;
+      }
+      loadEffect(name).then(function (buffer) {
+        startEffect(context, buffer, volume);
+      }).catch(function () {
+        playLegacyEffect(name, volume);
+      });
+    }
     function playControlClick() {
-      try { controlClickSound.pause(); controlClickSound.currentTime = 0; } catch (_) {}
-      controlClickSound.volume = 0.7;
-      controlClickSound.play().catch(function () {});
+      playEffect('buttonclick', 0.7);
       if (navigator.vibrate) navigator.vibrate(8);
     }
     if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
@@ -398,8 +481,6 @@
     var zoomTimer = null;
     var sceneHideTimer = null;
     var danceResumeTimer = null;
-    var zoomSound = new Audio('/woosh.m4a');
-    zoomSound.preload = 'auto';
     var isZoomed = false;
     var isOpening = false;
     var musicIsPlaying = false;
@@ -412,9 +493,7 @@
       return mobileQuery.matches ? '/music-boombox-zoom-mobile-frame.png' : '/music-boombox-zoom-desktop-frame.png';
     }
     function playZoomSound() {
-      var effect = zoomSound.cloneNode();
-      effect.volume = 0.7;
-      effect.play().catch(function () {});
+      playEffect('woosh', 0.7);
     }
     function cameraFrame() {
       if (mobileQuery.matches) {
@@ -436,6 +515,9 @@
       isZoomed = true;
       isOpening = false;
       playZoomSound();
+      /* Decode the tiny UI clicks while the opening tap has audio permission. */
+      primeEffect('singleclick');
+      primeEffect('buttonclick');
       popBoombox();
       setCameraAnchor();
       zoom.hidden = false;
@@ -502,7 +584,7 @@
     zoomClose.addEventListener('click', closeZoom);
     controls.forEach(function (control) {
       function isClickControl() {
-        return ['artist', 'album', 'shuffle'].indexOf(control.getAttribute('data-control')) !== -1;
+        return ['artist', 'album', 'shuffle', 'back'].indexOf(control.getAttribute('data-control')) !== -1;
       }
       control.addEventListener('pointerdown', function () {
         if (isClickControl()) playControlClick();
@@ -532,24 +614,14 @@
     }
     if (tracksWheel) {
       var wheelImage = tracksWheel.querySelector('img');
-      var wheelClickSound = new Audio('/singleclick.mp3');
-      wheelClickSound.preload = 'auto';
-      var wheelUnlockSound = new Audio('/singleclick.mp3');
-      wheelUnlockSound.preload = 'auto';
-      wheelUnlockSound.volume = 0;
       var wheelSoundPrimed = false;
       function primeWheelSound() {
         if (wheelSoundPrimed) return;
         wheelSoundPrimed = true;
-        wheelUnlockSound.play().then(function () {
-          wheelUnlockSound.pause();
-          wheelUnlockSound.currentTime = 0;
-        }).catch(function () { wheelSoundPrimed = false; });
+        primeEffect('singleclick');
       }
       function fireWheelClick() {
-        try { wheelClickSound.pause(); wheelClickSound.currentTime = 0; } catch (_) {}
-        wheelClickSound.volume = 0.65;
-        wheelClickSound.play().catch(function () {});
+        playEffect('singleclick', 0.65);
       }
       function playWheelClicks(count) {
         count = Math.min(8, Math.max(0, Number(count) || 0));
@@ -582,7 +654,7 @@
         return ((angle + 180) % 360 + 360) % 360 - 180;
       }
       function setWheelVisual(angle, immediate) {
-        wheelImage.style.transition = immediate ? 'none' : 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        wheelImage.style.transition = immediate ? 'none' : 'transform 0.10s ease-out';
         wheelImage.style.transform = 'rotate(' + angle + 'deg)';
       }
       function resetWheelVisual() {
@@ -646,41 +718,28 @@
         if (!amount) return;
         if (event.deltaMode === 1) amount *= 40;
         else if (event.deltaMode === 2) amount *= 500;
-        else if (Math.abs(amount) >= 80) amount = Math.sign(amount) * 120;
+        /* A mouse notch is one selection; trackpad deltas accumulate smoothly. */
+        if (Math.abs(amount) >= 80) amount = Math.sign(amount) * 35;
         wheelScrollRemainder += amount;
-        var steps = wheelScrollRemainder > 0 ? Math.floor(wheelScrollRemainder / 120) : Math.ceil(wheelScrollRemainder / 120);
-        wheelScrollRemainder -= steps * 120;
+        var steps = wheelScrollRemainder > 0 ? Math.floor(wheelScrollRemainder / 35) : Math.ceil(wheelScrollRemainder / 35);
+        wheelScrollRemainder -= steps * 35;
         if (steps) advanceTrack(steps);
-        wheelDisplayRotation += -amount * 0.12;
+        wheelDisplayRotation = Math.max(-10, Math.min(10, -amount * 0.06));
         setWheelVisual(wheelDisplayRotation, false);
         clearTimeout(wheelResetTimer);
         wheelResetTimer = setTimeout(function () {
           wheelImage.src = wheelImage.getAttribute('data-idle-src');
           wheelDisplayRotation = 0;
           resetWheelVisual();
-        }, 280);
+        }, 110);
       }, { passive: false });
     }
     if (actionBar && actionArt) {
       var pressedActions = {};
       var playbackAction = null;
-      var buttonSoundSources = {
-        play: '/PlayButtonSound.mp3',
-        pause: '/PauseButtonSound.mp3',
-        previous: '/Forward%20and%20Backward%20button%20sound.mp3',
-        forward: '/Forward%20and%20Backward%20button%20sound.mp3'
-      };
-      var buttonSounds = {};
-      Object.keys(buttonSoundSources).forEach(function (action) {
-        buttonSounds[action] = new Audio(buttonSoundSources[action]);
-        buttonSounds[action].preload = 'auto';
-      });
       function playButtonSound(action) {
-        var source = buttonSounds[action];
-        if (!source) return;
-        try { source.pause(); source.currentTime = 0; } catch (_) {}
-        source.volume = 0.8;
-        source.play().catch(function () {});
+        if (!effectUrls[action]) return;
+        playEffect(action, 0.8);
         if (navigator.vibrate) navigator.vibrate(8);
       }
       document.addEventListener('music-select-play', function () {

@@ -1,4 +1,4 @@
-/* LCD library and player: populated only from the linked SoundCloud profile. */
+/* LCD library and player: populated from the linked SoundCloud profiles. */
 (() => {
   'use strict';
   const body = document.getElementById('lcdBody'), title = document.getElementById('lcdTitle');
@@ -126,8 +126,38 @@
       widget.bind(SC.Widget.Events.ERROR, () => { if (current) failed('SoundCloud track unavailable'); });
     })); return scPromise;
   }
+  function soundCloudProfiles(data) {
+    const values = [], artists = data && Array.isArray(data.profileArtists) ? data.profileArtists : [];
+    if (data && Array.isArray(data.profileUrls)) {
+      data.profileUrls.forEach((url, index) => values.push({ url, artist: artists[index] || '' }));
+    } else if (data && typeof data.profileUrls === 'string') {
+      values.push({ url: data.profileUrls, artist: artists[0] || '' });
+    }
+    if (data && data.profileUrl) values.push({ url: data.profileUrl, artist: data.profileArtist || artists[values.length] || '' });
+    const seen = new Set();
+    return values.map(profile => ({ url: soundCloudUrl(profile.url), artist: String(profile.artist || '').trim() })).filter(profile => {
+      if (!profile.url || seen.has(profile.url)) return false;
+      seen.add(profile.url);
+      return true;
+    });
+  }
+  function loadSoundCloudProfile(url) {
+    return new Promise(resolve => {
+      if (!widget) { resolve([]); return; }
+      let settled = false;
+      const finish = sounds => { if (settled) return; settled = true; resolve(sounds || []); };
+      const timer = setTimeout(() => finish([]), 20000);
+      try {
+        widget.load(url, {
+          auto_play: false,
+          show_artwork: false,
+          callback: () => widget.getSounds(sounds => { clearTimeout(timer); finish(sounds); })
+        });
+      } catch (_) { clearTimeout(timer); finish([]); }
+    });
+  }
   document.getElementById('lcdBack').onclick = back; document.addEventListener('music-wheel-step', event => scroll(event.detail)); document.getElementById('musicSelectButton').addEventListener('click', select);
-  document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => { const kind = button.dataset.control; if (kind === 'shuffle') { shuffle = button.getAttribute('aria-pressed') === 'true'; render(); } else { history = []; visit({ kind: kind === 'artist' ? 'artists' : 'albums', label: kind === 'artist' ? 'Artists' : 'Albums' }); } }));
+  document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => { const kind = button.dataset.control; if (kind === 'back') back(); else if (kind === 'shuffle') { shuffle = button.getAttribute('aria-pressed') === 'true'; render(); } else { history = []; visit({ kind: kind === 'artist' ? 'artists' : 'albums', label: kind === 'artist' ? 'Artists' : 'Albums' }); } }));
   document.addEventListener('music-transport', event => { if (event.detail === 'play') resume(); else if (event.detail === 'pause') { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); message = ''; state(false); } else navigate(event.detail === 'forward' ? 1 : -1); });
   function keyboardTransport(action) {
     document.dispatchEvent(new CustomEvent('music-key-transport', { detail: action }));
@@ -150,6 +180,23 @@
     try { navigator.mediaSession.setActionHandler('pause', () => keyboardTransport('pause')); } catch (_) {}
   }
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
-  window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => { const version = ++profileVersion, url = soundCloudUrl(doc.data()?.profileUrl); cloud = []; rebuild(); if (!url) return; try { await soundcloud(url); if (version !== profileVersion) return; if (current) stop(); widget.load(url, { auto_play: false, show_artwork: false, callback: () => widget.getSounds(sounds => { if (version !== profileVersion) return; cloud = (sounds || []).filter(sound => soundCloudUrl(sound.permalink_url)).map(sound => ({ url: sound.permalink_url, title: sound.title || 'Untitled', rawArtist: sound.user?.username || 'SoundCloud', album: 'SoundCloud', provider: 'SoundCloud', duration: sound.duration / 1000 })); message = ''; rebuild(); }) }); } catch (_) { message = 'SoundCloud unavailable · reload to retry'; render(); } }, () => { message = 'SoundCloud unavailable'; render(); }); } };
+  window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => {
+    const version = ++profileVersion, profiles = soundCloudProfiles(doc.data());
+    cloud = []; message = profiles.length ? 'Loading SoundCloud...' : ''; rebuild();
+    if (!profiles.length) return;
+    try {
+      await soundcloud(profiles[0].url);
+      if (version !== profileVersion) return;
+      if (current) stop();
+      const tracks = [];
+      for (const profile of profiles) {
+        if (version !== profileVersion) return;
+        const sounds = await loadSoundCloudProfile(profile.url);
+        sounds.filter(sound => soundCloudUrl(sound.permalink_url)).forEach(sound => tracks.push({ url: sound.permalink_url, title: sound.title || 'Untitled', rawArtist: profile.artist || sound.user?.username || 'SoundCloud', album: 'SoundCloud', provider: 'SoundCloud', duration: sound.duration / 1000 }));
+      }
+      if (version !== profileVersion) return;
+      cloud = tracks; message = ''; rebuild();
+    } catch (_) { message = 'SoundCloud unavailable · reload to retry'; render(); }
+  }, () => { message = 'SoundCloud unavailable'; render(); }); } };
   render();
 })();
