@@ -109,7 +109,7 @@
   .hn-header {
     position: fixed;
     z-index: 3;
-    pointer-events: none;
+    display: block;
   }
   .hn-header img {
     display: block;
@@ -343,9 +343,9 @@
 
   <img class="stage-bg" id="stageBg" alt="">
 
-  <div class="hn-header" id="hnHeader">
+  <a class="hn-header" id="hnHeader" href="/videos" aria-label="Back to Videos">
     <img src="/hamburger-news-header.webp" alt="Hamburger News with Joe Medina">
-  </div>
+  </a>
 
   <button type="button" class="pickle-btn" id="pickleEpisodes" aria-label="Episodes">
     <img src="/hamburger-pickle-episodes.webp" alt="">
