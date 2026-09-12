@@ -135,12 +135,19 @@
   }
   document.addEventListener('keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
-    if (event.key === 'MediaTrackNext' || event.key === 'AudioTrackNext') { event.preventDefault(); keyboardTransport('forward'); }
-    else if (event.key === 'MediaTrackPrevious' || event.key === 'AudioTrackPrevious') { event.preventDefault(); keyboardTransport('previous'); }
+    const key = event.key || '', code = event.code || '';
+    const isKey = (...values) => values.includes(key) || values.includes(code);
+    if (isKey('MediaTrackNext', 'AudioTrackNext', 'MediaNextTrack', 'NextTrack', 'F9')) { event.preventDefault(); keyboardTransport('forward'); }
+    else if (isKey('MediaTrackPrevious', 'AudioTrackPrevious', 'MediaPreviousTrack', 'PreviousTrack', 'F7')) { event.preventDefault(); keyboardTransport('previous'); }
+    else if (isKey('MediaPlayPause', 'AudioPlayPause', 'PlayPause', 'F8')) { event.preventDefault(); keyboardTransport(playing ? 'pause' : 'play'); }
+    else if (isKey('MediaPlay', 'AudioPlay', 'Play')) { event.preventDefault(); keyboardTransport('play'); }
+    else if (isKey('MediaPause', 'AudioPause', 'Pause')) { event.preventDefault(); keyboardTransport('pause'); }
   });
   if (navigator.mediaSession?.setActionHandler) {
     try { navigator.mediaSession.setActionHandler('nexttrack', () => keyboardTransport('forward')); } catch (_) {}
     try { navigator.mediaSession.setActionHandler('previoustrack', () => keyboardTransport('previous')); } catch (_) {}
+    try { navigator.mediaSession.setActionHandler('play', () => keyboardTransport('play')); } catch (_) {}
+    try { navigator.mediaSession.setActionHandler('pause', () => keyboardTransport('pause')); } catch (_) {}
   }
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
   window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => { const version = ++profileVersion, url = soundCloudUrl(doc.data()?.profileUrl); cloud = []; rebuild(); if (!url) return; try { await soundcloud(url); if (version !== profileVersion) return; if (current) stop(); widget.load(url, { auto_play: false, show_artwork: false, callback: () => widget.getSounds(sounds => { if (version !== profileVersion) return; cloud = (sounds || []).filter(sound => soundCloudUrl(sound.permalink_url)).map(sound => ({ url: sound.permalink_url, title: sound.title || 'Untitled', rawArtist: sound.user?.username || 'SoundCloud', album: 'SoundCloud', provider: 'SoundCloud', duration: sound.duration / 1000 })); message = ''; rebuild(); }) }); } catch (_) { message = 'SoundCloud unavailable · reload to retry'; render(); } }, () => { message = 'SoundCloud unavailable'; render(); }); } };

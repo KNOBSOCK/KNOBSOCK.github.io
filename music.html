@@ -388,9 +388,9 @@
     var controlClickSound = new Audio('/buttonclick.mp3');
     controlClickSound.preload = 'auto';
     function playControlClick() {
-      var effect = controlClickSound.cloneNode();
-      effect.volume = 0.7;
-      effect.play().catch(function () {});
+      try { controlClickSound.pause(); controlClickSound.currentTime = 0; } catch (_) {}
+      controlClickSound.volume = 0.7;
+      controlClickSound.play().catch(function () {});
       if (navigator.vibrate) navigator.vibrate(8);
     }
     if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
@@ -547,9 +547,9 @@
         }).catch(function () { wheelSoundPrimed = false; });
       }
       function fireWheelClick() {
-        var effect = wheelClickSound.cloneNode();
-        effect.volume = 0.65;
-        effect.play().catch(function () {});
+        try { wheelClickSound.pause(); wheelClickSound.currentTime = 0; } catch (_) {}
+        wheelClickSound.volume = 0.65;
+        wheelClickSound.play().catch(function () {});
       }
       function playWheelClicks(count) {
         count = Math.min(8, Math.max(0, Number(count) || 0));
@@ -678,9 +678,9 @@
       function playButtonSound(action) {
         var source = buttonSounds[action];
         if (!source) return;
-        var effect = source.cloneNode();
-        effect.volume = 0.8;
-        effect.play().catch(function () {});
+        try { source.pause(); source.currentTime = 0; } catch (_) {}
+        source.volume = 0.8;
+        source.play().catch(function () {});
         if (navigator.vibrate) navigator.vibrate(8);
       }
       document.addEventListener('music-select-play', function () {
