@@ -843,8 +843,8 @@
 
   <div class="tab-panel" id="tab-music" hidden>
     <h2 class="panel-heading">Music</h2>
-    <p class="panel-sub">Reorder, add, or remove YouTube tracks on the Music page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
-    <div class="note">SoundCloud tracks aren't managed here — they're pulled in automatically from the linked SoundCloud profile and merged into the list live. This only covers the YouTube and Bunny Stream side of the playlist.</div>
+    <p class="panel-sub">Manage the boombox library: audio files, SoundCloud tracks, YouTube entries, and albums. Drag the grip (&#10303;) to reorder.</p>
+    <div class="note">Tracks from the linked SoundCloud profile are imported automatically. You can also add individual SoundCloud track links and direct audio files here. YouTube entries remain in the LCD library while you replace them with audio sources for playback.</div>
     <div class="note">For Bunny Stream tracks: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
     <div class="editor-grid">
       <div class="card">
@@ -1920,10 +1920,12 @@
         .filter(function (v) { return v.url; });
 
       const invalid = cleaned.filter(function (v) {
-        return !extractVideoId(v.url) && !(opts.allowDirectVideo && isDirectVideoUrl(v.url));
+        const musicAudio = opts.allowAudio && /^https?:\/\//i.test(v.url) &&
+          (/\.(mp3|m4a|aac|ogg|wav|flac)(\?.*)?$/i.test(v.url) || /^https?:\/\/(?:www\.)?soundcloud\.com\/[^/]+\/[^/?#]+/i.test(v.url));
+        return !musicAudio && !extractVideoId(v.url) && !(opts.allowDirectVideo && isDirectVideoUrl(v.url));
       });
       if (invalid.length) {
-        setStatus(opts.allowDirectVideo
+        setStatus(opts.allowAudio ? 'Use a full SoundCloud track URL, audio-file URL, YouTube link, or direct stream URL.' : opts.allowDirectVideo
           ? 'One or more links don’t look like valid YouTube or direct video (.m3u8/.mp4/.webm) links — fix those and save again.'
           : 'One or more links don’t look like valid YouTube links — fix those and save again.', true);
         return;
@@ -2065,7 +2067,8 @@
       resetBtn: document.getElementById('musicResetBtn'),
       statusEl: document.getElementById('musicStatus'),
       defaultList: DEFAULT_MUSIC_LIST,
-      urlPlaceholder: 'Paste a YouTube link, or a direct Bunny .m3u8 link (see note above)',
+      urlPlaceholder: 'Audio file URL, SoundCloud track, YouTube link, or Bunny .m3u8',
+      allowAudio: true,
       singular: 'Track',
       plural: 'tracks',
       allowDirectVideo: true,

@@ -28,6 +28,7 @@
 <link rel="preload" as="image" href="/music-wheel-tracks.png">
 <link rel="preload" as="image" href="/music-button-select.png">
 <link rel="preload" as="image" href="/music-NoneClicked.png">
+<link rel="stylesheet" href="/music-lcd.css">
 <style>
   * { box-sizing: border-box; }
 
@@ -310,16 +311,19 @@
   <div class="scene-canvas" id="musicZoomCanvas">
     <img class="scene-art" id="musicZoomArt" src="/music-boombox-zoom-desktop.png" alt="Close-up of a boombox">
     <div class="music-controls" aria-label="Boombox controls">
-      <button class="music-control music-control--artist" type="button" data-control="artist" aria-label="Artist view" aria-pressed="false">
+      <section class="music-lcd" id="musicLcd" aria-label="Music library and player">
+        <div class="lcd-inner"><header class="lcd-header"><button id="lcdBack" aria-label="Back to library">‹</button><span id="lcdTitle">KNOBSOCK</span><span id="lcdState">■</span></header><div id="lcdBody" class="lcd-body"></div><footer id="lcdFooter">Loading library...</footer></div>
+      </section>
+      <button class="music-control music-control--artist" type="button" data-control="artist" aria-label="Artist view">
         <img src="/music-button-artist.png" data-idle-src="/music-button-artist.png" data-active-src="/music-button-artist-active.png" alt="">
       </button>
-      <button class="music-control music-control--album" type="button" data-control="album" aria-label="Album view" aria-pressed="false">
+      <button class="music-control music-control--album" type="button" data-control="album" aria-label="Album view">
         <img src="/music-button-album.png" data-idle-src="/music-button-album.png" data-active-src="/music-button-album-active.png" alt="">
       </button>
       <button class="music-control music-control--shuffle" type="button" data-control="shuffle" aria-label="Shuffle" aria-pressed="false">
         <img src="/music-button-shuffle.png" data-idle-src="/music-button-shuffle.png" data-active-src="/music-button-shuffle-active.png" alt="">
       </button>
-      <button class="music-control music-wheel" id="musicTracksWheel" type="button" aria-label="Scroll tracks wheel" aria-valuemin="0" aria-valuemax="23" aria-valuenow="0">
+      <button class="music-control music-wheel" id="musicTracksWheel" type="button" aria-label="Scroll library; use arrow keys or drag to browse">
         <img src="/music-wheel-tracks.png" data-idle-src="/music-wheel-tracks.png" data-active-src="/music-wheel-tracks-active.png" alt="">
       </button>
       <button class="music-control music-control--select" id="musicSelectButton" type="button" aria-label="Select">
@@ -441,13 +445,14 @@
     controls.forEach(function (control) {
       control.addEventListener('click', function () {
         if (!control.getAttribute('data-control')) return;
-        var pressed = control.getAttribute('aria-pressed') !== 'true';
-        /* Artist and album are two ways of browsing the same music library. */
-        if (control.getAttribute('data-control') !== 'shuffle' && pressed) {
-          controls.forEach(function (other) {
-            if (other !== control && other.getAttribute('data-control') !== 'shuffle') setControlPressed(other, false);
-          });
+        if (control.getAttribute('data-control') !== 'shuffle') {
+          var image = control.querySelector('img');
+          image.src = image.getAttribute('data-active-src');
+          clearTimeout(control.pressTimer);
+          control.pressTimer = setTimeout(function () { image.src = image.getAttribute('data-idle-src'); }, 150);
+          return;
         }
+        var pressed = control.getAttribute('aria-pressed') !== 'true';
         setControlPressed(control, pressed);
       });
     });
@@ -460,7 +465,6 @@
     }
     if (tracksWheel) {
       var wheelImage = tracksWheel.querySelector('img');
-      var trackPosition = 0;
       var wheelLastAngle = 0;
       var wheelDragRemainder = 0;
       var wheelScrollRemainder = 0;
@@ -490,8 +494,7 @@
       }
       function advanceTrack(step) {
         if (!step) return;
-        trackPosition = (trackPosition + step + 24) % 24;
-        tracksWheel.setAttribute('aria-valuenow', String(trackPosition));
+        document.dispatchEvent(new CustomEvent('music-wheel-step', { detail: step }));
         if (navigator.vibrate) navigator.vibrate(8);
         pulseWheel();
       }
@@ -531,15 +534,16 @@
       }
       tracksWheel.addEventListener('pointerup', releaseWheel);
       tracksWheel.addEventListener('pointercancel', releaseWheel);
+      tracksWheel.addEventListener('lostpointercapture', releaseWheel);
       tracksWheel.addEventListener('wheel', function (event) {
         event.preventDefault();
         var amount = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+        amount *= event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 120 : 1;
         if (!amount) return;
         wheelScrollRemainder += amount;
         var steps = wheelScrollRemainder > 0 ? Math.floor(wheelScrollRemainder / 35) : Math.ceil(wheelScrollRemainder / 35);
-        if (!steps) return;
         wheelScrollRemainder -= steps * 35;
-        advanceTrack(steps);
+        if (steps) advanceTrack(steps);
         wheelDisplayRotation += -amount * 0.12;
         setWheelVisual(wheelDisplayRotation, false);
         clearTimeout(wheelResetTimer);
@@ -565,9 +569,10 @@
         'pause,forward': '/music-PauseAndForwardButtonClicked.png'
       };
       function renderActionBar() {
-        var keys = Object.keys(pressedActions);
+        var keys = [];
         if (playbackAction) keys.push(playbackAction);
-        keys.sort();
+        if (pressedActions.previous) keys.push('previous');
+        else if (pressedActions.forward) keys.push('forward');
         actionArt.src = actionArtSources[keys.join(',')] || actionArtSources[keys[0] || ''];
       }
       function setPlaybackAction(action) {
@@ -576,11 +581,13 @@
         actionBar.querySelector('[data-action="pause"]').setAttribute('aria-pressed', String(action === 'pause'));
         renderActionBar();
       }
+      document.addEventListener('music-playback-state', function (event) {
+        setPlaybackAction(event.detail);
+      });
       Array.prototype.slice.call(actionBar.querySelectorAll('.music-action-hit')).forEach(function (button) {
         var action = button.getAttribute('data-action');
         function press(event) {
           if (action === 'play' || action === 'pause') {
-            setPlaybackAction(action);
             return;
           }
           if (event) {
@@ -600,9 +607,7 @@
         button.addEventListener('pointerup', release);
         button.addEventListener('pointercancel', release);
         button.addEventListener('click', function () {
-          if (action === 'play' || action === 'pause') {
-            setPlaybackAction(action);
-          }
+          document.dispatchEvent(new CustomEvent('music-transport', { detail: action }));
         });
       });
     }
@@ -624,6 +629,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="/music-lcd.js"></script>
 <script>
 (function () {
   var firebaseConfig = {
@@ -635,6 +641,7 @@
     appId: "1:509309222193:web:f487258cfba2f7f7b00410"
   };
   var db = firebase.firestore(firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig));
+  window.knobsockMusic.connect(db);
   function setMeta(selector, value) {
     var el = document.querySelector(selector);
     if (el) el.setAttribute('content', value);
