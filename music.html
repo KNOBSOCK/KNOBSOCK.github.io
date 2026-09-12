@@ -202,6 +202,9 @@
   }
   .music-wheel.is-dragging { cursor: grabbing; }
   .music-wheel.is-dragging img { animation: none; }
+  @media (hover: hover) {
+    .music-wheel:hover img { animation: none; }
+  }
   /* Coordinates are in the 8000 × 4511 close-up artwork. */
   .music-control--artist { left: 27.4375%; top: 21.125%; --control-width: 7.4%; }
   .music-control--album { left: 27.54%; top: 29.18%; --control-width: 7.575%; }
@@ -414,46 +417,88 @@
     }
     if (tracksWheel) {
       var wheelImage = tracksWheel.querySelector('img');
-      var wheelRotation = 0;
-      var wheelStartAngle = 0;
-      var wheelStartRotation = 0;
+      var trackPosition = 0;
+      var wheelLastAngle = 0;
+      var wheelDragRemainder = 0;
+      var wheelScrollRemainder = 0;
+      var wheelResetTimer = null;
       var wheelDragging = false;
-      var wheelStep = 0;
       function wheelAngle(event) {
         var rect = tracksWheel.getBoundingClientRect();
         return Math.atan2(event.clientY - rect.top - rect.height / 2, event.clientX - rect.left - rect.width / 2) * 180 / Math.PI;
       }
-      function showWheelRotation() {
-        wheelImage.style.transform = 'rotate(' + wheelRotation + 'deg)';
-        tracksWheel.setAttribute('aria-valuenow', String(((wheelRotation / 15) % 24 + 24) % 24));
+      function normalizeAngle(angle) {
+        return ((angle + 180) % 360 + 360) % 360 - 180;
+      }
+      function setWheelVisual(angle, immediate) {
+        wheelImage.style.transition = immediate ? 'none' : 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        wheelImage.style.transform = 'rotate(' + angle + 'deg)';
+      }
+      function resetWheelVisual() {
+        setWheelVisual(0, false);
+      }
+      function pulseWheel() {
+        clearTimeout(wheelResetTimer);
+        wheelImage.src = wheelImage.getAttribute('data-active-src');
+        wheelResetTimer = setTimeout(function () {
+          if (!wheelDragging) wheelImage.src = wheelImage.getAttribute('data-idle-src');
+        }, 110);
+      }
+      function advanceTrack(step) {
+        if (!step) return;
+        trackPosition = (trackPosition + step + 24) % 24;
+        tracksWheel.setAttribute('aria-valuenow', String(trackPosition));
+        if (navigator.vibrate) navigator.vibrate(8);
+        pulseWheel();
       }
       tracksWheel.addEventListener('pointerdown', function (event) {
         event.preventDefault();
         wheelDragging = true;
-        wheelStartAngle = wheelAngle(event);
-        wheelStartRotation = wheelRotation;
+        wheelLastAngle = wheelAngle(event);
+        wheelDragRemainder = 0;
+        clearTimeout(wheelResetTimer);
         tracksWheel.setPointerCapture(event.pointerId);
         tracksWheel.classList.add('is-dragging');
         wheelImage.src = wheelImage.getAttribute('data-active-src');
       });
       tracksWheel.addEventListener('pointermove', function (event) {
         if (!wheelDragging) return;
-        var nextRotation = Math.round((wheelStartRotation + wheelAngle(event) - wheelStartAngle) / 15) * 15;
-        var nextStep = nextRotation / 15;
-        if (nextStep !== wheelStep && navigator.vibrate) navigator.vibrate(8);
-        wheelStep = nextStep;
-        wheelRotation = nextRotation;
-        showWheelRotation();
+        var angle = wheelAngle(event);
+        wheelDragRemainder += normalizeAngle(angle - wheelLastAngle);
+        wheelLastAngle = angle;
+        var steps = wheelDragRemainder > 0 ? Math.floor(wheelDragRemainder / 15) : Math.ceil(wheelDragRemainder / 15);
+        if (steps) {
+          advanceTrack(steps);
+          wheelDragRemainder -= steps * 15;
+        }
+        setWheelVisual(Math.max(-28, Math.min(28, wheelDragRemainder * 1.65)), true);
       });
       function releaseWheel(event) {
         if (!wheelDragging) return;
         wheelDragging = false;
         tracksWheel.classList.remove('is-dragging');
         wheelImage.src = wheelImage.getAttribute('data-idle-src');
+        resetWheelVisual();
         if (tracksWheel.hasPointerCapture(event.pointerId)) tracksWheel.releasePointerCapture(event.pointerId);
       }
       tracksWheel.addEventListener('pointerup', releaseWheel);
       tracksWheel.addEventListener('pointercancel', releaseWheel);
+      tracksWheel.addEventListener('wheel', function (event) {
+        event.preventDefault();
+        var amount = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+        if (!amount) return;
+        wheelScrollRemainder += amount;
+        var steps = wheelScrollRemainder > 0 ? Math.floor(wheelScrollRemainder / 35) : Math.ceil(wheelScrollRemainder / 35);
+        if (!steps) return;
+        wheelScrollRemainder -= steps * 35;
+        advanceTrack(steps);
+        setWheelVisual(Math.max(-18, Math.min(18, -steps * 9)), false);
+        clearTimeout(wheelResetTimer);
+        wheelResetTimer = setTimeout(function () {
+          wheelImage.src = wheelImage.getAttribute('data-idle-src');
+          resetWheelVisual();
+        }, 120);
+      }, { passive: false });
     }
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
