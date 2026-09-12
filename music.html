@@ -167,6 +167,7 @@
     position: absolute;
     display: block;
     width: var(--control-width);
+    aspect-ratio: var(--control-aspect, 2 / 1);
     padding: 0;
     border: 0;
     background: transparent;
@@ -178,7 +179,7 @@
   .music-control img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
     -webkit-user-drag: none;
     user-select: none;
     transition: transform 0.16s ease;
@@ -229,9 +230,15 @@
       width: 70.828%;
     }
     /* Matched independently to the 4511 × 8000 portrait close-up artwork. */
-    .music-control--artist { left: 13.50%; top: 30.75%; --control-width: 13.25%; }
-    .music-control--album { left: 13.44%; top: 34.92%; --control-width: 13.42%; }
-    .music-control--shuffle { left: 13.32%; top: 38.13%; --control-width: 13.97%; }
+    .music-control--artist {
+      left: 13.234%; top: 30.913%; --control-width: 11.771%; --control-aspect: 2.09 / 1;
+    }
+    .music-control--album {
+      left: 13.279%; top: 35.138%; --control-width: 12.103%; --control-aspect: 2.37 / 1;
+    }
+    .music-control--shuffle {
+      left: 12.936%; top: 38.818%; --control-width: 11.904%; --control-aspect: 2.33 / 1;
+    }
     .music-zoom-close { height: 20%; }
   }
 </style>
