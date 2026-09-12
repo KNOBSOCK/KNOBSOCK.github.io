@@ -239,6 +239,12 @@
   let currentIndex = 0;
   let isPlaying = false;
   let currentDuration = 0;
+  let currentUrl = '';
+
+  function sendToSiteShell(message) {
+    if (window.parent === window) return;
+    try { window.top.postMessage(message, window.location.origin); } catch (_) {}
+  }
 
   function setTrackTitle(text) {
     trackTitleEl.classList.remove("scrolling");
@@ -295,10 +301,15 @@
       widget.getSounds((allSounds) => {
         sounds = allSounds;
         renderTrackList();
+        const index = sounds.findIndex(sound => sound.permalink_url === currentUrl);
+        if (index !== -1) setActiveTrack(index);
       });
 
       widget.getCurrentSound((sound) => {
-        if (sound) setTrackTitle(sound.title);
+        if (sound) {
+          setTrackTitle(sound.title);
+          currentDuration = sound.duration || 0;
+        }
       });
     });
 
@@ -329,7 +340,10 @@
   }
 
   playBtn.addEventListener("click", () => {
-    widget.toggle();
+    const sound = sounds[currentIndex];
+    if (isPlaying) sendToSiteShell({ type: "knobsock-front-widget-command", action: "pause" });
+    else if (currentUrl) sendToSiteShell({ type: "knobsock-front-widget-command", action: "play" });
+    else if (sound) sendToSiteShell({ type: "knobsock-front-widget-command", action: "play-track", url: sound.permalink_url });
 
     playBtn.classList.remove("bounce-spin");
     void playBtn.offsetWidth;
@@ -349,7 +363,7 @@
     if (!currentDuration) return;
     const rect = progressTrackEl.getBoundingClientRect();
     const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    widget.seekTo(fraction * currentDuration);
+    sendToSiteShell({ type: "knobsock-front-widget-command", action: "seek", fraction });
     progressFillEl.style.width = `${fraction * 100}%`;
   });
 
@@ -358,10 +372,36 @@
     const item = e.target.closest(".track-item");
     if (!item) return;
     const index = parseInt(item.getAttribute("data-index"), 10);
+    const sound = sounds[index];
+    if (!sound) return;
     setActiveTrack(index);
-    widget.skip(index);
-    widget.play();
+    currentDuration = sound.duration || currentDuration;
+    sendToSiteShell({ type: "knobsock-front-widget-command", action: "play-track", url: sound.permalink_url });
   });
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== window.location.origin || !event.data) return;
+    if (event.data.type === "knobsock-shell-music-state") {
+      isPlaying = Boolean(event.data.playing);
+      updatePlayIcon();
+      return;
+    }
+    if (event.data.type === "knobsock-shell-music-track") {
+      currentUrl = event.data.url || "";
+      currentDuration = Number(event.data.duration) || currentDuration;
+      if (event.data.title) setTrackTitle(event.data.title);
+      const index = sounds.findIndex(sound => sound.permalink_url === currentUrl);
+      if (index !== -1) setActiveTrack(index);
+      return;
+    }
+    if (event.data.type === "knobsock-shell-music-progress") {
+      currentDuration = Number(event.data.duration) || currentDuration;
+      const fraction = Number(event.data.fraction);
+      if (Number.isFinite(fraction)) progressFillEl.style.width = `${Math.min(1, Math.max(0, fraction)) * 100}%`;
+    }
+  });
+
+  sendToSiteShell({ type: "knobsock-front-widget-ready" });
 
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",

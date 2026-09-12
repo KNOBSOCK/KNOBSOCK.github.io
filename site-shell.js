@@ -64,6 +64,7 @@
   let activeFile = '';
   let musicFrameReady = false;
   let pendingOpen = false;
+  let pendingMusicCommand = null;
   let isPlaying = false;
   let currentTrack = null;
   let returnRoute = null;
@@ -83,6 +84,7 @@
     const pathname = routeAliases[url.pathname] || url.pathname;
     const params = new URLSearchParams(url.search);
     params.set('site-content', '1');
+    params.set('shell-version', '20260912-10');
     const query = params.toString();
     return `${pathname}${query ? `?${query}` : ''}${url.hash}`;
   }
@@ -129,10 +131,13 @@
   }
 
   function updateMiniPlayer() {
+    const shouldShow = isPlaying && !isMusicRoute(activeRoute);
+    const wasHidden = miniPlayer.hidden;
     miniPlayer.classList.toggle('is-playing', isPlaying);
-    miniPlayer.hidden = !isPlaying || isMusicRoute(activeRoute);
+    miniPlayer.hidden = !shouldShow;
     musicFrame.setAttribute('aria-hidden', String(!isMusicRoute(activeRoute)));
     routeFrame.setAttribute('aria-hidden', String(isMusicRoute(activeRoute)));
+    if (shouldShow && wasHidden) snapMiniToCorner();
   }
 
   function syncMediaSession() {
@@ -154,6 +159,34 @@
   function sendMusicTransport(action) {
     if (!musicFrame.contentWindow) return;
     musicFrame.contentWindow.postMessage({ type: 'knobsock-shell-transport', action }, origin);
+  }
+
+  function sendMusicCommand(command) {
+    pendingMusicCommand = command;
+    if (!musicFrameReady || !musicFrame.contentWindow) return;
+    musicFrame.contentWindow.postMessage(
+      { type: 'knobsock-shell-music-command', ...command },
+      origin
+    );
+    pendingMusicCommand = null;
+  }
+
+  function broadcastMusicMessage(message) {
+    if (!routeFrame.contentWindow) return;
+    routeFrame.contentWindow.postMessage(message, origin);
+  }
+
+  function broadcastMusicState() {
+    broadcastMusicMessage({
+      type: 'knobsock-shell-music-state',
+      playing: isPlaying
+    });
+    if (currentTrack) {
+      broadcastMusicMessage({
+        type: 'knobsock-shell-music-track',
+        ...currentTrack
+      });
+    }
   }
 
   function handleFrameClick(event) {
@@ -232,6 +265,14 @@
       if (frame === musicFrame) {
         musicFrameReady = true;
         if (pendingOpen) sendOpenMusic();
+        if (pendingMusicCommand) {
+          const command = pendingMusicCommand;
+          pendingMusicCommand = null;
+          musicFrame.contentWindow.postMessage(
+            { type: 'knobsock-shell-music-command', ...command },
+            origin
+          );
+        }
       }
     });
   }
@@ -300,19 +341,42 @@
   }
 
   function receiveMusicMessage(event) {
-    if (
-      event.origin !== origin ||
-      event.source !== musicFrame.contentWindow ||
-      !event.data ||
-      typeof event.data !== 'object'
-    ) {
+    if (event.origin !== origin || !event.data || typeof event.data !== 'object') return;
+
+    if (event.data.type === 'knobsock-front-widget-ready') {
+      broadcastMusicState();
       return;
     }
+
+    if (event.data.type === 'knobsock-front-widget-command') {
+      const action = String(event.data.action || '');
+      if (!['play', 'pause', 'toggle', 'play-track', 'seek'].includes(action)) return;
+      const command = { action };
+      if (event.data.url) command.url = String(event.data.url);
+      if (Number.isFinite(Number(event.data.fraction))) {
+        command.fraction = Math.min(1, Math.max(0, Number(event.data.fraction)));
+      }
+      sendMusicCommand(command);
+      return;
+    }
+
+    if (event.source !== musicFrame.contentWindow) return;
 
     if (event.data.type === 'knobsock-music-state') {
       isPlaying = Boolean(event.data.playing);
       syncMediaSession();
       updateMiniPlayer();
+      broadcastMusicState();
+      return;
+    }
+
+    if (event.data.type === 'knobsock-music-progress') {
+      broadcastMusicMessage({
+        type: 'knobsock-shell-music-progress',
+        elapsed: Number(event.data.elapsed) || 0,
+        duration: Number(event.data.duration) || 0,
+        fraction: Number(event.data.fraction)
+      });
       return;
     }
 
@@ -322,7 +386,9 @@
       currentTrack = {
         artist,
         title,
-        artwork: String(event.data.artwork || '').trim()
+        artwork: String(event.data.artwork || '').trim(),
+        url: String(event.data.url || '').trim(),
+        duration: Number(event.data.duration) || 0
       };
       syncMediaSession();
       const label = [artist, title].filter(Boolean).join(' — ');
@@ -330,6 +396,10 @@
         miniPlayer.title = `Open music player: ${label}`;
         miniPlayer.setAttribute('aria-label', `Open music player: ${label}`);
       }
+      broadcastMusicMessage({
+        type: 'knobsock-shell-music-track',
+        ...currentTrack
+      });
       return;
     }
 
@@ -386,13 +456,29 @@
     }
   }
 
-  function snapMiniToEdge() {
+  function snapMiniToCorner() {
     const rect = miniPlayer.getBoundingClientRect();
     const bounds = viewportBounds();
-    const left = rect.left + rect.width / 2 < window.innerWidth / 2
-      ? bounds.minLeft
-      : bounds.maxLeft;
-    setMiniPosition(left, rect.top);
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const corners = [
+      { left: bounds.minLeft, top: bounds.minTop },
+      { left: bounds.maxLeft, top: bounds.minTop },
+      { left: bounds.minLeft, top: bounds.maxTop },
+      { left: bounds.maxLeft, top: bounds.maxTop }
+    ];
+    const nearestCorner = corners.reduce((nearest, corner) => {
+      const nearestDistance = Math.hypot(
+        centerX - (nearest.left + rect.width / 2),
+        centerY - (nearest.top + rect.height / 2)
+      );
+      const cornerDistance = Math.hypot(
+        centerX - (corner.left + rect.width / 2),
+        centerY - (corner.top + rect.height / 2)
+      );
+      return cornerDistance < nearestDistance ? corner : nearest;
+    });
+    setMiniPosition(nearestCorner.left, nearestCorner.top);
     saveMiniPosition();
   }
 
@@ -458,13 +544,13 @@
       window.setTimeout(() => {
         suppressClick = false;
       }, 0);
-      snapMiniToEdge();
+      snapMiniToCorner();
     }
   }
 
   function clampMiniAfterResize() {
-    const rect = miniPlayer.getBoundingClientRect();
-    if (miniPlayer.style.top) setMiniPosition(rect.left, rect.top);
+    if (miniPlayer.hidden || dragState) return;
+    snapMiniToCorner();
   }
 
   window.addEventListener('message', receiveMusicMessage);
@@ -498,7 +584,7 @@
 
   attachFrame(routeFrame);
   attachFrame(musicFrame);
-  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-7';
+  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-10';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';
