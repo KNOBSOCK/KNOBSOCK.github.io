@@ -1146,7 +1146,10 @@
   var resumeAfterDirectSeek = false;
   var directSeekRecoveryTimer = null;
   var directSeekRetryTimer = null;
+  var directSeekReloadTimer = null;
   var directVideoWasPlaying = false;
+  var directSeekTarget = 0;
+  var directSeekGeneration = 0;
 
   function resumeDirectVideoAfterSeek() {
     if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
@@ -1154,26 +1157,47 @@
   }
 
   function recoverDirectVideoAfterSeek() {
+    var seekGeneration = directSeekGeneration;
     clearTimeout(directSeekRecoveryTimer);
     clearTimeout(directSeekRetryTimer);
+    clearTimeout(directSeekReloadTimer);
     resumeDirectVideoAfterSeek();
     directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 350);
     directSeekRetryTimer = setTimeout(function () {
       resumeDirectVideoAfterSeek();
-      resumeAfterDirectSeek = false;
     }, 1200);
+    directSeekReloadTimer = setTimeout(function () {
+      if (seekGeneration !== directSeekGeneration || hlsInstance || !resumeAfterDirectSeek || backend !== 'video' || videoEl.ended || !videoEl.currentSrc || (!videoEl.seeking && videoEl.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA)) return;
+      var source = videoEl.currentSrc;
+      var target = directSeekTarget;
+      videoEl.addEventListener('loadedmetadata', function restoreStalledSeek() {
+        if (seekGeneration !== directSeekGeneration) return;
+        var duration = videoEl.duration;
+        videoEl.currentTime = isFinite(duration) ? Math.min(target, Math.max(0, duration - 0.05)) : target;
+        videoEl.play().catch(function () {});
+      }, { once: true });
+      // Re-select the same Bunny manifest only when native iOS HLS remains stalled.
+      videoEl.src = source;
+      videoEl.load();
+    }, 2200);
   }
 
   // Safari can mark native HLS paused while it seeks. Remembering the last
   // playing state lets an active Bunny video resume without overriding a pause.
   videoEl.addEventListener('seeking', function () {
+    directSeekGeneration += 1;
     resumeAfterDirectSeek = backend === 'video' && !videoEl.ended &&
       (!videoEl.paused || directVideoWasPlaying);
     if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
   });
-  videoEl.addEventListener('seeked', recoverDirectVideoAfterSeek);
+  videoEl.addEventListener('seeked', function () {
+    directSeekTarget = videoEl.currentTime;
+    recoverDirectVideoAfterSeek();
+  });
 
   function seekDirectVideo(t) {
+    directSeekTarget = t;
+    directSeekGeneration += 1;
     resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
     videoEl.currentTime = t;
     if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
