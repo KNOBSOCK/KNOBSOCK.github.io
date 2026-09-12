@@ -515,9 +515,9 @@
     }
     if (tracksWheel) {
       var wheelImage = tracksWheel.querySelector('img');
-      var wheelClickSound = new Audio('/Rotatingclicks.mp3');
+      var wheelClickSound = new Audio('/singleclick.mp3');
       wheelClickSound.preload = 'auto';
-      var wheelUnlockSound = new Audio('/Rotatingclicks.mp3');
+      var wheelUnlockSound = new Audio('/singleclick.mp3');
       wheelUnlockSound.preload = 'auto';
       wheelUnlockSound.volume = 0;
       var wheelSoundPrimed = false;
@@ -544,7 +544,7 @@
           (function (delay) {
             setTimeout(function () {
               fireWheelClick();
-            }, delay * 75);
+            }, delay * 110);
           })(i);
         }
       }
