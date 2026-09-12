@@ -27,6 +27,6 @@
 .music-engine { position: fixed; left: -10000px; width: 300px; height: 166px; border: 0; }
 @media (max-width: 860px) and (orientation: portrait) {
   /* Registered to the full 1,650–3,010px green window in the 4,511px portrait close-up. */
-  .music-lcd { left: 36.58%; top: 32.75%; width: 30.8%; height: 6.85%; }
+  .music-lcd { left: 36.58%; top: 32.75%; width: 30.8%; height: 7%; }
   .music-lcd .lcd-inner { font-size: 9.3375cqw; }
 }
