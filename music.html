@@ -562,6 +562,9 @@
     function closeZoom() {
       if (!isZoomed) return;
       isZoomed = false;
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'knobsock-music-zoom-closing' }, window.location.origin);
+      }
       playZoomSound();
       zoom.classList.remove('is-open');
       zoom.classList.add('is-closing');

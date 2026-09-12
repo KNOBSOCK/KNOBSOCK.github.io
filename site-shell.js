@@ -283,6 +283,22 @@
     updateMiniPlayer();
   }
 
+  function returnToOriginRoute() {
+    if (!returnRoute || !isMusicRoute(activeRoute)) return;
+
+    const destination = returnRoute;
+    returnRoute = null;
+    document.body.classList.add('is-route-transitioning');
+    clearTimeout(returnTransitionTimer);
+    returnTransitionTimer = window.setTimeout(() => {
+      document.body.classList.remove('is-route-transitioning');
+      updateMiniPlayer();
+    }, 480);
+    window.history.back();
+    /* Switch the already-mounted destination frame now; popstate catches up to it. */
+    renderRoute(destination, false);
+  }
+
   function receiveMusicMessage(event) {
     if (
       event.origin !== origin ||
@@ -317,15 +333,11 @@
       return;
     }
 
-    if (event.data.type === 'knobsock-music-zoom-closed' && returnRoute && isMusicRoute(activeRoute)) {
-      returnRoute = null;
-      document.body.classList.add('is-route-transitioning');
-      clearTimeout(returnTransitionTimer);
-      returnTransitionTimer = window.setTimeout(() => {
-        document.body.classList.remove('is-route-transitioning');
-        updateMiniPlayer();
-      }, 480);
-      window.history.back();
+    if (
+      event.data.type === 'knobsock-music-zoom-closing' ||
+      event.data.type === 'knobsock-music-zoom-closed'
+    ) {
+      returnToOriginRoute();
     }
   }
 
@@ -485,7 +497,7 @@
 
   attachFrame(routeFrame);
   attachFrame(musicFrame);
-  musicFrame.src = '/music.html?site-content=1';
+  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-2';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';
