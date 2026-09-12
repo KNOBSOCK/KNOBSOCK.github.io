@@ -39,16 +39,12 @@
     display: grid;
     place-items: center;
     overflow: hidden;
-    transition: opacity 0.08s linear 0.38s, transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+    transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
   .music-scene.is-zooming {
-    opacity: 0;
+    opacity: 1;
     transform: scale(var(--scene-zoom-scale, 2));
     pointer-events: none;
-  }
-  .music-scene.is-returning {
-    opacity: 1;
-    transition: opacity 0.08s linear;
   }
 
   .scene-canvas {
@@ -135,8 +131,8 @@
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
-    /* Reveal the registered close-up before the room image fades out. */
-    transition: opacity 0s linear 0.34s;
+    /* Reveal the registered close-up before the room layer is hidden. */
+    transition: opacity 0s linear 0.40s;
   }
   .music-zoom[hidden] { display: none; }
   .music-zoom.is-open {
@@ -218,6 +214,7 @@
     if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
+    var sceneHideTimer = null;
     var isZoomed = false;
     var isOpening = false;
     function popBoombox() {
@@ -255,6 +252,11 @@
       zoom.classList.remove('is-closing');
       zoom.classList.add('is-open');
       scene.classList.add('is-zooming');
+      clearTimeout(sceneHideTimer);
+      scene.style.visibility = '';
+      sceneHideTimer = setTimeout(function () {
+        if (isZoomed) scene.style.visibility = 'hidden';
+      }, 470);
     }
     function openZoom() {
       if (isZoomed || isOpening) return;
@@ -278,11 +280,12 @@
       isZoomed = false;
       zoom.classList.remove('is-open');
       zoom.classList.add('is-closing');
-      scene.classList.add('is-returning');
+      clearTimeout(sceneHideTimer);
+      scene.style.visibility = '';
       zoom.setAttribute('aria-hidden', 'true');
       clearTimeout(zoomTimer);
       zoomTimer = setTimeout(function () {
-        scene.classList.remove('is-zooming', 'is-returning');
+        scene.classList.remove('is-zooming');
         zoom.classList.remove('is-closing');
       }, 90);
       setTimeout(function () { zoom.hidden = true; }, 560);
