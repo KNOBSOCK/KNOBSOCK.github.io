@@ -421,6 +421,7 @@
       var wheelLastAngle = 0;
       var wheelDragRemainder = 0;
       var wheelScrollRemainder = 0;
+      var wheelDisplayRotation = 0;
       var wheelResetTimer = null;
       var wheelDragging = false;
       function wheelAngle(event) {
@@ -456,6 +457,7 @@
         wheelDragging = true;
         wheelLastAngle = wheelAngle(event);
         wheelDragRemainder = 0;
+        wheelDisplayRotation = 0;
         clearTimeout(wheelResetTimer);
         tracksWheel.setPointerCapture(event.pointerId);
         tracksWheel.classList.add('is-dragging');
@@ -464,18 +466,21 @@
       tracksWheel.addEventListener('pointermove', function (event) {
         if (!wheelDragging) return;
         var angle = wheelAngle(event);
-        wheelDragRemainder += normalizeAngle(angle - wheelLastAngle);
+        var angleDelta = normalizeAngle(angle - wheelLastAngle);
+        wheelDragRemainder += angleDelta;
+        wheelDisplayRotation += angleDelta;
         wheelLastAngle = angle;
         var steps = wheelDragRemainder > 0 ? Math.floor(wheelDragRemainder / 15) : Math.ceil(wheelDragRemainder / 15);
         if (steps) {
           advanceTrack(steps);
           wheelDragRemainder -= steps * 15;
         }
-        setWheelVisual(Math.max(-28, Math.min(28, wheelDragRemainder * 1.65)), true);
+        setWheelVisual(wheelDisplayRotation, true);
       });
       function releaseWheel(event) {
         if (!wheelDragging) return;
         wheelDragging = false;
+        wheelDisplayRotation = 0;
         tracksWheel.classList.remove('is-dragging');
         wheelImage.src = wheelImage.getAttribute('data-idle-src');
         resetWheelVisual();
@@ -492,12 +497,14 @@
         if (!steps) return;
         wheelScrollRemainder -= steps * 35;
         advanceTrack(steps);
-        setWheelVisual(Math.max(-18, Math.min(18, -steps * 9)), false);
+        wheelDisplayRotation += -amount * 0.12;
+        setWheelVisual(wheelDisplayRotation, false);
         clearTimeout(wheelResetTimer);
         wheelResetTimer = setTimeout(function () {
           wheelImage.src = wheelImage.getAttribute('data-idle-src');
+          wheelDisplayRotation = 0;
           resetWheelVisual();
-        }, 120);
+        }, 280);
       }, { passive: false });
     }
     document.addEventListener('keydown', function (event) {
