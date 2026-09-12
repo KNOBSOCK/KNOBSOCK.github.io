@@ -39,7 +39,7 @@
     display: grid;
     place-items: center;
     overflow: hidden;
-    transition: opacity 0.1s linear 0.36s, transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+    transition: opacity 0.08s linear 0.38s, transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
   .music-scene.is-zooming {
     opacity: 0;
@@ -135,7 +135,8 @@
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.08s linear 0.38s;
+    /* Reveal the registered close-up before the room image fades out. */
+    transition: opacity 0s linear 0.34s;
   }
   .music-zoom[hidden] { display: none; }
   .music-zoom.is-open {
@@ -161,7 +162,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    cursor: zoom-out;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
 
