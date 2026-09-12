@@ -1,6 +1,6 @@
 @font-face { font-family: 'Music LCD'; src: url('/music-lcd-font.ttf') format('truetype'); font-display: swap; }
 .music-lcd {
-  position: absolute; left: 41.29%; top: 24%; width: 18.3%; height: 10.8%;
+  position: absolute; left: 41.29%; top: 22.7%; width: 18.3%; height: 12.9%;
   container-type: inline-size; color: #14270e; pointer-events: auto;
   overflow: hidden; background: #83a15a;
   box-shadow: inset 0 0 10px #243e3080;
