@@ -30,6 +30,7 @@
   function visit(next) { history.push({ page, cursor }); page = next; cursor = 0; message = ''; render(); }
   function back() { const previous = history.pop(); page = previous ? previous.page : { kind: 'home', label: 'KNOBSOCK' }; cursor = previous ? previous.cursor : 0; message = ''; render(); }
   function clock(value) { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0'); }
+  function visibleRows() { return window.matchMedia('(max-width: 860px) and (orientation: portrait)').matches ? 2 : 4; }
   function render() {
     title.textContent = page.label; indicator.textContent = (shuffle ? 'S ' : '') + (playing ? '▶' : 'Ⅱ'); body.replaceChildren();
     if (page.kind === 'now') {
@@ -48,9 +49,10 @@
         const times = node('div', undefined, 'lcd-times'); times.append(node('span', clock(elapsed)), node('span', 'SC'), node('span', '-' + clock(duration - elapsed))); box.append(progress, times);
       } body.append(box);
     } else {
-      const entries = rows(), start = Math.max(0, cursor - 3);
+      const entries = rows(), rowCount = visibleRows();
+      const start = Math.min(Math.max(0, cursor - rowCount + 1), Math.max(0, entries.length - rowCount));
       if (!entries.length) body.append(node('div', 'No SoundCloud tracks yet', 'lcd-detail'));
-      entries.slice(start, start + 4).forEach((entry, offset) => {
+      entries.slice(start, start + rowCount).forEach((entry, offset) => {
         const index = start + offset, button = node('button', undefined, 'lcd-row' + (cursor === index ? ' is-selected' : ''));
         button.type = 'button'; button.title = entry.label; button.setAttribute('aria-label', entry.label); if (cursor === index) button.setAttribute('aria-current', 'true');
         button.append(node('span', entry.label), node('span', entry.track ? '♪' : '>')); button.onclick = () => { cursor = index; select(); }; body.append(button);
