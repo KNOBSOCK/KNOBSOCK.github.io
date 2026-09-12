@@ -1145,24 +1145,39 @@
   var hlsInstance = null;
   var resumeAfterDirectSeek = false;
   var directSeekRecoveryTimer = null;
+  var directSeekRetryTimer = null;
+  var directVideoWasPlaying = false;
 
   function resumeDirectVideoAfterSeek() {
     if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
-    resumeAfterDirectSeek = false;
-    clearTimeout(directSeekRecoveryTimer);
     videoEl.play().catch(function () {});
   }
 
-  // This covers both our scrubber and Safari's native fullscreen scrubber.
-  // Native HLS on iOS can otherwise remain stalled after a forward seek.
-  videoEl.addEventListener('seeking', function () {
-    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+  function recoverDirectVideoAfterSeek() {
     clearTimeout(directSeekRecoveryTimer);
-    if (resumeAfterDirectSeek) {
-      directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
-    }
+    clearTimeout(directSeekRetryTimer);
+    resumeDirectVideoAfterSeek();
+    directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 350);
+    directSeekRetryTimer = setTimeout(function () {
+      resumeDirectVideoAfterSeek();
+      resumeAfterDirectSeek = false;
+    }, 1200);
+  }
+
+  // Safari can mark native HLS paused while it seeks. Remembering the last
+  // playing state lets an active Bunny video resume without overriding a pause.
+  videoEl.addEventListener('seeking', function () {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.ended &&
+      (!videoEl.paused || directVideoWasPlaying);
+    if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
   });
-  videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
+  videoEl.addEventListener('seeked', recoverDirectVideoAfterSeek);
+
+  function seekDirectVideo(t) {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+    videoEl.currentTime = t;
+    if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
+  }
 
   function isDirectVideoUrl(input) {
     if (!input) return false;
@@ -1208,8 +1223,11 @@
     updatePlayPauseIcon(true);
   });
   videoEl.addEventListener('waiting', function () { if (backend === 'video') showVideoLoading(); });
-  videoEl.addEventListener('playing', function () { if (backend === 'video') { hideVideoLoading(); updatePlayPauseIcon(true); } });
-  videoEl.addEventListener('pause', function () { if (backend === 'video') updatePlayPauseIcon(false); });
+  videoEl.addEventListener('playing', function () { if (backend === 'video') { directVideoWasPlaying = true; hideVideoLoading(); updatePlayPauseIcon(true); } });
+  videoEl.addEventListener('pause', function () {
+    if (backend === 'video') updatePlayPauseIcon(false);
+    setTimeout(function () { if (!videoEl.seeking) directVideoWasPlaying = false; }, 0);
+  });
   videoEl.addEventListener('error', function () { if (backend === 'video') hideVideoLoading(); });
 
   function showVideoLoading() {
@@ -1540,7 +1558,7 @@
   scrubRange.addEventListener('change', function () {
     if (backend === 'video') {
       if (videoReady) {
-        videoEl.currentTime = parseFloat(scrubRange.value);
+        seekDirectVideo(parseFloat(scrubRange.value));
       }
     } else if (ytPlayer) {
       ytPlayer.seekTo(parseFloat(scrubRange.value), true);

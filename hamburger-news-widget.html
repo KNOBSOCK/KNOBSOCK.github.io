@@ -280,27 +280,38 @@
   let hlsInstance = null;
   let resumeAfterDirectSeek = false;
   let directSeekRecoveryTimer = null;
+  let directSeekRetryTimer = null;
+  let directVideoWasPlaying = false;
 
   function resumeDirectVideoAfterSeek() {
     if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
-    resumeAfterDirectSeek = false;
-    clearTimeout(directSeekRecoveryTimer);
     videoEl.play().catch(() => {});
   }
 
-  // This covers both our scrubber and Safari's native fullscreen scrubber.
-  // Native HLS on iOS can otherwise remain stalled after a forward seek.
-  videoEl.addEventListener('seeking', () => {
-    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+  function recoverDirectVideoAfterSeek() {
     clearTimeout(directSeekRecoveryTimer);
-    if (resumeAfterDirectSeek) {
-      directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
-    }
+    clearTimeout(directSeekRetryTimer);
+    resumeDirectVideoAfterSeek();
+    directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 350);
+    directSeekRetryTimer = setTimeout(() => {
+      resumeDirectVideoAfterSeek();
+      resumeAfterDirectSeek = false;
+    }, 1200);
+  }
+
+  // Safari can mark native HLS paused while it seeks. Remembering the last
+  // playing state lets an active Bunny video resume without overriding a pause.
+  videoEl.addEventListener('seeking', () => {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.ended &&
+      (!videoEl.paused || directVideoWasPlaying);
+    if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
   });
-  videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
+  videoEl.addEventListener('seeked', recoverDirectVideoAfterSeek);
 
   function seekDirectVideo(t) {
+    resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
     videoEl.currentTime = t;
+    if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
   }
 
   const MUTE_ICON_UNMUTED = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M4 9v6h4l5 5V4L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34zM14 4.45v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77z"/></svg>';
@@ -459,8 +470,11 @@
     updateMuteBtn();
   });
   videoEl.addEventListener('waiting', () => { if (backend === 'video') showLoading(); });
-  videoEl.addEventListener('playing', () => { if (backend === 'video') { hideLoading(); updatePlayBtn(true); } });
-  videoEl.addEventListener('pause', () => { if (backend === 'video') updatePlayBtn(false); });
+  videoEl.addEventListener('playing', () => { if (backend === 'video') { directVideoWasPlaying = true; hideLoading(); updatePlayBtn(true); } });
+  videoEl.addEventListener('pause', () => {
+    if (backend === 'video') updatePlayBtn(false);
+    setTimeout(() => { if (!videoEl.seeking) directVideoWasPlaying = false; }, 0);
+  });
   videoEl.addEventListener('ended', () => { if (backend === 'video') playIndex(activeIndex + 1); });
   videoEl.addEventListener('error', () => { if (backend === 'video') hideLoading(); });
 

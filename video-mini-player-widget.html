@@ -372,27 +372,42 @@
     let isUnmutedIntent = false;
     let resumeAfterDirectSeek = false;
     let directSeekRecoveryTimer = null;
+    let directSeekRetryTimer = null;
+    let directVideoWasPlaying = false;
 
     function resumeDirectVideoAfterSeek() {
       if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
-      resumeAfterDirectSeek = false;
-      clearTimeout(directSeekRecoveryTimer);
       videoEl.play().catch(() => {});
     }
 
-    // This covers both our scrubber and Safari's native fullscreen scrubber.
-    // Native HLS on iOS can otherwise remain stalled after a forward seek.
-    videoEl.addEventListener('seeking', () => {
-      resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
+    function recoverDirectVideoAfterSeek() {
       clearTimeout(directSeekRecoveryTimer);
-      if (resumeAfterDirectSeek) {
-        directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 900);
-      }
+      clearTimeout(directSeekRetryTimer);
+      resumeDirectVideoAfterSeek();
+      // Native HLS can report `seeked` before iOS has finished pausing its
+      // internal player. Retry after that state change without reloading the
+      // Bunny stream (which would discard the requested position).
+      directSeekRecoveryTimer = setTimeout(resumeDirectVideoAfterSeek, 350);
+      directSeekRetryTimer = setTimeout(function () {
+        resumeDirectVideoAfterSeek();
+        resumeAfterDirectSeek = false;
+      }, 1200);
+    }
+
+    // Covers our scrubber and Safari's native fullscreen scrubber. Safari may
+    // temporarily set `paused` during an HLS seek, so retain the last playing
+    // state instead of trusting `paused` only at this event.
+    videoEl.addEventListener('seeking', () => {
+      resumeAfterDirectSeek = backend === 'video' && !videoEl.ended &&
+        (!videoEl.paused || directVideoWasPlaying);
+      if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
     });
-    videoEl.addEventListener('seeked', resumeDirectVideoAfterSeek);
+    videoEl.addEventListener('seeked', recoverDirectVideoAfterSeek);
 
     function seekDirectVideo(t) {
+      resumeAfterDirectSeek = backend === 'video' && !videoEl.paused && !videoEl.ended;
       videoEl.currentTime = t;
+      if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
     }
 
     function isDirectVideoUrl(input) {
@@ -524,7 +539,11 @@
       applyUnmute();
     });
     videoEl.addEventListener('waiting', () => { if (backend === 'video') showVideoLoading(); });
-    videoEl.addEventListener('playing', () => { if (backend === 'video') hideVideoLoading(); });
+    videoEl.addEventListener('playing', () => { if (backend === 'video') { directVideoWasPlaying = true; hideVideoLoading(); } });
+    videoEl.addEventListener('pause', () => {
+      // Let a same-turn `seeking` event retain the state that preceded it.
+      setTimeout(() => { if (!videoEl.seeking) directVideoWasPlaying = false; }, 0);
+    });
     videoEl.addEventListener('ended', () => { if (backend === 'video') { videoEl.currentTime = 0; videoEl.play().catch(() => {}); } });
 
     const OVERSCAN = 1.35;
