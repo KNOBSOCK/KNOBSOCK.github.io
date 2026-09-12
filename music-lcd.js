@@ -62,8 +62,11 @@
     footer.textContent = message || (page.kind === 'now' ? (playing ? 'PLAYING' : 'PAUSED') : (rows().length ? `${cursor + 1}/${rows().length} · SCROLL + SELECT` : 'Link SoundCloud in Admin'));
   }
   function scroll(step) {
+    const beforePage = page.kind, beforeCursor = cursor;
     if (page.kind === 'now') { page = { kind: 'songs', label: 'Songs' }; cursor = Math.max(0, library.findIndex(track => track.url === current?.url)); }
     const length = rows().length; if (length) cursor = Math.max(0, Math.min(length - 1, cursor + step)); message = ''; render();
+    const moved = beforePage === page.kind ? Math.abs(cursor - beforeCursor) : Math.abs(step);
+    if (moved) document.dispatchEvent(new CustomEvent('music-wheel-selection', { detail: moved }));
   }
   function select() { const entry = rows()[cursor]; if (!entry) return; if (entry.track) { queue = rows().map(row => row.track); play(entry.track, true); } else visit({ ...entry, label: entry.label }); }
   function state(value) { playing = value; if (value) { message = ''; clearTimeout(loadTimer); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }

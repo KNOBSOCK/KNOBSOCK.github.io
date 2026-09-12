@@ -515,6 +515,23 @@
     }
     if (tracksWheel) {
       var wheelImage = tracksWheel.querySelector('img');
+      var wheelClickSound = new Audio('/Rotatingclicks.mp3');
+      wheelClickSound.preload = 'auto';
+      function playWheelClicks(count) {
+        count = Math.min(8, Math.max(0, Number(count) || 0));
+        for (var i = 0; i < count; i++) {
+          (function (delay) {
+            setTimeout(function () {
+              var effect = wheelClickSound.cloneNode();
+              effect.volume = 0.65;
+              effect.play().catch(function () {});
+            }, delay * 75);
+          })(i);
+        }
+      }
+      document.addEventListener('music-wheel-selection', function (event) {
+        playWheelClicks(event.detail);
+      });
       var wheelLastAngle = 0;
       var wheelDragRemainder = 0;
       var wheelScrollRemainder = 0;
