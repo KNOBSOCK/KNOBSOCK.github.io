@@ -112,23 +112,34 @@
     height: auto;
     -webkit-user-drag: none;
     user-select: none;
-    transition: filter 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   @media (hover: hover) {
     .boombox-overlay:hover img {
-      filter: drop-shadow(0 0 8px rgba(255, 244, 90, 0.95)) drop-shadow(0 0 20px rgba(80, 235, 155, 0.8));
       transform: scale(1.018);
     }
   }
   .boombox-overlay:active img { transform: scale(0.97); }
   .boombox-overlay.is-popping img {
     animation: boombox-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
-    filter: drop-shadow(0 0 10px rgba(255, 244, 90, 1)) drop-shadow(0 0 24px rgba(80, 235, 155, 0.9));
   }
   @keyframes boombox-pop {
     0% { transform: scale(1); }
     45% { transform: scale(1.055); }
     100% { transform: scale(1); }
+  }
+  .boombox-overlay.is-playing img {
+    animation: boombox-party 0.54s cubic-bezier(.32, .01, .52, 1) infinite alternate;
+    transform-origin: 50% 88%;
+  }
+  @keyframes boombox-party {
+    0% { transform: translate(-2%, 2%) rotate(-2.5deg) scale(.985, 1.025); }
+    42% { transform: translate(1%, -7%) rotate(3deg) scale(1.045, .955); }
+    70% { transform: translate(-1%, -2%) rotate(-1deg) scale(.99, 1.035); }
+    100% { transform: translate(2%, -10%) rotate(4deg) scale(1.06, .94); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .boombox-overlay.is-playing img { animation: none; }
   }
 
   .music-zoom {
@@ -585,6 +596,7 @@
       }
       document.addEventListener('music-playback-state', function (event) {
         setPlaybackAction(event.detail);
+        boombox.classList.toggle('is-playing', event.detail === 'play');
       });
       Array.prototype.slice.call(actionBar.querySelectorAll('.music-action-hit')).forEach(function (button) {
         var action = button.getAttribute('data-action');

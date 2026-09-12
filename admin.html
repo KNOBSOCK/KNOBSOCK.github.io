@@ -843,46 +843,16 @@
 
   <div class="tab-panel" id="tab-music" hidden>
     <h2 class="panel-heading">Music</h2>
-    <p class="panel-sub">Manage the boombox library: audio files, SoundCloud tracks, YouTube entries, and albums. Drag the grip (&#10303;) to reorder.</p>
-    <div class="note">Tracks from the linked SoundCloud profile are imported automatically. You can also add individual SoundCloud track links and direct audio files here. YouTube entries remain in the LCD library while you replace them with audio sources for playback.</div>
-    <div class="note">For Bunny Stream tracks: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
-    <div class="editor-grid">
-      <div class="card">
-        <div class="card-head">
-          <h2>Track List</h2>
-          <div class="footer-actions">
-            <button type="button" class="btn" id="musicSortDateBtn">Sort by Upload Date</button>
-            <button type="button" class="btn" id="musicAddBtn">+ Add Track</button>
-          </div>
+    <p class="panel-sub">The boombox library is imported automatically from one SoundCloud profile.</p>
+    <div class="card">
+      <div class="card-head"><h2>SoundCloud Account</h2></div>
+      <div class="live-card-body" style="max-height:none;">
+        <div class="note">This feeds both the homepage's Listen widget and the Music-page boombox. Paste a SoundCloud profile link and save; its tracks will appear in the LCD automatically. Clear the field and save to unlink it.</div>
+        <div class="add-row">
+          <input type="text" class="search-input" id="soundcloudUrlInput" placeholder="Paste your SoundCloud profile link">
+          <button type="button" class="btn" id="saveSoundcloudBtn">Save</button>
         </div>
-        <div class="list-scroll" id="musicList"></div>
-        <div class="footer-actions">
-          <button type="button" class="btn btn-primary" id="musicSaveBtn">Save Changes</button>
-          <button type="button" class="btn-link" id="musicResetBtn">Reset to default list</button>
-        </div>
-        <div class="save-status" id="musicStatus"></div>
-      </div>
-      <div class="sidebar-stack">
-        <div class="card">
-          <div class="card-head"><h2>Creators</h2></div>
-          <div class="list-scroll" id="musicCreators"></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Albums</h2></div>
-          <p class="panel-sub" style="margin-bottom: 10px;">Drag to prioritize which album shows first when a creator with more than one is selected on the Music page. Assign a track to an album from the Track List above — "SoundCloud" is where SoundCloud-only tracks land automatically.</p>
-          <div class="list-scroll" id="musicAlbums"></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>SoundCloud Account</h2></div>
-          <div class="live-card-body" style="max-height:none;">
-            <div class="note">Feeds both the homepage's "Listen" widget and this Music page's SoundCloud-only tracks — one link for both. Renamed or switched SoundCloud accounts? Paste the new profile link here and save — no code changes needed. Clear the field and save to unlink it.</div>
-            <div class="add-row">
-              <input type="text" class="search-input" id="soundcloudUrlInput" placeholder="Paste your SoundCloud profile link">
-              <button type="button" class="btn" id="saveSoundcloudBtn">Save</button>
-            </div>
-            <div id="soundcloudStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
-          </div>
-        </div>
+        <div id="soundcloudStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
       </div>
     </div>
   </div>
@@ -1133,8 +1103,6 @@
   const auth = firebase.auth();
 
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
-  const MUSIC_DOC_REF = db.collection('playlist').doc('music');
-
   const HAMBURGER_NEWS_DOC_REF = db.collection('playlist').doc('hamburgerNews');
 
   const HAMBURGER_GAMES_DOC_REF = db.collection('playlist').doc('hamburgerGames');
@@ -1920,12 +1888,10 @@
         .filter(function (v) { return v.url; });
 
       const invalid = cleaned.filter(function (v) {
-        const musicAudio = opts.allowAudio && /^https?:\/\//i.test(v.url) &&
-          (/\.(mp3|m4a|aac|ogg|wav|flac)(\?.*)?$/i.test(v.url) || /^https?:\/\/(?:www\.)?soundcloud\.com\/[^/]+\/[^/?#]+/i.test(v.url));
-        return !musicAudio && !extractVideoId(v.url) && !(opts.allowDirectVideo && isDirectVideoUrl(v.url));
+        return !extractVideoId(v.url) && !(opts.allowDirectVideo && isDirectVideoUrl(v.url));
       });
       if (invalid.length) {
-        setStatus(opts.allowAudio ? 'Use a full SoundCloud track URL, audio-file URL, YouTube link, or direct stream URL.' : opts.allowDirectVideo
+        setStatus(opts.allowDirectVideo
           ? 'One or more links don’t look like valid YouTube or direct video (.m3u8/.mp4/.webm) links — fix those and save again.'
           : 'One or more links don’t look like valid YouTube links — fix those and save again.', true);
         return;
@@ -2028,12 +1994,6 @@
     { url: 'https://youtube.com/watch?v=VuivQyVyKDM', title: 'Video Two' },
     { url: 'https://youtube.com/watch?v=Jc9Eay0tedo', title: 'Video Three' }
   ];
-  const DEFAULT_MUSIC_LIST = [
-    { url: 'https://youtube.com/watch?v=euMJknnSSqk', title: 'Track One' },
-    { url: 'https://youtube.com/watch?v=VuivQyVyKDM', title: 'Track Two' },
-    { url: 'https://youtube.com/watch?v=Jc9Eay0tedo', title: 'Track Three' }
-  ];
-
   const DEFAULT_HAMBURGER_NEWS_LIST = [];
 
   function startEditors() {
@@ -2053,26 +2013,6 @@
       allowDirectVideo: true,
 
       showCreatorLinks: true,
-      showThumb: true
-    }).load();
-
-    createPlaylistEditor({
-      docRef: MUSIC_DOC_REF,
-      listRoot: document.getElementById('musicList'),
-      creatorsRoot: document.getElementById('musicCreators'),
-      albumsRoot: document.getElementById('musicAlbums'),
-      addBtn: document.getElementById('musicAddBtn'),
-      sortDateBtn: document.getElementById('musicSortDateBtn'),
-      saveBtn: document.getElementById('musicSaveBtn'),
-      resetBtn: document.getElementById('musicResetBtn'),
-      statusEl: document.getElementById('musicStatus'),
-      defaultList: DEFAULT_MUSIC_LIST,
-      urlPlaceholder: 'Audio file URL, SoundCloud track, YouTube link, or Bunny .m3u8',
-      allowAudio: true,
-      singular: 'Track',
-      plural: 'tracks',
-      allowDirectVideo: true,
-      showAlbums: true,
       showThumb: true
     }).load();
 
