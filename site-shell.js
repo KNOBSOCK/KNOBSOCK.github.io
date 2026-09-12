@@ -498,7 +498,7 @@
 
   attachFrame(routeFrame);
   attachFrame(musicFrame);
-  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-6';
+  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-7';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';
