@@ -583,6 +583,25 @@
     if (actionBar && actionArt) {
       var pressedActions = {};
       var playbackAction = null;
+      var buttonSoundSources = {
+        play: '/PlayButtonSound.mp3',
+        pause: '/PauseButtonSound.mp3',
+        previous: '/Forward%20and%20Backward%20button%20sound.mp3',
+        forward: '/Forward%20and%20Backward%20button%20sound.mp3'
+      };
+      var buttonSounds = {};
+      Object.keys(buttonSoundSources).forEach(function (action) {
+        buttonSounds[action] = new Audio(buttonSoundSources[action]);
+        buttonSounds[action].preload = 'auto';
+      });
+      function playButtonSound(action) {
+        var source = buttonSounds[action];
+        if (!source) return;
+        var effect = source.cloneNode();
+        effect.volume = 0.8;
+        effect.play().catch(function () {});
+        if (navigator.vibrate) navigator.vibrate(8);
+      }
       var actionArtSources = {
         '': '/music-NoneClicked.png',
         play: '/music-PlayButtonClicked.png',
@@ -615,6 +634,7 @@
       Array.prototype.slice.call(actionBar.querySelectorAll('.music-action-hit')).forEach(function (button) {
         var action = button.getAttribute('data-action');
         function press(event) {
+          if (event) playButtonSound(action);
           if (action === 'play' || action === 'pause') {
             return;
           }
@@ -634,7 +654,8 @@
         button.addEventListener('pointerdown', press);
         button.addEventListener('pointerup', release);
         button.addEventListener('pointercancel', release);
-        button.addEventListener('click', function () {
+        button.addEventListener('click', function (event) {
+          if (event.detail === 0) playButtonSound(action);
           document.dispatchEvent(new CustomEvent('music-transport', { detail: action }));
         });
       });
