@@ -8,6 +8,7 @@
   let current = null, playing = false, wantsPlay = false, shuffle = false, elapsed = 0, duration = 0;
   let message = 'Loading SoundCloud...', widget = null, scUrl = '', generation = 0, loadTimer, profileVersion = 0, scPromise;
   let lastCompletedUrl = '', autoplayLockUntil = 0;
+  const mediaSession = 'mediaSession' in navigator && typeof MediaMetadata === 'function' ? navigator.mediaSession : null;
   const scripts = new Map();
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
   function script(url) {
@@ -17,6 +18,24 @@
   }
   function soundCloudUrl(value) { try { const url = new URL(value); return /^https?:$/.test(url.protocol) && /(^|\.)soundcloud\.com$/i.test(url.hostname) ? url.href : ''; } catch (_) { return ''; } }
   function groups(key) { return [...new Set(library.map(track => track[key]))].sort((a, b) => a.localeCompare(b)); }
+  function syncMediaSession(track, isPlaying) {
+    if (!mediaSession || !track) return;
+    const metadata = {
+      title: String(track.title || 'Untitled'),
+      artist: String(track.artist || track.rawArtist || 'SoundCloud'),
+      album: String(track.album || 'SoundCloud')
+    };
+    if (track.artwork_url) metadata.artwork = [{ src: track.artwork_url, sizes: '500x500', type: 'image/jpeg' }];
+    try {
+      mediaSession.metadata = new MediaMetadata(metadata);
+      mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    } catch (_) {}
+  }
+  function clearMediaSession() {
+    if (!mediaSession) return;
+    try { mediaSession.metadata = null; mediaSession.playbackState = 'none'; } catch (_) {}
+  }
+  function refreshMediaSession() { syncMediaSession(current, playing); }
   function rows() {
     if (page.kind === 'home') return [{ label: 'Songs', kind: 'songs' }, { label: 'Artists', kind: 'artists' }, { label: 'Albums', kind: 'albums' }, { label: 'Now Playing', kind: 'now' }];
     if (page.kind === 'artists' || page.kind === 'albums') { const key = page.kind === 'artists' ? 'artist' : 'album'; return groups(key).map(label => ({ label, kind: 'songs', filter: key, value: label })); }
@@ -24,7 +43,7 @@
   }
   function rebuild() {
     const seen = new Set(); library = cloud.filter(track => !seen.has(track.url) && seen.add(track.url)).map(track => ({ ...track, artist: track.rawArtist || 'SoundCloud' }));
-    if (current && !library.some(track => track.url === current.url)) { stop(); current = null; }
+    if (current && !library.some(track => track.url === current.url)) { stop(); current = null; clearMediaSession(); }
     cursor = Math.min(cursor, Math.max(0, rows().length - 1)); render();
   }
   function visit(next) { history.push({ page, cursor }); page = next; cursor = 0; message = ''; render(); }
@@ -69,12 +88,13 @@
     if (moved) document.dispatchEvent(new CustomEvent('music-wheel-selection', { detail: moved }));
   }
   function select() { const entry = rows()[cursor]; if (!entry) return; if (entry.track) { queue = rows().map(row => row.track); document.dispatchEvent(new CustomEvent('music-select-play')); play(entry.track, true); } else visit({ ...entry, label: entry.label }); }
-  function state(value) { playing = value; if (value) { message = ''; clearTimeout(loadTimer); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
+  function state(value) { playing = value; syncMediaSession(current, value); if (value) { message = ''; clearTimeout(loadTimer); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
   function stop() { wantsPlay = false; generation++; clearTimeout(loadTimer); widget?.pause(); state(false); }
   function failed(text) { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); state(false); message = text; render(); }
   async function play(track, autoplay = true) {
     if (!track) return; stop(); const token = generation; current = track; elapsed = 0; duration = track.duration || 0;
     lastCompletedUrl = '';
+    syncMediaSession(current, autoplay);
     if (page.kind !== 'now') { history.push({ page, cursor }); page = { kind: 'now', label: 'Now Playing' }; }
     wantsPlay = autoplay; if (wantsPlay) document.dispatchEvent(new CustomEvent('music-playback-state', { detail: 'play' })); message = 'Loading SoundCloud...'; render();
     loadTimer = setTimeout(() => { if (token === generation) failed('Press PLAY to retry'); }, 15000);
@@ -179,6 +199,8 @@
     try { navigator.mediaSession.setActionHandler('play', () => keyboardTransport('play')); } catch (_) {}
     try { navigator.mediaSession.setActionHandler('pause', () => keyboardTransport('pause')); } catch (_) {}
   }
+  document.addEventListener('visibilitychange', refreshMediaSession);
+  window.addEventListener('pageshow', refreshMediaSession);
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
   window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => {
     const version = ++profileVersion, profiles = soundCloudProfiles(doc.data());
@@ -192,7 +214,7 @@
       for (const profile of profiles) {
         if (version !== profileVersion) return;
         const sounds = await loadSoundCloudProfile(profile.url);
-        sounds.filter(sound => soundCloudUrl(sound.permalink_url)).forEach(sound => tracks.push({ url: sound.permalink_url, title: sound.title || 'Untitled', rawArtist: profile.artist || sound.user?.username || 'SoundCloud', album: 'SoundCloud', provider: 'SoundCloud', duration: sound.duration / 1000 }));
+        sounds.filter(sound => soundCloudUrl(sound.permalink_url)).forEach(sound => tracks.push({ url: sound.permalink_url, title: sound.title || 'Untitled', rawArtist: profile.artist || sound.user?.username || 'SoundCloud', album: 'SoundCloud', artwork_url: sound.artwork_url || '', provider: 'SoundCloud', duration: sound.duration / 1000 }));
       }
       if (version !== profileVersion) return;
       cloud = tracks; message = ''; rebuild();
