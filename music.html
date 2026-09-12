@@ -56,6 +56,24 @@
     pointer-events: none;
   }
 
+  .music-logo-link {
+    position: absolute;
+    z-index: 2;
+    top: clamp(44px, 5vh, 64px);
+    left: 50%;
+    display: block;
+    width: min(40vw, 580px);
+    transform: translateX(-50%);
+    line-height: 0;
+  }
+  .music-logo-link img {
+    display: block;
+    width: 100%;
+    height: auto;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
   .boombox-screen {
     position: absolute;
     /* Inner LCD opening in the 8000 × 4511 desktop illustration. */
@@ -80,6 +98,10 @@
       height: max(100vh, calc(100vw * 8000 / 4511));
     }
     .scene-art { content: url('/music-room-mobile.png'); }
+    .music-logo-link {
+      top: 48px;
+      width: min(78vw, 580px);
+    }
     .boombox-screen {
       /* Inner LCD opening in the 4511 × 8000 mobile illustration. */
       left: 46.90%;
@@ -95,6 +117,9 @@
 <main class="music-scene">
   <div class="scene-canvas">
     <img class="scene-art" src="/music-room-desktop.png" alt="A boombox on a table between two windows">
+    <a class="music-logo-link" href="/index.html" aria-label="KNOBSOCK home">
+      <img src="/knobsock-music-scene-logo.png" alt="KNOBSOCK Music">
+    </a>
     <div class="boombox-screen">
       <iframe src="/music-playlist-widget.html?boombox=1"
               title="KNOBSOCK Music player"
