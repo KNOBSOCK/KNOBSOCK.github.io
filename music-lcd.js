@@ -80,6 +80,20 @@
     let index = candidates.findIndex(track => track.url === current?.url); if (shuffle && candidates.length > 1) index = Math.max(0, index) + 1 + Math.floor(Math.random() * (candidates.length - 1)); else index += direction;
     if (index < 0 || index >= candidates.length) { render(); return; } play(candidates[index], !current || continuePlaying);
   }
+  function autoplayNext() {
+    const available = library.filter(track => soundCloudUrl(track.url));
+    const candidates = (queue.length ? queue : available).filter(track => available.some(item => item.url === track.url));
+    let index = candidates.findIndex(track => track.url === current?.url);
+    let next = index >= 0 ? candidates[index + 1] : null;
+    /* A one-track artist/album view should still continue through the profile library. */
+    if (!next) {
+      index = available.findIndex(track => track.url === current?.url);
+      next = index >= 0 ? available[index + 1] : null;
+    }
+    if (!next) { wantsPlay = false; state(false); return; }
+    wantsPlay = true;
+    play(next, true);
+  }
   function soundcloud(initialUrl) {
     if (!scPromise) scPromise = script('https://w.soundcloud.com/player/api.js').then(() => new Promise((resolve, reject) => {
       const frame = node('iframe'); frame.className = 'music-engine'; frame.title = 'SoundCloud audio engine'; frame.allow = 'autoplay'; frame.tabIndex = -1; frame.setAttribute('aria-hidden', 'true'); frame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(initialUrl) + '&auto_play=false&show_artwork=false'; document.body.append(frame); widget = SC.Widget(frame);
@@ -88,7 +102,11 @@
       widget.bind(SC.Widget.Events.PLAY, () => { if (current && wantsPlay) state(true); else widget.pause(); });
       widget.bind(SC.Widget.Events.PAUSE, () => { if (current) state(false); });
       widget.bind(SC.Widget.Events.PLAY_PROGRESS, data => { if (current) { elapsed = data.currentPosition / 1000; if (page.kind === 'now') render(); } });
-      widget.bind(SC.Widget.Events.FINISH, () => { if (current) navigate(1, true); });
+      widget.bind(SC.Widget.Events.FINISH, () => {
+        if (!current) return;
+        /* Let SoundCloud finish its own cleanup, then begin the next track as an autoplay load. */
+        setTimeout(autoplayNext, 0);
+      });
       widget.bind(SC.Widget.Events.ERROR, () => { if (current) failed('SoundCloud track unavailable'); });
     })); return scPromise;
   }
