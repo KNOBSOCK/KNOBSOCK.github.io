@@ -36,12 +36,14 @@
     inset: 0;
     display: grid;
     place-items: center;
+    overflow: hidden;
   }
 
   .scene-canvas {
     position: relative;
-    width: min(100vw, calc(100vh * 8000 / 4511));
-    height: min(100vh, calc(100vw * 4511 / 8000));
+    /* Cover the viewport, preserving the drawing's coordinate system. */
+    width: max(100vw, calc(100vh * 8000 / 4511));
+    height: max(100vh, calc(100vw * 4511 / 8000));
   }
 
   .scene-art {
@@ -56,10 +58,11 @@
 
   .boombox-screen {
     position: absolute;
-    left: 47.45%;
-    top: 28.65%;
-    width: 4.82%;
-    height: 3.78%;
+    /* Inner LCD opening in the 8000 × 4511 desktop illustration. */
+    left: 47.73%;
+    top: 28.10%;
+    width: 5.90%;
+    height: 4.10%;
     overflow: hidden;
     background: #365e2c;
   }
@@ -73,15 +76,16 @@
 
   @media (max-width: 860px) and (orientation: portrait) {
     .scene-canvas {
-      width: min(100vw, calc(100vh * 4511 / 8000));
-      height: min(100vh, calc(100vw * 8000 / 4511));
+      width: max(100vw, calc(100vh * 4511 / 8000));
+      height: max(100vh, calc(100vw * 8000 / 4511));
     }
     .scene-art { content: url('/music-room-mobile.png'); }
     .boombox-screen {
-      left: 47.4%;
-      top: 32.42%;
-      width: 10.62%;
-      height: 2.32%;
+      /* Inner LCD opening in the 4511 × 8000 mobile illustration. */
+      left: 46.90%;
+      top: 32.10%;
+      width: 10.90%;
+      height: 2.45%;
     }
   }
 </style>
@@ -98,7 +102,6 @@
     </div>
   </div>
 </main>
-</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
