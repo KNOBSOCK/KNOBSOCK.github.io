@@ -1191,7 +1191,6 @@
     if (resumeAfterDirectSeek) recoverDirectVideoAfterSeek();
   });
   videoEl.addEventListener('seeked', function () {
-    directSeekTarget = videoEl.currentTime;
     recoverDirectVideoAfterSeek();
   });
 
