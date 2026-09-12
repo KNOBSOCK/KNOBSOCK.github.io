@@ -377,6 +377,9 @@
     let directVideoWasPlaying = false;
     let directSeekTarget = 0;
     let directSeekGeneration = 0;
+    const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
+      /iP(hone|od|ad)/.test(navigator.platform) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     function resumeDirectVideoAfterSeek() {
       if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
