@@ -370,8 +370,10 @@
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
     var sceneHideTimer = null;
+    var danceResumeTimer = null;
     var isZoomed = false;
     var isOpening = false;
+    var musicIsPlaying = false;
     function popBoombox() {
       boombox.classList.remove('is-popping');
       void boombox.offsetWidth;
@@ -417,6 +419,7 @@
       if (isZoomed || isOpening) return;
       isOpening = true;
       /* Freeze the party bounce before the click's pop/zoom animation begins. */
+      clearTimeout(danceResumeTimer);
       boombox.classList.remove('is-playing');
       var source = zoomSource();
       function start() { beginZoom(source); }
@@ -445,6 +448,10 @@
         scene.classList.remove('is-zooming');
         zoom.classList.remove('is-closing');
       }, 90);
+      clearTimeout(danceResumeTimer);
+      danceResumeTimer = setTimeout(function () {
+        if (!isZoomed && musicIsPlaying) boombox.classList.add('is-playing');
+      }, 100);
       setTimeout(function () { zoom.hidden = true; }, 560);
     }
     function setControlPressed(control, pressed) {
@@ -600,7 +607,8 @@
       }
       document.addEventListener('music-playback-state', function (event) {
         setPlaybackAction(event.detail);
-        boombox.classList.toggle('is-playing', event.detail === 'play');
+        musicIsPlaying = event.detail === 'play';
+        if (!isZoomed && !isOpening) boombox.classList.toggle('is-playing', musicIsPlaying);
       });
       Array.prototype.slice.call(actionBar.querySelectorAll('.music-action-hit')).forEach(function (button) {
         var action = button.getAttribute('data-action');
