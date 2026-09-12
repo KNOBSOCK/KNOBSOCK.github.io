@@ -686,6 +686,9 @@
       document.addEventListener('music-select-play', function () {
         playButtonSound('play');
       });
+      document.addEventListener('music-key-transport', function (event) {
+        playButtonSound(event.detail);
+      });
       var actionArtSources = {
         '': '/music-NoneClicked.png',
         play: '/music-PlayButtonClicked.png',
