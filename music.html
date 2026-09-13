@@ -33,6 +33,8 @@
 <link rel="preload" as="image" href="/music-boombox-zoom-mobile-frame.png">
 <link rel="preload" as="image" href="/music-room-desktop-no-boombox.png">
 <link rel="preload" as="image" href="/music-room-mobile-no-boombox.png">
+<link rel="preload" as="image" href="/music-room-desktop-night.png">
+<link rel="preload" as="image" href="/music-room-mobile-night.png">
 <link rel="preload" as="image" href="/music-button-artist.png">
 <link rel="preload" as="image" href="/music-button-album.png">
 <link rel="preload" as="image" href="/music-button-shuffle.png">
@@ -84,6 +86,88 @@
     -webkit-user-drag: none;
     user-select: none;
     pointer-events: none;
+  }
+  .music-scene .scene-art--room {
+    position: absolute;
+    inset: 0;
+    transition: opacity 0.22s ease;
+  }
+  .music-scene .scene-art--night {
+    opacity: 0;
+  }
+  .music-scene.is-playing .scene-art--day {
+    opacity: 0;
+  }
+  .music-scene.is-playing .scene-art--night {
+    opacity: 1;
+  }
+
+  /* A visual-only layer: all controls remain directly clickable beneath it. */
+  .club-lights {
+    position: fixed;
+    z-index: 30;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.08s linear, visibility 0s linear 0.08s;
+  }
+  .club-lights img {
+    position: absolute;
+    top: -3vh;
+    height: 126vh;
+    width: auto;
+    max-width: none;
+    display: block;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    mix-blend-mode: screen;
+    opacity: 0;
+    transform-origin: 50% 0;
+    animation: club-beam-pulse var(--pulse-duration, 1.8s) linear var(--pulse-delay, 0s) infinite paused;
+  }
+  .music-is-playing .club-lights {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .music-is-playing .club-lights img {
+    animation-play-state: running;
+  }
+  .club-lights .club-light--blue {
+    left: -5vw;
+    --pulse-duration: 1.72s;
+    --pulse-delay: -0.18s;
+    --beam-opacity: 0.46;
+    --beam-angle: -2deg;
+  }
+  .club-lights .club-light--green {
+    left: 19vw;
+    --pulse-duration: 2.08s;
+    --pulse-delay: -0.74s;
+    --beam-opacity: 0.42;
+    --beam-angle: 1.5deg;
+  }
+  .club-lights .club-light--purple {
+    right: 19vw;
+    --pulse-duration: 1.91s;
+    --pulse-delay: -1.08s;
+    --beam-opacity: 0.43;
+    --beam-angle: -1deg;
+  }
+  .club-lights .club-light--red {
+    right: -5vw;
+    --pulse-duration: 2.23s;
+    --pulse-delay: -0.43s;
+    --beam-opacity: 0.34;
+    --beam-angle: 2deg;
+  }
+  @keyframes club-beam-pulse {
+    0%, 32%, 100% { opacity: 0; transform: rotate(var(--beam-angle)) scaleX(0.94); }
+    6% { opacity: var(--beam-opacity); transform: rotate(var(--beam-angle)) scaleX(1); }
+    18% { opacity: 0; transform: rotate(var(--beam-angle)) scaleX(1.06); }
   }
 
   .music-logo-link {
@@ -154,6 +238,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .boombox-overlay.is-playing img { animation: none; }
+    .club-lights img { animation: none; }
   }
 
   .music-zoom {
@@ -306,7 +391,16 @@
       height: max(100vh, calc(100vw * 8000 / 4511));
       transform: translate(-50%, -50%);
     }
-    .music-scene .scene-art { content: url('/music-room-mobile-no-boombox.png'); }
+    .music-scene .scene-art--day { content: url('/music-room-mobile-no-boombox.png'); }
+    .music-scene .scene-art--night { content: url('/music-room-mobile-night.png'); }
+    .club-lights img {
+      top: -4vh;
+      height: 184vh;
+    }
+    .club-lights .club-light--blue { left: -16vw; }
+    .club-lights .club-light--green { left: 12vw; }
+    .club-lights .club-light--purple { right: 12vw; }
+    .club-lights .club-light--red { right: -16vw; }
     .music-logo-link {
       top: 3.2%;
       width: 72%;
@@ -339,7 +433,8 @@
 
 <main class="music-scene" id="musicScene">
   <div class="scene-canvas">
-    <img class="scene-art" src="/music-room-desktop-no-boombox.png" alt="A room with a table between two windows">
+    <img class="scene-art scene-art--room scene-art--day" src="/music-room-desktop-no-boombox.png" alt="A room with a table between two windows">
+    <img class="scene-art scene-art--room scene-art--night" src="/music-room-desktop-night.png" alt="">
     <button class="boombox-overlay" id="boomboxOverlay" type="button" aria-label="Animated boombox">
       <img src="/music-boombox-overlay.png" alt="">
     </button>
@@ -384,6 +479,13 @@
     </div>
   </div>
   <button class="music-zoom-close" id="musicZoomClose" type="button" aria-label="Zoom out to the full music room"></button>
+</div>
+
+<div class="club-lights" aria-hidden="true">
+  <img class="club-light--blue" src="/music-club-laser-blue.png" alt="">
+  <img class="club-light--green" src="/music-club-laser-green.png" alt="">
+  <img class="club-light--purple" src="/music-club-laser-purple.png" alt="">
+  <img class="club-light--red" src="/music-club-laser-red.png" alt="">
 </div>
 
 <script>
@@ -790,6 +892,8 @@
       document.addEventListener('music-playback-state', function (event) {
         setPlaybackAction(event.detail);
         musicIsPlaying = event.detail === 'play';
+        scene.classList.toggle('is-playing', musicIsPlaying);
+        document.body.classList.toggle('music-is-playing', musicIsPlaying);
         if (window.parent !== window) {
           window.parent.postMessage({ type: 'knobsock-music-state', playing: musicIsPlaying }, window.location.origin);
         }
