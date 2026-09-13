@@ -115,8 +115,9 @@
   }
   .club-lights img {
     position: absolute;
-    top: -3vh;
-    height: 126vh;
+    /* Deliberately overscan the viewport so neither end of a beam is visible. */
+    top: -22vh;
+    height: 174vh;
     width: auto;
     max-width: none;
     display: block;
@@ -135,6 +136,12 @@
   }
   .music-is-playing .club-lights img {
     animation-play-state: running;
+  }
+  /* The room owns the club lighting; the close-up stays clean and usable. */
+  .music-zoom:not([hidden]) ~ .club-lights {
+    opacity: 0;
+    visibility: hidden;
+    transition-delay: 0s;
   }
   .club-lights .club-light--blue {
     left: -5vw;
@@ -394,8 +401,8 @@
     .music-scene .scene-art--day { content: url('/music-room-mobile-no-boombox.png'); }
     .music-scene .scene-art--night { content: url('/music-room-mobile-night.png'); }
     .club-lights img {
-      top: -4vh;
-      height: 184vh;
+      top: -30vh;
+      height: 244vh;
     }
     .club-lights .club-light--blue { left: -16vw; }
     .club-lights .club-light--green { left: 12vw; }
