@@ -123,6 +123,7 @@
       if (token !== generation || !wantsPlay || progressSeen) { clearRetries(); return; }
       if (Date.now() - playRequestedAt > 9000) {
         clearRetries();
+        if (player) player.failed = true;
         message = 'Press PLAY to retry'; render();
         return;
       }
@@ -137,10 +138,10 @@
     return true;
   }
   function setPlayer(entry) { if (!entry) return; player = entry; widget = entry.widget; }
-  function deckFind(url) { return url ? deck.find(entry => entry.alive && entry.ready && entry.url === url) : null; }
+  function deckFind(url) { return url ? deck.find(entry => entry.alive && entry.ready && !entry.failed && entry.url === url) : null; }
   function deckLoad(entry, url) {
     if (!entry || !url) return;
-    entry.url = url; entry.ready = false;
+    entry.url = url; entry.ready = false; entry.failed = false;
     try { entry.widget.load(url, { auto_play: false, show_artwork: false, callback: () => { if (entry.url === url) entry.ready = true; } }); }
     catch (_) { entry.url = ''; }
   }
@@ -182,7 +183,7 @@
     }, 260);
   }
   function stop() { wantsPlay = false; generation++; clearTimeout(loadTimer); clearRetries(); try { widget?.pause(); widget?.seekTo(0); } catch (_) {} state(false); }
-  function failed(text) { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); state(false); message = text; render(); }
+  function failed(text) { wantsPlay = false; clearTimeout(loadTimer); if (player) player.failed = true; widget?.pause(); state(false); message = text; render(); }
   async function play(track, autoplay = true) {
     if (!track) return; stop(); ignoreProgressUntil = Date.now() + 500; const token = generation; current = track; elapsed = 0; duration = track.duration || 0;
     lastCompletedUrl = '';
@@ -213,6 +214,12 @@
   function resume() { wantsPlay = true; if (!current) { const entry = rows()[cursor]; queue = library.slice(); play(entry?.track || library[0]); return; } if (message || scUrl !== current.url) { play(current); return; } widget?.play(); ensurePlayback(generation); }
   function handleShellCommand(command) {
     const action = String(command.action || '');
+    if (action === 'preload-track') {
+      const url = soundCloudUrl(command.url);
+      const track = url ? library.find(item => item.url === url) : null;
+      if (track && !playing && !wantsPlay) preload(track);
+      return;
+    }
     if (action === 'play-track') {
       const url = soundCloudUrl(command.url);
       if (!url) return;

@@ -369,6 +369,13 @@
     if (index !== -1) setActiveTrack(index);
     const resolved = artistForUrl(currentUrl);
     if (currentTitle && resolved && resolved !== currentArtist) setTrackTitle(currentTitle, resolved);
+    warmUpTrack();
+  }
+
+  function warmUpTrack() {
+    if (isPlaying || currentUrl) return;
+    const sound = sounds[currentIndex];
+    if (sound) sendToSiteShell({ type: "knobsock-front-widget-command", action: "preload-track", url: sound.permalink_url });
   }
 
   function bindWidgetEvents() {

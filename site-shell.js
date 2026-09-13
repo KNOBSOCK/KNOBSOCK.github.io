@@ -367,7 +367,7 @@ params.set('shell-version', '20260913-11');
 
     if (event.data.type === 'knobsock-front-widget-command') {
       const action = String(event.data.action || '');
-      if (!['play', 'pause', 'toggle', 'play-track', 'seek'].includes(action)) return;
+      if (!['play', 'pause', 'toggle', 'play-track', 'preload-track', 'seek'].includes(action)) return;
       const command = { action };
       if (event.data.url) command.url = String(event.data.url);
       if (Number.isFinite(Number(event.data.fraction))) {
