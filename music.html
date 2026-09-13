@@ -31,6 +31,7 @@
 <link rel="preload" as="image" href="/music-boombox-zoom-mobile.png">
 <link rel="preload" as="image" href="/music-boombox-zoom-desktop-frame.png">
 <link rel="preload" as="image" href="/music-boombox-zoom-mobile-frame.png">
+<link rel="preload" as="image" href="/music-boombox-zoom-mobile-night.png">
 <link rel="preload" as="image" href="/music-room-desktop-no-boombox.png">
 <link rel="preload" as="image" href="/music-room-mobile-no-boombox.png">
 <link rel="preload" as="image" href="/music-room-desktop-night.png">
@@ -630,7 +631,12 @@
       boombox.classList.add('is-popping');
     }
     function zoomSource() {
-      return mobileQuery.matches ? '/music-boombox-zoom-mobile-frame.png' : '/music-boombox-zoom-desktop-frame.png';
+      if (!mobileQuery.matches) return '/music-boombox-zoom-desktop-frame.png';
+      return musicIsPlaying ? '/music-boombox-zoom-mobile-night.png' : '/music-boombox-zoom-mobile-frame.png';
+    }
+    function syncZoomArt() {
+      var source = zoomSource();
+      if (zoomArt.getAttribute('src') !== source) zoomArt.src = source;
     }
     function playZoomSound() {
       playEffect('woosh', 0.7);
@@ -926,6 +932,7 @@
         scene.classList.toggle('is-playing', musicIsPlaying);
         document.body.classList.toggle('music-is-playing', musicIsPlaying);
         setClubLightBeat(musicIsPlaying);
+        if (isZoomed) syncZoomArt();
         if (window.parent !== window) {
           window.parent.postMessage({ type: 'knobsock-music-state', playing: musicIsPlaying }, window.location.origin);
         }
@@ -973,11 +980,11 @@
     document.addEventListener('music-shell-open', openZoom);
     mobileQuery.addEventListener('change', function () {
       if (isZoomed) {
-        zoomArt.src = zoomSource();
+        syncZoomArt();
         setCameraAnchor();
       }
     });
-    ['/music-boombox-zoom-desktop-frame.png', '/music-boombox-zoom-mobile-frame.png'].forEach(function (source) {
+    ['/music-boombox-zoom-desktop-frame.png', '/music-boombox-zoom-mobile-frame.png', '/music-boombox-zoom-mobile-night.png'].forEach(function (source) {
       var image = new Image();
       image.src = source;
     });
@@ -986,7 +993,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="/music-lcd.js?v=20260913-8"></script>
+<script src="/music-lcd.js?v=20260913-9"></script>
 <script>
 (function () {
   var firebaseConfig = {
