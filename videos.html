@@ -272,11 +272,24 @@
     function go() {
       if (navigated) return;
       navigated = true;
-      window.location.href = href;
+      navigateAfterEffect(href);
     }
     audio.addEventListener('ended', go);
     setTimeout(go, 1800);
     audio.play().catch(go);
+  }
+
+  function navigateAfterEffect(href) {
+    /* The app shell owns the address bar.  Let it navigate only after this
+       page has had time to play the button effect and swap its artwork. */
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'knobsock-shell-navigate-after-effect',
+        href: href
+      }, window.location.origin);
+      return;
+    }
+    window.location.href = href;
   }
 
   function renderCreators(order, links, photos, sounds, photos2) {
@@ -292,9 +305,9 @@
       var photo2 = (photos2[name] || '').trim();
       var extra = photo2 ? ' data-photo2="' + escapeHtml(photo2) + '"' : '';
       if (!link && !sound) return '<span class="tv-btn tv-btn-static">' + img + '</span>';
-      if (link && !sound) return '<a class="tv-btn" href="' + escapeHtml(link) + '"' + extra + '>' + img + '</a>';
+      if (link && !sound) return '<a class="tv-btn" href="' + escapeHtml(link) + '"' + (photo2 ? ' data-shell-navigate-after-effect' : '') + extra + '>' + img + '</a>';
       if (sound && !link) return '<button type="button" class="tv-btn" data-sound="' + escapeHtml(sound) + '"' + extra + '>' + img + '</button>';
-      return '<a class="tv-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '"' + extra + '>' + img + '</a>';
+      return '<a class="tv-btn" href="' + escapeHtml(link) + '" data-sound="' + escapeHtml(sound) + '" data-shell-navigate-after-effect' + extra + '>' + img + '</a>';
     }).join('');
 
     slot.querySelectorAll('.tv-btn[data-sound], .tv-btn[data-photo2]').forEach(function (el) {
@@ -313,7 +326,7 @@
           if (soundSrc) {
             playThenNavigate(soundSrc, href);
           } else {
-            setTimeout(function () { window.location.href = href; }, 700);
+            setTimeout(function () { navigateAfterEffect(href); }, 700);
           }
         } else if (soundSrc) {
           var audio = new Audio(soundSrc);

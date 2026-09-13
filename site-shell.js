@@ -84,7 +84,7 @@
     const pathname = routeAliases[url.pathname] || url.pathname;
     const params = new URLSearchParams(url.search);
     params.set('site-content', '1');
-    params.set('shell-version', '20260912-10');
+    params.set('shell-version', '20260913-1');
     const query = params.toString();
     return `${pathname}${query ? `?${query}` : ''}${url.hash}`;
   }
@@ -219,6 +219,10 @@
 
     if (url.origin !== origin) return;
 
+    /* Effect buttons (such as Hamburger News) animate and play sound in the
+       routed page before asking the shell to change routes. */
+    if (link.hasAttribute('data-shell-navigate-after-effect')) return;
+
     event.preventDefault();
     event.stopPropagation();
     navigate(publicRoute(url), false, false);
@@ -342,6 +346,19 @@
 
   function receiveMusicMessage(event) {
     if (event.origin !== origin || !event.data || typeof event.data !== 'object') return;
+
+    if (event.data.type === 'knobsock-shell-navigate-after-effect') {
+      if (event.source !== routeFrame.contentWindow) return;
+      let destination;
+      try {
+        destination = new URL(String(event.data.href || ''), origin);
+      } catch (_) {
+        return;
+      }
+      if (destination.origin !== origin) return;
+      navigate(publicRoute(destination), false, false);
+      return;
+    }
 
     if (event.data.type === 'knobsock-front-widget-ready') {
       broadcastMusicState();
@@ -584,7 +601,7 @@
 
   attachFrame(routeFrame);
   attachFrame(musicFrame);
-  musicFrame.src = '/music.html?site-content=1&shell-version=20260912-10';
+  musicFrame.src = '/music.html?site-content=1&shell-version=20260913-1';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';
