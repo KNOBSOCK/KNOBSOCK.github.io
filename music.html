@@ -91,7 +91,8 @@
   .music-scene .scene-art--room {
     position: absolute;
     inset: 0;
-    transition: opacity 0.22s ease;
+    /* Let the room lights dim and rise instead of cutting between scenes. */
+    transition: opacity 0.62s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .music-scene .scene-art--night {
     opacity: 0;
@@ -272,6 +273,13 @@
     z-index: 2;
     pointer-events: none;
   }
+  .music-zoom-night-art {
+    opacity: 0;
+    transition: opacity 0.62s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .music-zoom.is-night-mode .music-zoom-night-art {
+    opacity: 1;
+  }
   .music-zoom > .scene-canvas > .music-lcd {
     z-index: 1;
     opacity: 0;
@@ -451,6 +459,7 @@
       <div class="lcd-inner"><header class="lcd-header"><button id="lcdBack" aria-label="Back to library">‹</button><span id="lcdTitle">KNOBSOCK</span><span id="lcdState">■</span></header><div id="lcdBody" class="lcd-body"></div><footer id="lcdFooter">Loading library...</footer></div>
     </section>
     <img class="scene-art music-zoom-frame" id="musicZoomArt" src="/music-boombox-zoom-desktop-frame.png" alt="Close-up of a boombox">
+    <img class="scene-art music-zoom-frame music-zoom-night-art" id="musicZoomNightArt" src="/music-boombox-zoom-mobile-night.png" alt="">
     <div class="music-controls" aria-label="Boombox controls">
       <button class="music-control music-control--artist" type="button" data-control="artist" aria-label="Artist view">
         <img src="/music-button-artist.png" data-idle-src="/music-button-artist.png" data-active-src="/music-button-artist-active.png" alt="">
@@ -495,6 +504,7 @@
     var scene = document.getElementById('musicScene');
     var zoom = document.getElementById('musicZoom');
     var zoomArt = document.getElementById('musicZoomArt');
+    var zoomNightArt = document.getElementById('musicZoomNightArt');
     var zoomClose = document.getElementById('musicZoomClose');
     var controls = Array.prototype.slice.call(document.querySelectorAll('.music-control'));
     var tracksWheel = document.getElementById('musicTracksWheel');
@@ -586,7 +596,7 @@
       playEffect('buttonclick', 0.7);
       if (navigator.vibrate) navigator.vibrate(8);
     }
-    if (!boombox || !scene || !zoom || !zoomArt || !zoomClose) return;
+    if (!boombox || !scene || !zoom || !zoomArt || !zoomNightArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
     var sceneHideTimer = null;
@@ -631,12 +641,12 @@
       boombox.classList.add('is-popping');
     }
     function zoomSource() {
-      if (!mobileQuery.matches) return '/music-boombox-zoom-desktop-frame.png';
-      return musicIsPlaying ? '/music-boombox-zoom-mobile-night.png' : '/music-boombox-zoom-mobile-frame.png';
+      return mobileQuery.matches ? '/music-boombox-zoom-mobile-frame.png' : '/music-boombox-zoom-desktop-frame.png';
     }
     function syncZoomArt() {
       var source = zoomSource();
       if (zoomArt.getAttribute('src') !== source) zoomArt.src = source;
+      zoom.classList.toggle('is-night-mode', mobileQuery.matches && musicIsPlaying);
     }
     function playZoomSound() {
       playEffect('woosh', 0.7);
@@ -671,6 +681,7 @@
       void zoom.offsetWidth;
       zoom.classList.remove('is-closing');
       zoom.classList.add('is-open');
+      syncZoomArt();
       scene.classList.add('is-zooming');
       clearTimeout(sceneHideTimer);
       scene.style.visibility = '';
@@ -706,6 +717,7 @@
       }
       playZoomSound();
       zoom.classList.remove('is-open');
+      zoom.classList.remove('is-night-mode');
       zoom.classList.add('is-closing');
       clearTimeout(sceneHideTimer);
       scene.style.visibility = '';
@@ -993,7 +1005,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="/music-lcd.js?v=20260913-9"></script>
+<script src="/music-lcd.js?v=20260913-10"></script>
 <script>
 (function () {
   var firebaseConfig = {
