@@ -84,7 +84,7 @@
     const pathname = routeAliases[url.pathname] || url.pathname;
     const params = new URLSearchParams(url.search);
     params.set('site-content', '1');
-params.set('shell-version', '20260913-6');
+params.set('shell-version', '20260913-7');
     const query = params.toString();
     return `${pathname}${query ? `?${query}` : ''}${url.hash}`;
   }
@@ -601,7 +601,7 @@ params.set('shell-version', '20260913-6');
 
   attachFrame(routeFrame);
   attachFrame(musicFrame);
-musicFrame.src = '/music.html?site-content=1&shell-version=20260913-6';
+musicFrame.src = '/music.html?site-content=1&shell-version=20260913-7';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';

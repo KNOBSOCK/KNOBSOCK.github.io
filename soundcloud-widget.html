@@ -240,6 +240,8 @@
   let isPlaying = false;
   let currentDuration = 0;
   let currentUrl = '';
+  let profileUrls = [];
+  let catalogStarted = false;
 
   function sendToSiteShell(message) {
     if (window.parent === window) return;
@@ -294,16 +296,49 @@
     playBtn.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
   }
 
+  function soundDate(sound) {
+    const parsed = Date.parse(sound && (sound.created_at || sound.createdAt || sound.publish_date) || '');
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function loadProfileSounds(profileUrl) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (items) => { if (!settled) { settled = true; resolve(items || []); } };
+      const timer = setTimeout(() => finish([]), 20000);
+      try {
+        widget.load(profileUrl, {
+          auto_play: false,
+          show_artwork: false,
+          callback: () => widget.getSounds((items) => { clearTimeout(timer); finish(items); })
+        });
+      } catch (_) { clearTimeout(timer); finish([]); }
+    });
+  }
+
+  async function loadAllProfileSounds() {
+    const merged = [];
+    for (const profileUrl of profileUrls) {
+      const items = await loadProfileSounds(profileUrl);
+      items.forEach((sound) => {
+        if (sound && sound.permalink_url) merged.push(sound);
+      });
+    }
+    const seen = new Set();
+    sounds = merged.filter((sound) => !seen.has(sound.permalink_url) && seen.add(sound.permalink_url));
+    sounds.sort((a, b) => soundDate(b) - soundDate(a) || String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' }));
+    renderTrackList();
+    const index = sounds.findIndex((sound) => sound.permalink_url === currentUrl);
+    if (index !== -1) setActiveTrack(index);
+  }
+
   function bindWidgetEvents() {
     widget.bind(SC.Widget.Events.READY, () => {
       playBtn.disabled = false;
-
-      widget.getSounds((allSounds) => {
-        sounds = allSounds;
-        renderTrackList();
-        const index = sounds.findIndex(sound => sound.permalink_url === currentUrl);
-        if (index !== -1) setActiveTrack(index);
-      });
+      if (!catalogStarted) {
+        catalogStarted = true;
+        loadAllProfileSounds();
+      }
 
       widget.getCurrentSound((sound) => {
         if (sound) {
@@ -420,7 +455,8 @@
     setTrackTitle("No SoundCloud account linked yet.");
   }
 
-  function startPlayer(profileUrl) {
+  function startPlayer(profileUrl, profiles) {
+    profileUrls = profiles;
     iframeEl.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(profileUrl) + "&auto_play=false&show_artwork=false";
     widget = SC.Widget(iframeEl);
     bindWidgetEvents();
@@ -431,7 +467,7 @@
     const profiles = data && Array.isArray(data.profileUrls) && data.profileUrls.length ? data.profileUrls : [data && data.profileUrl];
     const profileUrl = profiles.find((url) => !!url);
     if (profileUrl) {
-      startPlayer(profileUrl);
+      startPlayer(profileUrl, profiles.filter((url) => !!url));
     } else {
       showNoAccountState();
     }

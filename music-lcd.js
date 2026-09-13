@@ -21,7 +21,10 @@
     if (window.parent === window) return;
     try { window.parent.postMessage(message, window.location.origin); } catch (_) {}
   }
-  function groups(key) { return [...new Set(library.map(track => track[key]))].sort((a, b) => a.localeCompare(b)); }
+  function alphabetical(items, field) {
+    return items.slice().sort((a, b) => String(field ? a[field] : a).localeCompare(String(field ? b[field] : b), undefined, { sensitivity: 'base', numeric: true }));
+  }
+  function groups(key) { return alphabetical([...new Set(library.map(track => track[key]))]); }
   function syncMediaSession(track, isPlaying) {
     if (!track) return;
     const metadata = {
@@ -45,7 +48,7 @@
   function rows() {
     if (page.kind === 'home') return [{ label: 'Songs', kind: 'songs' }, { label: 'Artists', kind: 'artists' }, { label: 'Albums', kind: 'albums' }, { label: 'Now Playing', kind: 'now' }];
     if (page.kind === 'artists' || page.kind === 'albums') { const key = page.kind === 'artists' ? 'artist' : 'album'; return groups(key).map(label => ({ label, kind: 'songs', filter: key, value: label })); }
-    return page.kind === 'songs' ? library.filter(track => !page.filter || track[page.filter] === page.value).map(track => ({ label: track.title, track })) : [];
+    return page.kind === 'songs' ? alphabetical(library.filter(track => !page.filter || track[page.filter] === page.value), 'title').map(track => ({ label: track.title, track })) : [];
   }
   function rebuild() {
     const seen = new Set(); library = cloud.filter(track => !seen.has(track.url) && seen.add(track.url)).map(track => ({ ...track, artist: track.rawArtist || 'SoundCloud' }));
@@ -197,6 +200,18 @@
       return true;
     });
   }
+  function configuredAlbums(data) {
+    const seen = new Set();
+    return (data && Array.isArray(data.albums) ? data.albums : []).map(album => {
+      const name = String(album && album.name || '').trim();
+      const tracks = Array.isArray(album && album.tracks) ? album.tracks.map(soundCloudUrl).filter(Boolean) : [];
+      return { name, tracks };
+    }).filter(album => album.name && !seen.has(album.name.toLocaleLowerCase()) && seen.add(album.name.toLocaleLowerCase()));
+  }
+  function albumForTrack(url, albums) {
+    const match = albums.find(album => album.tracks.includes(url));
+    return match ? match.name : 'SoundCloud';
+  }
   function loadSoundCloudProfile(url) {
     return new Promise(resolve => {
       if (!widget) { resolve([]); return; }
@@ -249,7 +264,7 @@
   window.addEventListener('pageshow', refreshMediaSession);
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
   window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => {
-    const version = ++profileVersion, profiles = soundCloudProfiles(doc.data());
+    const config = doc.data(), version = ++profileVersion, profiles = soundCloudProfiles(config), albums = configuredAlbums(config);
     cloud = []; message = profiles.length ? 'Loading SoundCloud...' : ''; rebuild();
     if (!profiles.length) return;
     try {
@@ -260,7 +275,10 @@
       for (const profile of profiles) {
         if (version !== profileVersion) return;
         const sounds = await loadSoundCloudProfile(profile.url);
-        sounds.filter(sound => soundCloudUrl(sound.permalink_url)).forEach(sound => tracks.push({ url: sound.permalink_url, title: sound.title || 'Untitled', rawArtist: profile.artist || sound.user?.username || 'SoundCloud', album: 'SoundCloud', artwork_url: sound.artwork_url || '', provider: 'SoundCloud', duration: sound.duration / 1000 }));
+        sounds.filter(sound => soundCloudUrl(sound.permalink_url)).forEach(sound => {
+          const url = soundCloudUrl(sound.permalink_url);
+          tracks.push({ url, title: sound.title || 'Untitled', rawArtist: profile.artist || sound.user?.username || 'SoundCloud', album: albumForTrack(url, albums), artwork_url: sound.artwork_url || '', provider: 'SoundCloud', duration: sound.duration / 1000 });
+        });
       }
       if (version !== profileVersion) return;
       cloud = tracks; message = ''; rebuild();

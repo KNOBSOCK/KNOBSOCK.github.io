@@ -455,6 +455,15 @@
     gap: 8px;
   }
   .soundcloud-profile-fields input { min-width: 0; }
+  .soundcloud-album-fields {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .soundcloud-album-fields input,
+  .soundcloud-album-fields textarea { min-width: 0; }
+  .soundcloud-album-fields textarea { min-height: 76px; resize: vertical; }
   .soundcloud-profile-number {
     flex: none;
     width: 22px;
@@ -877,12 +886,22 @@
         <button type="button" class="btn" id="addSoundcloudBtn">+ Add Profile</button>
       </div>
       <div class="live-card-body" style="max-height:none;">
-        <div class="note">Add one profile per row and save. Every profile's tracks are merged into the Music-page LCD automatically. Set an optional artist name to replace the profile username in the LCD. The homepage Listen widget continues to use the first saved profile.</div>
+        <div class="note">Add one profile per row and save. Every profile's tracks are merged into the Music-page LCD and homepage Listen widget automatically. Set an optional artist name to replace the profile username in the LCD.</div>
         <div id="soundcloudProfilesList" class="soundcloud-profile-list"></div>
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="saveSoundcloudBtn">Save Profiles</button>
         </div>
         <div id="soundcloudStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Albums</h2>
+        <button type="button" class="btn" id="addSoundcloudAlbumBtn">+ Add Album</button>
+      </div>
+      <div class="live-card-body" style="max-height:none;">
+        <div class="note">Make an album by naming it and pasting its individual SoundCloud track links, one link per line. Tracks not assigned here remain under SoundCloud.</div>
+        <div id="soundcloudAlbumsList" class="soundcloud-profile-list"></div>
       </div>
     </div>
   </div>
@@ -2160,10 +2179,13 @@
 
   function initSoundcloudAccountEditor() {
     const listRoot = document.getElementById('soundcloudProfilesList');
+    const albumsRoot = document.getElementById('soundcloudAlbumsList');
     const addBtn = document.getElementById('addSoundcloudBtn');
+    const addAlbumBtn = document.getElementById('addSoundcloudAlbumBtn');
     const saveBtn = document.getElementById('saveSoundcloudBtn');
     const statusEl = document.getElementById('soundcloudStatus');
     let profiles = [];
+    let albums = [];
 
     function setStatus(text, isError) {
       statusEl.textContent = text;
@@ -2188,6 +2210,21 @@
       }).filter(function (profile) {
         if (!profile.url || seen.has(profile.url)) return false;
         seen.add(profile.url);
+        return true;
+      });
+    }
+
+    function albumValues(data) {
+      const seen = new Set();
+      return (data && Array.isArray(data.albums) ? data.albums : []).map(function (album) {
+        return {
+          name: String(album && album.name || '').trim(),
+          tracks: Array.isArray(album && album.tracks) ? album.tracks.map(String).filter(Boolean) : []
+        };
+      }).filter(function (album) {
+        const key = album.name.toLocaleLowerCase();
+        if (!album.name || seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
     }
@@ -2222,6 +2259,35 @@
       });
     }
 
+    function renderAlbums() {
+      if (!albums.length) {
+        albumsRoot.innerHTML = '<div class="note" style="margin:0;">No albums yet — click + Add Album to begin.</div>';
+        return;
+      }
+      albumsRoot.innerHTML = albums.map(function (album, index) {
+        return '<div class="row soundcloud-profile-row" data-album-index="' + index + '">' +
+          '<span class="soundcloud-profile-number">' + (index + 1) + '</span>' +
+          '<div class="soundcloud-album-fields">' +
+            '<input type="text" class="album-name-input" aria-label="Album name" placeholder="Album name" value="' + escapeAttr(album.name) + '">' +
+            '<textarea class="album-tracks-input" aria-label="SoundCloud track links, one per line" placeholder="SoundCloud track links — one per line">' + escapeAttr(album.tracks.join('\n')) + '</textarea>' +
+          '</div>' +
+          '<button type="button" class="icon-btn" data-remove-soundcloud-album="' + index + '" aria-label="Remove album">×</button>' +
+        '</div>';
+      }).join('');
+      Array.prototype.forEach.call(albumsRoot.querySelectorAll('.soundcloud-profile-row'), function (row, index) {
+        const nameInput = row.querySelector('.album-name-input');
+        const tracksInput = row.querySelector('.album-tracks-input');
+        nameInput.addEventListener('input', function () { albums[index].name = nameInput.value; });
+        tracksInput.addEventListener('input', function () { albums[index].tracks = tracksInput.value.split(/\r?\n/).map(function (url) { return url.trim(); }).filter(Boolean); });
+      });
+      Array.prototype.forEach.call(albumsRoot.querySelectorAll('[data-remove-soundcloud-album]'), function (button) {
+        button.addEventListener('click', function () {
+          albums.splice(Number(button.getAttribute('data-remove-soundcloud-album')), 1);
+          renderAlbums();
+        });
+      });
+    }
+
     addBtn.addEventListener('click', function () {
       profiles.push({ url: '', artist: '' });
       render();
@@ -2229,9 +2295,17 @@
       if (inputs.length) inputs[inputs.length - 1].focus();
     });
 
+    addAlbumBtn.addEventListener('click', function () {
+      albums.push({ name: '', tracks: [] });
+      renderAlbums();
+      const inputs = albumsRoot.querySelectorAll('.album-name-input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
+
     saveBtn.addEventListener('click', function () {
       const rows = listRoot.querySelectorAll('.soundcloud-profile-row');
       const normalized = [];
+      const normalizedAlbums = [];
       let invalidInput = null;
       Array.prototype.forEach.call(rows, function (row) {
         const raw = row.querySelector('.profile-url-input').value.trim();
@@ -2246,6 +2320,16 @@
         setStatus('Couldn\'t read one of those as a SoundCloud profile — use soundcloud.com/yourname or just the handle.', true);
         return;
       }
+      const seenAlbumNames = new Set();
+      Array.prototype.forEach.call(albumsRoot.querySelectorAll('.soundcloud-profile-row'), function (row) {
+        const name = row.querySelector('.album-name-input').value.trim();
+        const key = name.toLocaleLowerCase();
+        const tracks = row.querySelector('.album-tracks-input').value.split(/\r?\n/).map(function (url) { return url.trim(); }).filter(Boolean);
+        if (name && !seenAlbumNames.has(key)) {
+          seenAlbumNames.add(key);
+          normalizedAlbums.push({ name: name, tracks: Array.from(new Set(tracks)) });
+        }
+      });
       saveBtn.disabled = true;
       setStatus('Saving…');
       const urls = normalized.map(function (profile) { return profile.url; });
@@ -2253,12 +2337,15 @@
       SOUNDCLOUD_REF.set({
         profileUrls: urls,
         profileArtists: artists,
+        albums: normalizedAlbums,
         /* Keep the first profile for the existing homepage widgets. */
         profileUrl: urls[0] || '',
         profileArtist: artists[0] || ''
       }, { merge: true }).then(function () {
         profiles = normalized.slice();
+        albums = normalizedAlbums.slice();
         render();
+        renderAlbums();
         setStatus('Saved — the Music-page LCD will merge tracks from all profiles.');
         statusEl.style.color = 'var(--accent)';
       }).catch(function (err) {
@@ -2270,11 +2357,15 @@
     });
 
     SOUNDCLOUD_REF.get().then(function (doc) {
-      profiles = profileValues(doc.exists ? doc.data() : null);
+      const data = doc.exists ? doc.data() : null;
+      profiles = profileValues(data);
+      albums = albumValues(data);
       render();
+      renderAlbums();
     }).catch(function (err) {
       setStatus('Could not load SoundCloud profiles: ' + (err && err.message ? err.message : 'unknown error'), true);
       render();
+      renderAlbums();
     });
   }
 
