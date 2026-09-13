@@ -127,15 +127,15 @@
     mix-blend-mode: screen;
     opacity: 0;
     transform-origin: 50% 0;
-    animation: club-beam-pulse var(--pulse-duration, 1.8s) linear var(--pulse-delay, 0s) infinite paused;
   }
   .music-is-playing .club-lights {
     opacity: 1;
     visibility: visible;
     transition-delay: 0s;
   }
-  .music-is-playing .club-lights img {
-    animation-play-state: running;
+  .club-lights img.is-pulsing {
+    /* A quick flash in, followed by a fade-out twice as long. */
+    animation: club-beam-pulse 0.45s linear both;
   }
   /* The room owns the club lighting; the close-up stays clean and usable. */
   .music-zoom:not([hidden]) ~ .club-lights {
@@ -145,36 +145,28 @@
   }
   .club-lights .club-light--blue {
     left: -5vw;
-    --pulse-duration: 1.8s;
-    --pulse-delay: 0s;
     --beam-opacity: 0.46;
     --beam-angle: -2deg;
   }
   .club-lights .club-light--green {
     left: 19vw;
-    --pulse-duration: 1.8s;
-    --pulse-delay: -0.9s;
     --beam-opacity: 0.42;
     --beam-angle: 1.5deg;
   }
   .club-lights .club-light--purple {
     right: 19vw;
-    --pulse-duration: 1.8s;
-    --pulse-delay: 0s;
     --beam-opacity: 0.43;
     --beam-angle: -1deg;
   }
   .club-lights .club-light--red {
     right: -5vw;
-    --pulse-duration: 1.8s;
-    --pulse-delay: -0.9s;
     --beam-opacity: 0.34;
     --beam-angle: 2deg;
   }
   @keyframes club-beam-pulse {
-    0%, 32%, 100% { opacity: 0; transform: rotate(var(--beam-angle)) scaleX(0.94); }
-    6% { opacity: var(--beam-opacity); transform: rotate(var(--beam-angle)) scaleX(1); }
-    18% { opacity: 0; transform: rotate(var(--beam-angle)) scaleX(1.06); }
+    0% { opacity: 0; transform: rotate(var(--beam-angle)) scaleX(0.94); }
+    33% { opacity: var(--beam-opacity); transform: rotate(var(--beam-angle)) scaleX(1); }
+    100% { opacity: 0; transform: rotate(var(--beam-angle)) scaleX(1.06); }
   }
 
   .music-logo-link {
@@ -246,6 +238,7 @@
   @media (prefers-reduced-motion: reduce) {
     .boombox-overlay.is-playing img { animation: none; }
     .club-lights img { animation: none; }
+    .club-lights img.is-pulsing { animation: none; }
   }
 
   .music-zoom {
@@ -600,6 +593,37 @@
     var isZoomed = false;
     var isOpening = false;
     var musicIsPlaying = false;
+    var clubLightBeams = Array.prototype.slice.call(document.querySelectorAll('.club-lights img'));
+    var clubBeatTimer = null;
+    var clubPulseTimer = null;
+    function clearClubLightPulse() {
+      clearTimeout(clubPulseTimer);
+      clubLightBeams.forEach(function (beam) { beam.classList.remove('is-pulsing'); });
+    }
+    function pulseClubLights() {
+      var available = clubLightBeams.slice();
+      var selected = [];
+      /* One beam is most common; occasional doubles and triples keep it lively. */
+      var countRoll = Math.random();
+      var count = countRoll < 0.56 ? 1 : (countRoll < 0.90 ? 2 : 3);
+      while (selected.length < count && available.length) {
+        selected.push(available.splice(Math.floor(Math.random() * available.length), 1)[0]);
+      }
+      clearClubLightPulse();
+      /* Restart the animation cleanly if a color happens to repeat on the next beat. */
+      void document.body.offsetWidth;
+      selected.forEach(function (beam) { beam.classList.add('is-pulsing'); });
+      clubPulseTimer = setTimeout(clearClubLightPulse, 460);
+    }
+    function setClubLightBeat(playing) {
+      clearInterval(clubBeatTimer);
+      clubBeatTimer = null;
+      clearClubLightPulse();
+      if (!playing) return;
+      pulseClubLights();
+      /* The beat remains constant; only the color combination is random. */
+      clubBeatTimer = setInterval(pulseClubLights, 900);
+    }
     function popBoombox() {
       boombox.classList.remove('is-popping');
       void boombox.offsetWidth;
@@ -901,6 +925,7 @@
         musicIsPlaying = event.detail === 'play';
         scene.classList.toggle('is-playing', musicIsPlaying);
         document.body.classList.toggle('music-is-playing', musicIsPlaying);
+        setClubLightBeat(musicIsPlaying);
         if (window.parent !== window) {
           window.parent.postMessage({ type: 'knobsock-music-state', playing: musicIsPlaying }, window.location.origin);
         }
