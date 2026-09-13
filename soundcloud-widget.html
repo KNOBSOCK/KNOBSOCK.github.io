@@ -114,6 +114,12 @@
     opacity: 0.75;
   }
 
+  .track-item .name .track-artist {
+    font-size: 0.85em;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
   .track-title.scrolling {
     animation-name: marquee-scroll;
     animation-timing-function: linear;
@@ -247,7 +253,8 @@
   let currentDuration = 0;
   let currentUrl = '';
   let currentArtist = '';
-  let profileUrls = [];
+  let currentTitle = '';
+  let profileList = [];
   let catalogStarted = false;
 
   function sendToSiteShell(message) {
@@ -262,13 +269,26 @@
     if (artist) {
       const credit = document.createElement("span");
       credit.className = "title-artist";
-      credit.textContent = " (by " + artist + ")";
+      credit.textContent = " by " + artist;
       copy.appendChild(credit);
     }
     return copy;
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, (character) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]
+    ));
+  }
+
+  function artistForUrl(url) {
+    if (!url) return "";
+    const match = sounds.find((sound) => sound.permalink_url === url);
+    return match ? String(match.knobsockArtist || "").trim() : "";
+  }
+
   function setTrackTitle(text, artist) {
+    currentTitle = String(text == null ? "" : text);
     if (artist !== undefined) currentArtist = String(artist || "").trim();
     trackTitleEl.classList.remove("scrolling");
     trackTitleEl.style.animationDuration = "";
@@ -292,7 +312,7 @@
     trackListEl.innerHTML = sounds.map((sound, i) => `
       <div class="track-item${i === currentIndex ? " active" : ""}" data-index="${i}">
         <span class="index">${i + 1}</span>
-        <span class="name">${sound.title}</span>
+        <span class="name">${escapeHtml(sound.title)}${sound.knobsockArtist ? `<span class="track-artist"> by ${escapeHtml(sound.knobsockArtist)}</span>` : ""}</span>
         <a class="sc-link" href="${sound.permalink_url}" target="_blank" rel="noopener noreferrer" title="Open on SoundCloud">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
         </a>
@@ -333,10 +353,12 @@
 
   async function loadAllProfileSounds() {
     const merged = [];
-    for (const profileUrl of profileUrls) {
-      const items = await loadProfileSounds(profileUrl);
+    for (const profile of profileList) {
+      const items = await loadProfileSounds(profile.url);
       items.forEach((sound) => {
-        if (sound && sound.permalink_url) merged.push(sound);
+        if (!sound || !sound.permalink_url) return;
+        sound.knobsockArtist = profile.artist;
+        merged.push(sound);
       });
     }
     const seen = new Set();
@@ -345,6 +367,8 @@
     renderTrackList();
     const index = sounds.findIndex((sound) => sound.permalink_url === currentUrl);
     if (index !== -1) setActiveTrack(index);
+    const resolved = artistForUrl(currentUrl);
+    if (currentTitle && resolved && resolved !== currentArtist) setTrackTitle(currentTitle, resolved);
   }
 
   function bindWidgetEvents() {
@@ -357,7 +381,7 @@
 
       widget.getCurrentSound((sound) => {
         if (sound) {
-          setTrackTitle(sound.title, (sound.user && sound.user.username) || '');
+          setTrackTitle(sound.title, artistForUrl(sound.permalink_url));
           currentDuration = sound.duration || 0;
         }
       });
@@ -368,7 +392,7 @@
       updatePlayIcon();
       widget.getCurrentSound((sound) => {
         if (!sound) return;
-        setTrackTitle(sound.title, (sound.user && sound.user.username) || '');
+        setTrackTitle(sound.title, artistForUrl(sound.permalink_url));
         currentDuration = sound.duration || 0;
         const idx = sounds.findIndex((s) => s.id === sound.id);
         if (idx !== -1) setActiveTrack(idx);
@@ -471,18 +495,31 @@
   }
 
   function startPlayer(profileUrl, profiles) {
-    profileUrls = profiles;
+    profileList = profiles;
     iframeEl.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(profileUrl) + "&auto_play=false&show_artwork=false";
     widget = SC.Widget(iframeEl);
     bindWidgetEvents();
   }
 
+  function configuredProfiles(data) {
+    const artists = data && Array.isArray(data.profileArtists) ? data.profileArtists : [];
+    const values = [];
+    if (data && Array.isArray(data.profileUrls)) {
+      data.profileUrls.forEach((url, index) => values.push({ url, artist: String(artists[index] || "").trim() }));
+    } else if (data && typeof data.profileUrls === "string") {
+      values.push({ url: data.profileUrls, artist: String(artists[0] || "").trim() });
+    }
+    if (data && data.profileUrl) {
+      values.push({ url: data.profileUrl, artist: String(data.profileArtist || artists[values.length] || "").trim() });
+    }
+    const seen = new Set();
+    return values.filter((profile) => profile.url && !seen.has(profile.url) && seen.add(profile.url));
+  }
+
   soundcloudConfigRef.get().then((doc) => {
-    const data = doc.exists ? doc.data() : null;
-    const profiles = data && Array.isArray(data.profileUrls) && data.profileUrls.length ? data.profileUrls : [data && data.profileUrl];
-    const profileUrl = profiles.find((url) => !!url);
-    if (profileUrl) {
-      startPlayer(profileUrl, profiles.filter((url) => !!url));
+    const profiles = configuredProfiles(doc.exists ? doc.data() : null);
+    if (profiles.length) {
+      startPlayer(profiles[0].url, profiles);
     } else {
       showNoAccountState();
     }
