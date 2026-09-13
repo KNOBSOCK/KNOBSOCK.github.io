@@ -9,6 +9,7 @@
   let message = 'Loading SoundCloud...', widget = null, scUrl = '', generation = 0, loadTimer, profileVersion = 0, scPromise;
   let lastCompletedUrl = '', autoplayLockUntil = 0, pendingExternalUrl = '';
   let everPlayed = false, priming = false, primeTimer = 0, retryTimers = [];
+  let loadedUrl = '', loadedReady = false, preloadTimer = 0, scanning = false;
   const mediaSession = 'mediaSession' in navigator && typeof MediaMetadata === 'function' ? navigator.mediaSession : null;
   const scripts = new Map();
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
@@ -54,10 +55,10 @@
   function rebuild() {
     const seen = new Set(); library = cloud.filter(track => !seen.has(track.url) && seen.add(track.url)).map(track => ({ ...track, artist: track.rawArtist || 'SoundCloud' }));
     if (current && !library.some(track => track.url === current.url)) { stop(); current = null; clearMediaSession(); }
-    cursor = Math.min(cursor, Math.max(0, rows().length - 1)); render();
+    cursor = Math.min(cursor, Math.max(0, rows().length - 1)); render(); queuePreload();
     if (pendingExternalUrl && playTrackByUrl(pendingExternalUrl)) pendingExternalUrl = '';
   }
-  function visit(next) { history.push({ page, cursor }); page = next; cursor = 0; message = ''; render(); }
+  function visit(next) { history.push({ page, cursor }); page = next; cursor = 0; message = ''; render(); queuePreload(); }
   function back() { const previous = history.pop(); page = previous ? previous.page : { kind: 'home', label: 'KNOBSOCK' }; cursor = previous ? previous.cursor : 0; message = ''; render(); }
   function clock(value) { const seconds = Math.max(0, Math.floor(Number(value) || 0)); return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0'); }
   /* The footer is gone, leaving room for three portrait rows and at least four-and-a-half desktop rows. */
@@ -94,12 +95,12 @@
   function scroll(step) {
     const beforePage = page.kind, beforeCursor = cursor;
     if (page.kind === 'now') { page = { kind: 'songs', label: 'Songs' }; cursor = Math.max(0, library.findIndex(track => track.url === current?.url)); }
-    const length = rows().length; if (length) cursor = Math.max(0, Math.min(length - 1, cursor + step)); message = ''; render();
+    const length = rows().length; if (length) cursor = Math.max(0, Math.min(length - 1, cursor + step)); message = ''; render(); queuePreload();
     const moved = beforePage === page.kind ? Math.abs(cursor - beforeCursor) : Math.abs(step);
     if (moved) document.dispatchEvent(new CustomEvent('music-wheel-selection', { detail: moved }));
   }
   function select() { const entry = rows()[cursor]; if (!entry) return; if (entry.track) { queue = rows().map(row => row.track); document.dispatchEvent(new CustomEvent('music-select-play')); play(entry.track, true); } else visit({ ...entry, label: entry.label }); }
-  function state(value) { playing = value; syncMediaSession(current, value); if (value) { everPlayed = true; priming = false; message = ''; clearTimeout(loadTimer); clearRetries(); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
+  function state(value) { playing = value; syncMediaSession(current, value); if (value) { everPlayed = true; priming = false; message = ''; clearTimeout(loadTimer); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
   function primeAudio() {
     if (everPlayed || wantsPlay || !widget) return;
     priming = true; clearTimeout(primeTimer); primeTimer = setTimeout(() => { priming = false; }, 800);
@@ -108,10 +109,29 @@
   function clearRetries() { retryTimers.forEach(clearTimeout); retryTimers = []; }
   function ensurePlayback(token) {
     clearRetries(); if (!widget) return;
-    retryTimers = [180, 500, 1100, 2000, 3200].map(delay => setTimeout(() => {
-      if (token !== generation || !wantsPlay || playing || !widget) return;
-      try { widget.isPaused(paused => { if (!paused || token !== generation || !wantsPlay || playing) return; try { widget.setVolume(100); widget.play(); } catch (_) {} }); } catch (_) {}
+    retryTimers = [200, 700, 1500, 2600, 4000].map(delay => setTimeout(() => {
+      if (token !== generation || !wantsPlay || !widget) return;
+      try { widget.isPaused(paused => { if (!paused || token !== generation || !wantsPlay) return; try { widget.setVolume(100); widget.play(); } catch (_) {} }); } catch (_) {}
     }, delay));
+  }
+  function nudgeAudio() {
+    if (!widget) return;
+    if (wantsPlay && !playing) { try { widget.setVolume(100); widget.play(); } catch (_) {} return; }
+    primeAudio();
+  }
+  function preload(track) {
+    if (!widget || !track || scanning || playing || wantsPlay || loadedUrl === track.url) return;
+    loadedUrl = track.url; loadedReady = false;
+    try { widget.load(track.url, { auto_play: false, show_artwork: false, callback: () => { if (loadedUrl === track.url) loadedReady = true; } }); }
+    catch (_) { loadedUrl = ''; }
+  }
+  function queuePreload() {
+    clearTimeout(preloadTimer);
+    preloadTimer = setTimeout(() => {
+      if (playing || wantsPlay || scanning) return;
+      const entry = rows()[cursor];
+      preload(entry && entry.track ? entry.track : (current || library[0]));
+    }, 260);
   }
   function stop() { wantsPlay = false; generation++; clearTimeout(loadTimer); clearRetries(); widget?.pause(); state(false); }
   function failed(text) { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); state(false); message = text; render(); }
@@ -122,8 +142,13 @@
     notifyParent({ type: 'knobsock-music-progress', elapsed: 0, duration, fraction: 0 });
     if (page.kind !== 'now') { history.push({ page, cursor }); page = { kind: 'now', label: 'Now Playing' }; }
     wantsPlay = autoplay; if (wantsPlay) { priming = false; document.dispatchEvent(new CustomEvent('music-playback-state', { detail: 'play' })); } message = 'Loading SoundCloud...'; render();
+    if (wantsPlay && widget && loadedReady && loadedUrl === track.url) {
+      scUrl = track.url; message = ''; render();
+      try { widget.setVolume(100); widget.play(); } catch (_) {}
+      ensurePlayback(token); return;
+    }
     loadTimer = setTimeout(() => { if (token === generation) failed('Press PLAY to retry'); }, 15000);
-    try { await soundcloud(track.url); if (token !== generation) return; scUrl = track.url; widget.load(track.url, { auto_play: wantsPlay, show_artwork: false, callback: () => { if (token !== generation) return; widget.getDuration(ms => { if (token === generation) duration = ms / 1000; }); if (wantsPlay) { widget.play(); ensurePlayback(token); } else { clearTimeout(loadTimer); message = ''; render(); } } }); }
+    try { await soundcloud(track.url); if (token !== generation) return; scUrl = track.url; loadedUrl = track.url; loadedReady = false; widget.load(track.url, { auto_play: wantsPlay, show_artwork: false, callback: () => { if (token !== generation) return; loadedReady = true; widget.getDuration(ms => { if (token === generation) duration = ms / 1000; }); if (wantsPlay) { widget.play(); ensurePlayback(token); } else { clearTimeout(loadTimer); message = ''; render(); } } }); }
     catch (_) { if (token === generation) failed('SoundCloud unavailable · press PLAY to retry'); }
   }
   function playTrackByUrl(value) {
@@ -276,14 +301,14 @@
     try { navigator.mediaSession.setActionHandler('play', () => keyboardTransport('play')); } catch (_) {}
     try { navigator.mediaSession.setActionHandler('pause', () => keyboardTransport('pause')); } catch (_) {}
   }
-  ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(type => document.addEventListener(type, primeAudio, { capture: true, passive: true }));
+  ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(type => document.addEventListener(type, nudgeAudio, { capture: true, passive: true }));
   document.addEventListener('visibilitychange', refreshMediaSession);
   window.addEventListener('pageshow', refreshMediaSession);
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
   window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => {
     const config = doc.data(), version = ++profileVersion, profiles = soundCloudProfiles(config), albums = configuredAlbums(config);
-    cloud = []; message = profiles.length ? 'Loading SoundCloud...' : ''; rebuild();
-    if (!profiles.length) return;
+    cloud = []; message = profiles.length ? 'Loading SoundCloud...' : ''; scanning = true; rebuild();
+    if (!profiles.length) { scanning = false; return; }
     try {
       await soundcloud(profiles[0].url);
       if (version !== profileVersion) return;
@@ -298,8 +323,8 @@
         });
       }
       if (version !== profileVersion) return;
-      cloud = tracks; message = ''; rebuild();
-    } catch (_) { message = 'SoundCloud unavailable · reload to retry'; render(); }
+      cloud = tracks; message = ''; loadedUrl = ''; loadedReady = false; scanning = false; rebuild();
+    } catch (_) { scanning = false; message = 'SoundCloud unavailable · reload to retry'; render(); }
   }, () => { message = 'SoundCloud unavailable'; render(); }); } };
   render();
 })();
