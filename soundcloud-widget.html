@@ -108,6 +108,12 @@
     padding-right: 40px;
   }
 
+  .title-artist {
+    font-size: 0.8em;
+    font-weight: 500;
+    opacity: 0.75;
+  }
+
   .track-title.scrolling {
     animation-name: marquee-scroll;
     animation-timing-function: linear;
@@ -240,6 +246,7 @@
   let isPlaying = false;
   let currentDuration = 0;
   let currentUrl = '';
+  let currentArtist = '';
   let profileUrls = [];
   let catalogStarted = false;
 
@@ -248,22 +255,30 @@
     try { window.top.postMessage(message, window.location.origin); } catch (_) {}
   }
 
-  function setTrackTitle(text) {
+  function titleCopy(text, artist) {
+    const copy = document.createElement("span");
+    copy.className = "title-copy";
+    copy.textContent = text;
+    if (artist) {
+      const credit = document.createElement("span");
+      credit.className = "title-artist";
+      credit.textContent = " (by " + artist + ")";
+      copy.appendChild(credit);
+    }
+    return copy;
+  }
+
+  function setTrackTitle(text, artist) {
+    if (artist !== undefined) currentArtist = String(artist || "").trim();
     trackTitleEl.classList.remove("scrolling");
     trackTitleEl.style.animationDuration = "";
     trackTitleEl.innerHTML = "";
-
-    const firstCopy = document.createElement("span");
-    firstCopy.className = "title-copy";
-    firstCopy.textContent = text;
-    trackTitleEl.appendChild(firstCopy);
+    trackTitleEl.appendChild(titleCopy(text, currentArtist));
 
     requestAnimationFrame(() => {
       if (trackTitleEl.scrollWidth <= trackTitleWrapEl.clientWidth) return;
 
-      const secondCopy = document.createElement("span");
-      secondCopy.className = "title-copy";
-      secondCopy.textContent = text;
+      const secondCopy = titleCopy(text, currentArtist);
       trackTitleEl.appendChild(secondCopy);
 
       const pxPerSecond = 45;
@@ -342,7 +357,7 @@
 
       widget.getCurrentSound((sound) => {
         if (sound) {
-          setTrackTitle(sound.title);
+          setTrackTitle(sound.title, (sound.user && sound.user.username) || '');
           currentDuration = sound.duration || 0;
         }
       });
@@ -353,7 +368,7 @@
       updatePlayIcon();
       widget.getCurrentSound((sound) => {
         if (!sound) return;
-        setTrackTitle(sound.title);
+        setTrackTitle(sound.title, (sound.user && sound.user.username) || '');
         currentDuration = sound.duration || 0;
         const idx = sounds.findIndex((s) => s.id === sound.id);
         if (idx !== -1) setActiveTrack(idx);
@@ -424,7 +439,7 @@
     if (event.data.type === "knobsock-shell-music-track") {
       currentUrl = event.data.url || "";
       currentDuration = Number(event.data.duration) || currentDuration;
-      if (event.data.title) setTrackTitle(event.data.title);
+      if (event.data.title) setTrackTitle(event.data.title, event.data.artist);
       const index = sounds.findIndex(sound => sound.permalink_url === currentUrl);
       if (index !== -1) setActiveTrack(index);
       return;
