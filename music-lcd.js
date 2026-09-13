@@ -48,7 +48,7 @@
   function rows() {
     if (page.kind === 'home') return [{ label: 'Songs', kind: 'songs' }, { label: 'Artists', kind: 'artists' }, { label: 'Albums', kind: 'albums' }, { label: 'Now Playing', kind: 'now' }];
     if (page.kind === 'artists' || page.kind === 'albums') { const key = page.kind === 'artists' ? 'artist' : 'album'; return groups(key).map(label => ({ label, kind: 'songs', filter: key, value: label })); }
-    return page.kind === 'songs' ? alphabetical(library.filter(track => !page.filter || track[page.filter] === page.value), 'title').map(track => ({ label: track.title, track })) : [];
+    return page.kind === 'songs' ? alphabetical(library.filter(track => !page.filter || track[page.filter] === page.value), 'title').map(track => ({ label: track.artist + ' - ' + track.title, track })) : [];
   }
   function rebuild() {
     const seen = new Set(); library = cloud.filter(track => !seen.has(track.url) && seen.add(track.url)).map(track => ({ ...track, artist: track.rawArtist || 'SoundCloud' }));
