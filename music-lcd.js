@@ -8,6 +8,7 @@
   let current = null, playing = false, wantsPlay = false, shuffle = false, elapsed = 0, duration = 0;
   let message = 'Loading SoundCloud...', widget = null, scUrl = '', generation = 0, loadTimer, profileVersion = 0, scPromise;
   let lastCompletedUrl = '', autoplayLockUntil = 0, pendingExternalUrl = '';
+  let everPlayed = false, priming = false, primeTimer = 0, retryTimers = [];
   const mediaSession = 'mediaSession' in navigator && typeof MediaMetadata === 'function' ? navigator.mediaSession : null;
   const scripts = new Map();
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
@@ -98,8 +99,21 @@
     if (moved) document.dispatchEvent(new CustomEvent('music-wheel-selection', { detail: moved }));
   }
   function select() { const entry = rows()[cursor]; if (!entry) return; if (entry.track) { queue = rows().map(row => row.track); document.dispatchEvent(new CustomEvent('music-select-play')); play(entry.track, true); } else visit({ ...entry, label: entry.label }); }
-  function state(value) { playing = value; syncMediaSession(current, value); if (value) { message = ''; clearTimeout(loadTimer); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
-  function stop() { wantsPlay = false; generation++; clearTimeout(loadTimer); widget?.pause(); state(false); }
+  function state(value) { playing = value; syncMediaSession(current, value); if (value) { everPlayed = true; priming = false; message = ''; clearTimeout(loadTimer); clearRetries(); } document.dispatchEvent(new CustomEvent('music-playback-state', { detail: value ? 'play' : 'pause' })); render(); }
+  function primeAudio() {
+    if (everPlayed || wantsPlay || !widget) return;
+    priming = true; clearTimeout(primeTimer); primeTimer = setTimeout(() => { priming = false; }, 800);
+    try { widget.setVolume(0); widget.play(); widget.pause(); widget.setVolume(100); } catch (_) { priming = false; }
+  }
+  function clearRetries() { retryTimers.forEach(clearTimeout); retryTimers = []; }
+  function ensurePlayback(token) {
+    clearRetries(); if (!widget) return;
+    retryTimers = [180, 500, 1100, 2000, 3200].map(delay => setTimeout(() => {
+      if (token !== generation || !wantsPlay || playing || !widget) return;
+      try { widget.isPaused(paused => { if (!paused || token !== generation || !wantsPlay || playing) return; try { widget.setVolume(100); widget.play(); } catch (_) {} }); } catch (_) {}
+    }, delay));
+  }
+  function stop() { wantsPlay = false; generation++; clearTimeout(loadTimer); clearRetries(); widget?.pause(); state(false); }
   function failed(text) { wantsPlay = false; clearTimeout(loadTimer); widget?.pause(); state(false); message = text; render(); }
   async function play(track, autoplay = true) {
     if (!track) return; stop(); const token = generation; current = track; elapsed = 0; duration = track.duration || 0;
@@ -107,9 +121,9 @@
     syncMediaSession(current, autoplay);
     notifyParent({ type: 'knobsock-music-progress', elapsed: 0, duration, fraction: 0 });
     if (page.kind !== 'now') { history.push({ page, cursor }); page = { kind: 'now', label: 'Now Playing' }; }
-    wantsPlay = autoplay; if (wantsPlay) document.dispatchEvent(new CustomEvent('music-playback-state', { detail: 'play' })); message = 'Loading SoundCloud...'; render();
+    wantsPlay = autoplay; if (wantsPlay) { priming = false; document.dispatchEvent(new CustomEvent('music-playback-state', { detail: 'play' })); } message = 'Loading SoundCloud...'; render();
     loadTimer = setTimeout(() => { if (token === generation) failed('Press PLAY to retry'); }, 15000);
-    try { await soundcloud(track.url); if (token !== generation) return; scUrl = track.url; widget.load(track.url, { auto_play: wantsPlay, show_artwork: false, callback: () => { if (token !== generation) return; widget.getDuration(ms => { if (token === generation) duration = ms / 1000; }); if (wantsPlay) widget.play(); else { clearTimeout(loadTimer); message = ''; render(); } } }); }
+    try { await soundcloud(track.url); if (token !== generation) return; scUrl = track.url; widget.load(track.url, { auto_play: wantsPlay, show_artwork: false, callback: () => { if (token !== generation) return; widget.getDuration(ms => { if (token === generation) duration = ms / 1000; }); if (wantsPlay) { widget.play(); ensurePlayback(token); } else { clearTimeout(loadTimer); message = ''; render(); } } }); }
     catch (_) { if (token === generation) failed('SoundCloud unavailable · press PLAY to retry'); }
   }
   function playTrackByUrl(value) {
@@ -121,9 +135,10 @@
     play(track, true);
     return true;
   }
-  function resume() { wantsPlay = true; if (!current) { const entry = rows()[cursor]; queue = library.slice(); play(entry?.track || library[0]); return; } if (message || scUrl !== current.url) { play(current); return; } widget?.play(); }
+  function resume() { wantsPlay = true; priming = false; if (!current) { const entry = rows()[cursor]; queue = library.slice(); play(entry?.track || library[0]); return; } if (message || scUrl !== current.url) { play(current); return; } widget?.play(); ensurePlayback(generation); }
   function handleShellCommand(command) {
     const action = String(command.action || '');
+    if (action === 'play' || action === 'toggle' || action === 'play-track') primeAudio();
     if (action === 'play-track') {
       const url = soundCloudUrl(command.url);
       if (!url) return;
@@ -176,6 +191,7 @@
       widget.bind(SC.Widget.Events.READY, () => { clearTimeout(timer); resolve(widget); });
       widget.bind(SC.Widget.Events.PLAY, () => { if (current && wantsPlay) state(true); else widget.pause(); });
       widget.bind(SC.Widget.Events.PAUSE, () => {
+        if (priming && !wantsPlay) { priming = false; return; }
         if (!current) return;
         if (wantsPlay && duration && elapsed >= duration - 2) completeTrack();
         else state(false);
@@ -260,6 +276,7 @@
     try { navigator.mediaSession.setActionHandler('play', () => keyboardTransport('play')); } catch (_) {}
     try { navigator.mediaSession.setActionHandler('pause', () => keyboardTransport('pause')); } catch (_) {}
   }
+  ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(type => document.addEventListener(type, primeAudio, { capture: true, passive: true }));
   document.addEventListener('visibilitychange', refreshMediaSession);
   window.addEventListener('pageshow', refreshMediaSession);
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
