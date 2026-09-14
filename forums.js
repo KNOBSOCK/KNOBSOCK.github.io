@@ -222,6 +222,7 @@
   });
   function syncScroll() {
     const max = scroll.scrollHeight - scroll.clientHeight,
+      top = Math.min(max, Math.max(0, scroll.scrollTop)),
       h = track.clientHeight,
       th = Math.min(
         h,
@@ -231,11 +232,10 @@
         ),
       );
     thumb.style.height = th + "px";
-    thumb.style.top =
-      (max > 0 ? ((h - th) * scroll.scrollTop) / max : 0) + "px";
+    thumb.style.top = (max > 0 ? ((h - th) * top) / max : 0) + "px";
     thumb.setAttribute(
       "aria-valuenow",
-      String(Math.round(max > 0 ? (scroll.scrollTop / max) * 100 : 0)),
+      String(Math.round(max > 0 ? (top / max) * 100 : 0)),
     );
   }
   scroll.addEventListener(
