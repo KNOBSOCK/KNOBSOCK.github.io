@@ -29,14 +29,12 @@
 }
 .terminal-content {
   width: 78%;
-  max-width: 1000px;
   margin: auto;
   padding: 0 8px 28px;
 }
 .forum-logo {
   display: block;
   width: 72%;
-  max-width: 500px;
   margin: 0 auto 10px;
   line-height: 0;
 }

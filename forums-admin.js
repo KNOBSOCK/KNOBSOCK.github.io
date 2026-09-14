@@ -206,13 +206,17 @@
             const category = data.categories.find(
               (x) => x.id === b.dataset.deleteCategory,
             );
-            if (data.boards.some((x) => x.categoryId === category.id)) {
-              $("faStatus").textContent =
-                "Move or delete this category's boards first.";
-              return;
-            }
-            if (!confirm('Delete the "' + category.title + '" category? This cannot be undone.'))
-              return;
+            const boardCount = data.boards.filter(
+              (x) => x.categoryId === category.id,
+            ).length;
+            const warning = boardCount
+              ? 'Delete the "' +
+                category.title +
+                '" category? It has ' +
+                boardCount +
+                " board(s) still in it - they'll stop showing up anywhere on the forum index, though their threads and posts stay in the database. This cannot be undone."
+              : 'Delete the "' + category.title + '" category? This cannot be undone.';
+            if (!confirm(warning)) return;
             run(() =>
               write("delete category", category.id, (batch) =>
                 batch.delete(ref("categories").doc(category.id)),
