@@ -32,14 +32,15 @@ body.site-shell {
 
 .site-music-frame {
   z-index: 1;
-  /* Music fades in whether it is opened from a page link or the mini-player. */
-  transition: opacity 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .site-route-frame {
   z-index: 2;
-  /* Page-to-page navigation, especially returning Home, stays immediate. */
-  transition: none;
+}
+
+.site-route-frame,
+.site-music-frame {
+  transition: opacity 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .site-route-frame.is-active,
