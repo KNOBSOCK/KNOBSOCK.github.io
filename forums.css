@@ -324,6 +324,9 @@
 .login-gate .compose {
   width: 100%;
   max-width: 420px;
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 .login-gate h1 {
   text-align: center;
@@ -331,13 +334,16 @@
 .prompt-row {
   position: relative;
 }
-.prompt-row input {
+#terminal .prompt-row input {
   width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
   caret-color: var(--green);
 }
 .prompt-row .cursor-blink {
   position: absolute;
-  left: 9px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
@@ -349,10 +355,6 @@
 .login-gate-note {
   font-size: 0.65em;
   opacity: 0.75;
-}
-.prompt-row input {
-  flex: 1;
-  min-width: 0;
 }
 .cursor-blink {
   display: inline-block;
