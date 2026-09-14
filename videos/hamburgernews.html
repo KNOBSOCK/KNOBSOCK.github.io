@@ -815,7 +815,11 @@
     currentPlayingId = item.id || null;
     updateCopyLinkVisibility();
     if (currentPlayingId) {
-      history.replaceState(null, '', '/videos/hamburgernews/v/' + currentPlayingId + '/');
+      var playingPath = '/videos/hamburgernews/v/' + currentPlayingId + '/';
+      history.replaceState(null, '', playingPath);
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'knobsock-shell-update-route', path: playingPath }, window.location.origin);
+      }
     }
     closeZoom(function () {
       var frame = pattySlot.querySelector('iframe');

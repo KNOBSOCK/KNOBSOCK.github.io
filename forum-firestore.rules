@@ -46,7 +46,8 @@ match /forum_categories/{id} { allow read: if true; allow write: if forumAdmin()
 match /forum_boards/{id} { allow read: if true; allow write: if forumAdmin(); }
 match /forum_config/{id} { allow read: if true; allow write: if forumAdmin(); }
 match /forum_threads/{threadId} {
-  allow read: if resource.data.hidden == false || forumAdmin();
+  allow read: if !exists(/databases/$(database)/documents/forum_threads/$(threadId))
+    || resource.data.hidden == false || forumAdmin();
   allow create: if request.resource.data.keys().hasOnly(['boardId','title','authorId','username','createdAt','updatedAt','lastUsername','lastPostId','postCount','pinned','locked','hidden'])
     && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 140
     && request.resource.data.boardId is string && request.resource.data.authorId is string
@@ -70,8 +71,10 @@ match /forum_threads/{threadId} {
   );
   allow delete: if false;
   match /posts/{postId} {
-    allow read: if forumAdmin() || (resource.data.hidden == false
-      && get(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false);
+    allow read: if forumAdmin()
+      || !exists(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(postId))
+      || (resource.data.hidden == false
+        && get(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false);
     allow create: if request.resource.data.keys().hasOnly(['body','authorId','username','createdAt','editedAt','hidden'])
       && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
       && request.resource.data.authorId is string && request.resource.data.username is string

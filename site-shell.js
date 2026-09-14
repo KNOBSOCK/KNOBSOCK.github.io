@@ -659,11 +659,13 @@ params.set('shell-version', '20260913-11');
   attachFrame(routeFrame);
   window.addEventListener('message', (event) => {
     if (event.origin !== origin || event.source !== routeFrame.contentWindow ||
-        event.data?.type !== 'knobsock-forum-route' ||
-        !/^#(?:[a-z0-9/_?=&%.-]*)$/i.test(event.data.hash || '')) return;
-    if (/\/forums(?:\.html)?\/?$/.test(activeFile)) {
-      navigate('/forums' + event.data.hash, false, false);
-    }
+        event.data?.type !== 'knobsock-shell-update-route') return;
+    const path = String(event.data.path || '');
+    if (!/^\/[a-z0-9/_?=&%.#-]*$/i.test(path)) return;
+    const nextRoute = publicRoute(path);
+    activeRoute = nextRoute;
+    window.history.replaceState({ knobsockRoute: nextRoute }, '', nextRoute);
+    updateMiniPlayer();
   });
   attachFrame(musicFrame);
 musicFrame.src = '/music.html?site-content=1&shell-version=20260913-11';

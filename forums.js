@@ -31,6 +31,59 @@
         })
       : "just now";
   const ref = (name) => db.collection("forum_" + name);
+  const DEFAULT_CENSORED_WORDS = [
+    "nigger", "nigga", "faggot", "fag", "dyke", "tranny", "chink", "gook",
+    "spic", "kike", "wetback", "beaner", "coon", "paki", "retard", "cracker",
+    "towelhead", "raghead", "cunt",
+  ];
+  function buildCensorRegex(word) {
+    const subs = {
+      a: "[a@4]", e: "[e3]", i: "[i1!]", o: "[o0]", u: "[u]",
+      s: "[s$5]", g: "[g9]", t: "[t7]",
+    };
+    const pattern = word
+      .split("")
+      .map((c) => subs[c] || c)
+      .join("[\\W_]*");
+    return new RegExp("\\b" + pattern + "\\b", "gi");
+  }
+  function buildUsernameCensorRegex(word) {
+    const subs = {
+      a: "[a@4]", e: "[e3]", i: "[i1!]", o: "[o0]", u: "[u]",
+      s: "[s$5]", g: "[g9]", t: "[t7]",
+    };
+    const pattern = word
+      .split("")
+      .map((c) => subs[c] || c)
+      .join("[\\W_]*");
+    return new RegExp(pattern, "i");
+  }
+  let censorRegexes = DEFAULT_CENSORED_WORDS.map(buildCensorRegex),
+    usernameCensorRegexes = DEFAULT_CENSORED_WORDS.map(buildUsernameCensorRegex);
+  function usernameContainsCensoredWord(name) {
+    return usernameCensorRegexes.some((re) => re.test(name));
+  }
+  function censorText(text) {
+    let result = text;
+    censorRegexes.forEach((re) => {
+      result = result.replace(re, (m) => "*".repeat(m.length));
+    });
+    return result;
+  }
+  db.collection("chat_config")
+    .doc("censoredWords")
+    .onSnapshot(
+      (d) => {
+        const data = d.exists ? d.data() : null,
+          words =
+            data && Array.isArray(data.words) && data.words.length
+              ? data.words
+              : DEFAULT_CENSORED_WORDS;
+        censorRegexes = words.map(buildCensorRegex);
+        usernameCensorRegexes = words.map(buildUsernameCensorRegex);
+      },
+      () => {},
+    );
   let device,
     secret,
     username = "",
@@ -125,15 +178,22 @@
     const box = m
       ? { x: 25, y: 145, w: 4460, h: 5380 }
       : { x: 2020, y: 470, w: 3880, h: 2830 };
-    const left = Math.max(0, x + box.x * s),
+    let left = Math.max(0, x + box.x * s),
       top = Math.max(0, y + box.y * s),
       right = Math.min(w, x + (box.x + box.w) * s),
       bottom = Math.min(h, y + (box.y + box.h) * s);
+    if (m) {
+      const pad = 16;
+      left = Math.min(left + pad, right - 40);
+      top = Math.min(top + pad, bottom - 40);
+      right = Math.max(right - pad, left + 40);
+    }
     Object.assign($("terminal").style, {
       left: left + "px",
       top: top + "px",
       width: Math.max(0, right - left) + "px",
       height: Math.max(0, bottom - top) + "px",
+      fontSize: Math.max(14, Math.min(30, s * (m ? 171 : 120))) + "px",
     });
     syncScroll();
   }
@@ -230,19 +290,14 @@
           '">' +
           esc(username) +
           "</a>"
-        : 'Welcome, guest. <a href="#signup">What you gonna call yourself? Sign up →</a>';
+        : '<a href="#signup">What you gonna call yourself? Sign up →</a>';
   }
   async function signup(raw) {
     const name = raw.trim();
     if (!name || name.length > 24 || /[\s/]/.test(name))
       throw Error("Use 1–24 characters, without spaces or slashes.");
     if (activeBan()) throw Error("This browser is banned.");
-    const censored = await db
-      .collection("chat_config")
-      .doc("censoredWords")
-      .get();
-    const words = censored.exists ? censored.data().words || [] : [];
-    if (words.some((w) => name.toLowerCase().includes(String(w).toLowerCase())))
+    if (usernameContainsCensoredWord(name))
       throw Error("Please choose another username.");
     await db.runTransaction(async (tx) => {
       const d = db.collection("chat_devices").doc(device),
@@ -399,7 +454,7 @@
       e.preventDefault();
       act(form.querySelector("button"), async () => {
         blocked();
-        const body = form.body.value.trim();
+        const body = censorText(form.body.value.trim());
         if (!body) throw Error("Write a message first.");
         if (form.postId.value) {
           await commit((batch) =>
@@ -437,7 +492,7 @@
           });
           savedCredential();
         } else {
-          const title = form.elements.title.value.trim();
+          const title = censorText(form.elements.title.value.trim());
           if (!title) throw Error("Add a subject.");
           const tr = ref("threads").doc(),
             pr = tr.collection("posts").doc();
@@ -486,15 +541,26 @@
       .join("\n");
   }
   async function threadView(id, page, token) {
-    const snap = await ref("threads").doc(id).get();
+    let snap;
+    try {
+      snap = await ref("threads").doc(id).get();
+    } catch (e) {
+      if (token !== version) return;
+      $("forumView").innerHTML =
+        "<p>" +
+        (e.code === "permission-denied"
+          ? "Thread unavailable."
+          : "Could not load this thread: " + esc(e.message)) +
+        "</p>";
+      return;
+    }
     if (token !== version) return;
     if (!snap.exists || snap.data().hidden) {
       $("forumView").innerHTML = "<p>Thread unavailable.</p>";
       return;
     }
     const t = { id, ...snap.data() },
-      b = board(t.boardId),
-      bookmarks = saved("forum_bookmarks", []);
+      b = board(t.boardId);
     let query = ref("threads")
       .doc(id)
       .collection("posts")
@@ -528,9 +594,7 @@
           esc(b?.title || "Board") +
           "</a></div><h1>" +
           esc(t.title) +
-          '</h1><div class="actions"><button id="bookmark">' +
-          (bookmarks.includes(id) ? "Remove bookmark" : "Bookmark") +
-          '</button><button id="shareThread">Copy link</button></div>' +
+          '</h1><div class="actions"><button id="shareThread">Copy link</button></div>' +
           posts
             .map(
               (p) =>
@@ -582,14 +646,6 @@
             : "") +
           "</div>" +
           compose(t, b);
-        $("bookmark").onclick = () => {
-          const a = saved("forum_bookmarks", []),
-            i = a.indexOf(id);
-          if (i >= 0) a.splice(i, 1);
-          else a.push(id);
-          save("forum_bookmarks", a);
-          $("bookmark").textContent = i >= 0 ? "Bookmark" : "Remove bookmark";
-        };
         $("shareThread").onclick = () =>
           act($("shareThread"), async () => {
             await navigator.clipboard.writeText(
@@ -717,30 +773,7 @@
             settings.rules ||
               "Be kind. No harassment, hate, threats, spam, impersonation, or sharing private information. Keep posts in the right board. Do not post illegal content. Report problems instead of escalating them. Moderators may remove content, lock discussions, and suspend access to both forums and live chat.",
           ) +
-          "</p><p>■ means unread activity. ↑ means pinned. Bookmarks and drafts stay in this browser. Posts are public. Reports are visible only to moderators.</p><p>For help with your name or moderation, contact the site administrator through the site’s published contact options.</p>";
-      } else if (kind === "members") {
-        const s = await db
-          .collection("chat_usernames")
-          .orderBy("username")
-          .limit(200)
-          .get();
-        if (token !== version) return;
-        view.innerHTML =
-          "<h1>Members</h1><p>Shared with live chat. Showing up to 200 names.</p>" +
-          s.docs
-            .map(
-              (d) =>
-                '<div class="member">' +
-                (d.data().lastDeviceId
-                  ? '<a href="#member/' +
-                    encodeURIComponent(d.data().lastDeviceId) +
-                    '">' +
-                    esc(d.data().username) +
-                    "</a>"
-                  : esc(d.data().username)) +
-                "</div>",
-            )
-            .join("");
+          "</p><p>■ means unread activity. ↑ means pinned. Drafts stay in this browser. Posts are public. Reports are visible only to moderators.</p><p>For help with your name or moderation, contact the site administrator through the site’s published contact options.</p>";
       } else if (kind === "member" && id) {
         const s = await db.collection("chat_devices").doc(id).get();
         if (token !== version) return;
@@ -751,9 +784,8 @@
           threadTable(
             ordered(visibleThreads().filter((t) => t.authorId === id)),
           );
-      } else if (["board", "recent", "bookmarks", "search"].includes(kind)) {
-        const b = board(id),
-          bookmark = saved("forum_bookmarks", []);
+      } else if (["board", "recent", "search"].includes(kind)) {
+        const b = board(id);
         let query = "";
         try {
           query = decodeURIComponent(id || "");
@@ -761,11 +793,9 @@
         let list = visibleThreads().filter((t) =>
           kind === "board"
             ? t.boardId === id
-            : kind === "bookmarks"
-              ? bookmark.includes(t.id)
-              : kind === "search"
-                ? t.title.toLowerCase().includes(query.toLowerCase())
-                : true,
+            : kind === "search"
+              ? t.title.toLowerCase().includes(query.toLowerCase())
+              : true,
         );
         view.innerHTML =
           '<div class="breadcrumbs"><a href="#">Boards</a></div><h1>' +
@@ -774,9 +804,7 @@
               ? b?.title || "Board"
               : kind === "search"
                 ? "Search: " + query
-                : kind === "bookmarks"
-                  ? "Bookmarks"
-                  : "Recent threads",
+                : "Recent threads",
           ) +
           "</h1>" +
           (b ? "<p>" + esc(b.description) + "</p>" : "") +
@@ -839,7 +867,7 @@
     renderRoute();
     if (window.parent !== window)
       window.parent.postMessage(
-        { type: "knobsock-forum-route", hash: location.hash || "#" },
+        { type: "knobsock-shell-update-route", path: "/forums" + (location.hash || "") },
         location.origin,
       );
   });

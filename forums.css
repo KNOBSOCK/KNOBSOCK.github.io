@@ -10,9 +10,8 @@
 }
 #terminal {
   position: absolute;
-  color: var(--green);
+  color: #fff;
   font-family: Terminal, "Courier New", monospace;
-  font-size: clamp(17px, 1.55vw, 23px);
   line-height: 1.45;
   display: flex;
   overflow: hidden;
@@ -172,7 +171,7 @@
   font-size: 0.78em;
   opacity: 0.85;
 }
-.board-title {
+#terminal .board-title {
   font-size: 1.05em;
 }
 .new-dot {
@@ -266,7 +265,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  padding-left: 3px;
+  padding: 10px 0 10px 3px;
 }
 #scrollRail button {
   padding: 0;
@@ -298,9 +297,6 @@
   clip-path: inset(50%);
 }
 @media (max-width: 860px) {
-  #terminal {
-    font-size: 18px;
-  }
   .terminal-content {
     width: 100%;
     padding: 0 5px 24px;

@@ -11,7 +11,8 @@
       audit: [],
       bans: [],
     },
-    config = {};
+    config = {},
+    structureBound = false;
   const esc = (v) =>
     String(v ?? "").replace(
       /[&<>"']/g,
@@ -30,6 +31,7 @@
   function stop() {
     stops.forEach((f) => f());
     stops = [];
+    structureBound = false;
     if ($("forumsAdmin"))
       $("forumsAdmin").textContent = "Sign in to load forum moderation.";
   }
@@ -67,36 +69,166 @@
       )
       .join("");
   }
+  function sortable(container, onReorder) {
+    let dragEl = null,
+      pointerId = null;
+    container.addEventListener("pointerdown", (e) => {
+      const handle = e.target.closest(".grip");
+      if (!handle) return;
+      const row = handle.closest("[data-draggable]");
+      if (!row || row.parentNode !== container) return;
+      e.preventDefault();
+      dragEl = row;
+      pointerId = e.pointerId;
+      try {
+        row.setPointerCapture(pointerId);
+      } catch (err) {}
+      row.classList.add("dragging");
+    });
+    container.addEventListener("pointermove", (e) => {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const row = under && under.closest ? under.closest("[data-draggable]") : null;
+      if (!row || row === dragEl || row.parentNode !== container) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      container.insertBefore(dragEl, before ? row : row.nextSibling);
+    });
+    function end(e) {
+      if (!dragEl || e.pointerId !== pointerId) return;
+      dragEl.classList.remove("dragging");
+      try {
+        dragEl.releasePointerCapture(pointerId);
+      } catch (err) {}
+      const rows = Array.prototype.slice.call(
+        container.querySelectorAll("[data-draggable]"),
+      );
+      onReorder(rows.map((r) => r.dataset.id));
+      dragEl = null;
+      pointerId = null;
+    }
+    container.addEventListener("pointerup", end);
+    container.addEventListener("pointercancel", end);
+  }
+  function reorderCategories(ids) {
+    run(() =>
+      write("reorder categories", "all", (batch) =>
+        ids.forEach((id, i) => batch.update(ref("categories").doc(id), { order: i })),
+      ),
+    );
+  }
+  function reorderBoards(categoryId, ids) {
+    run(() =>
+      write("reorder boards", categoryId, (batch) =>
+        ids.forEach((id, i) => batch.update(ref("boards").doc(id), { order: i })),
+      ),
+    );
+  }
   function renderStructure() {
-    $("faStructure").innerHTML = data.categories
-      .map(
-        (c) =>
-          '<div class="card" style="margin:10px 0;padding:12px"><b>' +
-          esc(c.title) +
-          '</b> <button class="btn-link" data-category="' +
-          c.id +
-          '">Edit category</button><div>' +
-          data.boards
-            .filter((b) => b.categoryId === c.id)
-            .map(
-              (b) =>
-                "<p>" +
-                esc(b.title) +
-                (b.locked ? " [read-only]" : "") +
-                ' <button class="btn-link" data-board="' +
-                b.id +
-                '">Edit</button></p>',
-            )
-            .join("") +
-          "</div></div>",
-      )
-      .join("");
+    $("faStructure").innerHTML =
+      data.categories
+        .map(
+          (c) =>
+            '<div class="card" data-draggable data-id="' +
+            c.id +
+            '" style="margin-bottom:12px"><div class="card-head"><h2><span class="grip" title="Drag to reorder">&#10303;</span> ' +
+            esc(c.title) +
+            '</h2><button class="btn-link" data-category="' +
+            c.id +
+            '">Edit category</button> <button class="btn-link" data-delete-category="' +
+            c.id +
+            '">Delete</button></div><div data-board-list data-list-category="' +
+            c.id +
+            '" style="display:flex;flex-direction:column;gap:6px">' +
+            (data.boards.filter((b) => b.categoryId === c.id).length
+              ? data.boards
+                  .filter((b) => b.categoryId === c.id)
+                  .map(
+                    (b) =>
+                      '<div class="row" data-draggable data-id="' +
+                      b.id +
+                      '"><span class="grip" title="Drag to reorder">&#10303;</span><span style="flex:1">' +
+                      esc(b.title) +
+                      (b.locked ? " · read-only" : "") +
+                      (b.archived ? " · archived" : "") +
+                      '</span><button class="btn-link" data-board="' +
+                      b.id +
+                      '">Edit</button> <button class="btn-link" data-delete-board="' +
+                      b.id +
+                      '">Delete</button></div>',
+                  )
+                  .join("")
+              : '<p class="empty-state">No boards in this category yet.</p>') +
+            '</div><button class="btn-link" data-add-board="' +
+            c.id +
+            '" style="margin-top:10px">+ Add board here</button></div>',
+        )
+        .join("") ||
+      '<p class="empty-state">No categories yet. Start with "New category" above.</p>';
     $("faStructure")
       .querySelectorAll("[data-category]")
       .forEach((b) => (b.onclick = () => editCategory(b.dataset.category)));
     $("faStructure")
       .querySelectorAll("[data-board]")
       .forEach((b) => (b.onclick = () => editBoard(b.dataset.board)));
+    $("faStructure")
+      .querySelectorAll("[data-add-board]")
+      .forEach(
+        (b) => (b.onclick = () => editBoard(null, b.dataset.addBoard)),
+      );
+    $("faStructure")
+      .querySelectorAll("[data-delete-board]")
+      .forEach(
+        (b) =>
+          (b.onclick = () => {
+            const board = data.boards.find((x) => x.id === b.dataset.deleteBoard);
+            if (
+              !confirm(
+                'Delete "' +
+                  board.title +
+                  '"? Existing threads in it stay in the database but won\'t be reachable anywhere in the forum. This cannot be undone.',
+              )
+            )
+              return;
+            run(() =>
+              write("delete board", board.id, (batch) =>
+                batch.delete(ref("boards").doc(board.id)),
+              ),
+            );
+          }),
+      );
+    $("faStructure")
+      .querySelectorAll("[data-delete-category]")
+      .forEach(
+        (b) =>
+          (b.onclick = () => {
+            const category = data.categories.find(
+              (x) => x.id === b.dataset.deleteCategory,
+            );
+            if (data.boards.some((x) => x.categoryId === category.id)) {
+              $("faStatus").textContent =
+                "Move or delete this category's boards first.";
+              return;
+            }
+            if (!confirm('Delete the "' + category.title + '" category? This cannot be undone.'))
+              return;
+            run(() =>
+              write("delete category", category.id, (batch) =>
+                batch.delete(ref("categories").doc(category.id)),
+              ),
+            );
+          }),
+      );
+    if (!structureBound) {
+      structureBound = true;
+      sortable($("faStructure"), reorderCategories);
+    }
+    $("faStructure")
+      .querySelectorAll("[data-board-list]")
+      .forEach((list) =>
+        sortable(list, (ids) => reorderBoards(list.dataset.listCategory, ids)),
+      );
   }
   function editCategory(id) {
     const c = data.categories.find((x) => x.id === id) || {
@@ -104,13 +236,11 @@
       order: data.categories.length,
     };
     $("faEditor").innerHTML =
-      '<form id="faCategoryForm" class="card" style="padding:16px"><h2>' +
+      '<form id="faCategoryForm" class="card" style="padding:16px;margin-bottom:16px"><h2>' +
       (id ? "Edit" : "New") +
       ' category</h2><label>Name<input name="name" value="' +
       esc(c.title) +
-      '" required maxlength="80"></label><label>Order<input name="order" type="number" value="' +
-      c.order +
-      '" required></label><button class="btn">Save category</button></form>';
+      '" required maxlength="80"></label><div class="actions" style="display:flex;gap:10px;margin-top:10px"><button class="btn">Save category</button><button type="button" class="btn-link" id="faCancelCategory">Cancel</button></div></form>';
     $("faCategoryForm").onsubmit = (e) => {
       e.preventDefault();
       const f = e.currentTarget;
@@ -118,20 +248,31 @@
         write("save category", id || "new", (b) =>
           b.set(ref("categories").doc(id || ref("categories").doc().id), {
             title: f.elements.name.value.trim(),
-            order: Number(f.elements.order.value),
+            order: c.order,
           }),
         ),
-      );
+      ).then(() => ($("faEditor").innerHTML = ""));
     };
+    $("faCancelCategory").onclick = () => ($("faEditor").innerHTML = "");
+    $("faEditor").scrollIntoView({ block: "start" });
   }
-  function editBoard(id) {
+  function editBoard(id, presetCategoryId) {
+    const defaultCategory =
+      presetCategoryId || (data.categories[0] && data.categories[0].id) || "";
     const v = data.boards.find((x) => x.id === id) || {
       title: "",
       description: "",
+      categoryId: defaultCategory,
       order: data.boards.length,
     };
+    if (!data.categories.length) {
+      $("faEditor").innerHTML =
+        '<p class="empty-state">Add a category first, then add boards inside it.</p>';
+      $("faEditor").scrollIntoView({ block: "start" });
+      return;
+    }
     $("faEditor").innerHTML =
-      '<form id="faBoardForm" class="card" style="padding:16px"><h2>' +
+      '<form id="faBoardForm" class="card" style="padding:16px;margin-bottom:16px"><h2>' +
       (id ? "Edit" : "New") +
       ' board</h2><label>Name<input name="name" value="' +
       esc(v.title) +
@@ -139,28 +280,33 @@
       esc(v.description) +
       '" maxlength="300"></label><label>Category<select name="category">' +
       options(data.categories, v.categoryId) +
-      '</select></label><label>Order<input name="order" type="number" value="' +
-      v.order +
-      '" required></label><label><input name="locked" type="checkbox" ' +
+      '</select></label><label class="check-label"><input name="locked" type="checkbox" ' +
       (v.locked ? "checked" : "") +
-      '> Read-only board</label><label><input name="archived" type="checkbox" '+(v.archived?'checked':'')+'> Archive board (remove from index and stop new posts)</label><button class="btn">Save board</button></form>';
+      '> Read-only board (no new threads or replies)</label><label class="check-label"><input name="archived" type="checkbox" ' +
+      (v.archived ? "checked" : "") +
+      '> Archive board (remove from index and stop new posts)</label><div class="actions" style="display:flex;gap:10px;margin-top:10px"><button class="btn">Save board</button><button type="button" class="btn-link" id="faCancelBoard">Cancel</button></div></form>';
     $("faBoardForm").onsubmit = (e) => {
       e.preventDefault();
       const f = e.currentTarget;
-      if (!f.elements.category.value) return;
+      if (!f.elements.category.value) {
+        $("faStatus").textContent = "Choose a category first.";
+        return;
+      }
       run(() =>
         write("save board", id || "new", (b) =>
           b.set(ref("boards").doc(id || ref("boards").doc().id), {
             title: f.elements.name.value.trim(),
             description: f.elements.description.value,
             categoryId: f.elements.category.value,
-            order: Number(f.elements.order.value),
+            order: v.order,
             locked: f.elements.locked.checked,
             archived: f.elements.archived.checked,
           }),
         ),
-      );
+      ).then(() => ($("faEditor").innerHTML = ""));
     };
+    $("faCancelBoard").onclick = () => ($("faEditor").innerHTML = "");
+    $("faEditor").scrollIntoView({ block: "start" });
   }
   function renderThreads() {
     const q = $("faFilter").value.toLowerCase();
@@ -195,13 +341,13 @@
             (t.hidden ? "Restore" : "Hide") +
             '</button><button class="btn" data-rename="' +
             t.id +
-            '">Rename</button><label>Move to <select data-move="' +
+            '">Rename</button><label style="display:inline-flex;align-items:center;gap:4px;margin:0">Move to <select class="inline-field" data-move="' +
             t.id +
             '">' +
             options(data.boards, t.boardId) +
             "</select></label></div></div>",
         )
-        .join("") || "<p>No matching threads.</p>";
+        .join("") || '<p class="empty-state">No matching threads.</p>';
     $("faThreads")
       .querySelectorAll("[data-toggle]")
       .forEach(
@@ -280,6 +426,10 @@
               esc(p.authorId) +
               '" data-name="' +
               esc(p.username) +
+              '" data-post-thread="' +
+              id +
+              '" data-post-id="' +
+              d.id +
               '">Ban / timeout</button> <button class="btn" data-history="' +
               esc(p.authorId) +
               '">User history &amp; tools</button></article>'
@@ -333,7 +483,14 @@
     root
       .querySelectorAll("[data-ban]")
       .forEach(
-        (b) => (b.onclick = () => banForm(b.dataset.ban, b.dataset.name)),
+        (b) =>
+          (b.onclick = () =>
+            banForm(
+              b.dataset.ban,
+              b.dataset.name,
+              b.dataset.postThread,
+              b.dataset.postId,
+            )),
       );
   }
   async function all(query) {
@@ -372,17 +529,21 @@
       $('faPosts').querySelectorAll('[data-review]').forEach(b=>b.onclick=()=>loadPosts(b.dataset.review));
     } catch (e) { $('faStatus').textContent = e.message; }
   }
-  function banForm(id, name) {
+  function banForm(id, name, postThread, postId) {
     $("faEditor").innerHTML =
-      '<form id="faBanForm" class="card" style="padding:16px"><h2>Ban ' +
+      '<form id="faBanForm" class="card" style="padding:16px;margin-bottom:16px"><h2>Ban ' +
       esc(name) +
-      '</h2><p>Applies to both live chat and forums on this browser. Other devices are not blocked.</p><label>Duration<select name="duration"><option value="3600000">1 hour</option><option value="86400000">24 hours</option><option value="604800000">7 days</option><option value="0">Permanent</option></select></label><label>Reason<input name="reason" maxlength="500" required></label><button class="btn">Apply shared ban</button></form>';
+      '</h2><p>Applies to both live chat and forums on this browser. Other devices are not blocked.' +
+      (postThread && postId
+        ? " The post you opened this from is hidden automatically."
+        : "") +
+      '</p><label>Duration<select name="duration"><option value="3600000">1 hour</option><option value="86400000">24 hours</option><option value="604800000">7 days</option><option value="0">Permanent</option></select></label><label>Reason<input name="reason" maxlength="500" required></label><div class="actions" style="display:flex;gap:10px;margin-top:10px"><button class="btn">Apply shared ban</button><button type="button" class="btn-link" id="faCancelBan">Cancel</button></div></form>';
     $("faBanForm").onsubmit = (e) => {
       e.preventDefault();
       const f = e.currentTarget,
         duration = Number(f.elements.duration.value);
       run(() =>
-        write("ban " + name, id, (b) =>
+        write("ban " + name, id, (b) => {
           b.set(
             db.collection("chat_bans").doc(id),
             {
@@ -394,10 +555,19 @@
               usernames: firebase.firestore.FieldValue.arrayUnion(name),
             },
             { merge: true },
-          ),
-        ),
-      );
+          );
+          if (postThread && postId)
+            b.update(
+              ref("threads").doc(postThread).collection("posts").doc(postId),
+              { hidden: true },
+            );
+        }),
+      ).then(() => {
+        $("faEditor").innerHTML = "";
+        if (postThread) loadPosts(postThread);
+      });
     };
+    $("faCancelBan").onclick = () => ($("faEditor").innerHTML = "");
     $("faEditor").scrollIntoView({ block: "start" });
   }
   function renderReports() {
@@ -419,7 +589,7 @@
             (r.status === "open" ? "Resolve" : "Reopen") +
             "</button></div>",
         )
-        .join("") || "<p>No reports.</p>";
+        .join("") || '<p class="empty-state">No reports right now.</p>';
     $("faReports")
       .querySelectorAll("[data-review]")
       .forEach((b) => (b.onclick = () => loadPosts(b.dataset.review)));
@@ -461,7 +631,7 @@
             b.id +
             '">Unban everywhere</button></p>',
         )
-        .join("") || "<p>No active bans.</p>";
+        .join("") || '<p class="empty-state">No active bans.</p>';
     $("faBans")
       .querySelectorAll("[data-unban]")
       .forEach(
@@ -479,9 +649,17 @@
     db = database;
     auth = authentication;
     $("forumsAdmin").innerHTML =
-      '<div id="faStatus" role="status"></div><div class="actions" style="display:flex;gap:10px;margin:15px 0"><button class="btn" id="faAddCategory">New category</button><button class="btn" id="faAddBoard">New board</button><button class="btn" id="faExport">Export loaded forum data</button></div><div id="faEditor"></div><details open><summary>Categories &amp; boards</summary><div id="faStructure"></div></details><details><summary>Settings &amp; community rules</summary><form id="faSettings" class="card" style="padding:16px"><label><input type="checkbox" name="readOnly"> Pause all public posting</label><label>Community rules<textarea name="rules" rows="6" maxlength="5000"></textarea></label><button class="btn">Save settings</button></form></details><details open><summary>Reports</summary><div id="faReports"></div></details><details open><summary>Threads</summary><label>Search loaded threads or author<input id="faFilter" type="search"></label><p>Latest 500 threads. Posts load when you open a thread.</p><div id="faThreads"></div></details><div id="faPosts"></div><details><summary>Shared bans &amp; timeouts</summary><div id="faBans"></div></details><details><summary>Moderation log (latest 100)</summary><div id="faAudit"></div></details>';
+      '<style>#forumsAdmin label{display:block;margin:10px 0 4px}#forumsAdmin label.check-label{display:flex;align-items:center;gap:6px;margin:10px 0}#forumsAdmin label input:not([type=checkbox]):not(.inline-field),#forumsAdmin label select:not(.inline-field),#forumsAdmin label textarea:not(.inline-field){display:block;width:100%;box-sizing:border-box;margin-top:4px}</style>' +
+      '<div id="faStatus" role="status" style="margin-bottom:12px"></div>' +
+      '<div class="actions" style="display:flex;gap:10px;margin-bottom:20px"><button class="btn" id="faExport">Export full forum backup</button></div>' +
+      '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Community rules &amp; posting</h2><p class="panel-sub">This text is what visitors see on the forum\'s Rules page. Pausing posting stops new threads and replies everywhere but keeps the forum readable.</p><form id="faSettings"><label class="check-label"><input type="checkbox" name="readOnly"> Pause all public posting</label><label>Rules text<textarea name="rules" rows="8" maxlength="5000"></textarea></label><button class="btn" style="margin-top:10px">Save rules &amp; settings</button></form></div>' +
+      '<div class="card" style="padding:16px;margin-bottom:20px"><div class="card-head"><h2>Categories &amp; boards</h2><button class="btn" id="faAddCategory">New category</button></div><p class="panel-sub">Drag the grip (&#10303;) to reorder categories, or the boards inside one. "New board" inside a category starts it there already.</p><div id="faEditor"></div><div id="faStructure"></div></div>' +
+      '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Reports</h2><p class="panel-sub">Members flag posts here privately. Review the thread, act if needed, then resolve.</p><div id="faReports"></div></div>' +
+      '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Threads</h2><p class="panel-sub">Latest 500 threads. Open "Moderate posts" on one to hide, edit, or ban from within it.</p><label>Search loaded threads or author<input id="faFilter" type="search"></label><div id="faThreads"></div></div>' +
+      '<div id="faPosts" class="card" style="padding:16px;margin-bottom:20px"><p class="empty-state">Open "Moderate posts" on a thread above to review its posts.</p></div>' +
+      '<details style="margin-bottom:12px"><summary>Shared bans &amp; timeouts</summary><div id="faBans" style="margin-top:10px"></div></details>' +
+      '<details><summary>Moderation log (latest 100)</summary><div id="faAudit" style="margin-top:10px"></div></details>';
     $("faAddCategory").onclick = () => editCategory();
-    $("faAddBoard").onclick = () => editBoard();
     $("faFilter").oninput = renderThreads;
     $("faSettings").onsubmit = (e) => {
       e.preventDefault();
@@ -495,7 +673,6 @@
         ),
       );
     };
-    $("faExport").textContent = 'Export full forum backup';
     $("faExport").onclick = () => run(backup);
     const queries = {
       categories: ref("categories").orderBy("order"),

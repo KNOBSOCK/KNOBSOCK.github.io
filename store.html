@@ -694,7 +694,11 @@
     copyLinkBtn.dataset.category = categorySlug;
     copyLinkBtn.dataset.slug = product.slug || '';
     if (product.slug) {
-      history.replaceState(null, '', '/store/' + categorySlug + '/' + product.slug + '/');
+      var productPath = '/store/' + categorySlug + '/' + product.slug + '/';
+      history.replaceState(null, '', productPath);
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'knobsock-shell-update-route', path: productPath }, window.location.origin);
+      }
     }
   }
 

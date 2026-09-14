@@ -140,7 +140,7 @@
     animation: club-beam-pulse 0.45s linear both;
   }
   /* The room owns the club lighting; the close-up stays clean and usable. */
-  .music-zoom:not([hidden]) ~ .club-lights {
+  .music-zoom:not([inert]) ~ .club-lights {
     opacity: 0;
     visibility: hidden;
     transition-delay: 0s;
