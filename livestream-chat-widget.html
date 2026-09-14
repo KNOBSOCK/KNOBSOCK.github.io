@@ -798,6 +798,26 @@
   }
   input:focus { border-color: var(--accent); }
 
+  .auth-terms {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: clamp(10px, 3cqh, 16px);
+    font-size: clamp(9px, 2.6cqw, 11px);
+    color: var(--text-dim);
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    font-family: var(--font-body);
+  }
+  .auth-terms input {
+    margin-top: 2px;
+    flex: none;
+  }
+  .auth-terms a {
+    color: var(--text);
+  }
+
   .auth-actions {
     display: flex;
     flex-direction: column;
@@ -2295,14 +2315,15 @@
     return defaultColorFor(username);
   }
 
-  function renderAuth(errorMsg) {
+  function renderAuth(errorMsg, prefillUsername, termsChecked) {
     app.innerHTML = `
       <div class="chat-screen">
         <div class="auth">
           <div class="auth-inner">
             <label for="chatHandle">what are you gonna call yourself?</label>
 
-            <input type="text" id="chatHandle" name="chatHandle" autocomplete="off" placeholder="e.g. gunoguap" />
+            <input type="text" id="chatHandle" name="chatHandle" autocomplete="off" placeholder="e.g. gunoguap" value="${prefillUsername ? escapeHtml(prefillUsername) : ''}" />
+            <label class="auth-terms"><input type="checkbox" id="authTerms"${termsChecked ? ' checked' : ''}> I agree to the <a href="/privacy">Privacy Policy &amp; User Agreement</a>.</label>
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="authSubmit" title="Join Chat">Join Chat</button>
             </div>
@@ -2321,18 +2342,23 @@
 
   async function handleAuthSubmit() {
     const username = $('chatHandle').value.trim();
+    const termsChecked = $('authTerms').checked;
     const btn = $('authSubmit');
 
     if (!username) {
-      renderAuth('Enter a username.');
+      renderAuth('Enter a username.', username, termsChecked);
       return;
     }
     if (username.length > 24 || /\s/.test(username)) {
-      renderAuth('Username must be 24 chars or fewer, no spaces.');
+      renderAuth('Username must be 24 chars or fewer, no spaces.', username, termsChecked);
       return;
     }
     if (usernameContainsCensoredWord(username)) {
-      renderAuth('That username isn\'t allowed. Please choose another.');
+      renderAuth('That username isn\'t allowed. Please choose another.', username, termsChecked);
+      return;
+    }
+    if (!termsChecked) {
+      renderAuth('Please agree to the Privacy Policy & User Agreement first.', username, termsChecked);
       return;
     }
 
@@ -2353,9 +2379,9 @@
     } catch (e) {
       console.error(e);
       if (e && e.message === 'USERNAME_TAKEN') {
-        renderAuth('That username is already taken. Please choose another.');
+        renderAuth('That username is already taken. Please choose another.', username, termsChecked);
       } else {
-        renderAuth('Something went wrong. Please try again.');
+        renderAuth('Something went wrong. Please try again.', username, termsChecked);
       }
     }
   }

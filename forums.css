@@ -306,6 +306,60 @@
   overflow: hidden;
   clip-path: inset(50%);
 }
+#terminal.is-gated .forum-nav,
+#terminal.is-gated #identity,
+#terminal.is-gated .search,
+#terminal.is-gated footer {
+  display: none;
+}
+.login-gate {
+  min-height: 55vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-gate .compose {
+  width: 100%;
+  max-width: 420px;
+}
+.login-gate h1 {
+  text-align: center;
+}
+.prompt-row {
+  position: relative;
+}
+.prompt-row input {
+  width: 100%;
+  caret-color: var(--green);
+}
+.prompt-row .cursor-blink {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.prompt-row input:focus + .cursor-blink,
+.prompt-row input:not(:placeholder-shown) + .cursor-blink {
+  display: none;
+}
+.login-gate-note {
+  font-size: 0.65em;
+  opacity: 0.75;
+}
+.prompt-row input {
+  flex: 1;
+  min-width: 0;
+}
+.cursor-blink {
+  display: inline-block;
+  animation: cursor-blink 1s steps(1) infinite;
+}
+@keyframes cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
 @media (max-width: 860px) {
   .terminal-content {
     width: 100%;

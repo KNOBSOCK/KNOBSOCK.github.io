@@ -322,7 +322,7 @@
           '">' +
           esc(username) +
           "</a>"
-        : '<a href="#signup">What you gonna call yourself? Sign up →</a>';
+        : '<a href="#signup">What are you gonna call yourself? Sign up →</a>';
   }
   async function signup(raw) {
     const name = raw.trim();
@@ -347,7 +347,7 @@
     });
     localStorage.setItem("chat_last_username", username);
     renderIdentity();
-    location.hash = "";
+    renderRoute();
   }
   function board(id) {
     return boards.find((b) => b.id === id);
@@ -626,7 +626,7 @@
           esc(b?.title || "Board") +
           '</a></div><h1 class="thread-title">' +
           esc(t.title) +
-          '</h1><div class="actions"><button id="shareThread">Copy link</button></div>' +
+          "</h1>" +
           posts
             .map(
               (p) =>
@@ -678,13 +678,6 @@
             : "") +
           "</div>" +
           compose(t, b);
-        $("shareThread").onclick = () =>
-          act($("shareThread"), async () => {
-            await navigator.clipboard.writeText(
-              location.origin + "/forums#thread/" + id,
-            );
-            status("Thread link copied.");
-          });
         wireCompose(t, b);
         if (oldDraft && $('compose')) {
           $('compose').elements.body.value = oldDraft.body;
@@ -776,9 +769,11 @@
     status("");
     const view = $("forumView");
     try {
-      if (kind === "signup") {
+      const gated = !username && kind !== "rules";
+      $("terminal").classList.toggle("is-gated", gated);
+      if (gated) {
         view.innerHTML =
-          '<form class="compose" id="signup"><h1>What you gonna call yourself?</h1><label>Username<input name="username" maxlength="24" required autocomplete="nickname"></label><p>This name is shared with live chat and stays signed in on this browser. No password or email is required. Clearing browser storage loses this session.</p><label><input type="checkbox" required style="width:auto"> I agree to the <a href="#rules">forum rules</a> and <a href="/privacy">Privacy &amp; User Agreement</a>.</label><button>Join the forums</button></form>';
+          '<div class="login-gate"><form class="compose" id="signup"><h1>What are you gonna call yourself?</h1><label>Username<span class="prompt-row"><input name="username" maxlength="24" required autocomplete="nickname" placeholder="e.g. gunoguap"><span class="cursor-blink" aria-hidden="true">█</span></span></label><p class="login-gate-note">This name is shared with live chat and stays signed in on this browser. No password or email is required. Clearing browser storage loses this session.</p><label><input type="checkbox" required style="width:auto"> I agree to the <a href="#rules">forum rules</a> and <a href="/privacy">Privacy &amp; User Agreement</a>.</label><button>Join the forums</button></form></div>';
         $("signup").onsubmit = (e) => {
           e.preventDefault();
           act($("signup").querySelector("button"), () =>
@@ -926,9 +921,11 @@
       .doc(device)
       .onSnapshot(
         (d) => {
+          const wasUsername = username;
           username = d.exists ? d.data().username || "" : "";
           if (username) localStorage.setItem("chat_last_username", username);
           renderIdentity();
+          if (!!wasUsername !== !!username) renderRoute();
         },
         (e) =>
           status(
