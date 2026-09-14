@@ -469,7 +469,7 @@
         : "") +
       '<label>Message<textarea name="body" required maxlength="12000">' +
       esc(body) +
-      '</textarea></label><p>Plain text. Start a line with &gt; to quote. Please follow the <a href="#rules">forum rules</a>. Drafts are saved in this browser.</p><button type="submit">' +
+      '</textarea></label><button type="submit">' +
       (postId ? "Save edit" : "Post") +
       '</button><input type="hidden" name="postId" value="' +
       esc(postId) +
