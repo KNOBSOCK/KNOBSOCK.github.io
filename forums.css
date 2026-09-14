@@ -312,6 +312,9 @@
 #terminal.is-gated footer {
   display: none;
 }
+#terminal.is-gated #forumStatus {
+  text-align: center;
+}
 .login-gate {
   min-height: 55vh;
   display: flex;
