@@ -102,7 +102,7 @@
         dragEl.releasePointerCapture(pointerId);
       } catch (err) {}
       const rows = Array.prototype.slice.call(
-        container.querySelectorAll("[data-draggable]"),
+        container.querySelectorAll(":scope > [data-draggable]"),
       );
       onReorder(rows.map((r) => r.dataset.id));
       dragEl = null;
