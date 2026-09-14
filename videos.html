@@ -147,7 +147,6 @@
     pointer-events: none;
     transition: opacity 0s linear 0.40s;
   }
-  .tv-zoom[hidden] { display: none; }
   .tv-zoom.is-open {
     opacity: 1;
     pointer-events: auto;
@@ -232,7 +231,7 @@
   <div class="tv-slot" id="tvSlot"></div>
 </div>
 
-<div class="tv-zoom" id="tvZoom" hidden aria-hidden="true">
+<div class="tv-zoom" id="tvZoom" inert aria-hidden="true">
   <img class="tv-zoom-frame" id="tvZoomFrame" alt="Close-up of the TV">
   <button type="button" class="tv-zoom-close" id="tvZoomClose" aria-label="Zoom out of the TV">&times;</button>
 </div>
@@ -428,7 +427,7 @@
     isZoomed = true;
     isOpening = false;
     playWoosh();
-    tvZoom.hidden = false;
+    tvZoom.inert = false;
     tvZoom.setAttribute('aria-hidden', 'false');
     void tvZoom.offsetWidth;
     tvZoom.classList.remove('is-closing');
@@ -476,7 +475,7 @@
       tvZoom.classList.remove('is-closing');
     }, 90);
     setTimeout(function () {
-      tvZoom.hidden = true;
+      tvZoom.inert = true;
     }, 560);
   }
 

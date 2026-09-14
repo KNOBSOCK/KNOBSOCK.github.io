@@ -253,7 +253,6 @@
     /* Reveal the registered close-up before the room layer is hidden. */
     transition: opacity 0s linear 0.40s;
   }
-  .music-zoom[hidden] { display: none; }
   .music-zoom.is-open {
     opacity: 1;
     pointer-events: auto;
@@ -453,7 +452,7 @@
   </div>
 </main>
 
-<div class="music-zoom" id="musicZoom" hidden aria-hidden="true">
+<div class="music-zoom" id="musicZoom" inert aria-hidden="true">
   <div class="scene-canvas" id="musicZoomCanvas">
     <section class="music-lcd" id="musicLcd" aria-label="Music library and player">
       <div class="lcd-inner"><header class="lcd-header"><button id="lcdBack" aria-label="Back to library">‹</button><span id="lcdTitle">KNOBSOCK</span><span id="lcdState">■</span></header><div id="lcdBody" class="lcd-body"></div><footer id="lcdFooter">Loading library...</footer></div>
@@ -688,7 +687,7 @@
       primeEffect('forward');
       popBoombox();
       setCameraAnchor();
-      zoom.hidden = false;
+      zoom.inert = false;
       zoom.setAttribute('aria-hidden', 'false');
       void zoom.offsetWidth;
       zoom.classList.remove('is-closing');
@@ -744,7 +743,7 @@
         if (!isZoomed && musicIsPlaying) boombox.classList.add('is-playing');
       }, 100);
       setTimeout(function () {
-        zoom.hidden = true;
+        zoom.inert = true;
         if (window.parent !== window) {
           window.parent.postMessage({ type: 'knobsock-music-zoom-closed' }, window.location.origin);
         }
