@@ -351,10 +351,17 @@ params.set('shell-version', '20260913-11');
       const nextKey = routeKey(nextRoute);
       if (routeFrame.dataset.route !== nextKey) {
         routeFrame.classList.remove('is-active');
+        routeFrame.style.transition = 'none';
+        void routeFrame.offsetWidth;
+        routeFrame.style.transition = '';
         routeFrame.dataset.route = nextKey;
         routeFrame.src = routeFile(nextRoute);
         routeFrame.addEventListener('load', () => {
-          routeFrame.classList.add('is-active');
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              routeFrame.classList.add('is-active');
+            });
+          });
         }, { once: true });
       } else {
         routeFrame.classList.add('is-active');
