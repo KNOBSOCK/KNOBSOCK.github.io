@@ -473,7 +473,8 @@
 
     const playerBoxEl = document.querySelector('.player-box');
     if (supportsHover) {
-      playerBoxEl.addEventListener('mouseenter', () => showControls(false));
+      playerBoxEl.addEventListener('mouseenter', () => showControls(true));
+      playerBoxEl.addEventListener('mousemove', () => showControls(true));
       playerBoxEl.addEventListener('mouseleave', () => hideControlsNow());
     } else {
       playerBoxEl.addEventListener('touchstart', (e) => {

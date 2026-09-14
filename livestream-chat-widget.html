@@ -1292,7 +1292,8 @@
   }
 
   if (supportsHover) {
-    videoPane.addEventListener('mouseenter', function () { showControls(false); });
+    videoPane.addEventListener('mouseenter', function () { showControls(true); });
+    videoPane.addEventListener('mousemove', function () { showControls(true); });
     videoPane.addEventListener('mouseleave', function () { hideControlsNow(); });
   } else {
     videoPane.addEventListener('touchstart', function (e) {

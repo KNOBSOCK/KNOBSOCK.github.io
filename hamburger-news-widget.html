@@ -262,7 +262,8 @@
     stageEl.classList.remove('controls-visible');
   }
   if (supportsHover) {
-    stageEl.addEventListener('mouseenter', () => showControls(false));
+    stageEl.addEventListener('mouseenter', () => showControls(true));
+    stageEl.addEventListener('mousemove', () => showControls(true));
     stageEl.addEventListener('mouseleave', () => hideControlsNow());
   } else {
     stageEl.addEventListener('touchstart', (e) => {

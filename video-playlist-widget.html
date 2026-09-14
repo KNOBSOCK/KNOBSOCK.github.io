@@ -694,7 +694,8 @@ let PLAYLIST = buildPlaylist(currentVideoList);
   }
 
   if (supportsHover) {
-    videoPane.addEventListener('mouseenter', () => showControls(false));
+    videoPane.addEventListener('mouseenter', () => showControls(true));
+    videoPane.addEventListener('mousemove', () => showControls(true));
     videoPane.addEventListener('mouseleave', () => hideControlsNow());
   } else {
     videoPane.addEventListener('touchstart', (e) => {
