@@ -196,6 +196,9 @@
   font-weight: normal;
   overflow-wrap: anywhere;
 }
+.thread-title {
+  text-decoration: underline;
+}
 .post {
   border: var(--line);
   margin: 12px 0;

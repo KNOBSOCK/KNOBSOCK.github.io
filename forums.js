@@ -624,7 +624,7 @@
           t.boardId +
           '">' +
           esc(b?.title || "Board") +
-          "</a></div><h1>" +
+          '</a></div><h1 class="thread-title">' +
           esc(t.title) +
           '</h1><div class="actions"><button id="shareThread">Copy link</button></div>' +
           posts
