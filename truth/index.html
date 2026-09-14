@@ -47,7 +47,7 @@
   }
 
   h1, h2, h3 { color: yellow; }
-  .headline-clickable { cursor: pointer; }
+  .headline-clickable { cursor: pointer; display: block; }
   a { text-decoration: none; color: inherit; }
 
   .bg-video {
@@ -441,13 +441,13 @@
 
   function articleCard(post) {
     return `
-      <div class="article-card" data-slug="${post.slug}">
+      <a class="article-card" href="${articleUrl(post.slug)}" data-slug="${post.slug}">
         <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
         <div class="article-text">
           <h3>${post.title}</h3>
           <span>${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${formatRelativeDate(post.date)}</span>
         </div>
-      </div>
+      </a>
     `;
   }
 
@@ -458,7 +458,7 @@
     if (!post) return;
 
     document.getElementById("headline").innerHTML = `
-      <div data-slug="${post.slug}" class="headline-clickable">
+      <a data-slug="${post.slug}" class="headline-clickable" href="${articleUrl(post.slug)}">
         <div class="headline-media">
           <span class="cat-tag">${getCategoryName(post)}</span>
           <img src="${getImage(post)}" alt="" onerror="this.onerror=null;this.src=NO_IMAGE_PLACEHOLDER;">
@@ -466,7 +466,7 @@
         ${getPhotoCredit(post) ? `<div class="photo-credit">${getPhotoCredit(post)}</div>` : ""}
         <h1>${post.title}</h1>
         <div class="meta">${getAuthorName(post) ? `By ${getAuthorName(post)} · ` : ""}${new Date(post.date).toLocaleDateString()}</div>
-      </div>
+      </a>
     `;
   }
 
@@ -525,18 +525,6 @@
   function articleUrl(slug) {
     return ARTICLE_PATH + encodeURIComponent(slug) + "/";
   }
-
-  function goToArticle(slug) {
-    window.location.href = articleUrl(slug);
-  }
-
-  document.addEventListener("click", (e) => {
-    const target = e.target.closest("[data-slug]");
-    if (target) {
-      e.preventDefault();
-      goToArticle(target.getAttribute("data-slug"));
-    }
-  });
 
   function showHomepage() {
     articleView.style.display = "none";
