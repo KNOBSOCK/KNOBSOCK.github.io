@@ -650,7 +650,7 @@
                   : formatted(p.body)) +
                 "</div>" +
                 (p.editedAt
-                  ? "<small> Edited " + date(p.editedAt) + "</small>"
+                  ? '<small class="edited">Edited ' + date(p.editedAt) + "</small>"
                   : "") +
                 (!p.hidden
                   ? '<div class="actions"><button data-quote="' +

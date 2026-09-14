@@ -225,6 +225,12 @@
   padding: 0 9px;
   font-size: 0.8em;
 }
+.post .edited {
+  display: block;
+  padding: 0 10px 10px;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
 .post blockquote {
   border-left: 3px solid var(--dim);
   margin: 6px 0 10px;
