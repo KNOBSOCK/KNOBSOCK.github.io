@@ -372,6 +372,7 @@
     let isUnmutedIntent = false;
     let resumeAfterDirectSeek = false;
     let directSeekRecoveryTimer = null;
+    let externalPauseRequested = false;
     let directSeekRetryTimer = null;
     let directSeekReloadTimer = null;
     let directVideoWasPlaying = false;
@@ -664,12 +665,19 @@
         ytPlayer.playVideo();
       } else if (e.data === YT.PlayerState.PAUSED) {
 
-        ytPlayer.playVideo();
+        if (!externalPauseRequested) ytPlayer.playVideo();
       }
     }
 
     videoEl.addEventListener('pause', () => {
-      if (backend === 'video' && videoReady) videoEl.play().catch(() => {});
+      if (backend === 'video' && videoReady && !externalPauseRequested) videoEl.play().catch(() => {});
+    });
+
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data.type !== 'knobsock-pause-media') return;
+      externalPauseRequested = true;
+      if (backend === 'video') videoEl.pause();
+      else if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
     });
 
     function createPlayer(id) {
@@ -694,6 +702,7 @@
     }
 
     function loadVideo(video) {
+      externalPauseRequested = false;
       const id = video.id;
       document.querySelectorAll('.video-tile').forEach((el) => {
         el.classList.toggle('active', el.getAttribute('data-id') === id);

@@ -319,6 +319,9 @@ params.set('shell-version', '20260913-11');
         } catch (e) {}
       }
       try {
+        frame.contentWindow.postMessage({ type: 'knobsock-pause-media' }, origin);
+      } catch (e) {}
+      try {
         pauseFrameMedia(frame.contentWindow, depth + 1);
       } catch (e) {}
     });
