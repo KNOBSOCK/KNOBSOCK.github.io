@@ -773,12 +773,17 @@
       $("terminal").classList.toggle("is-gated", gated);
       if (gated) {
         view.innerHTML =
-          '<div class="login-gate"><form class="compose" id="signup"><h1>What are you gonna call yourself?</h1><label>Username<span class="prompt-row"><input name="username" maxlength="24" required autocomplete="nickname" placeholder="e.g. gunoguap"><span class="cursor-blink" aria-hidden="true">█</span></span></label><p class="login-gate-note">This name is shared with live chat and stays signed in on this browser. No password or email is required. Clearing browser storage loses this session.</p><label><input type="checkbox" required style="width:auto"> I agree to the <a href="#rules">forum rules</a> and <a href="/privacy">Privacy &amp; User Agreement</a>.</label><button>Join the forums</button></form></div>';
+          '<div class="login-gate"><form class="compose" id="signup"><h1>What are you gonna call yourself?</h1><label>Username<span class="prompt-row"><input name="username" maxlength="24" required autocomplete="nickname"><span class="cursor-blink" aria-hidden="true">█</span></span></label><p class="login-gate-note">This name is shared with live chat and stays signed in on this browser. No password or email is required. Clearing browser storage loses this session.</p><label><input type="checkbox" required style="width:auto"> I agree to the <a href="#rules">forum rules</a> and <a href="/privacy">Privacy &amp; User Agreement</a>.</label><button>Join the forums</button></form></div>';
         $("signup").onsubmit = (e) => {
           e.preventDefault();
           act($("signup").querySelector("button"), () =>
             signup($("signup").username.value),
           );
+        };
+        const gateInput = $("signup").username,
+          gateCursor = $("signup").querySelector(".cursor-blink");
+        gateInput.oninput = () => {
+          gateCursor.style.display = gateInput.value ? "none" : "";
         };
       } else if (kind === "thread" && id) {
         view.innerHTML = "Loading thread…";
