@@ -676,7 +676,10 @@
   });
 
   ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach((evt) => {
-    document.addEventListener(evt, updateFullscreenIcon);
+    document.addEventListener(evt, () => {
+      updateFullscreenIcon();
+      if (!usingPseudoFullscreen) notifyParentFullscreen(isFullscreen());
+    });
   });
 
   window.addEventListener('message', function (e) {
