@@ -199,7 +199,27 @@
   }
   const scroll = $("forumScroll"),
     track = $("scrollTrack"),
-    thumb = $("scrollThumb");
+    thumb = $("scrollThumb"),
+    rail = $("scrollRail");
+  let railHideTimer, railHovered = false, railDragging = false;
+  function hideRailSoon() {
+    clearTimeout(railHideTimer);
+    railHideTimer = setTimeout(() => {
+      if (!railHovered && !railDragging) rail.classList.remove("is-visible");
+    }, 900);
+  }
+  function showRail() {
+    rail.classList.add("is-visible");
+    hideRailSoon();
+  }
+  rail.addEventListener("pointerenter", () => {
+    railHovered = true;
+    showRail();
+  });
+  rail.addEventListener("pointerleave", () => {
+    railHovered = false;
+    hideRailSoon();
+  });
   function syncScroll() {
     const max = scroll.scrollHeight - scroll.clientHeight,
       h = track.clientHeight,
@@ -218,7 +238,14 @@
       String(Math.round(max > 0 ? (scroll.scrollTop / max) * 100 : 0)),
     );
   }
-  scroll.addEventListener("scroll", syncScroll, { passive: true });
+  scroll.addEventListener(
+    "scroll",
+    () => {
+      syncScroll();
+      showRail();
+    },
+    { passive: true },
+  );
   new ResizeObserver(syncScroll).observe(scroll);
   new MutationObserver(syncScroll).observe($("forumView"), {
     childList: true,
@@ -236,6 +263,8 @@
   thumb.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     thumb.setPointerCapture(e.pointerId);
+    railDragging = true;
+    showRail();
     const y = e.clientY,
       start = scroll.scrollTop;
     const move = (m) => {
@@ -245,6 +274,8 @@
           Math.max(1, track.clientHeight - thumb.clientHeight);
     };
     const end = () => {
+      railDragging = false;
+      hideRailSoon();
       thumb.removeEventListener("pointermove", move);
       thumb.removeEventListener("pointerup", end);
       thumb.removeEventListener("pointercancel", end);
@@ -276,6 +307,7 @@
   addEventListener("resize", layout);
   if (window.visualViewport) visualViewport.addEventListener("resize", layout);
   layout();
+  showRail();
   function renderIdentity() {
     $("identity").innerHTML = activeBan()
       ? '<span class="error">Banned from live chat and forums. ' +
