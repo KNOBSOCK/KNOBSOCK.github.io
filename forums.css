@@ -7,6 +7,7 @@
   --green: #00c600;
   --dim: #00a000;
   --line: 2px solid var(--dim);
+  --panel-tint: rgba(0, 198, 0, 0.25);
 }
 #terminal {
   position: absolute;
@@ -56,7 +57,7 @@
 #terminal select {
   font: inherit;
   color: inherit;
-  background: #000;
+  background: var(--panel-tint);
   border: var(--line);
   border-radius: 0;
   padding: 5px 7px;
@@ -119,6 +120,7 @@
 .forum-category {
   margin: 16px 0;
   border: var(--line);
+  background: var(--panel-tint);
 }
 .forum-category h2 {
   font-size: 1.2em;
@@ -197,6 +199,7 @@
 .post {
   border: var(--line);
   margin: 12px 0;
+  background: var(--panel-tint);
 }
 .post-head {
   padding: 7px 9px;
@@ -229,6 +232,7 @@
   border: var(--line);
   padding: 12px;
   margin: 15px 0;
+  background: var(--panel-tint);
 }
 .compose label {
   display: block;
