@@ -812,10 +812,11 @@
         view.innerHTML =
           "<h1>" +
           esc(s.exists ? s.data().username || "Member" : "Member") +
-          "</h1><h2>Threads</h2>" +
+          '</h1><h2>Threads</h2><div class="forum-category">' +
           threadTable(
             ordered(visibleThreads().filter((t) => t.authorId === id)),
-          );
+          ) +
+          "</div>";
       } else if (["board", "recent", "search"].includes(kind)) {
         const b = board(id);
         let query = "";
@@ -844,7 +845,7 @@
           (b && !b.locked
             ? '<a href="#new/' + b.id + '">[ New thread ]</a>'
             : "") +
-          '<label>Sort <select id="sort"><option value="activity">Last activity</option><option value="newest">Newest</option><option value="title">Subject</option><option value="replies">Most replies</option></select></label></div><div id="threadList">' +
+          '<label>Sort <select id="sort"><option value="activity">Last activity</option><option value="newest">Newest</option><option value="title">Subject</option><option value="replies">Most replies</option></select></label></div><div id="threadList" class="forum-category">' +
           threadTable(ordered(list)) +
           "</div>";
         $("sort").onchange = () => {
