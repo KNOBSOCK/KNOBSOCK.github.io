@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SC interstitial bench</title>
+<style>
+  body { margin: 0; padding: 10px 10px 40px; background: #111; color: #eee; font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 15px; }
+  .note { margin: 0 0 12px; color: #9a9a9f; font-size: 12px; }
+  .test { margin: 0 0 14px; padding: 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1c; }
+  .test h2 { margin: 0 0 6px; font-size: 13px; color: #ffd60a; }
+  .test iframe { display: block; width: 100%; height: 120px; border: 0; background: #000; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  button { min-height: 38px; padding: 0 12px; border: 0; border-radius: 7px; background: #2f6fed; color: #fff; font: inherit; font-weight: 600; }
+  button.alt { background: #3b3b3f; }
+  .state { margin-top: 6px; font: 11px ui-monospace, Menlo, monospace; color: #7ee787; }
+  .log { margin: 10px 0 0; padding: 8px; max-height: 30vh; overflow: auto; border-radius: 8px; background: #000; color: #d8ffd8; font: 10px/1.35 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>SoundCloud interstitial bench</h1>
+<p class="note">Tap <strong>PLAY</strong> once in each test. Then try <strong>load+play (app style)</strong> — that is exactly what the boombox does. E has no visible player on purpose: its iframe is parked off-screen like the real one.</p>
+<div id="tests"></div>
+<pre class="log" id="log">loading config...</pre>
+
+<script src="https://w.soundcloud.com/player/api.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  var logEl = document.getElementById('log');
+  var testsEl = document.getElementById('tests');
+  var started = Date.now();
+  var lines = [];
+  function log(text) {
+    lines.push(String(Date.now() - started).padStart(5, ' ') + 'ms  ' + text);
+    if (lines.length > 300) lines.shift();
+    logEl.textContent = lines.join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function soundCloudUrl(value) {
+    try { var url = new URL(value); return /(^|\.)soundcloud\.com$/i.test(url.hostname) ? url.href : ''; } catch (_) { return ''; }
+  }
+
+  function makeTest(options) {
+    var box = document.createElement('div');
+    box.className = 'test';
+    var title = document.createElement('h2');
+    title.textContent = options.title;
+    var frame = document.createElement('iframe');
+    frame.allow = 'autoplay';
+    frame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(options.url) +
+      '&auto_play=' + (options.autoPlaySrc ? 'true' : 'false') + '&show_artwork=false' + (options.visual ? '&visual=true' : '');
+    if (options.offscreen) frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:300px;height:166px;border:0';
+    var holder = frame;
+    if (options.hide === 'opacity') frame.style.opacity = '0.02';
+    if (options.hide === 'tiny') { frame.style.width = '4px'; frame.style.height = '4px'; }
+    if (options.hide === 'scaled') { frame.style.transform = 'scale(0.02)'; frame.style.transformOrigin = '0 0'; }
+    if (options.hide === 'covered') {
+      holder = document.createElement('div');
+      holder.style.cssText = 'position:relative;height:120px;overflow:hidden';
+      var cover = document.createElement('div');
+      cover.style.cssText = 'position:absolute;inset:0;background:#1a1a1c';
+      holder.append(frame, cover);
+    }
+    var row = document.createElement('div');
+    row.className = 'row';
+    var state = document.createElement('div');
+    state.className = 'state';
+    state.textContent = 'starting...';
+    box.append(title, holder, row, state);
+    testsEl.append(box);
+
+    var widget = SC.Widget(frame);
+    var name = options.name;
+    var burned = false;
+
+    function button(label, alt, handler) {
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.textContent = label;
+      if (alt) el.className = 'alt';
+      el.onclick = handler;
+      row.append(el);
+      return el;
+    }
+    function burn(reason) {
+      burned = true;
+      log(name + ': BURN (' + reason + ')');
+      try {
+        widget.setVolume(0);
+        widget.play();
+        setTimeout(function () { widget.pause(); widget.setVolume(100); log(name + ': burn released'); }, 500);
+      } catch (_) {}
+    }
+
+    widget.bind(SC.Widget.Events.READY, function () {
+      log(name + ': READY');
+      if (options.burnOnReady) setTimeout(function () { burn('on ready'); }, 400);
+    });
+    widget.bind(SC.Widget.Events.PLAY, function () { log(name + ': PLAY'); });
+    widget.bind(SC.Widget.Events.PAUSE, function () { log(name + ': PAUSE'); });
+    widget.bind(SC.Widget.Events.ERROR, function () { log(name + ': ERROR'); });
+
+    button('PLAY', false, function () { log(name + ': tap -> play()'); widget.setVolume(100); widget.play(); });
+    button('play again', true, function () { log(name + ': tap -> play() again'); widget.play(); });
+    if (options.skip) {
+      button('skip next', true, function () {
+        widget.getCurrentSoundIndex(function (index) {
+          log(name + ': tap -> skip(' + (index + 1) + ')');
+          widget.skip(index + 1);
+        });
+      });
+    }
+    button('1 tap = 2x fast', false, function () {
+      log(name + ': tap -> play() x2 @150ms');
+      widget.setVolume(100); widget.play();
+      setTimeout(function () { widget.play(); }, 150);
+    });
+    button('1 tap = 2x slow', false, function () {
+      log(name + ': tap -> play() x2 @800ms');
+      widget.setVolume(100); widget.play();
+      setTimeout(function () { widget.play(); }, 800);
+    });
+    button('1 tap = play,pause,play', true, function () {
+      log(name + ': tap -> play/pause/play');
+      widget.setVolume(0); widget.play();
+      setTimeout(function () { widget.pause(); }, 120);
+      setTimeout(function () { widget.setVolume(100); widget.play(); }, 500);
+    });
+    button('1 tap = load+play (app style)', false, function () {
+      log(name + ': tap -> load(auto_play) + play()');
+      widget.setVolume(100);
+      widget.load(options.url, { auto_play: true, show_artwork: false, callback: function () {
+        log(name + ': load callback -> play()');
+        widget.play();
+      } });
+    });
+    button('burn now', true, function () { burn('manual'); });
+
+    setInterval(function () {
+      widget.isPaused(function (paused) {
+        state.textContent = (paused ? 'sc=paused' : 'sc=PLAYING') + (burned ? '  burned' : '  not burned');
+      });
+    }, 700);
+  }
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  };
+  var db = firebase.firestore(firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig));
+
+  db.collection('chat_config').doc('soundcloud').get().then(function (doc) {
+    var data = doc.data() || {};
+    var profiles = [];
+    if (Array.isArray(data.profileUrls)) profiles = data.profileUrls.slice();
+    else if (typeof data.profileUrls === 'string') profiles = [data.profileUrls];
+    if (data.profileUrl) profiles.push(data.profileUrl);
+    profiles = profiles.map(soundCloudUrl).filter(Boolean);
+    if (!profiles.length) { log('no SoundCloud profile configured'); return; }
+    var profile = profiles[0];
+    log('profile: ' + profile);
+
+    var probeFrame = document.createElement('iframe');
+    probeFrame.style.cssText = 'position:fixed;left:-10000px;width:300px;height:166px;border:0';
+    probeFrame.allow = 'autoplay';
+    probeFrame.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(profile) + '&auto_play=false&show_artwork=false';
+    document.body.append(probeFrame);
+    var probe = SC.Widget(probeFrame);
+    probe.bind(SC.Widget.Events.READY, function () {
+      probe.getSounds(function (sounds) {
+        var track = '';
+        (sounds || []).some(function (sound) {
+          var url = soundCloudUrl(sound && sound.permalink_url);
+          if (url) { track = url; return true; }
+          return false;
+        });
+        if (!track) { log('could not resolve a single track from the profile'); return; }
+        log('track: ' + track);
+        makeTest({ name: 'A', title: 'A — single track, auto-burn on load', url: track, burnOnReady: true });
+        makeTest({ name: 'B', title: 'B — single track, no burn (control)', url: track });
+        makeTest({ name: 'C', title: 'C — whole profile, auto-burn, skip to change track', url: profile, burnOnReady: true, skip: true });
+        makeTest({ name: 'D', title: 'D — single track, auto_play=true in iframe src', url: track, autoPlaySrc: true });
+        makeTest({ name: 'E', title: 'E — single track, iframe parked OFF-SCREEN (like the real player)', url: track, offscreen: true });
+        makeTest({ name: 'F', title: 'F — on-screen, opacity 0.02', url: track, hide: 'opacity' });
+        makeTest({ name: 'G', title: 'G — on-screen, shrunk to 4x4 px', url: track, hide: 'tiny' });
+        makeTest({ name: 'H', title: 'H — on-screen, full size, covered by an opaque layer', url: track, hide: 'covered' });
+        makeTest({ name: 'I', title: 'I — on-screen, transform scale(0.02)', url: track, hide: 'scaled' });
+      });
+    });
+  }, function (error) { log('config read failed: ' + error); });
+})();
+</script>
+</body>
+</html>
