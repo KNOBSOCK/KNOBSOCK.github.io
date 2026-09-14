@@ -145,7 +145,8 @@
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0s linear 0.40s;
+    will-change: opacity;
+    transition: opacity 0s linear 0.48s;
   }
   .tv-zoom.is-open {
     opacity: 1;
@@ -250,7 +251,7 @@
       tv: { cx: 3609, cy: 1414, w: 1882, h: 500 },
       tvTopY: 995,
       tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 },
-      tvZoom: { x: 3609, y: 1414, scale: 3.27, frame: '/videos-tv-zoom-desktop-frame.png' }
+      tvZoom: { x: 3618, y: 1438, scale: 3.195, frame: '/videos-tv-zoom-desktop-frame.png' }
     },
     mobile: {
       src: '/videos-room-mobile.webp',
@@ -258,7 +259,7 @@
       tv: { cx: 2236, cy: 2315, w: 2047, h: 546 },
       tvTopY: 1863,
       tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
-      tvZoom: { x: 2236, y: 2315, scale: 3.71, frame: '/videos-tv-zoom-mobile-frame.png' }
+      tvZoom: { x: 2256, y: 2001, scale: 3.66, frame: '/videos-tv-zoom-mobile-frame.png' }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -310,10 +311,8 @@
     tvZoomTrigger.style.top = (oy + v.tvBezel.top * s) + 'px';
 
     layoutBox = { ox: ox, oy: oy, s: s, v: v };
-    if (isZoomed) {
-      syncZoomFrame();
-      setCameraAnchor();
-    }
+    syncZoomFrame();
+    if (isZoomed) setCameraAnchor();
 
     var bw = v.tv.w * s;
     var bh = v.tv.h * s;
@@ -342,7 +341,6 @@
   var isZoomed = false;
   var isOpening = false;
   var zoomTimer = null;
-  var sceneHideTimer = null;
 
   function syncZoomFrame() {
     if (!layoutBox) return;
@@ -435,11 +433,6 @@
     syncZoomFrame();
     setCameraAnchor();
     roomScene.classList.add('is-zooming');
-    clearTimeout(sceneHideTimer);
-    roomScene.style.visibility = '';
-    sceneHideTimer = setTimeout(function () {
-      if (isZoomed) roomScene.style.visibility = 'hidden';
-    }, 470);
   }
 
   function openZoom() {
@@ -466,8 +459,6 @@
     playWoosh();
     tvZoom.classList.remove('is-open');
     tvZoom.classList.add('is-closing');
-    clearTimeout(sceneHideTimer);
-    roomScene.style.visibility = '';
     tvZoom.setAttribute('aria-hidden', 'true');
     clearTimeout(zoomTimer);
     zoomTimer = setTimeout(function () {
