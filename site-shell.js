@@ -294,6 +294,36 @@ params.set('shell-version', '20260913-11');
     renderRoute(nextRoute, openMusic);
   }
 
+  function pauseFrameMedia(win, depth) {
+    if (!win || depth > 4) return;
+    let doc;
+    try {
+      doc = win.document;
+    } catch (e) {
+      doc = null;
+    }
+    if (!doc) return;
+    Array.prototype.forEach.call(doc.querySelectorAll('video, audio'), (el) => {
+      try {
+        el.pause();
+      } catch (e) {}
+    });
+    Array.prototype.forEach.call(doc.querySelectorAll('iframe'), (frame) => {
+      const src = frame.getAttribute('src') || '';
+      if (/youtube\.com\/embed\//.test(src)) {
+        try {
+          frame.contentWindow.postMessage(
+            JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+            '*'
+          );
+        } catch (e) {}
+      }
+      try {
+        pauseFrameMedia(frame.contentWindow, depth + 1);
+      } catch (e) {}
+    });
+  }
+
   function renderRoute(value, openMusic) {
     const nextRoute = publicRoute(value);
     const nextFile = routeKey(nextRoute).split(/[?#]/, 1)[0];
@@ -305,6 +335,7 @@ params.set('shell-version', '20260913-11');
     if (musicRoute) {
       routeFrame.classList.remove('is-active');
       musicFrame.classList.add('is-active');
+      pauseFrameMedia(routeFrame.contentWindow, 0);
 
       if (openMusic) {
         pendingOpen = true;
