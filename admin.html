@@ -801,6 +801,7 @@
       <button type="button" class="nav-tab" data-tab="games">Games</button>
       <button type="button" class="nav-tab" data-tab="music">Music</button>
       <button type="button" class="nav-tab" data-tab="live">Live</button>
+      <button type="button" class="nav-tab" data-tab="forums">Forums</button>
       <button type="button" class="nav-tab" data-tab="store">Store</button>
       <button type="button" class="nav-tab" data-tab="seo">SEO</button>
     </div>
@@ -986,6 +987,11 @@
     </div>
   </div>
 
+  <div class="tab-panel" id="tab-forums" hidden>
+    <h1 class="panel-title">Forums</h1>
+    <p class="panel-sub">Manage boards, threads, reports, and shared live-chat bans. Content removal is reversible.</p>
+    <div id="forumsAdmin">Sign in to load forum moderation.</div>
+  </div>
   <div class="tab-panel" id="tab-store" hidden>
     <h2 class="panel-heading">Store</h2>
     <p class="panel-sub">Add and edit what's for sale on the Store page, and see every order that's come in once checkout is actually connected (see functions/README.md) — this is the closest thing to a shipping queue this site has.</p>
@@ -1138,6 +1144,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="/forums-admin.js?v=1"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
@@ -1395,6 +1402,7 @@
       loginWrap.hidden = true;
       appEl.hidden = false;
       whoamiEl.textContent = user.email || '';
+      window.KnobsockForumsAdmin.init(db, auth);
       loginError.textContent = '';
       loginPass.value = '';
       if (!editorsStarted) {
@@ -1404,6 +1412,7 @@
     } else {
       loginWrap.hidden = false;
       appEl.hidden = true;
+      window.KnobsockForumsAdmin.stop();
     }
   });
 

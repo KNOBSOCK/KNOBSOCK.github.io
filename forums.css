@@ -1,0 +1,345 @@
+@font-face {
+  font-family: Terminal;
+  src: url("/forums-terminal.ttf") format("truetype");
+  font-display: swap;
+}
+:root {
+  --green: #00c600;
+  --dim: #00a000;
+  --line: 2px solid var(--dim);
+}
+#terminal {
+  position: absolute;
+  color: var(--green);
+  font-family: Terminal, "Courier New", monospace;
+  font-size: clamp(17px, 1.55vw, 23px);
+  line-height: 1.45;
+  display: flex;
+  overflow: hidden;
+}
+#forumScroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  outline-offset: -3px;
+}
+#forumScroll::-webkit-scrollbar {
+  display: none;
+}
+.terminal-content {
+  width: 78%;
+  max-width: 1000px;
+  margin: auto;
+  padding: 0 8px 28px;
+}
+.forum-logo {
+  display: block;
+  width: 72%;
+  max-width: 500px;
+  margin: 0 auto 10px;
+  line-height: 0;
+}
+.forum-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#terminal a {
+  color: inherit;
+  text-decoration: none;
+}
+#terminal a:hover {
+  text-decoration: underline;
+}
+#terminal button,
+#terminal input,
+#terminal textarea,
+#terminal select {
+  font: inherit;
+  color: inherit;
+  background: #000;
+  border: var(--line);
+  border-radius: 0;
+  padding: 5px 7px;
+  max-width: 100%;
+}
+#terminal button {
+  cursor: pointer;
+}
+#terminal button:hover,
+#terminal button:focus-visible {
+  background: var(--green);
+  color: #000;
+}
+#terminal :focus-visible {
+  outline: 2px dashed var(--green);
+  outline-offset: 3px;
+}
+#terminal button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+#terminal input,
+#terminal textarea {
+  min-width: 0;
+}
+#terminal textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+}
+#terminal .forum-nav {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  border-bottom: var(--line);
+  padding: 4px 0 9px;
+}
+#identity {
+  padding: 9px 0;
+  font-size: 0.86em;
+}
+.search {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.search input {
+  flex: 1;
+  width: 0;
+}
+#forumStatus {
+  font-size: 0.9em;
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+.error {
+  color: #ffbc5e;
+}
+.forum-category {
+  margin: 16px 0;
+  border: var(--line);
+}
+.forum-category h2 {
+  font-size: 1.2em;
+  font-weight: normal;
+  margin: 0;
+  padding: 5px 9px;
+  border-bottom: var(--line);
+}
+.forum-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.forum-table th,
+.forum-table td {
+  border-bottom: 1px solid var(--dim);
+  border-right: 1px solid var(--dim);
+  padding: 8px 6px;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.forum-table th {
+  font-weight: normal;
+  text-align: left;
+  font-size: 0.68em;
+  white-space: nowrap;
+  padding-inline: 3px;
+}
+.forum-table tr:last-child td {
+  border-bottom: 0;
+}
+.forum-table th:last-child,
+.forum-table td:last-child {
+  border-right: 0;
+}
+.forum-table .board-col {
+  width: 54%;
+}
+.forum-table .count-col {
+  width: 11%;
+  text-align: center;
+}
+.forum-table .last-col {
+  width: 24%;
+}
+.forum-table small {
+  display: block;
+  font-size: 0.78em;
+  opacity: 0.85;
+}
+.board-title {
+  font-size: 1.05em;
+}
+.new-dot {
+  margin-right: 5px;
+}
+.muted {
+  opacity: 0.8;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 0;
+}
+.breadcrumbs {
+  margin: 12px 0;
+  font-size: 0.86em;
+}
+#terminal h1 {
+  font-size: 1.35em;
+  font-weight: normal;
+  overflow-wrap: anywhere;
+}
+.post {
+  border: var(--line);
+  margin: 12px 0;
+}
+.post-head {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--dim);
+  font-size: 0.85em;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.post-body {
+  padding: 14px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: Terminal, "Courier New", monospace;
+  font-size: 1.1em;
+  line-height: 1.6;
+}
+.post .actions {
+  padding: 0 9px;
+  font-size: 0.8em;
+}
+.post blockquote {
+  border-left: 3px solid var(--dim);
+  margin: 6px 0 10px;
+  padding-left: 12px;
+  opacity: 0.8;
+}
+.compose {
+  border: var(--line);
+  padding: 12px;
+  margin: 15px 0;
+}
+.compose label {
+  display: block;
+  margin: 9px 0;
+}
+.compose input {
+  width: 100%;
+}
+.compose p {
+  font-size: 0.85em;
+}
+.pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 16px 0;
+}
+#terminal footer {
+  text-align: center;
+  margin: 24px 0 0;
+  font-size: 0.75em;
+}
+.empty {
+  padding: 18px 10px;
+}
+.member {
+  padding: 9px;
+  border-bottom: 1px solid var(--dim);
+}
+#scrollRail {
+  width: 17px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding-left: 3px;
+}
+#scrollRail button {
+  padding: 0;
+  font: 10px monospace;
+  width: 14px;
+  height: 20px;
+  flex: none;
+}
+#scrollTrack {
+  position: relative;
+  flex: 1;
+  border: 1px solid var(--dim);
+  margin: 3px 0;
+  touch-action: none;
+}
+#scrollThumb {
+  position: absolute;
+  width: 100%;
+  background: var(--green);
+  min-height: 22px;
+  cursor: grab;
+  touch-action: none;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (max-width: 860px) {
+  #terminal {
+    font-size: 18px;
+  }
+  .terminal-content {
+    width: 100%;
+    padding: 0 5px 24px;
+  }
+  .forum-logo {
+    width: 76%;
+    margin-bottom: 8px;
+  }
+  .forum-nav {
+    font-size: 16px;
+    gap: 4px 10px !important;
+  }
+  .forum-table th,
+  .forum-table td {
+    padding: 7px 4px;
+  }
+  .forum-table .board-col {
+    width: 49%;
+  }
+  .forum-table .count-col {
+    width: 12%;
+  }
+  .forum-table .last-col {
+    width: 27%;
+    font-size: 14px;
+  }
+  .forum-table small {
+    font-size: 14px;
+  }
+  .forum-category h2 {
+    font-size: 23px;
+  }
+  #scrollRail {
+    width: 14px;
+  }
+  #scrollRail button {
+    width: 11px;
+  }
+  .post-body {
+    font-size: 20px;
+  }
+}

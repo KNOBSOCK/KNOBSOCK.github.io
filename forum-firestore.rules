@@ -1,0 +1,113 @@
+// Inserted inside /databases/{database}/documents by deploy-forum-rules.mjs.
+// These blocks do not replace the existing site's collection permissions.
+// Browser identities inherit live chat's trust model. First forum use binds a
+// private credential; subsequent writes must prove it in the same atomic batch.
+function forumAdmin() {
+  return request.auth != null && request.auth.uid in ['FMOSByXnljTHYirhcsJp7DAK4sQ2', 'y1xhfXeUWzfCLm9CCeCIXur98dm1'];
+}
+function forumNotBanned(id) {
+  return !exists(/databases/$(database)/documents/chat_bans/$(id))
+    || (get(/databases/$(database)/documents/chat_bans/$(id)).data.expiresAt is number
+      && get(/databases/$(database)/documents/chat_bans/$(id)).data.expiresAt <= request.time.toMillis());
+}
+function forumOpen() {
+  return !exists(/databases/$(database)/documents/forum_config/main)
+    || get(/databases/$(database)/documents/forum_config/main).data.readOnly == false;
+}
+function forumWriter(id, name) {
+  let session = getAfter(/databases/$(database)/documents/forum_sessions/$(id)).data;
+  return session.touched == request.time && session.username == name
+    && get(/databases/$(database)/documents/chat_devices/$(id)).data.username == name
+    && forumNotBanned(id) && forumOpen();
+}
+function forumBoardOpen(id) {
+  return get(/databases/$(database)/documents/forum_boards/$(id)).data.locked == false
+    && get(/databases/$(database)/documents/forum_boards/$(id)).data.get('archived', false) == false;
+}
+match /forum_sessions/{id} {
+  allow read: if false;
+  allow create: if request.resource.data.keys().hasOnly(['secret','proof','deviceId','username','touched'])
+    && request.resource.data.secret is string && request.resource.data.secret.size() >= 64
+    && request.resource.data.secret.size() <= 100
+    && request.resource.data.deviceId == id && request.resource.data.touched == request.time
+    && get(/databases/$(database)/documents/chat_devices/$(id)).data.username == request.resource.data.username
+    && forumNotBanned(id);
+  allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['touched','username','secret','proof'])
+    && request.resource.data.proof == resource.data.secret
+    && request.resource.data.secret is string && request.resource.data.secret.size() >= 64 && request.resource.data.secret.size() <= 100
+    && request.resource.data.secret != resource.data.secret
+    && request.resource.data.touched == request.time
+    && request.time >= resource.data.touched + duration.value(10, 's')
+    && get(/databases/$(database)/documents/chat_devices/$(id)).data.username == request.resource.data.username
+    && forumNotBanned(id);
+  allow delete: if forumAdmin();
+}
+match /forum_categories/{id} { allow read: if true; allow write: if forumAdmin(); }
+match /forum_boards/{id} { allow read: if true; allow write: if forumAdmin(); }
+match /forum_config/{id} { allow read: if true; allow write: if forumAdmin(); }
+match /forum_threads/{threadId} {
+  allow read: if resource.data.hidden == false || forumAdmin();
+  allow create: if request.resource.data.keys().hasOnly(['boardId','title','authorId','username','createdAt','updatedAt','lastUsername','lastPostId','postCount','pinned','locked','hidden'])
+    && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 140
+    && request.resource.data.boardId is string && request.resource.data.authorId is string
+    && request.resource.data.username is string
+    && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+    && request.resource.data.postCount == 1 && request.resource.data.pinned == false
+    && request.resource.data.locked == false && request.resource.data.hidden == false
+    && request.resource.data.lastUsername == request.resource.data.username
+    && forumWriter(request.resource.data.authorId, request.resource.data.username)
+    && forumBoardOpen(request.resource.data.boardId)
+    && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(request.resource.data.lastPostId)).data.createdAt == request.time;
+  allow update: if forumAdmin() || (
+    resource.data.hidden == false && resource.data.locked == false
+    && forumBoardOpen(resource.data.boardId)
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt','lastUsername','lastPostId','postCount'])
+    && request.resource.data.updatedAt == request.time
+    && request.resource.data.postCount == resource.data.postCount + 1
+    && request.resource.data.lastPostId != resource.data.lastPostId
+    && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(request.resource.data.lastPostId)).data.createdAt == request.time
+    && forumWriter(getAfter(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(request.resource.data.lastPostId)).data.authorId, request.resource.data.lastUsername)
+  );
+  allow delete: if false;
+  match /posts/{postId} {
+    allow read: if forumAdmin() || (resource.data.hidden == false
+      && get(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false);
+    allow create: if request.resource.data.keys().hasOnly(['body','authorId','username','createdAt','editedAt','hidden'])
+      && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
+      && request.resource.data.authorId is string && request.resource.data.username is string
+      && request.resource.data.createdAt == request.time && request.resource.data.editedAt == null && request.resource.data.hidden == false
+      && forumWriter(request.resource.data.authorId, request.resource.data.username)
+      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.locked == false
+      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false
+      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.lastPostId == postId
+      && forumBoardOpen(getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.boardId);
+    allow update: if forumAdmin() || (
+      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body','editedAt'])
+      && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
+      && request.resource.data.editedAt == request.time && resource.data.hidden == false
+      && forumWriter(resource.data.authorId, resource.data.username)
+      && get(/databases/$(database)/documents/forum_threads/$(threadId)).data.locked == false
+      && get(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false
+      && forumBoardOpen(get(/databases/$(database)/documents/forum_threads/$(threadId)).data.boardId)
+    );
+    allow delete: if false;
+  }
+}
+match /forum_reports/{id} {
+  allow read, update: if forumAdmin();
+  allow create: if request.resource.data.keys().hasOnly(['threadId','postId','authorId','username','reason','createdAt','status'])
+    && request.resource.data.threadId is string && request.resource.data.postId is string
+    && request.resource.data.authorId is string && request.resource.data.username is string
+    && request.resource.data.reason is string && request.resource.data.reason.size() > 0 && request.resource.data.reason.size() <= 500
+    && request.resource.data.status == 'open' && request.resource.data.createdAt == request.time
+    && forumWriter(request.resource.data.authorId,request.resource.data.username);
+  allow delete: if false;
+}
+match /forum_audit/{id} {
+  allow read, create: if forumAdmin();
+  allow update, delete: if false;
+}
+// Admin-only collection-group lookup for a member's full posting history.
+match /{parent=**}/posts/{postId} {
+  allow read: if forumAdmin();
+}

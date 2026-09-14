@@ -28,6 +28,9 @@
     '/live': '/live.html',
     '/live/': '/live.html',
     '/live.html': '/live.html',
+    '/forums': '/forums.html',
+    '/forums/': '/forums.html',
+    '/forums.html': '/forums.html',
     '/livingroom': '/livingroom.html',
     '/livingroom/': '/livingroom.html',
     '/livingroom.html': '/livingroom.html',
@@ -219,6 +222,9 @@ params.set('shell-version', '20260913-11');
 
     if (url.origin !== origin) return;
 
+    if (link.getAttribute('href').startsWith('#') &&
+        /\/forums(?:\.html)?\/?$/.test(url.pathname)) return;
+
     /* Effect buttons (such as Hamburger News) animate and play sound in the
        routed page before asking the shell to change routes. */
     if (link.hasAttribute('data-shell-navigate-after-effect')) return;
@@ -352,7 +358,12 @@ params.set('shell-version', '20260913-11');
       musicFrame.classList.remove('is-active');
 
       const nextKey = routeKey(nextRoute);
-      if (routeFrame.dataset.route !== nextKey) {
+      if (routeFrame.dataset.route &&
+          routeFrame.dataset.route.split('#')[0] === nextKey.split('#')[0]) {
+        routeFrame.dataset.route = nextKey;
+        routeFrame.contentWindow.location.hash = new URL(nextRoute, origin).hash;
+        routeFrame.classList.add('is-active');
+      } else if (routeFrame.dataset.route !== nextKey) {
         routeFrame.classList.remove('is-active');
         routeFrame.style.transition = 'none';
         void routeFrame.offsetWidth;
@@ -646,6 +657,14 @@ params.set('shell-version', '20260913-11');
   });
 
   attachFrame(routeFrame);
+  window.addEventListener('message', (event) => {
+    if (event.origin !== origin || event.source !== routeFrame.contentWindow ||
+        event.data?.type !== 'knobsock-forum-route' ||
+        !/^#(?:[a-z0-9/_?=&%.-]*)$/i.test(event.data.hash || '')) return;
+    if (/\/forums(?:\.html)?\/?$/.test(activeFile)) {
+      navigate('/forums' + event.data.hash, false, false);
+    }
+  });
   attachFrame(musicFrame);
 musicFrame.src = '/music.html?site-content=1&shell-version=20260913-11';
 
