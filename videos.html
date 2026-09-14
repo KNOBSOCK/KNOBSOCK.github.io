@@ -27,6 +27,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="preload" as="image" href="/videos-tv-zoom-desktop-frame.png">
+<link rel="preload" as="image" href="/videos-tv-zoom-mobile-frame.png">
 <style>
   @font-face {
     font-family: 'Gratis Neue';
@@ -55,21 +57,40 @@
     pointer-events: none;
   }
 
-  .room-bg {
+  .room-scene {
     position: fixed;
+    inset: 0;
+    transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+  }
+  .room-scene.is-zooming {
+    transform: scale(var(--tv-zoom-scale, 2));
+    pointer-events: none;
+  }
+
+  .room-bg {
+    position: absolute;
     z-index: 1;
-    transform-origin: 50% 50%;
     pointer-events: none;
   }
 
   .tv-slot {
-    position: fixed;
+    position: absolute;
     z-index: 2;
-    transform-origin: 50% 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-wrap: nowrap;
+    pointer-events: none;
+  }
+
+  .tv-zoom-trigger {
+    position: absolute;
+    z-index: 2;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .tv-btn {
@@ -83,6 +104,7 @@
     border: 0;
     background: none;
     cursor: pointer;
+    pointer-events: auto;
     -webkit-appearance: none;
     appearance: none;
     -webkit-tap-highlight-color: transparent;
@@ -116,10 +138,53 @@
     padding: 0 6%;
   }
 
-  .videos-logo {
+  .tv-zoom {
     position: fixed;
+    z-index: 10;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0s linear 0.40s;
+  }
+  .tv-zoom[hidden] { display: none; }
+  .tv-zoom.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .tv-zoom.is-closing {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.08s linear;
+  }
+  .tv-zoom-frame {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .tv-zoom-close {
+    position: fixed;
+    z-index: 2;
+    top: clamp(10px, 3vw, 24px);
+    right: clamp(10px, 3vw, 24px);
+    width: clamp(34px, 6vw, 52px);
+    height: clamp(34px, 6vw, 52px);
+    border-radius: 50%;
+    border: 0;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: clamp(18px, 3vw, 26px);
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tv-zoom-close:hover { background: rgba(0, 0, 0, 0.75); }
+
+  .videos-logo {
+    position: absolute;
     z-index: 3;
-    transform-origin: 50% 50%;
     display: block;
   }
   .videos-logo img {
@@ -151,18 +216,26 @@
 </head>
 <body>
 
-<img class="room-bg" id="roomBg" alt="">
-<script>
-  document.getElementById('roomBg').src = window.innerWidth <= 860
-    ? '/videos-room-mobile.webp'
-    : '/videos-room-desktop.webp';
-</script>
+<div class="room-scene" id="roomScene">
+  <img class="room-bg" id="roomBg" alt="">
+  <script>
+    document.getElementById('roomBg').src = window.innerWidth <= 860
+      ? '/videos-room-mobile.webp'
+      : '/videos-room-desktop.webp';
+  </script>
 
-<a class="videos-logo" id="videosLogo" href="/">
-  <img src="/knobsock-videos-logo.png" alt="KNOBSOCK VIDEOS">
-</a>
+  <a class="videos-logo" id="videosLogo" href="/">
+    <img src="/knobsock-videos-logo.png" alt="KNOBSOCK VIDEOS">
+  </a>
 
-<div class="tv-slot" id="tvSlot"></div>
+  <button type="button" class="tv-zoom-trigger" id="tvZoomTrigger" aria-label="Zoom into the TV"></button>
+  <div class="tv-slot" id="tvSlot"></div>
+</div>
+
+<div class="tv-zoom" id="tvZoom" hidden aria-hidden="true">
+  <img class="tv-zoom-frame" id="tvZoomFrame" alt="Close-up of the TV">
+  <button type="button" class="tv-zoom-close" id="tvZoomClose" aria-label="Zoom out of the TV">&times;</button>
+</div>
 
 <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 
@@ -176,13 +249,17 @@
       src: '/videos-room-desktop.webp',
       w: 7456, h: 4194,
       tv: { cx: 3609, cy: 1414, w: 1882, h: 500 },
-      tvTopY: 995
+      tvTopY: 995,
+      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 },
+      tvZoom: { x: 3609, y: 1414, scale: 3.27, frame: '/videos-tv-zoom-desktop-frame.png' }
     },
     mobile: {
       src: '/videos-room-mobile.webp',
       w: 4511, h: 8000,
       tv: { cx: 2236, cy: 2315, w: 2047, h: 546 },
-      tvTopY: 1863
+      tvTopY: 1863,
+      tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
+      tvZoom: { x: 2236, y: 2315, scale: 3.71, frame: '/videos-tv-zoom-mobile-frame.png' }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -190,7 +267,13 @@
   var bg = document.getElementById('roomBg');
   var slot = document.getElementById('tvSlot');
   var logo = document.getElementById('videosLogo');
+  var roomScene = document.getElementById('roomScene');
+  var tvZoomTrigger = document.getElementById('tvZoomTrigger');
+  var tvZoom = document.getElementById('tvZoom');
+  var tvZoomFrame = document.getElementById('tvZoomFrame');
+  var tvZoomClose = document.getElementById('tvZoomClose');
   var currentVariant = null;
+  var layoutBox = null;
 
   function viewportSize() {
     var vv = window.visualViewport;
@@ -217,6 +300,22 @@
     bg.style.left = ox + 'px';
     bg.style.top = oy + 'px';
 
+    tvZoomFrame.style.width = aw + 'px';
+    tvZoomFrame.style.height = ah + 'px';
+    tvZoomFrame.style.left = ox + 'px';
+    tvZoomFrame.style.top = oy + 'px';
+
+    tvZoomTrigger.style.width = (v.tvBezel.w * s) + 'px';
+    tvZoomTrigger.style.height = (v.tvBezel.h * s) + 'px';
+    tvZoomTrigger.style.left = (ox + v.tvBezel.left * s) + 'px';
+    tvZoomTrigger.style.top = (oy + v.tvBezel.top * s) + 'px';
+
+    layoutBox = { ox: ox, oy: oy, s: s, v: v };
+    if (isZoomed) {
+      syncZoomFrame();
+      setCameraAnchor();
+    }
+
     var bw = v.tv.w * s;
     var bh = v.tv.h * s;
     slot.style.width = bw + 'px';
@@ -240,6 +339,166 @@
     logo.style.left = ((vp.w - lw) / 2) + 'px';
     logo.style.top = pad + 'px';
   }
+
+  var isZoomed = false;
+  var isOpening = false;
+  var zoomTimer = null;
+  var sceneHideTimer = null;
+
+  function syncZoomFrame() {
+    if (!layoutBox) return;
+    var src = layoutBox.v.tvZoom.frame;
+    if (tvZoomFrame.getAttribute('src') !== src) tvZoomFrame.src = src;
+  }
+
+  function setCameraAnchor() {
+    if (!layoutBox) return;
+    var z = layoutBox.v.tvZoom;
+    roomScene.style.transformOrigin =
+      (layoutBox.ox + z.x * layoutBox.s) + 'px ' +
+      (layoutBox.oy + z.y * layoutBox.s) + 'px';
+    roomScene.style.setProperty('--tv-zoom-scale', z.scale);
+  }
+
+  var effectContext = null;
+  var wooshBuffer = null;
+  var wooshLoading = null;
+  var legacyWoosh = null;
+  function getEffectContext() {
+    if (effectContext && effectContext.state !== 'closed') return effectContext;
+    var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return null;
+    try { effectContext = new AudioContextCtor(); } catch (_) { effectContext = null; }
+    return effectContext;
+  }
+  function loadWoosh() {
+    var context = getEffectContext();
+    if (!context) return Promise.reject(new Error('Audio effects unavailable'));
+    if (wooshBuffer) return Promise.resolve(wooshBuffer);
+    if (!wooshLoading) {
+      wooshLoading = fetch('/woosh.m4a', { cache: 'force-cache' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Audio effect unavailable');
+          return response.arrayBuffer();
+        })
+        .then(function (data) { return context.decodeAudioData(data); })
+        .then(function (buffer) { wooshBuffer = buffer; return buffer; })
+        .catch(function (error) { wooshLoading = null; throw error; });
+    }
+    return wooshLoading;
+  }
+  function primeWoosh() {
+    var context = getEffectContext();
+    if (!context) return;
+    if (context.state === 'suspended') context.resume().catch(function () {});
+    loadWoosh().catch(function () {});
+  }
+  function playLegacyWoosh() {
+    var source = legacyWoosh || (legacyWoosh = new Audio('/woosh.m4a'));
+    source.preload = 'none';
+    try { source.pause(); source.currentTime = 0; } catch (_) {}
+    source.volume = 0.7;
+    var playback = source.play();
+    if (playback && playback.catch) playback.catch(function () {});
+  }
+  function startWoosh(context, buffer) {
+    try {
+      var source = context.createBufferSource();
+      var gain = context.createGain();
+      source.buffer = buffer;
+      gain.gain.value = 0.7;
+      source.connect(gain);
+      gain.connect(context.destination);
+      source.start(0);
+    } catch (_) {}
+  }
+  function playWoosh() {
+    var context = getEffectContext();
+    if (!context) { playLegacyWoosh(); return; }
+    if (context.state === 'suspended') context.resume().catch(function () {});
+    if (wooshBuffer) { startWoosh(context, wooshBuffer); return; }
+    loadWoosh().then(function (buffer) {
+      startWoosh(context, buffer);
+    }).catch(function () {
+      playLegacyWoosh();
+    });
+  }
+
+  function beginZoom() {
+    isZoomed = true;
+    isOpening = false;
+    playWoosh();
+    tvZoom.hidden = false;
+    tvZoom.setAttribute('aria-hidden', 'false');
+    void tvZoom.offsetWidth;
+    tvZoom.classList.remove('is-closing');
+    tvZoom.classList.add('is-open');
+    syncZoomFrame();
+    setCameraAnchor();
+    roomScene.classList.add('is-zooming');
+    clearTimeout(sceneHideTimer);
+    roomScene.style.visibility = '';
+    sceneHideTimer = setTimeout(function () {
+      if (isZoomed) roomScene.style.visibility = 'hidden';
+    }, 470);
+  }
+
+  function openZoom() {
+    if (isZoomed || isOpening || !layoutBox) return;
+    isOpening = true;
+    var src = layoutBox.v.tvZoom.frame;
+    function start() { beginZoom(); }
+    if (tvZoomFrame.getAttribute('src') === src && tvZoomFrame.complete) {
+      start();
+      return;
+    }
+    tvZoomFrame.src = src;
+    if (tvZoomFrame.decode) {
+      tvZoomFrame.decode().then(start).catch(start);
+    } else {
+      tvZoomFrame.addEventListener('load', start, { once: true });
+      tvZoomFrame.addEventListener('error', start, { once: true });
+    }
+  }
+
+  function closeZoom() {
+    if (!isZoomed) return;
+    isZoomed = false;
+    playWoosh();
+    tvZoom.classList.remove('is-open');
+    tvZoom.classList.add('is-closing');
+    clearTimeout(sceneHideTimer);
+    roomScene.style.visibility = '';
+    tvZoom.setAttribute('aria-hidden', 'true');
+    clearTimeout(zoomTimer);
+    zoomTimer = setTimeout(function () {
+      roomScene.classList.remove('is-zooming');
+      tvZoom.classList.remove('is-closing');
+    }, 90);
+    setTimeout(function () {
+      tvZoom.hidden = true;
+    }, 560);
+  }
+
+  tvZoomTrigger.addEventListener('click', openZoom);
+  tvZoomTrigger.addEventListener('pointerenter', primeWoosh);
+  tvZoomClose.addEventListener('click', closeZoom);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
+  });
+
+  function idlePreload(fn) {
+    if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: 2000 });
+    else setTimeout(fn, 600);
+  }
+  idlePreload(function () {
+    primeWoosh();
+    [VARIANTS.desktop.tvZoom.frame, VARIANTS.mobile.tvZoom.frame].forEach(function (src) {
+      var img = new Image();
+      img.src = src;
+      if (img.decode) img.decode().catch(function () {});
+    });
+  });
 
   var rafPending = false;
   function scheduleLayout() {
