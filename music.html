@@ -506,6 +506,9 @@
     var zoomArt = document.getElementById('musicZoomArt');
     var zoomNightArt = document.getElementById('musicZoomNightArt');
     var zoomClose = document.getElementById('musicZoomClose');
+    [zoomArt, zoomNightArt].forEach(function (img) {
+      if (img && img.decode) img.decode().catch(function () {});
+    });
     var controls = Array.prototype.slice.call(document.querySelectorAll('.music-control'));
     var tracksWheel = document.getElementById('musicTracksWheel');
     var selectButton = document.getElementById('musicSelectButton');
@@ -1002,6 +1005,7 @@
     ['/music-boombox-zoom-desktop-frame.png', '/music-boombox-zoom-mobile-frame.png', '/music-boombox-zoom-mobile-night.png'].forEach(function (source) {
       var image = new Image();
       image.src = source;
+      if (image.decode) image.decode().catch(function () {});
     });
   })();
 </script>
