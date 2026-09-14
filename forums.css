@@ -316,10 +316,9 @@
   text-align: center;
 }
 .login-gate {
-  min-height: 55vh;
   display: flex;
-  align-items: center;
   justify-content: center;
+  padding-top: 8px;
 }
 .login-gate .compose {
   width: 100%;
