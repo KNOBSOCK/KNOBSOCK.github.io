@@ -176,7 +176,7 @@
       x = (w - iw * s) / 2,
       y = (h - ih * s) / 2;
     const box = m
-      ? { x: 25, y: 145, w: 4460, h: 5380 }
+      ? { x: 5, y: 520, w: 4501, h: 6999 }
       : { x: 2020, y: 470, w: 3880, h: 2830 };
     let left = Math.max(0, x + box.x * s),
       top = Math.max(0, y + box.y * s),
