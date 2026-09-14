@@ -347,12 +347,17 @@ params.set('shell-version', '20260913-11');
     } else {
       pendingOpen = false;
       musicFrame.classList.remove('is-active');
-      routeFrame.classList.add('is-active');
 
       const nextKey = routeKey(nextRoute);
       if (routeFrame.dataset.route !== nextKey) {
+        routeFrame.classList.remove('is-active');
         routeFrame.dataset.route = nextKey;
         routeFrame.src = routeFile(nextRoute);
+        routeFrame.addEventListener('load', () => {
+          routeFrame.classList.add('is-active');
+        }, { once: true });
+      } else {
+        routeFrame.classList.add('is-active');
       }
     }
 
