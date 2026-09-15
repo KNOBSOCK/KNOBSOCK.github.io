@@ -358,6 +358,12 @@
     }
   };
   var LOGO_ASPECT = 50 / 19;
+  // knobsock-videos-logo.png has ~20% transparent padding above the
+  // actual "KNOBSOCK" text within its own canvas, so positioning the
+  // element's box at the intended top offset still leaves visible
+  // empty space above the text itself — see the desktop-only
+  // compensation below.
+  var LOGO_TOP_PAD_FRAC = 0.2013;
 
   var bg = document.getElementById('roomBg');
   var slot = document.getElementById('tvSlot');
@@ -485,12 +491,20 @@
     // Desktop's logo is normally capped by availH (the gap above the TV),
     // not targetW/targetH, so this has to scale the final size directly —
     // bumping targetW wouldn't do anything visible on its own.
-    if (name === 'desktop') lh *= 1.25;
+    var logoTop = pad;
+    if (name === 'desktop') {
+      lh *= 1.25;
+      // Shift the box up by its own top padding so the visible text
+      // (not the transparent margin above it) sits at `pad` — otherwise
+      // the header reads as sitting low even though the element itself
+      // is right near the top.
+      logoTop = pad - lh * LOGO_TOP_PAD_FRAC;
+    }
     var lw = lh * LOGO_ASPECT;
     logo.style.width = lw + 'px';
     logo.style.height = lh + 'px';
     logo.style.left = ((vp.w - lw) / 2) + 'px';
-    logo.style.top = pad + 'px';
+    logo.style.top = logoTop + 'px';
 
     if (isZoomed) setCameraAnchor();
   }
