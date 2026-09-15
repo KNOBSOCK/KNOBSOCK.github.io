@@ -7,3 +7,5 @@ scripts/node_modules/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+.DS_Store
+._.DS_Store
