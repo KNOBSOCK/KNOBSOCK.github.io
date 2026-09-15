@@ -89,6 +89,25 @@
     object-fit: cover;
   }
 
+  /* Channel-switching layers, all filling the same screen cutout as
+     .tv-static above but stacked beneath it: the ambient static gif
+     (.tv-static) is what's normally visible; picking a channel briefly
+     swaps in the MP4 static as a "changing channels" transition, then
+     cuts to the featured video looping behind everything. JS toggles
+     opacity between the three — see tuneChannel()/resetChannel(). */
+  .tv-featured-video, .tv-channel-static {
+    position: absolute;
+    pointer-events: none;
+    object-fit: cover;
+    opacity: 0;
+    transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      opacity 0.12s linear;
+  }
+  .tv-featured-video { z-index: -2; }
+  .tv-channel-static { z-index: -1; }
+  .tv-featured-video.is-live, .tv-channel-static.is-live { opacity: 1; }
+
   .tv-slot {
     position: absolute;
     z-index: 2;
@@ -180,6 +199,12 @@
       left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
       width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
+  /* .remote-btn's own display:block otherwise wins over the UA
+     stylesheet's [hidden]{display:none} at equal specificity — needed
+     for remoteSelectBtn, which is hidden until a channel is tuned in. */
+  .remote-btn[hidden] {
+    display: none;
+  }
   .room-scene.is-zooming .remote-btn {
     opacity: 1;
     pointer-events: auto;
@@ -239,6 +264,8 @@
 <body>
 
 <div class="room-scene" id="roomScene">
+  <video class="tv-featured-video" id="tvFeaturedVideo" muted playsinline loop preload="auto"></video>
+  <video class="tv-channel-static" id="tvChannelStatic" src="/YTDown.com_YouTube_TV-STATIC-4K-60FPS_Media_wf2Ojwq4gYU_003_480p.mp4" muted playsinline preload="auto"></video>
   <img class="tv-static" id="tvStatic" src="/tv-static-overlay.webp" alt="">
   <img class="room-bg" id="roomBg" alt="">
   <script>
@@ -261,12 +288,16 @@
   <a class="remote-btn" id="remoteHnBtn" href="#" aria-label="Hamburger News" data-shell-navigate-after-effect>
     <img id="remoteHnBtnImg" src="" alt="">
   </a>
+  <button type="button" class="remote-btn" id="remoteSelectBtn" hidden aria-label="Select">
+    <img src="/remote-select-btn.webp" alt="">
+  </button>
 </div>
 
 <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.6.15/hls.min.js"></script>
 <script>
 (function () {
   var MOBILE_MAX_WIDTH = 860;
@@ -283,6 +314,9 @@
       // Width only — height is derived from the logo image's own natural
       // aspect ratio at layout time so it never gets stretched/squished.
       remoteHnLogo: { cx: 3597.6, cy: 1892.2, w: 124.2 },
+      // The remote's own top-left grid button, same measure-off-the-art
+      // approach as remoteBack. Width only, like remoteHnLogo.
+      remoteSelect: { cx: 3463, cy: 2001, w: 90 },
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
@@ -297,7 +331,8 @@
       tvZoomCenterX: 2242,
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
-      remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 }
+      remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
+      remoteSelect: { cx: 2078, cy: 2960, w: 100 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -311,8 +346,16 @@
   var remoteBackBtn = document.getElementById('remoteBackBtn');
   var remoteHnBtn = document.getElementById('remoteHnBtn');
   var remoteHnBtnImg = document.getElementById('remoteHnBtnImg');
+  var remoteSelectBtn = document.getElementById('remoteSelectBtn');
+  var tvFeaturedVideo = document.getElementById('tvFeaturedVideo');
+  var tvChannelStatic = document.getElementById('tvChannelStatic');
   var currentVariant = null;
   var layoutBox = null;
+
+  // remote-select-btn.webp's own fixed aspect (144x100) — same
+  // width-only-and-derive-height treatment as remoteHnLogo, just with a
+  // constant ratio since this art never changes at runtime.
+  var SELECT_BTN_ASPECT = 100 / 144;
 
   // Sized by width only (see VARIANTS remoteHnLogo) — height is derived
   // from the logo photo's own natural aspect so it's never stretched,
@@ -392,10 +435,16 @@
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
 
     placeBox(tvStatic, v.tvStatic, ox, oy, s);
+    placeBox(tvFeaturedVideo, v.tvStatic, ox, oy, s);
+    placeBox(tvChannelStatic, v.tvStatic, ox, oy, s);
     placeBox(remoteBackBtn, v.remoteBack, ox, oy, s);
     placeBox(remoteHnBtn, {
       cx: v.remoteHnLogo.cx, cy: v.remoteHnLogo.cy,
       w: v.remoteHnLogo.w, h: v.remoteHnLogo.w * hnLogoAspect
+    }, ox, oy, s);
+    placeBox(remoteSelectBtn, {
+      cx: v.remoteSelect.cx, cy: v.remoteSelect.cy,
+      w: v.remoteSelect.w, h: v.remoteSelect.w * SELECT_BTN_ASPECT
     }, ox, oy, s);
 
     var topY = oy + v.tvTopY * s;
@@ -438,7 +487,7 @@
     // size. A transform: scale() on the parent would instead stretch an
     // already-rasterized bitmap captured at the smaller pre-zoom size —
     // blurry no matter how high-res the source images are.
-    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn].forEach(function (el) {
+    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic].forEach(function (el) {
       zoomifyElement(el, tx, ty, k);
     });
   }
@@ -518,6 +567,12 @@
     });
   }
 
+  function playButtonClick() {
+    var audio = new Audio('/buttonclick.mp3');
+    audio.volume = 0.7;
+    audio.play().catch(function () {});
+  }
+
   function beginZoom() {
     isZoomed = true;
     playWoosh();
@@ -536,14 +591,96 @@
   function closeZoom() {
     if (!isZoomed) return;
     isZoomed = false;
-    playWoosh();
+    playButtonClick();
     tvZoomTrigger.style.pointerEvents = '';
+    resetChannel();
     layout(); // snap bg/tvStatic/logo/remote buttons back to unzoomed size/place
     clearTimeout(zoomTimer);
     zoomTimer = setTimeout(function () {
       roomScene.classList.remove('is-zooming');
     }, 90);
   }
+
+  // --- Channel tuning: click a creator on the remote, briefly see static
+  // like you're changing the channel, then it cuts to their featured
+  // video playing (muted, no controls, starting partway through like it
+  // was already broadcasting) with a SELECT button to head to their page.
+  var hlsPlayer = null;
+  var featuredVideoUrl = '';
+  var channelSwitchTimer = null;
+  var isTuned = false;
+  var tunedHref = '', tunedSound = '', tunedPhoto2 = '', tunedImg = null;
+
+  function loadFeaturedVideo(url) {
+    if (!url || featuredVideoUrl === url) return;
+    featuredVideoUrl = url;
+    if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
+    if (/\.m3u8($|\?)/i.test(url) && window.Hls && Hls.isSupported()) {
+      hlsPlayer = new Hls();
+      hlsPlayer.loadSource(url);
+      hlsPlayer.attachMedia(tvFeaturedVideo);
+    } else {
+      tvFeaturedVideo.src = url;
+    }
+  }
+
+  tvFeaturedVideo.addEventListener('loadedmetadata', function () {
+    if (tvFeaturedVideo.duration && isFinite(tvFeaturedVideo.duration)) {
+      try { tvFeaturedVideo.currentTime = tvFeaturedVideo.duration / 2; } catch (_) {}
+    }
+  });
+
+  function resetChannel() {
+    clearTimeout(channelSwitchTimer);
+    isTuned = false;
+    tvStatic.style.opacity = '1';
+    tvChannelStatic.classList.remove('is-live');
+    tvFeaturedVideo.classList.remove('is-live');
+    tvChannelStatic.pause();
+    tvFeaturedVideo.pause();
+    remoteSelectBtn.hidden = true;
+  }
+
+  function tuneChannel(opts) {
+    clearTimeout(channelSwitchTimer);
+    tunedHref = opts.href;
+    tunedSound = opts.sound;
+    tunedPhoto2 = opts.photo2;
+    tunedImg = opts.img;
+    loadFeaturedVideo(opts.url);
+
+    remoteSelectBtn.hidden = true;
+    tvFeaturedVideo.classList.remove('is-live');
+    tvFeaturedVideo.pause();
+    tvStatic.style.opacity = '0';
+    tvChannelStatic.classList.add('is-live');
+    tvChannelStatic.currentTime = 0;
+    var p = tvChannelStatic.play();
+    if (p && p.catch) p.catch(function () {});
+
+    channelSwitchTimer = setTimeout(function () {
+      tvChannelStatic.classList.remove('is-live');
+      tvChannelStatic.pause();
+      tvFeaturedVideo.classList.add('is-live');
+      var fp = tvFeaturedVideo.play();
+      if (fp && fp.catch) fp.catch(function () {});
+      remoteSelectBtn.hidden = false;
+      isTuned = true;
+    }, 1300);
+  }
+
+  remoteSelectBtn.addEventListener('click', function (e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!isTuned || !tunedHref || tunedHref === '#') return;
+    playButtonClick();
+    if (tunedPhoto2 && tunedImg) tunedImg.src = tunedPhoto2;
+    document.body.classList.add('tv-exit');
+    if (tunedSound) {
+      playThenNavigate(tunedSound, tunedHref);
+    } else {
+      setTimeout(function () { navigateAfterEffect(tunedHref); }, 700);
+    }
+  });
 
   tvZoomTrigger.addEventListener('click', openZoom);
   tvZoomTrigger.addEventListener('pointerenter', primeWoosh);
@@ -662,22 +799,22 @@
   // TV screen, so it's excluded from the normal tv-slot creator list —
   // matched by name since that's how the Firestore data identifies it.
   var HAMBURGER_NEWS_NAME = 'Hamburger News with Joe Medina';
+  // Which playlist doc holds each creator's episodes, so their first
+  // (featured) episode can be looked up for the channel-tuning preview.
+  // Add an entry here for each future creator moved onto the remote.
+  var CREATOR_PLAYLIST_DOC = {};
+  CREATOR_PLAYLIST_DOC[HAMBURGER_NEWS_NAME] = 'hamburgerNews';
 
   var hnSound = '';
   var hnPhoto2 = '';
+  var hnFeaturedUrl = '';
 
   remoteHnBtn.addEventListener('click', function (e) {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    var href = remoteHnBtn.getAttribute('href');
-    if (!href || href === '#') return;
     e.preventDefault();
-    if (hnPhoto2) remoteHnBtnImg.src = hnPhoto2;
-    document.body.classList.add('tv-exit');
-    if (hnSound) {
-      playThenNavigate(hnSound, href);
-    } else {
-      setTimeout(function () { navigateAfterEffect(href); }, 700);
-    }
+    var href = remoteHnBtn.getAttribute('href');
+    if (!href || href === '#' || !hnFeaturedUrl) return;
+    tuneChannel({ url: hnFeaturedUrl, href: href, sound: hnSound, photo2: hnPhoto2, img: remoteHnBtnImg });
   });
 
   if (window.firebase) {
@@ -717,6 +854,17 @@
       console.error('Could not load creators:', err);
       slot.innerHTML = '';
     });
+
+    var hnPlaylistDoc = CREATOR_PLAYLIST_DOC[HAMBURGER_NEWS_NAME];
+    if (hnPlaylistDoc) {
+      db.collection('playlist').doc(hnPlaylistDoc).onSnapshot(function (doc) {
+        var data = doc.exists ? doc.data() : null;
+        var videos = (data && Array.isArray(data.videos)) ? data.videos : [];
+        hnFeaturedUrl = (videos[0] && videos[0].url) || '';
+      }, function (err) {
+        console.error('Could not load featured video:', err);
+      });
+    }
   }
 })();
 </script>
