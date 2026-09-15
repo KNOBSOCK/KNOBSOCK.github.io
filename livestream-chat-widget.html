@@ -754,12 +754,6 @@
     background: conic-gradient(var(--accent) calc(var(--tapin-frac, 1) * 360deg), var(--accent-dim) 0);
   }
 
-  .tapin-btn-label.is-countdown {
-    font-size: clamp(7px, 2.4cqmin, 9px);
-    font-weight: 700;
-    color: var(--text);
-    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
-  }
 
   .tapin-btn-icon {
     width: clamp(18px, 5.7cqmin, 23px);
@@ -2078,13 +2072,6 @@
 
   const pendingOwnTapinTimestamps = new Set();
 
-  function formatHm(ms) {
-    const totalMinutes = Math.max(0, Math.ceil(ms / 60000));
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return h + ':' + String(m).padStart(2, '0');
-  }
-
   function formatHms(ms) {
     const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
     const h = Math.floor(totalSeconds / 3600);
@@ -2189,20 +2176,14 @@
       btn.disabled = true;
       btn.classList.add('on-cooldown');
       btn.style.setProperty('--tapin-frac', String(Math.max(0, remaining / CHAT_UNLOCK_MS)));
-      if (label) {
-        label.textContent = formatHm(remaining);
-        label.classList.add('is-countdown');
-      }
+      if (label) label.innerHTML = TAPIN_ICON_HTML;
 
       tapinCooldownTimer = setTimeout(refreshTapInButtonState, Math.min(remaining, 30000));
     } else {
       btn.disabled = false;
       btn.classList.remove('on-cooldown');
       btn.style.removeProperty('--tapin-frac');
-      if (label) {
-        label.innerHTML = TAPIN_ICON_HTML;
-        label.classList.remove('is-countdown');
-      }
+      if (label) label.innerHTML = TAPIN_ICON_HTML;
     }
   }
 
