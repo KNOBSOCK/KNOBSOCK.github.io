@@ -762,6 +762,25 @@
     display: block;
   }
 
+  .tapin-btn.is-required {
+    animation: tapinRequiredPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes tapinRequiredPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.55); }
+    50% { box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0); }
+  }
+
+  .chat-gate-status {
+    font-size: clamp(10px, 2.6cqmin, 12px);
+    font-family: var(--font-body);
+    padding: clamp(4px, 1.4cqmin, 6px) clamp(8px, 2.8cqmin, 14px) 0;
+    color: var(--text-dim);
+  }
+  .chat-gate-status.is-locked {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
   .auth {
     flex: 1 1 auto;
     display: flex;
@@ -1952,6 +1971,7 @@
 
     lastTapInAt = (data && data.lastTapInAt) || 0;
     refreshTapInButtonState();
+    refreshChatGateState();
 
     myStreak = (data && data.streak) || 0;
     myStreakDay = (data && data.streakDay) || null;
@@ -2040,8 +2060,10 @@
   }
 
   const TAPIN_COOLDOWN_MS = 5 * 60 * 1000;
+  const CHAT_UNLOCK_MS = 24 * 60 * 60 * 1000;
   let lastTapInAt = 0;
   let tapinCooldownTimer = null;
+  let chatGateTimer = null;
 
   let myStreak = 0;
   let myStreakDay = null;
@@ -2053,6 +2075,41 @@
     const m = Math.floor(totalSeconds / 60);
     const s = totalSeconds % 60;
     return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function formatHms(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function isChatUnlocked() {
+    return lastTapInAt > 0 && (CHAT_UNLOCK_MS - (Date.now() - lastTapInAt)) > 0;
+  }
+
+  function refreshChatGateState() {
+    const status = $('chatGateStatus');
+    const input = $('msgInput');
+    const sendBtn = $('sendBtn');
+    if (!status || !input || !sendBtn) return;
+    clearTimeout(chatGateTimer);
+    const remaining = CHAT_UNLOCK_MS - (Date.now() - lastTapInAt);
+    const unlocked = lastTapInAt > 0 && remaining > 0;
+    input.disabled = !unlocked;
+    sendBtn.disabled = !unlocked;
+    input.placeholder = unlocked ? 'Type a message…' : 'Tap in above to chat…';
+    const tapinBtn = $('tapinBtn');
+    if (tapinBtn) tapinBtn.classList.toggle('is-required', !unlocked);
+    if (unlocked) {
+      status.textContent = 'Chat unlocks again in ' + formatHms(remaining);
+      status.classList.remove('is-locked');
+      chatGateTimer = setTimeout(refreshChatGateState, 1000);
+    } else {
+      status.textContent = 'Tap in above to start chatting — resets every 24 hours.';
+      status.classList.add('is-locked');
+    }
   }
 
   const TAPIN_ICON_HTML = '<img class="tapin-btn-icon" src="/tapin-cheers.png" alt="">';
@@ -2145,6 +2202,7 @@
     if (TAPIN_COOLDOWN_MS - (Date.now() - lastTapInAt) > 0) return;
     lastTapInAt = Date.now();
     refreshTapInButtonState();
+    refreshChatGateState();
     const ts = Date.now();
     pendingOwnTapinTimestamps.add(ts);
 
@@ -2430,6 +2488,7 @@
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
             </div>
           </div>
+          <div class="chat-gate-status" id="chatGateStatus"></div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
@@ -2459,6 +2518,7 @@
 
     $('tapinBtn').addEventListener('click', sendTapIn);
     refreshTapInButtonState();
+    refreshChatGateState();
   }
 
   let lastRenderedMsgs = null;
@@ -2496,6 +2556,7 @@
   }
 
   async function sendMessage() {
+    if (!isChatUnlocked()) return;
     const input = $('msgInput');
     if (input.value.length > MAX_MSG_LEN) {
       flashLimitMsg();
