@@ -675,7 +675,9 @@
   }
 
   .who {
-
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: clamp(10px, 3cqmin, 13px);
     color: var(--text-dim);
     white-space: nowrap;
@@ -778,7 +780,7 @@
   .chat-gate-status {
     font-size: clamp(10px, 2.6cqmin, 12px);
     font-family: var(--font-body);
-    padding: clamp(4px, 1.4cqmin, 6px) clamp(8px, 2.8cqmin, 14px) 0;
+    white-space: nowrap;
     color: var(--text-dim);
   }
   .chat-gate-status.is-locked {
@@ -2113,7 +2115,7 @@
       status.classList.remove('is-locked');
       chatGateTimer = setTimeout(refreshChatGateState, 1000);
     } else {
-      status.textContent = 'Tap in to chat';
+      status.textContent = 'Tap in to chat →';
       status.classList.add('is-locked');
     }
   }
@@ -2490,11 +2492,11 @@
           <div class="composer-status">
             <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
+              <span class="chat-gate-status" id="chatGateStatus"></span>
               <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel"><img class="tapin-btn-icon" src="/tapin-cheers.png" alt=""></span></button>
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
             </div>
           </div>
-          <div class="chat-gate-status" id="chatGateStatus"></div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
