@@ -4,6 +4,7 @@
   const body = document.getElementById('lcdBody'), title = document.getElementById('lcdTitle');
   const footer = document.getElementById('lcdFooter'), indicator = document.getElementById('lcdState');
   let cloud = [], library = [], queue = [];
+  let firstTrackUrl = '';
   let page = { kind: 'home', label: 'KNOBSOCK' }, history = [], cursor = 0;
   let current = null, playing = false, wantsPlay = false, shuffle = false, elapsed = 0, duration = 0;
   let message = 'Loading SoundCloud...', widget = null, scUrl = '', generation = 0, loadTimer, profileVersion = 0, scPromise;
@@ -211,7 +212,8 @@
     play(track, true);
     return true;
   }
-  function resume() { wantsPlay = true; if (!current) { const entry = rows()[cursor]; queue = library.slice(); play(entry?.track || library[0]); return; } if (message || scUrl !== current.url) { play(current); return; } widget?.play(); ensurePlayback(generation); }
+  function openingTrack() { return library.find(track => track.url === firstTrackUrl) || library[0]; }
+  function resume() { wantsPlay = true; if (!current) { const entry = rows()[cursor]; queue = library.slice(); play(entry?.track || openingTrack()); return; } if (message || scUrl !== current.url) { play(current); return; } widget?.play(); ensurePlayback(generation); }
   function handleShellCommand(command) {
     const action = String(command.action || '');
     if (action === 'preload-track') {
@@ -385,6 +387,7 @@
   document.addEventListener('keydown', event => { if (!document.getElementById('musicZoom').classList.contains('is-open') || event.altKey || event.ctrlKey || event.metaKey) return; if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); scroll(event.key === 'ArrowDown' ? 1 : -1); } if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); back(); } if (event.key === 'ArrowRight') { event.preventDefault(); select(); } if (event.key === 'Enter' && (event.target === document.body || event.target.id === 'musicTracksWheel')) { event.preventDefault(); select(); } });
   window.knobsockMusic = { connect(db) { db.collection('chat_config').doc('soundcloud').onSnapshot(async doc => {
     const config = doc.data(), version = ++profileVersion, profiles = soundCloudProfiles(config), albums = configuredAlbums(config);
+    firstTrackUrl = soundCloudUrl(config?.firstTrackUrl || '') || '';
     cloud = []; message = profiles.length ? 'Loading SoundCloud...' : ''; scanning = true; rebuild();
     if (!profiles.length) { scanning = false; return; }
     try {

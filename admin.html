@@ -890,6 +890,8 @@
       <div class="live-card-body" style="max-height:none;">
         <div class="note">Add one profile per row and save. Every profile's tracks are merged into the Music-page LCD and homepage Listen widget automatically. Set an optional artist name to replace the profile username in the LCD.</div>
         <div id="soundcloudProfilesList" class="soundcloud-profile-list"></div>
+        <div class="note" style="margin-top:14px;">Paste a track link below to pin it as the song that plays the first time someone presses PLAY on the boombox (before they've picked anything themselves). Leave blank to just use whichever track loads first.</div>
+        <input type="text" class="search-input" id="soundcloudFirstTrackInput" aria-label="Opening track SoundCloud URL" placeholder="soundcloud.com/yourname/track-name">
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="saveSoundcloudBtn">Save Profiles</button>
         </div>
@@ -2209,6 +2211,7 @@
     const addAlbumBtn = document.getElementById('addSoundcloudAlbumBtn');
     const saveBtn = document.getElementById('saveSoundcloudBtn');
     const statusEl = document.getElementById('soundcloudStatus');
+    const firstTrackInput = document.getElementById('soundcloudFirstTrackInput');
     let profiles = [];
     let albums = [];
 
@@ -2359,10 +2362,12 @@
       setStatus('Saving…');
       const urls = normalized.map(function (profile) { return profile.url; });
       const artists = normalized.map(function (profile) { return profile.artist; });
+      const firstTrackUrl = firstTrackInput.value.trim();
       SOUNDCLOUD_REF.set({
         profileUrls: urls,
         profileArtists: artists,
         albums: normalizedAlbums,
+        firstTrackUrl: firstTrackUrl,
         /* Keep the first profile for the existing homepage widgets. */
         profileUrl: urls[0] || '',
         profileArtist: artists[0] || ''
@@ -2385,6 +2390,7 @@
       const data = doc.exists ? doc.data() : null;
       profiles = profileValues(data);
       albums = albumValues(data);
+      firstTrackInput.value = String((data && data.firstTrackUrl) || '');
       render();
       renderAlbums();
     }).catch(function (err) {
