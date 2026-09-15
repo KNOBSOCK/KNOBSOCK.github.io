@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.25">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hamburger News - KNOBSOCK</title>
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://knobsock.net/videos/hamburgernews">
@@ -160,7 +160,8 @@
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
-    transition: opacity 0.12s ease;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
+      opacity 0.12s ease;
     -webkit-tap-highlight-color: transparent;
     contain: layout paint;
   }
@@ -177,6 +178,15 @@
 
   .pickle-btn[hidden] { display: none; }
   .stage-wrap.pickle-zoomed .pickle-btn { transition-duration: 0.08s; }
+  .pickle-btn:hover,
+  .pickle-btn:focus-visible {
+    transform: scale(1.06);
+    filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.5));
+  }
+  .pickle-btn:active {
+    transform: scale(0.97);
+    filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.45));
+  }
 
   .stage-wrap {
     position: fixed;
