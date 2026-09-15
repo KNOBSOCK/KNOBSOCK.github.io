@@ -804,6 +804,7 @@
       <button type="button" class="nav-tab" data-tab="forums">Forums</button>
       <button type="button" class="nav-tab" data-tab="store">Store</button>
       <button type="button" class="nav-tab" data-tab="seo">SEO</button>
+      <button type="button" class="nav-tab" data-tab="netanyahu">Netanyahu</button>
     </div>
     <span class="whoami" id="whoami"></span>
     <button type="button" class="btn" id="signOutBtn">Sign Out</button>
@@ -1050,6 +1051,19 @@
       <div class="save-status" id="seoStatus"></div>
     </div>
   </div>
+
+  <div class="tab-panel" id="tab-netanyahu" hidden>
+    <h2 class="panel-heading">Netanyahu</h2>
+    <p class="panel-sub">Text shown on the tribute page at /netanyahu.</p>
+    <div class="card">
+      <div class="card-head"><h2>Text</h2></div>
+      <textarea id="netanyahuTextInput" rows="8" placeholder="Write whatever you want here." style="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:9px 10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+      <div class="footer-actions">
+        <button type="button" class="btn btn-primary" id="netanyahuSaveBtn">Save Changes</button>
+      </div>
+      <div class="save-status" id="netanyahuStatus"></div>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="banModalOverlay" hidden>
@@ -1180,6 +1194,7 @@
   const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
 
   const SEO_REF = db.collection('chat_config').doc('seo');
+  const NETANYAHU_REF = db.collection('chat_config').doc('netanyahu');
 
   const STORE_PRODUCTS_REF = db.collection('store_products');
   const STORE_ORDERS_REF = db.collection('store_orders');
@@ -2094,6 +2109,7 @@
     initGamesEditor();
     initSoundcloudAccountEditor();
     initSeoEditor();
+    initNetanyahuEditor();
   }
 
   function initGamesEditor() {
@@ -2465,6 +2481,44 @@
         updatedBy: auth.currentUser.email || auth.currentUser.uid
       }).then(function () {
         statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes one of these pages.';
+        statusEl.style.color = 'var(--accent)';
+      }).catch(function (err) {
+        statusEl.textContent = 'Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).';
+        statusEl.style.color = 'var(--danger)';
+      }).finally(function () {
+        saveBtn.disabled = false;
+      });
+    });
+  }
+
+  function initNetanyahuEditor() {
+    var textInput = document.getElementById('netanyahuTextInput');
+    var saveBtn = document.getElementById('netanyahuSaveBtn');
+    var statusEl = document.getElementById('netanyahuStatus');
+
+    NETANYAHU_REF.get().then(function (doc) {
+      var data = doc.exists ? doc.data() : null;
+      textInput.value = (data && data.text) || '';
+    }).catch(function (err) {
+      statusEl.textContent = 'Could not load: ' + (err && err.message ? err.message : 'unknown error');
+      statusEl.style.color = 'var(--danger)';
+    });
+
+    saveBtn.addEventListener('click', function () {
+      if (!auth.currentUser) {
+        statusEl.textContent = 'You’ve been signed out — please sign in again.';
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+      saveBtn.disabled = true;
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-dim)';
+      NETANYAHU_REF.set({
+        text: textInput.value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: auth.currentUser.email || auth.currentUser.uid
+      }).then(function () {
+        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes /netanyahu.';
         statusEl.style.color = 'var(--accent)';
       }).catch(function (err) {
         statusEl.textContent = 'Save failed: ' + (err && err.message ? err.message : 'unknown error') + ' (check your Firestore security rules).';
