@@ -22,7 +22,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="preload" as="image" href="/forums-page-desktop.png?v=2" media="(min-width: 861px)">
 <link rel="preload" as="image" href="/forums-page-mobile.png?v=3" media="(max-width: 860px)">
-<link rel="stylesheet" href="/forums.css?v=26">
+<link rel="stylesheet" href="/forums.css?v=27">
 <style>
   * { box-sizing: border-box; }
   html, body { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #032d00; }
@@ -74,19 +74,42 @@
            pixel-for-pixel); two blurs of its alpha at different radii,
            subtracted, isolate a soft band that only exists just outside the
            cutout (clamping drops the inverse band that would otherwise form
-           just inside it, over real content). That band is then colorized. -->
+           just inside it, over real content). That band is then colorized.
+           The art is opaque right up to its own outer edge too, which the
+           same blur/subtract logic reads as another "cutout" — the final
+           feComposite's own x/y/width/height (its primitive subregion, NOT
+           the <filter>'s region) clips that away, since it's well outside
+           where the real ring falls but well inside the art's true edge.
+           Clipping the outer <filter> region itself instead just moves the
+           problem: everything upstream would then be computed on that
+           smaller canvas, so the blur reads ITS boundary as yet another
+           cutout. (Tried masking with a second feImage referencing a local
+           #id rect instead — Chrome renders nothing at all when a filter
+           mixes an external-URL feImage with a local-fragment one, so
+           that's a dead end here too.) -->
       <filter id="screenEdgeGlowDesktop" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
         <feImage href="/forums-page-desktop.png?v=2" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
         <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
-        <feGaussianBlur in="alphaMask" stdDeviation="5" result="blurTight"/>
-        <feGaussianBlur in="alphaMask" stdDeviation="30" result="blurWide"/>
+        <feGaussianBlur in="alphaMask" stdDeviation="2" result="blurTight"/>
+        <feGaussianBlur in="alphaMask" stdDeviation="18" result="blurWide"/>
         <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
         <feComponentTransfer in="edgeBand" result="edgeBandBoost">
-          <feFuncA type="linear" slope="6" intercept="0"/>
+          <feFuncA type="linear" slope="4" intercept="0"/>
         </feComponentTransfer>
         <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
-        <feComposite in="tint" in2="edgeBandBoost" operator="in" result="tintedEdge"/>
-        <feGaussianBlur in="tintedEdge" stdDeviation="8"/>
+        <!-- This box is asymmetric on purpose: the art's screen cutout sits
+             much closer to the top of the 8000x4511 canvas (~9% down) than
+             to its other three edges (all ~24%+ in), so there's far less
+             room to clip into on that side before cutting into the glow
+             itself. The top inset in particular is a tight balancing act
+             against blurWide + the final blur below: push either up too
+             far and the art's own true top edge (a real opaque-to-
+             transparent transition, same as the screen cutout) starts
+             bleeding through as a second, stray glow band — see the lab
+             tool to retune this per-side if the art or these blur radii
+             change. -->
+        <feComposite in="tint" in2="edgeBandBoost" operator="in" x="13%" y="6%" width="70%" height="77%" result="tintedEdge"/>
+        <feGaussianBlur in="tintedEdge" stdDeviation="7"/>
       </filter>
       <filter id="screenEdgeGlowMobile" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
         <feImage href="/forums-page-mobile.png?v=3" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
@@ -98,8 +121,11 @@
           <feFuncA type="linear" slope="6" intercept="0"/>
         </feComponentTransfer>
         <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
-        <feComposite in="tint" in2="edgeBandBoost" operator="in" result="tintedEdge"/>
-        <feGaussianBlur in="tintedEdge" stdDeviation="8"/>
+        <!-- Unused while .tv-glow is display:none on mobile (see forums.css)
+             — the mobile crop's cutout runs edge-to-edge left/right, so
+             there's no room for a side glow at all here regardless. -->
+        <feComposite in="tint" in2="edgeBandBoost" operator="in" x="0%" y="2%" width="100%" height="96%" result="tintedEdge"/>
+        <feGaussianBlur in="tintedEdge" stdDeviation="6"/>
       </filter>
     </svg>
     <section id="terminal" aria-label="Forum computer screen">

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Forum Glow Lab (dev tool, not part of the site)</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111; font-family: -apple-system, sans-serif; overflow: hidden; }
+  @font-face { font-family: Terminal; src: url("/forums-terminal.ttf") format("truetype"); font-display: swap; }
+  .stage { position: fixed; inset: 0; right: 340px; overflow: hidden; background: #111; }
+  .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; pointer-events: none; }
+  .tv-glow { position: absolute; pointer-events: none; }
+  .content-preview {
+    position: absolute; overflow: hidden; background: #000; color: #fff;
+    font-family: Terminal, "Courier New", monospace; line-height: 1.4; padding: 3%;
+  }
+  .content-preview .green { color: #00c600; }
+  .content-preview table { width: 100%; border-collapse: collapse; font-size: inherit; }
+  .content-preview td, .content-preview th { border: 1px solid #00a000; padding: 4px 6px; text-align: left; }
+  .panel {
+    position: fixed; top: 0; right: 0; width: 340px; height: 100%;
+    background: #1c1c1c; color: #eee; padding: 16px; overflow-y: auto;
+    font-size: 13px; box-shadow: -2px 0 8px rgba(0,0,0,.5);
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; }
+  .panel label { display: block; margin: 14px 0 4px; color: #9f9; }
+  .panel .val { color: #9cf; float: right; }
+  .panel input[type=range] { width: 100%; }
+  .panel input[type=color] { width: 100%; height: 28px; border: none; background: none; }
+  .row { display: flex; gap: 8px; }
+  .row > button { flex: 1; padding: 8px; background: #2a2a2a; color: #eee; border: 1px solid #444; cursor: pointer; border-radius: 4px; }
+  .row > button.active { background: #2f6; color: #111; font-weight: bold; }
+  textarea {
+    width: 100%; height: 160px; margin-top: 8px; background: #000; color: #6f6;
+    font-family: monospace; font-size: 11.5px; border: 1px solid #444; padding: 8px; resize: vertical;
+  }
+  .hint { color: #888; font-size: 11.5px; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="content-preview" id="content">
+      <div style="font-size:1.6em;font-weight:bold" class="green">KNOBSOCK FORUMS</div>
+      <div style="margin:0.6em 0" class="green">Boards&nbsp;&nbsp;Recent&nbsp;&nbsp;Rules</div>
+      <div style="border-top:1px solid #00a000;margin-bottom:0.6em"></div>
+      <table>
+        <tr><th>Board</th><th>Threads</th><th>Posts</th><th>Last post</th></tr>
+        <tr><td>General Discussion</td><td>1</td><td>4</td><td>Hello Everyone!!!!!!</td></tr>
+        <tr><td>Introduce Yourself</td><td>1</td><td>4</td><td>my name is gunoguap</td></tr>
+      </table>
+      <div style="margin-top:0.6em">Discuss anything. I don't care. whatever dude, as long as you follow the rules.</div>
+    </div>
+    <img class="scene-art" id="art" src="/forums-page-desktop.png?v=2" alt="">
+    <div class="tv-glow" id="glow"></div>
+  </div>
+  <div class="panel">
+    <h2>Forum Glow Lab</h2>
+    <div class="row">
+      <button id="btnDesktop" class="active">Desktop art</button>
+      <button id="btnMobile">Mobile art</button>
+    </div>
+
+    <label>Convex distortion amount <span class="val" id="vConvex"></span></label>
+    <input type="range" id="convex" min="0" max="150" step="2" value="90">
+    <div class="hint">Bulges the content pane outward from center, like a
+      curved CRT. 0 is flat. Applies to the sample forum content below,
+      not the glow.</div>
+
+    <label style="margin-top:22px">Tint color <input type="color" id="color" value="#3dff85"></label>
+
+    <label>Edge tightness (blurTight) <span class="val" id="vTight"></span></label>
+    <input type="range" id="tight" min="0" max="20" step="0.5" value="2">
+    <div class="hint">How close to the true edge the glow starts. Lower = tighter/closer to the screen.</div>
+
+    <label>Dissipation radius (blurWide) <span class="val" id="vWide"></span></label>
+    <input type="range" id="wide" min="8" max="100" step="1" value="28">
+    <div class="hint">How far the glow spreads outward before fading out.</div>
+
+    <label>Intensity boost (slope) <span class="val" id="vBoost"></span></label>
+    <input type="range" id="boost" min="1" max="16" step="0.5" value="4">
+    <div class="hint">How bright/saturated the glow band is. Lower = softer, less harsh.</div>
+
+    <label>Final softness (last blur) <span class="val" id="vSoft"></span></label>
+    <input type="range" id="soft" min="0" max="30" step="1" value="10">
+    <div class="hint">Extra blur applied after tinting, for smoothness.</div>
+
+    <label>Inset: top <span class="val" id="vInsetTop"></span></label>
+    <input type="range" id="insetTop" min="0" max="40" step="0.5" value="4">
+    <label>Inset: right <span class="val" id="vInsetRight"></span></label>
+    <input type="range" id="insetRight" min="0" max="40" step="0.5" value="16">
+    <label>Inset: bottom <span class="val" id="vInsetBottom"></span></label>
+    <input type="range" id="insetBottom" min="0" max="40" step="0.5" value="16">
+    <label>Inset: left <span class="val" id="vInsetLeft"></span></label>
+    <input type="range" id="insetLeft" min="0" max="40" step="0.5" value="13">
+    <div class="hint">Each clips a margin (as % of the image) off that side
+      before the glow is allowed to show, so only the screen cutout glows
+      instead of the whole image border. Raise a side if you see a glow
+      leaking around the outer edge there; lower it if the glow looks cut
+      off on that side. The art's cutout usually sits much closer to one
+      edge (often the top) than the others, so these are rarely equal —
+      that's expected, not a bug.</div>
+
+    <label>Flicker min opacity <span class="val" id="vFlickMin"></span></label>
+    <input type="range" id="flickMin" min="0" max="1" step="0.02" value="0.4">
+
+    <label>Flicker max opacity <span class="val" id="vFlickMax"></span></label>
+    <input type="range" id="flickMax" min="0" max="1" step="0.02" value="0.65">
+
+    <label>Flicker speed (seconds/cycle) <span class="val" id="vFlickDur"></span></label>
+    <input type="range" id="flickDur" min="1" max="15" step="0.5" value="5">
+
+    <h2 style="margin-top:20px">Current parameters</h2>
+    <textarea id="out" readonly></textarea>
+    <div class="hint">Copy this whole block back to Claude when you're happy with it.</div>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="bulgeXGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="rgb(0,128,128)"/>
+        <stop offset="20%" stop-color="rgb(107,128,128)"/>
+        <stop offset="50%" stop-color="rgb(128,128,128)"/>
+        <stop offset="80%" stop-color="rgb(148,128,128)"/>
+        <stop offset="100%" stop-color="rgb(255,128,128)"/>
+      </linearGradient>
+      <linearGradient id="bulgeYGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="rgb(128,0,128)"/>
+        <stop offset="20%" stop-color="rgb(128,107,128)"/>
+        <stop offset="50%" stop-color="rgb(128,128,128)"/>
+        <stop offset="80%" stop-color="rgb(128,148,128)"/>
+        <stop offset="100%" stop-color="rgb(128,255,128)"/>
+      </linearGradient>
+      <rect id="bulgeXRect" width="100%" height="100%" fill="url(#bulgeXGrad)"/>
+      <rect id="bulgeYRect" width="100%" height="100%" fill="url(#bulgeYGrad)"/>
+    </defs>
+    <filter id="crtWiggle" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" numOctaves="2" seed="7" result="crtNoise">
+        <animate attributeName="baseFrequency" dur="7s" values="0.006 0.09;0.01 0.12;0.006 0.09" repeatCount="indefinite"/>
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="crtNoise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="crtConvex" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feImage href="#bulgeXRect" x="0" y="0" width="100%" height="100%" result="bx"/>
+      <feDisplacementMap id="feConvexX" in="SourceGraphic" in2="bx" scale="90" xChannelSelector="R" yChannelSelector="G" result="stepX"/>
+      <feImage href="#bulgeYRect" x="0" y="0" width="100%" height="100%" result="by"/>
+      <feDisplacementMap id="feConvexY" in="stepX" in2="by" scale="90" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="screenEdgeGlow" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <feImage id="feArt" href="/forums-page-desktop.png?v=2" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
+      <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
+      <feGaussianBlur id="feTight" in="alphaMask" stdDeviation="5" result="blurTight"/>
+      <feGaussianBlur id="feWide" in="alphaMask" stdDeviation="30" result="blurWide"/>
+      <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
+      <feComponentTransfer in="edgeBand" result="edgeBandBoost">
+        <feFuncA id="feBoost" type="linear" slope="6" intercept="0"/>
+      </feComponentTransfer>
+      <feFlood id="feTint" flood-color="#3dff85" flood-opacity="1" result="tint"/>
+      <feComposite id="feClip" in="tint" in2="edgeBandBoost" operator="in" x="12%" y="3%" width="73%" height="82%" result="tintedEdge"/>
+      <feGaussianBlur id="feSoft" in="tintedEdge" stdDeviation="8"/>
+    </filter>
+  </svg>
+
+  <style id="flickerStyle"></style>
+
+<script>
+  var glow = document.getElementById('glow');
+  glow.style.filter = 'url(#screenEdgeGlow)';
+  glow.style.animation = 'labFlicker 5s ease-in-out infinite';
+
+  var art = document.getElementById('art');
+  var feArt = document.getElementById('feArt');
+  var content = document.getElementById('content');
+  content.style.filter = 'url(#crtConvex)';
+
+  var current = { m: false };
+
+  // Same screen-cutout boxes as production forums.js layout(), so the
+  // sample content sits where the real widget would.
+  var SCREEN_BOX = {
+    m: { x: 0, y: 375, w: 4511, h: 7200 },
+    d: { x: 1895, y: 375, w: 4130, h: 3050 },
+  };
+
+  function layout() {
+    var stage = document.getElementById('stage');
+    var w = stage.clientWidth, h = stage.clientHeight;
+    var m = current.m;
+    var iw = m ? 4511 : 8000, ih = m ? 8000 : 4511;
+    var s = Math.max(w / iw, h / ih);
+    var x = (w - iw * s) / 2, y = (h - ih * s) / 2;
+    glow.style.left = x + 'px';
+    glow.style.top = y + 'px';
+    glow.style.width = (iw * s) + 'px';
+    glow.style.height = (ih * s) + 'px';
+
+    var box = m ? SCREEN_BOX.m : SCREEN_BOX.d;
+    var left = Math.max(0, x + box.x * s),
+      top = Math.max(0, y + box.y * s),
+      right = Math.min(w, x + (box.x + box.w) * s),
+      bottom = Math.min(h, y + (box.y + box.h) * s);
+    content.style.left = left + 'px';
+    content.style.top = top + 'px';
+    content.style.width = Math.max(0, right - left) + 'px';
+    content.style.height = Math.max(0, bottom - top) + 'px';
+    content.style.fontSize = Math.max(14, s * (m ? 171 : 120)) + 'px';
+  }
+  window.addEventListener('resize', layout);
+
+  function setArt(mobile) {
+    current.m = mobile;
+    var src = mobile ? '/forums-page-mobile.png?v=3' : '/forums-page-desktop.png?v=2';
+    art.src = src;
+    feArt.setAttribute('href', src);
+    document.getElementById('btnDesktop').classList.toggle('active', !mobile);
+    document.getElementById('btnMobile').classList.toggle('active', mobile);
+    layout();
+  }
+  document.getElementById('btnDesktop').onclick = function () { setArt(false); };
+  document.getElementById('btnMobile').onclick = function () { setArt(true); };
+
+  var els = {
+    convex: document.getElementById('convex'),
+    color: document.getElementById('color'),
+    tight: document.getElementById('tight'),
+    wide: document.getElementById('wide'),
+    boost: document.getElementById('boost'),
+    soft: document.getElementById('soft'),
+    insetTop: document.getElementById('insetTop'),
+    insetRight: document.getElementById('insetRight'),
+    insetBottom: document.getElementById('insetBottom'),
+    insetLeft: document.getElementById('insetLeft'),
+    flickMin: document.getElementById('flickMin'),
+    flickMax: document.getElementById('flickMax'),
+    flickDur: document.getElementById('flickDur'),
+  };
+  var vals = {
+    vConvex: document.getElementById('vConvex'),
+    vTight: document.getElementById('vTight'),
+    vWide: document.getElementById('vWide'),
+    vBoost: document.getElementById('vBoost'),
+    vSoft: document.getElementById('vSoft'),
+    vInsetTop: document.getElementById('vInsetTop'),
+    vInsetRight: document.getElementById('vInsetRight'),
+    vInsetBottom: document.getElementById('vInsetBottom'),
+    vInsetLeft: document.getElementById('vInsetLeft'),
+    vFlickMin: document.getElementById('vFlickMin'),
+    vFlickMax: document.getElementById('vFlickMax'),
+    vFlickDur: document.getElementById('vFlickDur'),
+  };
+  var feConvexX = document.getElementById('feConvexX');
+  var feConvexY = document.getElementById('feConvexY');
+  var convexFilterEl = document.getElementById('crtConvex');
+  var feTint = document.getElementById('feTint');
+  var feTight = document.getElementById('feTight');
+  var feWide = document.getElementById('feWide');
+  var feBoost = document.getElementById('feBoost');
+  var feClip = document.getElementById('feClip');
+  var feSoft = document.getElementById('feSoft');
+  var flickerStyle = document.getElementById('flickerStyle');
+  var out = document.getElementById('out');
+
+  function update() {
+    var convex = +els.convex.value;
+    var color = els.color.value;
+    var tight = +els.tight.value;
+    var wide = +els.wide.value;
+    var boost = +els.boost.value;
+    var soft = +els.soft.value;
+    var insetTop = +els.insetTop.value;
+    var insetRight = +els.insetRight.value;
+    var insetBottom = +els.insetBottom.value;
+    var insetLeft = +els.insetLeft.value;
+    var flickMin = +els.flickMin.value;
+    var flickMax = +els.flickMax.value;
+    var flickDur = +els.flickDur.value;
+
+    vals.vConvex.textContent = convex;
+    vals.vTight.textContent = tight;
+    vals.vWide.textContent = wide;
+    vals.vBoost.textContent = boost;
+    vals.vSoft.textContent = soft;
+    vals.vInsetTop.textContent = insetTop + '%';
+    vals.vInsetRight.textContent = insetRight + '%';
+    vals.vInsetBottom.textContent = insetBottom + '%';
+    vals.vInsetLeft.textContent = insetLeft + '%';
+    vals.vFlickMin.textContent = flickMin;
+    vals.vFlickMax.textContent = flickMax;
+    vals.vFlickDur.textContent = flickDur + 's';
+
+    feConvexX.setAttribute('scale', convex);
+    feConvexY.setAttribute('scale', convex);
+    // Filter region has to grow with the displacement scale, or a big
+    // bulge gets clipped at the element's own edges.
+    var pad = Math.min(45, 20 + convex / 5);
+    convexFilterEl.setAttribute('x', -pad + '%');
+    convexFilterEl.setAttribute('y', -pad + '%');
+    convexFilterEl.setAttribute('width', 100 + pad * 2 + '%');
+    convexFilterEl.setAttribute('height', 100 + pad * 2 + '%');
+
+    feTint.setAttribute('flood-color', color);
+    feTight.setAttribute('stdDeviation', tight);
+    feWide.setAttribute('stdDeviation', wide);
+    feBoost.setAttribute('slope', boost);
+    feSoft.setAttribute('stdDeviation', soft);
+    feClip.setAttribute('x', insetLeft + '%');
+    feClip.setAttribute('y', insetTop + '%');
+    feClip.setAttribute('width', (100 - insetLeft - insetRight) + '%');
+    feClip.setAttribute('height', (100 - insetTop - insetBottom) + '%');
+
+    glow.style.animationDuration = flickDur + 's';
+    flickerStyle.textContent =
+      '@keyframes labFlicker {' +
+      '0%,100%{opacity:' + ((flickMin + flickMax) / 2).toFixed(3) + '}' +
+      '20%{opacity:' + flickMax.toFixed(3) + '}' +
+      '50%{opacity:' + flickMin.toFixed(3) + '}' +
+      '80%{opacity:' + ((flickMin + flickMax) / 2 + (flickMax - flickMin) * 0.2).toFixed(3) + '}' +
+      '}';
+
+    out.value = JSON.stringify({
+      convexScale: convex,
+      tintColor: color,
+      blurTight: tight,
+      blurWide: wide,
+      boostSlope: boost,
+      finalBlur: soft,
+      insetTop: insetTop,
+      insetRight: insetRight,
+      insetBottom: insetBottom,
+      insetLeft: insetLeft,
+      flickerMinOpacity: flickMin,
+      flickerMaxOpacity: flickMax,
+      flickerDurationSeconds: flickDur
+    }, null, 2);
+  }
+
+  Object.keys(els).forEach(function (k) { els[k].addEventListener('input', update); });
+
+  setArt(false);
+  update();
+</script>
+</body>
+</html>
