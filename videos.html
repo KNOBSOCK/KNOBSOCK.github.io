@@ -646,13 +646,21 @@
   // matched by name since that's how the Firestore data identifies it.
   var HAMBURGER_NEWS_NAME = 'Hamburger News with Joe Medina';
 
+  var hnSound = '';
+  var hnPhoto2 = '';
+
   remoteHnBtn.addEventListener('click', function (e) {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var href = remoteHnBtn.getAttribute('href');
     if (!href || href === '#') return;
     e.preventDefault();
+    if (hnPhoto2) remoteHnBtnImg.src = hnPhoto2;
     document.body.classList.add('tv-exit');
-    setTimeout(function () { navigateAfterEffect(href); }, 700);
+    if (hnSound) {
+      playThenNavigate(hnSound, href);
+    } else {
+      setTimeout(function () { navigateAfterEffect(href); }, 700);
+    }
   });
 
   if (window.firebase) {
@@ -671,18 +679,22 @@
       var order = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
       var photos = (data && data.creatorPhotos) || {};
       var links = (data && data.creatorLinks) || {};
+      var sounds = (data && data.creatorSounds) || {};
+      var photos2 = (data && data.creatorPhotos2) || {};
 
       var hnPhoto = (photos[HAMBURGER_NEWS_NAME] || '').trim();
       var hnLink = (links[HAMBURGER_NEWS_NAME] || '').trim();
       if (hnPhoto) remoteHnBtnImg.src = hnPhoto;
       remoteHnBtn.setAttribute('href', hnLink || '#');
+      hnSound = (sounds[HAMBURGER_NEWS_NAME] || '').trim();
+      hnPhoto2 = (photos2[HAMBURGER_NEWS_NAME] || '').trim();
 
       renderCreators(
         order.filter(function (name) { return name !== HAMBURGER_NEWS_NAME; }),
         links,
         photos,
-        (data && data.creatorSounds) || {},
-        (data && data.creatorPhotos2) || {}
+        sounds,
+        photos2
       );
     }, function (err) {
       console.error('Could not load creators:', err);
