@@ -784,6 +784,14 @@
     text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
   }
 
+  .chat-lock-timer {
+    font-size: clamp(9px, 2.3cqmin, 11px);
+    font-family: var(--font-body);
+    color: var(--text-dim);
+    text-align: right;
+    padding: clamp(2px, 1cqmin, 4px) clamp(8px, 2.8cqmin, 14px) 0;
+  }
+
   .auth {
     flex: 1 1 auto;
     display: flex;
@@ -2086,9 +2094,10 @@
 
   function refreshChatGateState() {
     const status = $('chatGateStatus');
+    const lockTimer = $('chatLockTimer');
     const input = $('msgInput');
     const sendBtn = $('sendBtn');
-    if (!status || !input || !sendBtn) return;
+    if (!status || !lockTimer || !input || !sendBtn) return;
     clearTimeout(chatGateTimer);
     const remaining = CHAT_UNLOCK_MS - (Date.now() - lastTapInAt);
     const unlocked = lastTapInAt > 0 && remaining > 0;
@@ -2098,12 +2107,14 @@
     const tapinBtn = $('tapinBtn');
     if (tapinBtn) tapinBtn.classList.toggle('is-required', !unlocked);
     if (unlocked) {
-      status.textContent = 'Chat locks again in ' + formatHms(remaining);
+      status.textContent = '';
       status.classList.remove('is-locked');
+      lockTimer.textContent = 'Chat locks again in ' + formatHms(remaining);
       chatGateTimer = setTimeout(refreshChatGateState, 1000);
     } else {
       status.textContent = 'Tap in to chat →';
       status.classList.add('is-locked');
+      lockTimer.textContent = '';
     }
   }
 
@@ -2478,6 +2489,7 @@
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
             </div>
           </div>
+          <div class="chat-lock-timer" id="chatLockTimer"></div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
