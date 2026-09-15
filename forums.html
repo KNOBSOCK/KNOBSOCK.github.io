@@ -20,9 +20,9 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="preload" as="image" href="/forums-page-desktop.png" media="(min-width: 861px)">
-<link rel="preload" as="image" href="/forums-page-mobile.png?v=2" media="(max-width: 860px)">
-<link rel="stylesheet" href="/forums.css?v=20">
+<link rel="preload" as="image" href="/forums-page-desktop.png?v=2" media="(min-width: 861px)">
+<link rel="preload" as="image" href="/forums-page-mobile.png?v=3" media="(max-width: 860px)">
+<link rel="stylesheet" href="/forums.css?v=21">
 <style>
   * { box-sizing: border-box; }
   html, body { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #032d00; }
@@ -32,10 +32,14 @@
 </head>
 <body>
   <main class="forums-scene" aria-label="KNOBSOCK forums">
-    <picture>
-      <source media="(max-width: 860px)" srcset="/forums-page-mobile.png?v=2">
-      <img class="scene-art" src="/forums-page-desktop.png" alt="">
-    </picture>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <filter id="crtWiggle" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" numOctaves="2" seed="7" result="crtNoise">
+          <animate attributeName="baseFrequency" dur="7s" values="0.006 0.09;0.01 0.12;0.006 0.09" repeatCount="indefinite"/>
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="crtNoise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </svg>
     <section id="terminal" aria-label="Forum computer screen">
       <div id="forumScroll" tabindex="0">
         <div class="terminal-content">
@@ -52,9 +56,13 @@
       </div>
       <div id="scrollRail"><button type="button" id="scrollUp" aria-label="Scroll forum up">▲</button><div id="scrollTrack"><div id="scrollThumb" role="scrollbar" tabindex="0" aria-label="Forum scroll" aria-controls="forumScroll" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><button type="button" id="scrollDown" aria-label="Scroll forum down">▼</button></div>
     </section>
+    <picture>
+      <source media="(max-width: 860px)" srcset="/forums-page-mobile.png?v=3">
+      <img class="scene-art" src="/forums-page-desktop.png?v=2" alt="">
+    </picture>
   </main>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="/forums.js?v=11"></script>
+<script src="/forums.js?v=12"></script>
 </body>
 </html>

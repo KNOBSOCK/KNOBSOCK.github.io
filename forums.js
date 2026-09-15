@@ -205,13 +205,13 @@
   let railHideTimer, railHovered = false, railDragging = false;
   function positionScrollRail() {
     const terminal = $("terminal");
-    const nav = terminal && terminal.querySelector(".forum-nav");
-    if (!terminal || !nav) return;
-    // Keep the arrow/track column aligned with the green rule beneath the
-    // Boards / Recent / Rules navigation, regardless of art scaling. offsetTop
-    // stays stable after a user scrolls the inner panel; a viewport rect does
-    // not, which had let the rail retain its old position on some phones.
-    const top = Math.max(0, nav.offsetTop + nav.offsetHeight);
+    const logo = terminal && terminal.querySelector(".forum-logo");
+    if (!terminal || !logo) return;
+    // Keep the arrow/track column aligned with the top of the header logo,
+    // regardless of art scaling. offsetTop stays stable after a user scrolls
+    // the inner panel; a viewport rect does not, which had let the rail
+    // retain its old position on some phones.
+    const top = Math.max(0, logo.offsetTop);
     rail.style.marginTop = Math.round(top) + "px";
   }
   function hideRailSoon() {
@@ -259,7 +259,7 @@
     { passive: true },
   );
   new ResizeObserver(syncScroll).observe(scroll);
-  new ResizeObserver(positionScrollRail).observe(document.querySelector(".forum-nav"));
+  new ResizeObserver(positionScrollRail).observe(document.querySelector(".forum-logo"));
   new ResizeObserver(positionScrollRail).observe(document.querySelector(".terminal-content"));
   const forumLogo = document.querySelector(".forum-logo img");
   if (forumLogo) forumLogo.addEventListener("load", positionScrollRail);
