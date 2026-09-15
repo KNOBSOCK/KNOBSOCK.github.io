@@ -305,6 +305,28 @@
   cursor: grab;
   touch-action: none;
 }
+/* Desktop's terminal-content is a narrow centered column (78% width),
+   which otherwise leaves the scroll rail stranded out at the screen's
+   outer edge, far from the content it scrolls. Cap forumScroll to that
+   same width and center the [content + rail] pair as a unit so the
+   rail sits flush next to the content instead. Mobile's content is
+   already full-width (see the max-width override below), so this is
+   scoped to desktop only. */
+@media (min-width: 861px) {
+  #terminal {
+    justify-content: center;
+  }
+  #forumScroll {
+    flex: 0 1 78%;
+  }
+  .terminal-content {
+    width: 100%;
+    margin: 0;
+  }
+  #scrollRail {
+    margin-left: 8px;
+  }
+}
 .sr-only {
   position: absolute;
   width: 1px;
