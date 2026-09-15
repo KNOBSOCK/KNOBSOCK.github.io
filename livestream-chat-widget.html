@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Live Stream + Chat</title>
 <style>
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
   :root {
     --ink: #3a0a0a;
 
@@ -777,7 +782,8 @@
     color: var(--text-dim);
   }
   .chat-gate-status.is-locked {
-    color: var(--accent);
+    color: #ffffff;
+    font-family: 'Gratis Neue', var(--font-body);
     font-weight: 700;
   }
 
