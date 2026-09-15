@@ -241,14 +241,19 @@
       w: 7456, h: 4194,
       tv: { cx: 3609, cy: 1414, w: 1882, h: 500 },
       tvTopY: 995,
-      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 }
+      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 },
+      // The remote control isn't exactly centered under the bezel's own
+      // midpoint, so the zoomed view centers on the remote itself
+      // (measured off its own art) rather than the bezel box center.
+      tvZoomCenterX: 3612
     },
     mobile: {
       src: '/videos-room-mobile.webp',
       w: 4511, h: 8000,
       tv: { cx: 2236, cy: 2315, w: 2047, h: 546 },
       tvTopY: 1863,
-      tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 }
+      tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
+      tvZoomCenterX: 2242
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -334,7 +339,7 @@
     // margin above it, regardless of the device's aspect ratio (a fixed
     // anchor point + flat scale factor does not give that guarantee).
     var k = Math.max(vp.w / b.w, vp.h / b.h) / s;
-    var boxCenterX = layoutBox.ox + (b.left + b.w / 2) * s;
+    var boxCenterX = layoutBox.ox + layoutBox.v.tvZoomCenterX * s;
     var boxCenterY = layoutBox.oy + (b.top + b.h / 2) * s;
     roomScene.style.setProperty('--tv-zoom-scale', k);
     roomScene.style.setProperty('--tv-zoom-tx', (vp.w / 2 - boxCenterX * k) + 'px');
