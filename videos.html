@@ -336,10 +336,9 @@
       // inset/small within the physical button. w here is the rendered
       // *container* width (the select image's full 144x100 padded
       // canvas) — inflated from the measured 122px button footprint by
-      // 144/127 so the image's actual opaque content (127 of that 144)
-      // ends up matching the button's real size instead of the padding
-      // around it eating into the fit.
-      remoteSelect: { cx: 3462, cy: 2002.5, w: 138.3 },
+      // 144/127 (padding correction) then another 1.15x on top per
+      // direct feedback that the fitted size still looked small.
+      remoteSelect: { cx: 3462, cy: 2002.5, w: 159 },
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
@@ -355,7 +354,7 @@
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
       remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
-      remoteSelect: { cx: 2076.5, cy: 2959.5, w: 150.8 }
+      remoteSelect: { cx: 2076.5, cy: 2959.5, w: 173.4 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
