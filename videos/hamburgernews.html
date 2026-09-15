@@ -76,14 +76,16 @@
     border: 0;
   }
 
-  /* While a pickle is zoomed, everything except the background and the
-     active pickle itself (the visual "frame" around the thumbnail)
-     fades out rather than getting dragged along by the zoom — the
-     header and the video hole sit close enough to the pickles in art
-     space that a pure zoom could otherwise drag them awkwardly into
-     view. */
+  /* While a pickle is zoomed, only the background keeps moving (for a
+     sense of the camera pushing in) — the header, the video hole, and
+     both pickle buttons themselves just fade out in place rather than
+     visibly scaling up. Scaling the button art to fill the screen
+     looked like a big ugly zooming graphic; fading it out instead
+     leaves only the thumbnail/label card (see #pickleSlots) as the
+     thing that visibly animates in. */
   .stage-wrap.pickle-zoomed .patty-slot,
-  .stage-wrap.pickle-zoomed .hn-header {
+  .stage-wrap.pickle-zoomed .hn-header,
+  .stage-wrap.pickle-zoomed .pickle-btn {
     opacity: 0;
     pointer-events: none;
   }
@@ -171,12 +173,10 @@
     inset: 0;
   }
 
-  /* The thumbnail+label content homography-mapped onto the zoomed
-     pickle's own green face — no separate close-up art any more, this
-     sits directly on top of the real (now large) pickle button image,
-     positioned every frame from that button's own live on-screen box
-     (see positionPickleSlots), so it's pixel-locked to the art at any
-     zoom level or viewport size. */
+  /* The thumbnail+label content — a modest, screen-centered, plain
+     (unrotated) card, since the pickle button it used to be mapped
+     onto now just fades away instead of staying on screen as a frame.
+     This is the only thing that visibly pops in as a pickle opens. */
   .pickle-slots {
     position: fixed;
     z-index: 5;
@@ -185,11 +185,13 @@
     grid-template-rows: 1fr;
     transform-origin: 50% 50%;
     opacity: 0;
+    transform: scale(0.85);
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .pickle-slots.is-open {
     opacity: 1;
+    transform: scale(1);
     pointer-events: auto;
   }
   .pickle-slots[hidden] { display: none; }
@@ -473,27 +475,12 @@
     bottomGapFrac: 0.2205
   };
 
-  // Where the pickle's own green face sits within ITS OWN button image
-  // (hamburger-pickle-*.webp), as fractions of that image's width/height
-  // — measured directly off the art (largest-connected-component green
-  // mask, minimum-area rotated bounding rect). Because these are
-  // fractions of the button's own canvas rather than absolute
-  // coordinates in a separate close-up asset, the thumbnail+label quad
-  // below is derived from the button element's OWN live on-screen box
-  // at render time (see positionPickleSlots) — pixel-locked to the art
-  // at any zoom level or viewport size, with no separate art or
-  // bridging math needed. Order is [left, top, right, bottom] vertices
-  // of the rotated face, matching how the homography below expects its
-  // source quad wound.
-  var PICKLE_QUAD_FRAC = {
-    episodes: {
-      quad: [[-0.0638, 0.4882], [0.6891, -0.0531], [1.0970, 0.5143], [0.3440, 1.0556]],
-      thumbAspect: 16 / 9
-    },
-    games: {
-      quad: [[-0.0138, 0.2129], [0.9147, 0.1246], [0.9770, 0.7802], [0.0485, 0.8685]]
-    }
-  };
+  // The pickle button itself fades out rather than staying on screen as
+  // a frame (see the .pickle-zoomed CSS), so the thumbnail/label card
+  // is just a modest, plain, screen-centered rectangle — only episodes
+  // needs a fixed video aspect for its thumbnail; games has none and
+  // falls back to a plain squarish card.
+  var PICKLE_THUMB_ASPECT = { episodes: 16 / 9 };
 
   function loadSound(src, volume) {
     var a = new Audio(src);
@@ -517,44 +504,9 @@
   var PICK_SOUND = loadSound('/squish3.m4a', 0.5);
   var ZOOM_OUT_SOUND = loadSound('/woosh.m4a', 0.5);
 
-  var LABEL_FRAC = 0.22;
-
   var ARROW_RATIO = 473 / 560;
   var ARROW_FRAC = 0.42;
   var ARROW_GAP_FRAC = 0.18;
-
-  function solveHomography(src, dst) {
-    var A = [], B = [];
-    for (var i = 0; i < 4; i++) {
-      var sx = src[i][0], sy = src[i][1], dx = dst[i][0], dy = dst[i][1];
-      A.push([sx, sy, 1, 0, 0, 0, -dx * sx, -dx * sy]); B.push(dx);
-      A.push([0, 0, 0, sx, sy, 1, -dy * sx, -dy * sy]); B.push(dy);
-    }
-    var n = B.length;
-    var M = A.map(function (row, i) { return row.concat([B[i]]); });
-    for (var col = 0; col < n; col++) {
-      var pivot = col;
-      for (var r = col + 1; r < n; r++) {
-        if (Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r;
-      }
-      var tmp = M[col]; M[col] = M[pivot]; M[pivot] = tmp;
-      var pv = M[col][col];
-      for (var c = col; c <= n; c++) M[col][c] /= pv;
-      for (var r2 = 0; r2 < n; r2++) {
-        if (r2 === col) continue;
-        var factor = M[r2][col];
-        if (factor === 0) continue;
-        for (var c2 = col; c2 <= n; c2++) M[r2][c2] -= factor * M[col][c2];
-      }
-    }
-    return M.map(function (row) { return row[n]; });
-  }
-  function quadMatrix3d(src, dst) {
-    var s = solveHomography(src, dst);
-    var a = s[0], b = s[1], c = s[2], d = s[3], e = s[4], f = s[5], g = s[6], h = s[7];
-    return 'matrix3d(' +
-      [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, c, f, 0, 1].join(',') + ')';
-  }
 
   function viewportSize() {
     var vv = window.visualViewport;
@@ -652,13 +604,12 @@
   }
 
   // Cover-fits the OPEN pickle's own art-space box to the viewport —
-  // same technique videos.html uses for the TV bezel — then applies
-  // that exact same translate+scale to the background and the pickle
-  // button itself so they zoom in perfectly together with zero wall
-  // margin. The thumbnail/label content is then placed from the
-  // pickle button's own freshly-computed target box (not read back via
-  // getBoundingClientRect, which would still reflect the pre-transition
-  // frame if queried synchronously here).
+  // same technique videos.html uses for the TV bezel — and applies
+  // that translate+scale to the background only, for a sense of the
+  // camera pushing in. The pickle buttons themselves no longer scale
+  // up with it (see the .pickle-zoomed CSS fade) — only the
+  // thumbnail/label card visibly animates in, placed independently by
+  // positionPickleSlots.
   function applyPickleZoom() {
     if (!layoutBox || !openPickle) return;
     var vp = viewportSize();
@@ -670,59 +621,46 @@
     var tx = vp.w / 2 - boxCenterX * k;
     var ty = vp.h / 2 - boxCenterY * k;
 
-    var activeBtn = PICKLE_BTNS[openPickle];
-    var targetRect = zoomedRect(activeBtn, tx, ty, k);
-
     zoomifyElement(stageBg, tx, ty, k);
-    zoomifyElement(activeBtn, tx, ty, k);
 
-    positionPickleSlots(targetRect, vp);
+    positionPickleSlots(vp);
   }
 
-  function positionPickleSlots(btnRect, vp) {
-    var art = PICKLE_QUAD_FRAC[openPickle];
-    var sq = art.quad.map(function (p) {
-      return [btnRect.left + p[0] * btnRect.width, btnRect.top + p[1] * btnRect.height];
-    });
-    var cx = (sq[0][0] + sq[1][0] + sq[2][0] + sq[3][0]) / 4;
-    var cy = (sq[0][1] + sq[1][1] + sq[2][1] + sq[3][1]) / 4;
-    function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+  // A modest, plain (unrotated) card centered on screen — sized off the
+  // viewport, not off the pickle art, since the pickle itself just
+  // fades away rather than staying visible as a frame to match.
+  var CARD_MAX_W = 520;
+  var CARD_LABEL_TO_THUMB_FRAC = 0.32;
 
-    var gw = (dist(sq[0], sq[1]) + dist(sq[3], sq[2])) / 2;
-    var gh = (dist(sq[0], sq[3]) + dist(sq[1], sq[2])) / 2;
-    var thumbH, labelH;
-    if (art.thumbAspect) {
-      thumbH = gw / art.thumbAspect;
-      labelH = Math.max(0, gh - thumbH);
+  function positionPickleSlots(vp) {
+    var thumbAspect = PICKLE_THUMB_ASPECT[openPickle];
+    var gw = Math.max(220, Math.min(vp.w * 0.62, vp.h * 0.62, CARD_MAX_W));
+    var thumbH, labelH, gh;
+    if (thumbAspect) {
+      thumbH = gw / thumbAspect;
+      labelH = thumbH * CARD_LABEL_TO_THUMB_FRAC;
+      gh = thumbH + labelH;
     } else {
-      labelH = gh * LABEL_FRAC;
-      thumbH = gh - labelH;
+      gh = gw * 0.82;
+      labelH = gh;
+      thumbH = 0;
     }
+    var cx = vp.w / 2, cy = vp.h / 2;
     slotsEl.style.width = gw + 'px';
     slotsEl.style.height = gh + 'px';
     slotsEl.style.left = (cx - gw / 2) + 'px';
     slotsEl.style.top = (cy - gh / 2) + 'px';
-    var localRect = [[-gw / 2, -gh / 2], [gw / 2, -gh / 2], [gw / 2, gh / 2], [-gw / 2, gh / 2]];
-    var dstRect = sq.map(function (p) { return [p[0] - cx, p[1] - cy]; });
-    slotsEl.style.transform = quadMatrix3d(localRect, dstRect);
     slotsEl.style.setProperty('--thumb-h', (100 * thumbH / gh).toFixed(3) + '%');
+    slotsEl.style.fontSize = Math.max(10, labelH * 0.42) + 'px';
+    slotsEl.style.setProperty('--empty-font', Math.max(10, gh * 0.09) + 'px');
 
-    slotsEl.style.fontSize = Math.max(8, labelH * 0.42) + 'px';
-
-    slotsEl.style.setProperty('--empty-font', Math.max(8, gh * 0.085) + 'px');
-
-    var aw = Math.max(40, gw * ARROW_FRAC);
+    var aw = Math.max(36, gw * ARROW_FRAC * 0.6);
     var ah = aw * ARROW_RATIO;
-    var off = gw / 2 + gw * ARROW_GAP_FRAC + aw / 2;
-    var edgeX = (sq[1][0] - sq[0][0] + sq[2][0] - sq[3][0]) / 2;
-    var edgeY = (sq[1][1] - sq[0][1] + sq[2][1] - sq[3][1]) / 2;
-    var angle = Math.atan2(edgeY, edgeX);
-    var ox2 = Math.cos(angle) * off, oy2 = Math.sin(angle) * off;
-    var angleDeg = (angle * 180 / Math.PI).toFixed(2) + 'deg';
-    arrowPrev.style.setProperty('--arrow-rot', angleDeg);
-    arrowNext.style.setProperty('--arrow-rot', angleDeg);
-    placeArrow(arrowPrev, cx - ox2, cy - oy2, aw, ah, vp);
-    placeArrow(arrowNext, cx + ox2, cy + oy2, aw, ah, vp);
+    var offX = gw / 2 + gw * ARROW_GAP_FRAC + aw / 2;
+    arrowPrev.style.setProperty('--arrow-rot', '0deg');
+    arrowNext.style.setProperty('--arrow-rot', '0deg');
+    placeArrow(arrowPrev, cx - offX, cy, aw, ah, vp);
+    placeArrow(arrowNext, cx + offX, cy, aw, ah, vp);
   }
 
   function placeArrow(el, cx, cy, w, h, vp) {
@@ -885,9 +823,6 @@
     renderSlots();
     slotsEl.hidden = false;
     stageWrap.classList.add('pickle-zoomed');
-    var otherBtn = PICKLE_BTNS[name === 'episodes' ? 'games' : 'episodes'];
-    otherBtn.style.opacity = '0';
-    otherBtn.style.pointerEvents = 'none';
 
     layout(); // recomputes base positions, then zooms via applyPickleZoom()
 
@@ -906,10 +841,6 @@
     slotsEl.classList.remove('is-open');
     hideArrows();
     stageWrap.classList.remove('pickle-zoomed');
-    Object.keys(PICKLE_BTNS).forEach(function (n) {
-      PICKLE_BTNS[n].style.opacity = '';
-      PICKLE_BTNS[n].style.pointerEvents = '';
-    });
     document.removeEventListener('keydown', onZoomKey);
     backLink.textContent = '← Back to Videos';
     backLink.setAttribute('href', '/videos');
