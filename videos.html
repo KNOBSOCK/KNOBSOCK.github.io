@@ -137,42 +137,39 @@
     padding: 0 6%;
   }
 
-  .tv-zoom {
-    position: fixed;
-    z-index: 10;
-    inset: 0;
-    overflow: hidden;
+  /* Remote-mounted buttons: only shown once zoomed into the TV. They live
+     inside #roomScene so the same CSS zoom transform that scales the room
+     also scales/moves these into place on the remote — no separate camera
+     math needed to keep them aligned. */
+  .remote-btn {
+    position: absolute;
+    z-index: 4;
+    padding: 0;
+    border: 0;
+    background: none;
+    display: block;
     opacity: 0;
     pointer-events: none;
-    will-change: opacity;
-    transition: opacity 0s linear 0.48s;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.2s ease;
   }
-  .tv-zoom.is-open {
+  .room-scene.is-zooming .remote-btn {
     opacity: 1;
     pointer-events: auto;
   }
-  .tv-zoom.is-closing {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.08s linear;
+  .remote-btn img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    -webkit-user-drag: none;
+    user-select: none;
   }
-  .tv-zoom-close {
-    position: fixed;
-    z-index: 2;
-    top: clamp(10px, 3vw, 24px);
-    right: clamp(10px, 3vw, 24px);
-    width: clamp(34px, 6vw, 52px);
-    height: clamp(34px, 6vw, 52px);
-    border-radius: 50%;
-    border: 0;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    font-size: clamp(18px, 3vw, 26px);
-    line-height: 1;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .tv-zoom-close:hover { background: rgba(0, 0, 0, 0.75); }
+  #remoteBackBtn .btn-active-img { display: none; }
+  #remoteBackBtn.is-pressed .btn-idle-img { display: none; }
+  #remoteBackBtn.is-pressed .btn-active-img { display: block; }
 
   .videos-logo {
     position: absolute;
@@ -222,10 +219,14 @@
 
   <button type="button" class="tv-zoom-trigger" id="tvZoomTrigger" aria-label="Zoom into the TV"></button>
   <div class="tv-slot" id="tvSlot"></div>
-</div>
 
-<div class="tv-zoom" id="tvZoom" inert aria-hidden="true">
-  <button type="button" class="tv-zoom-close" id="tvZoomClose" aria-label="Zoom out of the TV">&times;</button>
+  <button type="button" class="remote-btn" id="remoteBackBtn" aria-label="Zoom out of the TV">
+    <img class="btn-idle-img" src="/remote-back-btn.webp" alt="">
+    <img class="btn-active-img" src="/remote-back-btn-active.webp" alt="">
+  </button>
+  <a class="remote-btn" id="remoteHnBtn" href="#" aria-label="Hamburger News" data-shell-navigate-after-effect>
+    <img id="remoteHnBtnImg" src="" alt="">
+  </a>
 </div>
 
 <div class="privacy-footer"><a href="/privacy">Privacy Policy &amp; User Agreement</a></div>
@@ -241,7 +242,11 @@
       w: 7456, h: 4194,
       tv: { cx: 3609, cy: 1414, w: 1882, h: 500 },
       tvTopY: 995,
-      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 }
+      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 },
+      // Measured directly off the remote's own art (the plain red power
+      // button, and where its Hamburger News icon sits relative to it).
+      remoteBack: { cx: 3478.5, cy: 1825, w: 123.9, h: 101.4 },
+      remoteHnLogo: { cx: 3590, cy: 1892, w: 95, h: 93 }
     },
     mobile: {
       src: '/videos-room-mobile.webp',
@@ -249,7 +254,9 @@
       tv: { cx: 2236, cy: 2315, w: 2047, h: 546 },
       tvTopY: 1863,
       tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
-      tvZoomCenterX: 2242
+      tvZoomCenterX: 2242,
+      remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
+      remoteHnLogo: { cx: 2216.6, cy: 2840.1, w: 103, h: 101 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -259,14 +266,23 @@
   var logo = document.getElementById('videosLogo');
   var roomScene = document.getElementById('roomScene');
   var tvZoomTrigger = document.getElementById('tvZoomTrigger');
-  var tvZoom = document.getElementById('tvZoom');
-  var tvZoomClose = document.getElementById('tvZoomClose');
+  var remoteBackBtn = document.getElementById('remoteBackBtn');
+  var remoteHnBtn = document.getElementById('remoteHnBtn');
+  var remoteHnBtnImg = document.getElementById('remoteHnBtnImg');
   var currentVariant = null;
   var layoutBox = null;
 
   function viewportSize() {
     var vv = window.visualViewport;
     return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
+  }
+
+  function placeBox(el, box, ox, oy, s) {
+    var w = box.w * s, h = box.h * s;
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.style.left = (ox + box.cx * s - w / 2) + 'px';
+    el.style.top = (oy + box.cy * s - h / 2) + 'px';
   }
 
   function layout() {
@@ -307,6 +323,9 @@
     slot.style.fontSize = Math.max(11, bh * 0.15) + 'px';
     slot.style.setProperty('--pop-y', (bh * 0.05) + 'px');
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
+
+    placeBox(remoteBackBtn, v.remoteBack, ox, oy, s);
+    placeBox(remoteHnBtn, v.remoteHnLogo, ox, oy, s);
 
     var topY = oy + v.tvTopY * s;
     var pad = Math.max(8, Math.min(20, vp.w * 0.02));
@@ -410,11 +429,6 @@
   function beginZoom() {
     isZoomed = true;
     playWoosh();
-    tvZoom.inert = false;
-    tvZoom.setAttribute('aria-hidden', 'false');
-    void tvZoom.offsetWidth;
-    tvZoom.classList.remove('is-closing');
-    tvZoom.classList.add('is-open');
     setCameraAnchor();
     roomScene.classList.add('is-zooming');
   }
@@ -428,22 +442,19 @@
     if (!isZoomed) return;
     isZoomed = false;
     playWoosh();
-    tvZoom.classList.remove('is-open');
-    tvZoom.classList.add('is-closing');
-    tvZoom.setAttribute('aria-hidden', 'true');
     clearTimeout(zoomTimer);
     zoomTimer = setTimeout(function () {
       roomScene.classList.remove('is-zooming');
-      tvZoom.classList.remove('is-closing');
     }, 90);
-    setTimeout(function () {
-      tvZoom.inert = true;
-    }, 560);
   }
 
   tvZoomTrigger.addEventListener('click', openZoom);
   tvZoomTrigger.addEventListener('pointerenter', primeWoosh);
-  tvZoomClose.addEventListener('click', closeZoom);
+  remoteBackBtn.addEventListener('click', closeZoom);
+  remoteBackBtn.addEventListener('pointerdown', function () { remoteBackBtn.classList.add('is-pressed'); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (evt) {
+    remoteBackBtn.addEventListener(evt, function () { remoteBackBtn.classList.remove('is-pressed'); });
+  });
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape' || event.key === 'Esc') closeZoom();
   });
@@ -508,7 +519,7 @@
   function renderCreators(order, links, photos, sounds, photos2) {
     var withPhoto = order.filter(function (name) { return (photos[name] || '').trim(); });
     if (!withPhoto.length) {
-      slot.innerHTML = '<div class="tv-message">no videos yet :( come back later</div>';
+      slot.innerHTML = '';
       return;
     }
     slot.innerHTML = withPhoto.map(function (name) {
@@ -550,6 +561,20 @@
     });
   }
 
+  // Hamburger News lives on the remote now (see remoteHnBtn), not on the
+  // TV screen, so it's excluded from the normal tv-slot creator list —
+  // matched by name since that's how the Firestore data identifies it.
+  var HAMBURGER_NEWS_NAME = 'Hamburger News with Joe Medina';
+
+  remoteHnBtn.addEventListener('click', function (e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var href = remoteHnBtn.getAttribute('href');
+    if (!href || href === '#') return;
+    e.preventDefault();
+    document.body.classList.add('tv-exit');
+    setTimeout(function () { navigateAfterEffect(href); }, 700);
+  });
+
   if (window.firebase) {
     var db = firebase.firestore(
       firebase.apps.length ? firebase.apps[0] : firebase.initializeApp({
@@ -563,16 +588,25 @@
 
     db.collection('playlist').doc('main').onSnapshot(function (doc) {
       var data = doc.exists ? doc.data() : null;
+      var order = (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [];
+      var photos = (data && data.creatorPhotos) || {};
+      var links = (data && data.creatorLinks) || {};
+
+      var hnPhoto = (photos[HAMBURGER_NEWS_NAME] || '').trim();
+      var hnLink = (links[HAMBURGER_NEWS_NAME] || '').trim();
+      if (hnPhoto) remoteHnBtnImg.src = hnPhoto;
+      remoteHnBtn.setAttribute('href', hnLink || '#');
+
       renderCreators(
-        (data && Array.isArray(data.creatorOrder)) ? data.creatorOrder : [],
-        (data && data.creatorLinks) || {},
-        (data && data.creatorPhotos) || {},
+        order.filter(function (name) { return name !== HAMBURGER_NEWS_NAME; }),
+        links,
+        photos,
         (data && data.creatorSounds) || {},
         (data && data.creatorPhotos2) || {}
       );
     }, function (err) {
       console.error('Could not load creators:', err);
-      slot.innerHTML = '<div class="tv-message">could not load videos</div>';
+      slot.innerHTML = '';
     });
   }
 })();
