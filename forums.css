@@ -41,18 +41,18 @@
 }
 @media (max-width: 860px) {
   .tv-glow {
-    display: none;
+    filter: url(#screenEdgeGlowMobile);
   }
 }
 @keyframes tv-glow-flicker {
-  0%, 100% { opacity: 0.32; }
-  8% { opacity: 0.24; }
-  20% { opacity: 0.38; }
-  35% { opacity: 0.28; }
-  50% { opacity: 0.4; }
-  62% { opacity: 0.26; }
-  80% { opacity: 0.36; }
-  91% { opacity: 0.3; }
+  0%, 100% { opacity: 0.16; }
+  8% { opacity: 0.12; }
+  20% { opacity: 0.19; }
+  35% { opacity: 0.14; }
+  50% { opacity: 0.2; }
+  62% { opacity: 0.13; }
+  80% { opacity: 0.18; }
+  91% { opacity: 0.15; }
 }
 #forumScroll {
   position: relative;
