@@ -355,6 +355,16 @@
       (layoutBox.ox + z.x * layoutBox.s) + 'px ' +
       (layoutBox.oy + z.y * layoutBox.s) + 'px';
     roomScene.style.setProperty('--tv-zoom-scale', z.scale);
+
+    // The crisp tv-zoom-frame image is sized/positioned identically to the
+    // plain (unzoomed) room-bg, so without this it just shows the full
+    // room art — same framing as room-scene before its CSS zoom transform
+    // is applied. Apply the same anchor/scale here so the crisp frame
+    // lands exactly where the CSS-zoomed room-scene does, cropping the
+    // ceiling/logo out of view instead of leaving it visible above the TV.
+    tvZoomFrame.style.transformOrigin =
+      (z.x * layoutBox.s) + 'px ' + (z.y * layoutBox.s) + 'px';
+    tvZoomFrame.style.transform = 'scale(' + z.scale + ')';
   }
 
   var effectContext = null;
