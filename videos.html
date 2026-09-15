@@ -330,15 +330,18 @@
       // Width only — height is derived from the logo image's own natural
       // aspect ratio at layout time so it never gets stretched/squished.
       remoteHnLogo: { cx: 3597.6, cy: 1892.2, w: 124.2 },
-      // The remote's own top-left grid button, same measure-off-the-art
+      // The remote's own top-CENTER grid button (moved off the
+      // top-left slot per direct feedback), same measure-off-the-art
       // approach as remoteBack: full outline including its black border
       // (not just the inner gray fill), else the graphic sits visibly
       // inset/small within the physical button. w here is the rendered
       // *container* width (the select image's full 144x100 padded
       // canvas) — inflated from the measured 122px button footprint by
       // 144/127 (padding correction) then another 1.15x on top per
-      // direct feedback that the fitted size still looked small.
-      remoteSelect: { cx: 3462, cy: 2002.5, w: 159 },
+      // direct feedback that the fitted size still looked small. cx/cy
+      // shifted from the top-left button's own center by the measured
+      // gap between adjacent grid buttons (same size, just relocated).
+      remoteSelect: { cx: 3602.5, cy: 1997.5, w: 159 },
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
@@ -354,7 +357,7 @@
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
       remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
-      remoteSelect: { cx: 2076.5, cy: 2959.5, w: 173.4 }
+      remoteSelect: { cx: 2230.5, cy: 2955, w: 173.4 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
