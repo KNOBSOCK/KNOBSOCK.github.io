@@ -172,7 +172,11 @@
     appearance: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    transition: opacity 0.2s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
+    // Opacity is timed to finish exactly when left/top/width/height do
+    // (0.30s delay + 0.16s fade = 0.46s), so the button never looks fully
+    // visible while still sliding into place — otherwise a tap aimed at
+    // where it's seen can land after it has drifted on to its final spot.
+    transition: opacity 0.16s ease 0.3s, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
       left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
       width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
@@ -326,12 +330,25 @@
     return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
   }
 
+  // Mobile Safari fires visualViewport resize/scroll repeatedly during an
+  // ordinary tap (toolbar show/hide, elastic bounce), each re-running
+  // layout(). Writing sub-pixel-different values every time restarts the
+  // left/top/width/height transitions mid-flight, so a zoomed button can
+  // end up perpetually re-animating instead of settling — and missing
+  // taps as a result. Skip the write when the value hasn't meaningfully
+  // changed so an in-progress transition is left alone.
+  function setStyleIfChanged(el, prop, px) {
+    var current = parseFloat(el.style[prop]);
+    if (!isNaN(current) && Math.abs(current - px) < 0.5) return;
+    el.style[prop] = px + 'px';
+  }
+
   function placeBox(el, box, ox, oy, s) {
     var w = box.w * s, h = box.h * s;
-    el.style.width = w + 'px';
-    el.style.height = h + 'px';
-    el.style.left = (ox + box.cx * s - w / 2) + 'px';
-    el.style.top = (oy + box.cy * s - h / 2) + 'px';
+    setStyleIfChanged(el, 'width', w);
+    setStyleIfChanged(el, 'height', h);
+    setStyleIfChanged(el, 'left', ox + box.cx * s - w / 2);
+    setStyleIfChanged(el, 'top', oy + box.cy * s - h / 2);
     el.style.setProperty('--pop-y', (h * 0.05) + 'px');
     el.style.setProperty('--pop-blur', (h * 0.09) + 'px');
   }
@@ -431,10 +448,10 @@
     var top = parseFloat(el.style.top) || 0;
     var w = parseFloat(el.style.width) || 0;
     var h = parseFloat(el.style.height) || 0;
-    el.style.left = (tx + left * k) + 'px';
-    el.style.top = (ty + top * k) + 'px';
-    el.style.width = (w * k) + 'px';
-    el.style.height = (h * k) + 'px';
+    setStyleIfChanged(el, 'left', tx + left * k);
+    setStyleIfChanged(el, 'top', ty + top * k);
+    setStyleIfChanged(el, 'width', w * k);
+    setStyleIfChanged(el, 'height', h * k);
   }
 
   var effectContext = null;
