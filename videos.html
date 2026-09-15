@@ -89,12 +89,13 @@
     object-fit: cover;
   }
 
-  /* Channel-switching layers, all filling the same screen cutout as
-     .tv-static above but stacked beneath it: the ambient static gif
-     (.tv-static) is what's normally visible; picking a channel briefly
-     swaps in the MP4 static as a "changing channels" transition, then
-     cuts to the featured video looping behind everything. JS toggles
-     opacity between the three — see tuneChannel()/resetChannel(). */
+  /* Channel-switching layers, filling the same screen cutout as
+     .tv-static above but stacked beneath it — the ambient static gif
+     stays visible the whole time as a permanent grain/noise overlay on
+     top of whatever's playing underneath. Picking a channel briefly
+     shows the MP4 static as a "changing channels" transition, then cuts
+     to the featured video looping behind everything. JS toggles opacity
+     between these two — see tuneChannel()/resetChannel(). */
   .tv-featured-video, .tv-channel-static {
     position: absolute;
     pointer-events: none;
@@ -191,11 +192,11 @@
     appearance: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    // Opacity is timed to finish exactly when left/top/width/height do
-    // (0.30s delay + 0.16s fade = 0.46s), so the button never looks fully
-    // visible while still sliding into place — otherwise a tap aimed at
-    // where it's seen can land after it has drifted on to its final spot.
-    transition: opacity 0.16s ease 0.3s, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
+    /* Opacity fades in together with the position/size move (both
+       0.46s), so the button is never fully visible while still sliding
+       into place — a tap aimed at where it's seen could otherwise land
+       after it had drifted on to its final spot. */
+    transition: opacity 0.46s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
       left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
       width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
@@ -316,7 +317,10 @@
       remoteHnLogo: { cx: 3597.6, cy: 1892.2, w: 124.2 },
       // The remote's own top-left grid button, same measure-off-the-art
       // approach as remoteBack. Width only, like remoteHnLogo.
-      remoteSelect: { cx: 3463, cy: 2001, w: 90 },
+      // Sized to the button's full outline including its black border
+      // (not just the inner gray fill) — otherwise the graphic sits
+      // visibly inset/small within the physical button.
+      remoteSelect: { cx: 3463, cy: 2001, w: 112 },
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
@@ -332,7 +336,7 @@
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
       remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
-      remoteSelect: { cx: 2078, cy: 2960, w: 100 }
+      remoteSelect: { cx: 2078, cy: 2960, w: 132 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -352,10 +356,11 @@
   var currentVariant = null;
   var layoutBox = null;
 
-  // remote-select-btn.webp's own fixed aspect (144x100) — same
-  // width-only-and-derive-height treatment as remoteHnLogo, just with a
-  // constant ratio since this art never changes at runtime.
-  var SELECT_BTN_ASPECT = 100 / 144;
+  // remote-select-btn.webp's own opaque content, not its full padded
+  // canvas (127x82 of a 144x100 image) — same width-only-derive-height
+  // treatment as remoteHnLogo, just with a constant ratio since this
+  // art never changes at runtime.
+  var SELECT_BTN_ASPECT = 82 / 127;
 
   // Sized by width only (see VARIANTS remoteHnLogo) — height is derived
   // from the logo photo's own natural aspect so it's never stretched,
@@ -633,7 +638,6 @@
   function resetChannel() {
     clearTimeout(channelSwitchTimer);
     isTuned = false;
-    tvStatic.style.opacity = '1';
     tvChannelStatic.classList.remove('is-live');
     tvFeaturedVideo.classList.remove('is-live');
     tvChannelStatic.pause();
@@ -652,7 +656,6 @@
     remoteSelectBtn.hidden = true;
     tvFeaturedVideo.classList.remove('is-live');
     tvFeaturedVideo.pause();
-    tvStatic.style.opacity = '0';
     tvChannelStatic.classList.add('is-live');
     tvChannelStatic.currentTime = 0;
     var p = tvChannelStatic.play();
