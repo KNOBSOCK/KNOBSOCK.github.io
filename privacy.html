@@ -25,11 +25,22 @@
     -ms-overflow-style: none;
   }
   html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
   }
-  h1, h2 { color: yellow; }
+  h1, h2 {
+    color: yellow;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    -webkit-text-stroke: 1.5px #000;
+    paint-order: stroke fill;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
   a { color: #fff; }
 
   .bg-video {
