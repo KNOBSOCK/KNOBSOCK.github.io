@@ -241,6 +241,19 @@
     -webkit-user-drag: none;
     user-select: none;
   }
+  /* The real red remote button is intentionally tiny in the room art.
+     Give it a phone-friendly invisible tap halo without enlarging the
+     artwork itself. The image uses the ratio set by layout() so it stays
+     perfectly centered and scales with the camera zoom. */
+  #remoteBackBtn .btn-idle-img,
+  #remoteBackBtn .btn-active-img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(100% * var(--remote-back-visual-x, 1));
+    height: calc(100% * var(--remote-back-visual-y, 1));
+    transform: translate(-50%, -50%);
+  }
   #remoteBackBtn .btn-active-img { display: none; }
   #remoteBackBtn.is-pressed .btn-idle-img { display: none; }
   #remoteBackBtn.is-pressed .btn-active-img { display: block; }
@@ -434,6 +447,24 @@
     el.style.setProperty('--pop-blur', (h * 0.09) + 'px');
   }
 
+  function placeRemoteBack(box, ox, oy, s) {
+    var visualW = box.w * s;
+    var visualH = box.h * s;
+    // 18px on all sides produces a reliable 50px-plus target on phones
+    // while leaving the visible remote drawing at its exact art size.
+    var hitPad = 18;
+    var hitW = visualW + hitPad * 2;
+    var hitH = visualH + hitPad * 2;
+    setStyleIfChanged(remoteBackBtn, 'width', hitW);
+    setStyleIfChanged(remoteBackBtn, 'height', hitH);
+    setStyleIfChanged(remoteBackBtn, 'left', ox + box.cx * s - hitW / 2);
+    setStyleIfChanged(remoteBackBtn, 'top', oy + box.cy * s - hitH / 2);
+    remoteBackBtn.style.setProperty('--remote-back-visual-x', visualW / hitW);
+    remoteBackBtn.style.setProperty('--remote-back-visual-y', visualH / hitH);
+    remoteBackBtn.style.setProperty('--pop-y', (visualH * 0.05) + 'px');
+    remoteBackBtn.style.setProperty('--pop-blur', (visualH * 0.09) + 'px');
+  }
+
   function layout() {
     var vp = viewportSize();
     var name = vp.w <= MOBILE_MAX_WIDTH ? 'mobile' : 'desktop';
@@ -475,7 +506,7 @@
     placeBox(tvStatic, v.tvStatic, ox, oy, s);
     placeBox(tvFeaturedVideo, v.tvStatic, ox, oy, s);
     placeBox(tvChannelStatic, v.tvStatic, ox, oy, s);
-    placeBox(remoteBackBtn, v.remoteBack, ox, oy, s);
+    placeRemoteBack(v.remoteBack, ox, oy, s);
     placeBox(remoteHnBtn, {
       cx: v.remoteHnLogo.cx, cy: v.remoteHnLogo.cy,
       w: v.remoteHnLogo.w, h: v.remoteHnLogo.w * hnLogoAspect

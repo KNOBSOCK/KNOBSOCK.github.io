@@ -49,6 +49,12 @@
   .stage-bg,
   .patty-slot,
   .hn-header {
+    transition: none;
+  }
+  /* Only the intentional camera move animates geometry. Viewport
+     resizing writes a fresh, shared art-space layout immediately, so
+     no layer can lag behind and appear to float away from the table. */
+  .stage-wrap.is-camera-zooming .stage-bg {
     transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
       width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
       opacity 0.3s ease;
@@ -81,15 +87,17 @@
     border: 0;
   }
 
-  /* While a pickle is zoomed, everything except the background and the
-     active pickle itself (the visual "frame" around the thumbnail)
-     fades out rather than getting dragged along by the zoom — the
-     header and the video hole sit close enough to the pickles in art
+  /* While a pickle is zoomed, the background is the only pickle art
+     left visible. The clickable overlay fades out as it enlarges, which
+     reveals the matching pickle already drawn in the background. The
+     header and video hole fade out rather than getting dragged along by
+     the zoom. They sit close enough to the pickles in art
      space that a pure zoom could otherwise drag them awkwardly into
      view. */
   .stage-wrap.pickle-zoomed .patty-slot,
   .stage-wrap.pickle-zoomed .hn-header {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
   }
 
@@ -152,24 +160,23 @@
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
-    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
-      left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-      opacity 0.3s ease;
+    transition: opacity 0.12s ease;
     -webkit-tap-highlight-color: transparent;
     contain: layout paint;
   }
   .pickle-btn img {
+    /* These are transparent layers extracted from the original button
+       artwork. They retain the original Gratis Neue lettering and its
+       hand-drawn skew, without duplicating the pickle's black contours. */
     display: block;
     width: 100%;
     height: 100%;
     -webkit-user-drag: none;
     user-select: none;
   }
-  .pickle-btn:hover { transform: scale(1.06); }
-  .pickle-btn:active { transform: scale(0.97); }
 
   .pickle-btn[hidden] { display: none; }
+  .stage-wrap.pickle-zoomed .pickle-btn { transition-duration: 0.08s; }
 
   .stage-wrap {
     position: fixed;
@@ -359,10 +366,10 @@
   </a>
 
   <button type="button" class="pickle-btn" id="pickleEpisodes" aria-label="Episodes">
-    <img src="/hamburger-pickle-episodes.webp" alt="">
+    <img src="/hamburger-pickle-episodes-label.png" alt="">
   </button>
   <button type="button" class="pickle-btn" id="pickleGames" aria-label="Games">
-    <img src="/hamburger-pickle-games.webp" alt="">
+    <img src="/hamburger-pickle-games-label.png" alt="">
   </button>
 </div>
 
@@ -438,36 +445,35 @@
 
   var VARIANTS = {
     desktop: {
-      src: '/hamburger-news-bg.webp',
-      imgW: 8000, imgH: 8000,
-      hole: { x: 3211, y: 3373, w: 1560, h: 845 },
-      minVideoFrac: 0.25,
+      src: '/hamburger-news-bg.png',
+      imgW: 8000, imgH: 4511,
+      hole: { x: 3211, y: 1620, w: 1560, h: 845 },
+      minVideoFrac: 0,
       zoom: 1,
       // Also the box that gets cover-fit to the viewport when that
       // pickle is zoomed (same technique as videos.html's TV bezel) —
       // the pickle's own drawn box, art-space, no separate zoom-frame
       // measurement needed since we're zooming the real art now.
       pickles: {
-        episodes: { x: 3057, y: 4489, w: 678, h: 678 },
-        games: { x: 4111, y: 4935, w: 726, h: 726 }
+        episodes: { x: 3140, y: 2920, w: 531, h: 531 },
+        games: { x: 4040, y: 3290, w: 654, h: 654 }
       }
     },
     mobile: {
-      src: '/hamburger-news-bg-mobile.webp',
+      src: '/hamburger-news-bg-mobile.png',
       imgW: 4500, imgH: 8000,
       hole: { x: 1461, y: 3373, w: 1560, h: 845 },
       minVideoFrac: 0,
-      zoom: 1.4375,
+      zoom: 1,
       pickles: {
-        episodes: { x: 1313, y: 4700, w: 920, h: 920 },
-        games: { x: 2109, y: 5448, w: 1198, h: 1198 }
+        episodes: { x: 1380, y: 4660, w: 552, h: 552 },
+        games: { x: 2300, y: 5050, w: 672, h: 672 }
       }
     }
   };
 
-  // hole.y/w/h are identical between desktop and mobile (only hole.x
-  // shifts), so the header is sized/placed purely off hole.w and the
-  // gap up from hole.y, in the SAME art-space scale/offset layout()
+  // The header is sized and placed from each variant's video-hole width
+  // and vertical gap, in the SAME art-space scale/offset layout()
   // already computes for everything else — no separate per-variant
   // measurement needed. Ratios were measured directly off the artist's
   // own placement mockup (title top / subtitle bottom relative to the
@@ -492,8 +498,12 @@
   // source quad wound.
   var PICKLE_QUAD_FRAC = {
     episodes: {
-      quad: [[-0.0638, 0.4882], [0.6891, -0.0531], [1.0970, 0.5143], [0.3440, 1.0556]],
-      thumbAspect: 16 / 9
+      // Measured from the user's placement mockup, normalized against the
+      // pickle button canvas: top-left, top-right, bottom-right, bottom-left.
+      // Bottom corners include a narrow title strip below the thumbnail.
+      quad: [[0.112, 0.382], [0.655, 0.090], [0.918, 0.445], [0.363, 0.766]],
+      contentScale: 1,
+      thumbFraction: 0.82
     },
     games: {
       quad: [[-0.0138, 0.2129], [0.9147, 0.1246], [0.9770, 0.7802], [0.0485, 0.8685]]
@@ -523,6 +533,11 @@
   var ZOOM_OUT_SOUND = loadSound('/woosh.m4a', 0.5);
 
   var LABEL_FRAC = 0.22;
+
+  // The drawn pickle face is deliberately larger than the card that
+  // rests on it. Inset the mapped surface so the thumbnail never takes
+  // over the entire pickle and the green border stays clearly visible.
+  var PICKLE_CONTENT_SCALE = 0.52;
 
   var ARROW_RATIO = 473 / 560;
   var ARROW_FRAC = 0.42;
@@ -686,15 +701,20 @@
     var targetRect = zoomedRect(activeBtn, tx, ty, k);
 
     zoomifyElement(stageBg, tx, ty, k);
-    zoomifyElement(activeBtn, tx, ty, k);
+    // The button is only an invisible hit area plus a label layer. Keep
+    // its box at the original coordinates while it fades, instead of
+    // dragging that label through the camera move.
 
     positionPickleSlots(targetRect, vp);
   }
 
   function positionPickleSlots(btnRect, vp) {
     var art = PICKLE_QUAD_FRAC[openPickle];
+    var contentScale = art.contentScale == null ? PICKLE_CONTENT_SCALE : art.contentScale;
     var sq = art.quad.map(function (p) {
-      return [btnRect.left + p[0] * btnRect.width, btnRect.top + p[1] * btnRect.height];
+      var insetX = 0.5 + (p[0] - 0.5) * contentScale;
+      var insetY = 0.5 + (p[1] - 0.5) * contentScale;
+      return [btnRect.left + insetX * btnRect.width, btnRect.top + insetY * btnRect.height];
     });
     var cx = (sq[0][0] + sq[1][0] + sq[2][0] + sq[3][0]) / 4;
     var cy = (sq[0][1] + sq[1][1] + sq[2][1] + sq[3][1]) / 4;
@@ -703,7 +723,10 @@
     var gw = (dist(sq[0], sq[1]) + dist(sq[3], sq[2])) / 2;
     var gh = (dist(sq[0], sq[3]) + dist(sq[1], sq[2])) / 2;
     var thumbH, labelH;
-    if (art.thumbAspect) {
+    if (art.thumbFraction) {
+      thumbH = gh * art.thumbFraction;
+      labelH = gh - thumbH;
+    } else if (art.thumbAspect) {
       thumbH = gw / art.thumbAspect;
       labelH = Math.max(0, gh - thumbH);
     } else {
@@ -869,7 +892,7 @@
         window.parent.postMessage({ type: 'knobsock-shell-update-route', path: playingPath }, window.location.origin);
       }
     }
-    closeZoom(function () {
+    function playSelectedItem() {
       var frame = pattySlot.querySelector('iframe');
       if (!frame || !frame.contentWindow) return;
       if (kind === 'episodes') {
@@ -880,15 +903,19 @@
         frame.contentWindow.postMessage(
           { type: 'knobsock-hamburger-game', url: item.url, title: item.title }, '*');
       }
-    });
+    }
+    if (openPickle) closeZoom(playSelectedItem);
+    else playSelectedItem();
   }
 
   var zoomAnimTimer = null;
+  var previewRevealTimer = null;
 
   var zoomReadyAt = 0;
 
   function openZoom(name) {
-    if (openPickle) return;
+    if (openPickle || stageWrap.classList.contains('is-camera-zooming')) return;
+    clearTimeout(previewRevealTimer);
     openPickle = name;
     picklePage[name] = 0;
     zoomReadyAt = Date.now() + 350;
@@ -897,13 +924,26 @@
     renderSlots();
     slotsEl.hidden = false;
     stageWrap.classList.add('pickle-zoomed');
-    var otherBtn = PICKLE_BTNS[name === 'episodes' ? 'games' : 'episodes'];
-    otherBtn.style.opacity = '0';
-    otherBtn.style.pointerEvents = 'none';
+    stageWrap.classList.add('is-camera-zooming');
+    // Both transparent overlays leave at the start of the zoom. Their
+    // boxes remain in the layout so the zoom target and the perspective
+    // mapped content stay locked to the pickle drawn in stageBg.
+    Object.keys(PICKLE_BTNS).forEach(function (n) {
+      PICKLE_BTNS[n].style.opacity = '0';
+      PICKLE_BTNS[n].style.pointerEvents = 'none';
+    });
 
     layout(); // recomputes base positions, then zooms via applyPickleZoom()
 
-    requestAnimationFrame(function () { slotsEl.classList.add('is-open'); });
+    // Reveal only after the camera reaches the measured pickle surface.
+    // Closing or navigating cancels this callback, including on startup.
+    hideArrows();
+    previewRevealTimer = setTimeout(function () {
+      if (openPickle !== name) return;
+      stageWrap.classList.remove('is-camera-zooming');
+      slotsEl.classList.add('is-open');
+      renderSlots();
+    }, 480);
 
     backLink.textContent = '← Back';
     backLink.setAttribute('href', '#');
@@ -912,16 +952,14 @@
 
   function closeZoom(done) {
     if (!openPickle) return;
+    clearTimeout(previewRevealTimer);
+    stageWrap.classList.add('is-camera-zooming');
     playSound(ZOOM_OUT_SOUND);
 
     openPickle = null;
     slotsEl.classList.remove('is-open');
+    slotsEl.hidden = true;
     hideArrows();
-    stageWrap.classList.remove('pickle-zoomed');
-    Object.keys(PICKLE_BTNS).forEach(function (n) {
-      PICKLE_BTNS[n].style.opacity = '';
-      PICKLE_BTNS[n].style.pointerEvents = '';
-    });
     document.removeEventListener('keydown', onZoomKey);
     backLink.textContent = '← Back to Videos';
     backLink.setAttribute('href', '/videos');
@@ -931,6 +969,12 @@
     clearTimeout(zoomAnimTimer);
     zoomAnimTimer = setTimeout(function () {
       slotsEl.hidden = true;
+      stageWrap.classList.remove('is-camera-zooming');
+      stageWrap.classList.remove('pickle-zoomed');
+      Object.keys(PICKLE_BTNS).forEach(function (n) {
+        PICKLE_BTNS[n].style.opacity = '';
+        PICKLE_BTNS[n].style.pointerEvents = '';
+      });
       if (done) done();
     }, 480);
   }
@@ -979,7 +1023,6 @@
         kind = 'games';
       }
       if (!found) return;
-      openZoom(kind);
       chooseItem(kind, found);
     }
 

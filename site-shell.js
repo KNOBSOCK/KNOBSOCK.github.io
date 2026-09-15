@@ -88,6 +88,9 @@
     const params = new URLSearchParams(url.search);
     params.set('site-content', '1');
 params.set('shell-version', '20260913-11');
+    if (pathname === '/videos/hamburgernews.html') {
+      params.set('scene-version', '20260915-pickle-4');
+    }
     const query = params.toString();
     return `${pathname}${query ? `?${query}` : ''}${url.hash}`;
   }
