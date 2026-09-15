@@ -751,7 +751,6 @@
     if (!isTuned || !tunedHref || tunedHref === '#') return;
     playButtonClick();
     if (tunedPhoto2 && tunedImg) tunedImg.src = tunedPhoto2;
-    document.body.classList.add('tv-exit');
     if (tunedSound) {
       playThenNavigate(tunedSound, tunedHref);
     } else {
