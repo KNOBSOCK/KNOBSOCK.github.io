@@ -958,7 +958,10 @@
     background: var(--panel-2);
     border: 1px solid var(--line);
     border-radius: clamp(8px, 2.5cqw, 14px);
-    font-family: var(--font-body);
+    font-family: 'Gratis Neue', var(--font-body);
+    text-transform: uppercase;
+    color: #ffffff;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
     transform: translateY(16px);
     opacity: 0;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
@@ -968,36 +971,24 @@
     opacity: 1;
   }
   .streak-bar-mine {
-    font-weight: 700;
-    color: var(--text);
-    font-size: clamp(11px, 3cqmin, 13px);
+    font-size: clamp(12px, 3.2cqmin, 15px);
     white-space: nowrap;
   }
 
   .streak-fire-icon,
   .streak-medal-icon {
-    height: 1.2em;
+    height: 1.3em;
     width: auto;
-    vertical-align: -0.2em;
+    vertical-align: -0.25em;
     display: inline-block;
   }
 
   .streak-bar-divider {
-    color: var(--text-dim);
-    opacity: 0.5;
+    opacity: 0.6;
   }
-  .streak-bar-lb {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: clamp(3px, 1cqmin, 6px) clamp(8px, 2cqmin, 12px);
-    color: var(--text-dim);
-    font-size: clamp(10px, 2.6cqmin, 12px);
-  }
-
-  .streak-bar-lb-entry.is-you {
-    color: var(--text);
-    font-weight: 700;
+  .streak-bar-lb-entry {
+    font-size: clamp(11px, 2.8cqmin, 13px);
+    white-space: nowrap;
   }
 
   .composer-bar {
@@ -2131,18 +2122,19 @@
     return { streak: myStreakDay === yesterdayKey ? myStreak + 1 : 1, day: todayKey };
   }
 
-  function fetchTopStreaks() {
+  function fetchFirstPlaceStreak() {
     return devicesRef.orderBy('streak', 'desc').limit(15).get().then((snap) => {
       const todayKey = utcDayKey(Date.now());
       const yesterdayKey = utcDayKey(Date.now() - 24 * 60 * 60 * 1000);
-      const alive = [];
+      let first = null;
       snap.forEach((doc) => {
+        if (first) return;
         const data = doc.data();
         if (!data.streak || (data.streakDay !== todayKey && data.streakDay !== yesterdayKey)) return;
-        alive.push({ username: data.username || '?', streak: data.streak, isYou: doc.id === CLIENT_ID });
+        first = { username: data.username || '?', streak: data.streak };
       });
-      return alive.slice(0, 3);
-    }).catch(() => []);
+      return first;
+    }).catch(() => null);
   }
 
   const STREAK_BAR_VISIBLE_MS = 8000;
@@ -2156,7 +2148,7 @@
     const token = ++streakBarToken;
 
     clearTimeout(streakBarHideTimer);
-    bar.innerHTML = `<span class="streak-bar-mine"><img class="streak-fire-icon" src="/streak-fire.png" alt=""> ${streak}-day streak</span>`;
+    bar.innerHTML = `<span class="streak-bar-mine"><img class="streak-fire-icon" src="/streak-fire.gif" alt=""> ${streak} day streak</span>`;
     wrap.classList.add('is-visible');
     streakBarHideTimer = setTimeout(() => {
       wrap.classList.remove('is-visible');
@@ -2164,15 +2156,11 @@
       void wrap.offsetHeight;
     }, STREAK_BAR_VISIBLE_MS);
 
-    fetchTopStreaks().then((top) => {
+    fetchFirstPlaceStreak().then((first) => {
 
-      if (token !== streakBarToken || !wrap.classList.contains('is-visible') || !top.length) return;
-      const medals = ['/streak-rank-1.png', '/streak-rank-2.png', '/streak-rank-3.png'];
-      const entries = top.map((row, i) =>
-        `<span class="streak-bar-lb-entry${row.isYou ? ' is-you' : ''}"><img class="streak-medal-icon" src="${medals[i]}" alt=""> ${escapeHtml(row.username)} ${row.streak}</span>`
-      ).join('');
+      if (token !== streakBarToken || !wrap.classList.contains('is-visible') || !first) return;
       bar.insertAdjacentHTML('beforeend',
-        `<span class="streak-bar-divider">·</span><span class="streak-bar-lb">${entries}</span>`
+        `<span class="streak-bar-divider">|</span><span class="streak-bar-lb-entry"><img class="streak-medal-icon" src="/streak-medal-gold.png" alt=""> 1st place: ${escapeHtml(first.username)}</span>`
       );
     });
   }
