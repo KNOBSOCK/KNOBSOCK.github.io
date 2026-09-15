@@ -154,11 +154,20 @@
     -webkit-appearance: none;
     appearance: none;
     -webkit-tap-highlight-color: transparent;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease;
   }
   .room-scene.is-zooming .remote-btn {
     opacity: 1;
     pointer-events: auto;
+  }
+  .remote-btn:hover,
+  .remote-btn:focus-visible {
+    transform: scale(1.07);
+    filter: drop-shadow(0 var(--pop-y, 10px) var(--pop-blur, 18px) rgba(0, 0, 0, 0.6));
+  }
+  .remote-btn:active {
+    transform: scale(0.97);
+    filter: drop-shadow(0 calc(var(--pop-y, 10px) * 0.45) calc(var(--pop-blur, 18px) * 0.6) rgba(0, 0, 0, 0.55));
   }
   .remote-btn img {
     display: block;
@@ -246,7 +255,9 @@
       // Measured directly off the remote's own art (the plain red power
       // button, and where its Hamburger News icon sits relative to it).
       remoteBack: { cx: 3478.5, cy: 1825, w: 123.9, h: 101.4 },
-      remoteHnLogo: { cx: 3590, cy: 1892, w: 95, h: 93 }
+      // Width only — height is derived from the logo image's own natural
+      // aspect ratio at layout time so it never gets stretched/squished.
+      remoteHnLogo: { cx: 3597.6, cy: 1892.2, w: 124.2 }
     },
     mobile: {
       src: '/videos-room-mobile.webp',
@@ -256,7 +267,7 @@
       tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
       tvZoomCenterX: 2242,
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
-      remoteHnLogo: { cx: 2216.6, cy: 2840.1, w: 103, h: 101 }
+      remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -272,6 +283,17 @@
   var currentVariant = null;
   var layoutBox = null;
 
+  // Sized by width only (see VARIANTS remoteHnLogo) — height is derived
+  // from the logo photo's own natural aspect so it's never stretched,
+  // and re-fit whenever Firestore swaps in a new photo.
+  var hnLogoAspect = 240 / 300;
+  remoteHnBtnImg.addEventListener('load', function () {
+    if (remoteHnBtnImg.naturalWidth && remoteHnBtnImg.naturalHeight) {
+      hnLogoAspect = remoteHnBtnImg.naturalHeight / remoteHnBtnImg.naturalWidth;
+      scheduleLayout();
+    }
+  });
+
   function viewportSize() {
     var vv = window.visualViewport;
     return vv ? { w: vv.width, h: vv.height } : { w: window.innerWidth, h: window.innerHeight };
@@ -283,6 +305,8 @@
     el.style.height = h + 'px';
     el.style.left = (ox + box.cx * s - w / 2) + 'px';
     el.style.top = (oy + box.cy * s - h / 2) + 'px';
+    el.style.setProperty('--pop-y', (h * 0.05) + 'px');
+    el.style.setProperty('--pop-blur', (h * 0.09) + 'px');
   }
 
   function layout() {
@@ -325,7 +349,10 @@
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
 
     placeBox(remoteBackBtn, v.remoteBack, ox, oy, s);
-    placeBox(remoteHnBtn, v.remoteHnLogo, ox, oy, s);
+    placeBox(remoteHnBtn, {
+      cx: v.remoteHnLogo.cx, cy: v.remoteHnLogo.cy,
+      w: v.remoteHnLogo.w, h: v.remoteHnLogo.w * hnLogoAspect
+    }, ox, oy, s);
 
     var topY = oy + v.tvTopY * s;
     var pad = Math.max(8, Math.min(20, vp.w * 0.02));
