@@ -128,7 +128,7 @@
     pointer-events: none;
   }
   .tapin-overlay.is-active { display: block; }
-  .tapin-overlay img {
+  .tapin-overlay video {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -137,7 +137,7 @@
     opacity: 0;
     transition: opacity 0.375s ease;
   }
-  .tapin-overlay img.is-visible { opacity: 1; }
+  .tapin-overlay video.is-visible { opacity: 1; }
 
   .tapin-overlay .tapin-text {
     position: absolute;
@@ -191,36 +191,36 @@
 </div>
 
 <div class="tapin-overlay" id="tapinOverlay" aria-hidden="true">
-  <img id="tapinImg" alt="">
+  <video id="tapinVideo" playsinline preload="auto" src="/tapin-effect.mp4"></video>
   <div class="tapin-text" id="tapinText"><span class="tapin-name" id="tapinName"></span> has tapped in</div>
 </div>
-<audio id="tapinAudio" preload="auto" src="/beer%20can%20sound2.mp3"></audio>
 
 <script>
 (function () {
   var overlay = document.getElementById('tapinOverlay');
-  var img = document.getElementById('tapinImg');
-  var audio = document.getElementById('tapinAudio');
+  var video = document.getElementById('tapinVideo');
   var text = document.getElementById('tapinText');
   var nameEl = document.getElementById('tapinName');
-  if (!overlay || !img || !audio || !text || !nameEl) return;
+  if (!overlay || !video || !text || !nameEl) return;
 
-  var IMG_SRC = '/gif%20version.gif';
-  var hideTimer = null;
   var textFadeTimer = null;
   var TEXT_FADE_OUT_MS = 350;
 
-  var GIF_LOOP_MS = 6030;
-  var GIF_CUTOFF_MS = GIF_LOOP_MS - 120;
+  function hideTapInEffect() {
+    video.classList.remove('is-visible');
+    text.classList.remove('is-visible');
+    textFadeTimer = setTimeout(function () {
+      overlay.classList.remove('is-active');
+    }, TEXT_FADE_OUT_MS);
+  }
+  video.addEventListener('ended', hideTapInEffect);
 
   function playTapInEffect(username) {
-    clearTimeout(hideTimer);
     clearTimeout(textFadeTimer);
 
-    img.classList.remove('is-visible');
-    img.removeAttribute('src');
-    audio.pause();
-    audio.currentTime = 0;
+    video.classList.remove('is-visible');
+    video.pause();
+    video.currentTime = 0;
 
     nameEl.textContent = username || '';
     text.classList.remove('is-visible');
@@ -228,25 +228,10 @@
 
     overlay.classList.add('is-active');
     requestAnimationFrame(function () {
-      img.src = IMG_SRC;
-      img.classList.add('is-visible');
+      video.classList.add('is-visible');
       text.classList.add('is-visible');
-      audio.play().catch(function () {});
+      video.play().catch(function () {});
     });
-
-    var durationMs = GIF_CUTOFF_MS;
-    if (audio.duration && isFinite(audio.duration) && audio.duration * 1000 < durationMs) {
-      durationMs = audio.duration * 1000;
-    }
-    hideTimer = setTimeout(function () {
-      audio.pause();
-      img.classList.remove('is-visible');
-      text.classList.remove('is-visible');
-
-      textFadeTimer = setTimeout(function () {
-        overlay.classList.remove('is-active');
-      }, TEXT_FADE_OUT_MS);
-    }, durationMs);
   }
 
   window.addEventListener('message', function (e) {
@@ -261,10 +246,6 @@
         window.parent.postMessage({ type: 'knobsock-shell-update-route', path: vodPath }, window.location.origin);
       }
     }
-  });
-
-  window.addEventListener('load', function () {
-    try { fetch(IMG_SRC, { priority: 'low' }).catch(function () {}); } catch (e) {}
   });
 })();
 </script>
