@@ -24,17 +24,20 @@
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   pointer-events: none;
   background: url("/forums-crt-static.gif") repeat;
   background-size: 250px 250px;
   mix-blend-mode: screen;
-  opacity: 0.22;
+  opacity: 0.38;
 }
-#forumScroll,
-#scrollRail {
+#forumScroll {
   position: relative;
   z-index: 1;
+}
+#scrollRail {
+  position: relative;
+  z-index: 3;
 }
 #forumScroll {
   flex: 1;
