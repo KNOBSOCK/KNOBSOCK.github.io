@@ -195,6 +195,7 @@
       height: Math.max(0, bottom - top) + "px",
       fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
     });
+    positionScrollRail();
     syncScroll();
   }
   const scroll = $("forumScroll"),
@@ -202,6 +203,15 @@
     thumb = $("scrollThumb"),
     rail = $("scrollRail");
   let railHideTimer, railHovered = false, railDragging = false;
+  function positionScrollRail() {
+    const terminal = $("terminal");
+    const nav = terminal && terminal.querySelector(".forum-nav");
+    if (!terminal || !nav) return;
+    // Keep the arrow/track column aligned with the green rule beneath the
+    // Boards / Recent / Rules navigation, regardless of art scaling.
+    const top = Math.max(0, nav.getBoundingClientRect().bottom - terminal.getBoundingClientRect().top);
+    rail.style.marginTop = Math.round(top) + "px";
+  }
   function hideRailSoon() {
     clearTimeout(railHideTimer);
     railHideTimer = setTimeout(() => {
@@ -247,6 +257,7 @@
     { passive: true },
   );
   new ResizeObserver(syncScroll).observe(scroll);
+  new ResizeObserver(positionScrollRail).observe(document.querySelector(".forum-nav"));
   new MutationObserver(syncScroll).observe($("forumView"), {
     childList: true,
     subtree: true,

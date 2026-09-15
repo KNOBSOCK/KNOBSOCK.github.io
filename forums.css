@@ -276,7 +276,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  padding: 10px 0 10px 3px;
+  padding: 0 0 10px 3px;
   opacity: 0;
   transition: opacity 0.35s ease;
 }
