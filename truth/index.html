@@ -40,13 +40,18 @@
     -ms-overflow-style: none;
   }
   html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #fff;
     padding: 0;
   }
 
-  h1, h2, h3 { color: yellow; }
+  h1, h2, h3 { color: yellow; font-family: 'Gratis Neue', Arial, sans-serif; }
   .headline-clickable { cursor: pointer; display: block; }
   a { text-decoration: none; color: inherit; }
 
