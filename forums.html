@@ -22,7 +22,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="preload" as="image" href="/forums-page-desktop.png?v=2" media="(min-width: 861px)">
 <link rel="preload" as="image" href="/forums-page-mobile.png?v=3" media="(max-width: 860px)">
-<link rel="stylesheet" href="/forums.css?v=24">
+<link rel="stylesheet" href="/forums.css?v=26">
 <style>
   * { box-sizing: border-box; }
   html, body { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #032d00; }
@@ -61,11 +61,45 @@
            (two chained displacement passes) using eased linear ramps as the
            map, so edges bow out while the middle stays put — a cheap stand-in
            for true lens curvature that gives the screen a convex CRT feel. -->
-      <filter id="crtConvex" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <filter id="crtConvex" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
         <feImage href="#bulgeXRect" x="0" y="0" width="100%" height="100%" result="bx"/>
-        <feDisplacementMap in="SourceGraphic" in2="bx" scale="16" xChannelSelector="R" yChannelSelector="G" result="stepX"/>
+        <feDisplacementMap in="SourceGraphic" in2="bx" scale="90" xChannelSelector="R" yChannelSelector="G" result="stepX"/>
         <feImage href="#bulgeYRect" x="0" y="0" width="100%" height="100%" result="by"/>
-        <feDisplacementMap in="stepX" in2="by" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+        <feDisplacementMap in="stepX" in2="by" scale="90" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <!-- Traces the art's actual screen cutout (its alpha channel) instead
+           of an approximated rounded rect, so the glow's edge follows the
+           hand-drawn wobble exactly. feImage re-samples the same PNG at the
+           element's own box (set by JS to match the art's rendered rect
+           pixel-for-pixel); two blurs of its alpha at different radii,
+           subtracted, isolate a soft band that only exists just outside the
+           cutout (clamping drops the inverse band that would otherwise form
+           just inside it, over real content). That band is then colorized. -->
+      <filter id="screenEdgeGlowDesktop" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+        <feImage href="/forums-page-desktop.png?v=2" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
+        <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
+        <feGaussianBlur in="alphaMask" stdDeviation="5" result="blurTight"/>
+        <feGaussianBlur in="alphaMask" stdDeviation="30" result="blurWide"/>
+        <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
+        <feComponentTransfer in="edgeBand" result="edgeBandBoost">
+          <feFuncA type="linear" slope="6" intercept="0"/>
+        </feComponentTransfer>
+        <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
+        <feComposite in="tint" in2="edgeBandBoost" operator="in" result="tintedEdge"/>
+        <feGaussianBlur in="tintedEdge" stdDeviation="8"/>
+      </filter>
+      <filter id="screenEdgeGlowMobile" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+        <feImage href="/forums-page-mobile.png?v=3" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
+        <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
+        <feGaussianBlur in="alphaMask" stdDeviation="5" result="blurTight"/>
+        <feGaussianBlur in="alphaMask" stdDeviation="30" result="blurWide"/>
+        <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
+        <feComponentTransfer in="edgeBand" result="edgeBandBoost">
+          <feFuncA type="linear" slope="6" intercept="0"/>
+        </feComponentTransfer>
+        <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
+        <feComposite in="tint" in2="edgeBandBoost" operator="in" result="tintedEdge"/>
+        <feGaussianBlur in="tintedEdge" stdDeviation="8"/>
       </filter>
     </svg>
     <section id="terminal" aria-label="Forum computer screen">
@@ -92,6 +126,6 @@
   </main>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="/forums.js?v=15"></script>
+<script src="/forums.js?v=16"></script>
 </body>
 </html>

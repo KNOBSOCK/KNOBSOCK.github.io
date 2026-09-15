@@ -32,20 +32,23 @@
   opacity: 0.24;
   filter: contrast(1.08) saturate(0.9);
 }
-/* Positioned by JS (layout()) to exactly cover the screen cutout, same as
-   #terminal. Stays above the TV art (unlike #terminal, which sits behind
-   it) with a transparent interior and only an outer box-shadow bloom, so
-   the "light" spills onto the bezel around the cutout without washing out
-   the readable content inside it. */
+/* Positioned by JS (layout()) to match the art image's own rendered rect
+   pixel-for-pixel (not just the screen cutout), since the screenEdgeGlow*
+   filters re-sample that same image at this element's box to trace the
+   cutout's actual alpha edge — see the filter defs for how the glow band
+   itself is built. Stays above the TV art so the light spills onto the
+   bezel around the cutout. */
 .tv-glow {
   position: absolute;
   z-index: 5;
   pointer-events: none;
-  box-shadow:
-    0 0 20px 4px rgba(70, 255, 130, 0.55),
-    0 0 60px 18px rgba(50, 255, 110, 0.35),
-    0 0 130px 45px rgba(40, 255, 100, 0.18);
+  filter: url(#screenEdgeGlowDesktop);
   animation: tv-glow-flicker 5s ease-in-out infinite;
+}
+@media (max-width: 860px) {
+  .tv-glow {
+    filter: url(#screenEdgeGlowMobile);
+  }
 }
 @keyframes tv-glow-flicker {
   0%, 100% { opacity: 0.55; }

@@ -194,13 +194,17 @@
       height: Math.max(0, bottom - top) + "px",
       fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
     });
+    // Matches the art image's own rendered rect (not just the screen
+    // cutout) so the screenEdgeGlow* filter's feImage re-samples the same
+    // PNG at 1:1 scale/position, keeping its traced alpha edge aligned
+    // with what .scene-art actually shows.
     const glow = $("tvGlow");
     if (glow)
       Object.assign(glow.style, {
-        left: left + "px",
-        top: top + "px",
-        width: Math.max(0, right - left) + "px",
-        height: Math.max(0, bottom - top) + "px",
+        left: x + "px",
+        top: y + "px",
+        width: iw * s + "px",
+        height: ih * s + "px",
       });
     positionScrollRail();
     syncScroll();
