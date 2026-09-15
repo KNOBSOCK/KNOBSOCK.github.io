@@ -658,6 +658,7 @@
       '<div class="actions" style="display:flex;gap:10px;margin-bottom:20px"><button class="btn" id="faExport">Export full forum backup</button></div>' +
       '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Community rules &amp; posting</h2><p class="panel-sub">This text is what visitors see on the forum\'s Rules page. Pausing posting stops new threads and replies everywhere but keeps the forum readable.</p><form id="faSettings"><label class="check-label"><input type="checkbox" name="readOnly"> Pause all public posting</label><label>Rules text<textarea name="rules" rows="8" maxlength="5000"></textarea></label><button class="btn" style="margin-top:10px">Save rules &amp; settings</button></form></div>' +
       '<div class="card" style="padding:16px;margin-bottom:20px"><div class="card-head"><h2>Categories &amp; boards</h2><button class="btn" id="faAddCategory">New category</button></div><p class="panel-sub">Drag the grip (&#10303;) to reorder categories, or the boards inside one. "New board" inside a category starts it there already.</p><div id="faEditor"></div><div id="faStructure"></div></div>' +
+      '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Post as KNOBSOCK</h2><p class="panel-sub">Starts a new thread under the official KNOBSOCK account. Its posts carry a badge marking them official, and it can skip straight to pinned.</p><form id="faOfficialPost"><label>Board<select name="board" id="faOfficialBoard"></select></label><label>Subject<input name="title" required maxlength="140"></label><label>Message<textarea name="body" rows="6" required maxlength="12000"></textarea></label><label class="check-label"><input type="checkbox" name="pinned"> Pin this thread</label><button class="btn" style="margin-top:10px">Post as KNOBSOCK</button></form></div>' +
       '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Reports</h2><p class="panel-sub">Members flag posts here privately. Review the thread, act if needed, then resolve.</p><div id="faReports"></div></div>' +
       '<div class="card" style="padding:16px;margin-bottom:20px"><h2>Threads</h2><p class="panel-sub">Latest 500 threads. Open "Moderate posts" on one to hide, edit, or ban from within it.</p><label>Search loaded threads or author<input id="faFilter" type="search"></label><div id="faThreads"></div></div>' +
       '<div id="faPosts" class="card" style="padding:16px;margin-bottom:20px"><p class="empty-state">Open "Moderate posts" on a thread above to review its posts.</p></div>' +
@@ -665,6 +666,47 @@
       '<details><summary>Moderation log (latest 100)</summary><div id="faAudit" style="margin-top:10px"></div></details>';
     $("faAddCategory").onclick = () => editCategory();
     $("faFilter").oninput = renderThreads;
+    $("faOfficialPost").onsubmit = (e) => {
+      e.preventDefault();
+      const f = e.currentTarget;
+      if (!f.elements.board.value) {
+        $("faStatus").textContent = "Add a board first.";
+        return;
+      }
+      const title = f.elements.title.value.trim(),
+        body = f.elements.body.value.trim();
+      if (!title || !body) return;
+      const tr = ref("threads").doc(),
+        pr = tr.collection("posts").doc();
+      run(() =>
+        write("post as KNOBSOCK", tr.id, (batch) => {
+          batch.set(tr, {
+            title,
+            boardId: f.elements.board.value,
+            authorId: "official",
+            username: "KNOBSOCK",
+            createdAt: stamp(),
+            updatedAt: stamp(),
+            lastUsername: "KNOBSOCK",
+            lastPostId: pr.id,
+            postCount: 1,
+            pinned: f.elements.pinned.checked,
+            locked: false,
+            hidden: false,
+            isOfficial: true,
+          });
+          batch.set(pr, {
+            body,
+            authorId: "official",
+            username: "KNOBSOCK",
+            createdAt: stamp(),
+            editedAt: null,
+            hidden: false,
+            isOfficial: true,
+          });
+        }),
+      ).then(() => f.reset());
+    };
     $("faSettings").onsubmit = (e) => {
       e.preventDefault();
       const f = e.currentTarget;
@@ -692,6 +734,11 @@
           (s) => {
             data[key] = s.docs.map((d) => ({ id: d.id, ...d.data() }));
             if (key === "categories" || key === "boards") renderStructure();
+            if (key === "boards" && $("faOfficialBoard"))
+              $("faOfficialBoard").innerHTML = options(
+                data.boards,
+                $("faOfficialBoard").value,
+              );
             if (key === "threads") renderThreads();
             if (key === "reports") renderReports();
             if (key === "bans") renderBans();

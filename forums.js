@@ -23,6 +23,10 @@
           })[c],
       );
   const time = (v) => (v && v.toMillis ? v.toMillis() : 0);
+  const officialBadge = (isOfficial) =>
+    isOfficial
+      ? '<img class="official-badge" src="/forum-official-badge.png" alt="Official KNOBSOCK account" title="Official KNOBSOCK account">'
+      : "";
   const date = (v) =>
     time(v)
       ? new Date(time(v)).toLocaleString([], {
@@ -407,6 +411,7 @@
             esc(t.title) +
             "</a><small>" +
             esc(t.username) +
+            officialBadge(t.isOfficial) +
             "</small></td><td>" +
             Math.max(0, (t.postCount || 1) - 1) +
             "</td><td><small>" +
@@ -660,6 +665,7 @@
                 encodeURIComponent(p.authorId) +
                 '">' +
                 esc(p.username) +
+                officialBadge(p.isOfficial) +
                 '</a><a href="#thread/' +
                 id +
                 "/" +

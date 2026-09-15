@@ -283,6 +283,12 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.official-badge {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  margin-left: 3px;
+}
 .post-body {
   padding: 14px 10px;
   white-space: pre-wrap;

@@ -48,17 +48,30 @@ match /forum_config/{id} { allow read: if true; allow write: if forumAdmin(); }
 match /forum_threads/{threadId} {
   allow read: if !exists(/databases/$(database)/documents/forum_threads/$(threadId))
     || resource.data.hidden == false || forumAdmin();
-  allow create: if request.resource.data.keys().hasOnly(['boardId','title','authorId','username','createdAt','updatedAt','lastUsername','lastPostId','postCount','pinned','locked','hidden'])
-    && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 140
-    && request.resource.data.boardId is string && request.resource.data.authorId is string
-    && request.resource.data.username is string
-    && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
-    && request.resource.data.postCount == 1 && request.resource.data.pinned == false
-    && request.resource.data.locked == false && request.resource.data.hidden == false
-    && request.resource.data.lastUsername == request.resource.data.username
-    && forumWriter(request.resource.data.authorId, request.resource.data.username)
-    && forumBoardOpen(request.resource.data.boardId)
-    && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(request.resource.data.lastPostId)).data.createdAt == request.time;
+  allow create: if forumAdmin() ? (
+      request.resource.data.keys().hasOnly(['boardId','title','authorId','username','createdAt','updatedAt','lastUsername','lastPostId','postCount','pinned','locked','hidden','isOfficial'])
+      && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 140
+      && request.resource.data.boardId is string && request.resource.data.authorId is string
+      && request.resource.data.username is string
+      && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+      && request.resource.data.postCount == 1
+      && request.resource.data.locked == false && request.resource.data.hidden == false
+      && request.resource.data.lastUsername == request.resource.data.username
+      && request.resource.data.isOfficial == true
+      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(request.resource.data.lastPostId)).data.createdAt == request.time
+    ) : (
+      request.resource.data.keys().hasOnly(['boardId','title','authorId','username','createdAt','updatedAt','lastUsername','lastPostId','postCount','pinned','locked','hidden'])
+      && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 140
+      && request.resource.data.boardId is string && request.resource.data.authorId is string
+      && request.resource.data.username is string
+      && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+      && request.resource.data.postCount == 1 && request.resource.data.pinned == false
+      && request.resource.data.locked == false && request.resource.data.hidden == false
+      && request.resource.data.lastUsername == request.resource.data.username
+      && forumWriter(request.resource.data.authorId, request.resource.data.username)
+      && forumBoardOpen(request.resource.data.boardId)
+      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(request.resource.data.lastPostId)).data.createdAt == request.time
+    );
   allow update: if forumAdmin() || (
     resource.data.hidden == false && resource.data.locked == false
     && forumBoardOpen(resource.data.boardId)
@@ -75,15 +88,24 @@ match /forum_threads/{threadId} {
       || !exists(/databases/$(database)/documents/forum_threads/$(threadId)/posts/$(postId))
       || (resource.data.hidden == false
         && get(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false);
-    allow create: if request.resource.data.keys().hasOnly(['body','authorId','username','createdAt','editedAt','hidden'])
-      && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
-      && request.resource.data.authorId is string && request.resource.data.username is string
-      && request.resource.data.createdAt == request.time && request.resource.data.editedAt == null && request.resource.data.hidden == false
-      && forumWriter(request.resource.data.authorId, request.resource.data.username)
-      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.locked == false
-      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false
-      && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.lastPostId == postId
-      && forumBoardOpen(getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.boardId);
+    allow create: if forumAdmin() ? (
+        request.resource.data.keys().hasOnly(['body','authorId','username','createdAt','editedAt','hidden','isOfficial'])
+        && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
+        && request.resource.data.authorId is string && request.resource.data.username is string
+        && request.resource.data.createdAt == request.time && request.resource.data.editedAt == null && request.resource.data.hidden == false
+        && request.resource.data.isOfficial == true
+        && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.lastPostId == postId
+      ) : (
+        request.resource.data.keys().hasOnly(['body','authorId','username','createdAt','editedAt','hidden'])
+        && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
+        && request.resource.data.authorId is string && request.resource.data.username is string
+        && request.resource.data.createdAt == request.time && request.resource.data.editedAt == null && request.resource.data.hidden == false
+        && forumWriter(request.resource.data.authorId, request.resource.data.username)
+        && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.locked == false
+        && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.hidden == false
+        && getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.lastPostId == postId
+        && forumBoardOpen(getAfter(/databases/$(database)/documents/forum_threads/$(threadId)).data.boardId)
+      );
     allow update: if forumAdmin() || (
       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body','editedAt'])
       && request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 12000
