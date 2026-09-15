@@ -63,18 +63,18 @@
         <feImage href="#bulgeYRect" x="0" y="0" width="100%" height="100%" result="by"/>
         <feDisplacementMap id="feBulgeY" in="stepX" in2="by" scale="90" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
-      <filter id="screenEdgeGlowDesktop" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <filter id="screenEdgeGlowDesktop" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
         <feImage href="/forums-page-desktop.png?v=2" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
         <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
         <feGaussianBlur id="feGlowTight" in="alphaMask" stdDeviation="2" result="blurTight"/>
-        <feGaussianBlur id="feGlowWide" in="alphaMask" stdDeviation="18" result="blurWide"/>
+        <feGaussianBlur id="feGlowWide" in="alphaMask" stdDeviation="26" result="blurWide"/>
         <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
         <feComponentTransfer in="edgeBand" result="edgeBandBoost">
-          <feFuncA type="linear" slope="4" intercept="0"/>
+          <feFuncA type="linear" slope="5" intercept="0"/>
         </feComponentTransfer>
         <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
         <feComposite in="tint" in2="edgeBandBoost" operator="in" x="13%" y="6%" width="70%" height="77%" result="tintedEdge"/>
-        <feGaussianBlur id="feGlowSoft" in="tintedEdge" stdDeviation="7"/>
+        <feGaussianBlur id="feGlowSoft" in="tintedEdge" stdDeviation="32"/>
       </filter>
       <filter id="screenEdgeGlowMobile" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
         <feImage href="/forums-page-mobile.png?v=3" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
