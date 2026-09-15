@@ -27,8 +27,6 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="preload" as="image" href="/videos-tv-zoom-desktop-frame.png">
-<link rel="preload" as="image" href="/videos-tv-zoom-mobile-frame.png">
 <style>
   @font-face {
     font-family: 'Gratis Neue';
@@ -60,10 +58,11 @@
   .room-scene {
     position: fixed;
     inset: 0;
+    transform-origin: 0 0;
     transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
   .room-scene.is-zooming {
-    transform: scale(var(--tv-zoom-scale, 2));
+    transform: translate(var(--tv-zoom-tx, 0), var(--tv-zoom-ty, 0)) scale(var(--tv-zoom-scale, 2));
     pointer-events: none;
   }
 
@@ -157,13 +156,6 @@
     pointer-events: none;
     transition: opacity 0.08s linear;
   }
-  .tv-zoom-frame {
-    position: absolute;
-    z-index: 1;
-    pointer-events: none;
-    -webkit-user-drag: none;
-    user-select: none;
-  }
   .tv-zoom-close {
     position: fixed;
     z-index: 2;
@@ -233,7 +225,6 @@
 </div>
 
 <div class="tv-zoom" id="tvZoom" inert aria-hidden="true">
-  <img class="tv-zoom-frame" id="tvZoomFrame" alt="Close-up of the TV">
   <button type="button" class="tv-zoom-close" id="tvZoomClose" aria-label="Zoom out of the TV">&times;</button>
 </div>
 
@@ -250,16 +241,14 @@
       w: 7456, h: 4194,
       tv: { cx: 3609, cy: 1414, w: 1882, h: 500 },
       tvTopY: 995,
-      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 },
-      tvZoom: { x: 3618, y: 1438, scale: 3.195, frame: '/videos-tv-zoom-desktop-frame.png' }
+      tvBezel: { left: 2579, top: 993, w: 2192, h: 1344 }
     },
     mobile: {
       src: '/videos-room-mobile.webp',
       w: 4511, h: 8000,
       tv: { cx: 2236, cy: 2315, w: 2047, h: 546 },
       tvTopY: 1863,
-      tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
-      tvZoom: { x: 2256, y: 2001, scale: 3.66, frame: '/videos-tv-zoom-mobile-frame.png' }
+      tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -270,7 +259,6 @@
   var roomScene = document.getElementById('roomScene');
   var tvZoomTrigger = document.getElementById('tvZoomTrigger');
   var tvZoom = document.getElementById('tvZoom');
-  var tvZoomFrame = document.getElementById('tvZoomFrame');
   var tvZoomClose = document.getElementById('tvZoomClose');
   var currentVariant = null;
   var layoutBox = null;
@@ -300,18 +288,12 @@
     bg.style.left = ox + 'px';
     bg.style.top = oy + 'px';
 
-    tvZoomFrame.style.width = aw + 'px';
-    tvZoomFrame.style.height = ah + 'px';
-    tvZoomFrame.style.left = ox + 'px';
-    tvZoomFrame.style.top = oy + 'px';
-
     tvZoomTrigger.style.width = (v.tvBezel.w * s) + 'px';
     tvZoomTrigger.style.height = (v.tvBezel.h * s) + 'px';
     tvZoomTrigger.style.left = (ox + v.tvBezel.left * s) + 'px';
     tvZoomTrigger.style.top = (oy + v.tvBezel.top * s) + 'px';
 
     layoutBox = { ox: ox, oy: oy, s: s, v: v };
-    syncZoomFrame();
     if (isZoomed) setCameraAnchor();
 
     var bw = v.tv.w * s;
@@ -339,32 +321,24 @@
   }
 
   var isZoomed = false;
-  var isOpening = false;
   var zoomTimer = null;
-
-  function syncZoomFrame() {
-    if (!layoutBox) return;
-    var src = layoutBox.v.tvZoom.frame;
-    if (tvZoomFrame.getAttribute('src') !== src) tvZoomFrame.src = src;
-  }
 
   function setCameraAnchor() {
     if (!layoutBox) return;
-    var z = layoutBox.v.tvZoom;
-    roomScene.style.transformOrigin =
-      (layoutBox.ox + z.x * layoutBox.s) + 'px ' +
-      (layoutBox.oy + z.y * layoutBox.s) + 'px';
-    roomScene.style.setProperty('--tv-zoom-scale', z.scale);
-
-    // The crisp tv-zoom-frame image is sized/positioned identically to the
-    // plain (unzoomed) room-bg, so without this it just shows the full
-    // room art — same framing as room-scene before its CSS zoom transform
-    // is applied. Apply the same anchor/scale here so the crisp frame
-    // lands exactly where the CSS-zoomed room-scene does, cropping the
-    // ceiling/logo out of view instead of leaving it visible above the TV.
-    tvZoomFrame.style.transformOrigin =
-      (z.x * layoutBox.s) + 'px ' + (z.y * layoutBox.s) + 'px';
-    tvZoomFrame.style.transform = 'scale(' + z.scale + ')';
+    var vp = viewportSize();
+    var b = layoutBox.v.tvBezel;
+    var s = layoutBox.s;
+    // Cover-fit the TV bezel's own box (in art space) to the viewport,
+    // the same technique used to cover-fit the whole room-bg — this
+    // guarantees the bezel always fills edge-to-edge with zero wall
+    // margin above it, regardless of the device's aspect ratio (a fixed
+    // anchor point + flat scale factor does not give that guarantee).
+    var k = Math.max(vp.w / b.w, vp.h / b.h) / s;
+    var boxCenterX = layoutBox.ox + (b.left + b.w / 2) * s;
+    var boxCenterY = layoutBox.oy + (b.top + b.h / 2) * s;
+    roomScene.style.setProperty('--tv-zoom-scale', k);
+    roomScene.style.setProperty('--tv-zoom-tx', (vp.w / 2 - boxCenterX * k) + 'px');
+    roomScene.style.setProperty('--tv-zoom-ty', (vp.h / 2 - boxCenterY * k) + 'px');
   }
 
   var effectContext = null;
@@ -433,34 +407,19 @@
 
   function beginZoom() {
     isZoomed = true;
-    isOpening = false;
     playWoosh();
     tvZoom.inert = false;
     tvZoom.setAttribute('aria-hidden', 'false');
     void tvZoom.offsetWidth;
     tvZoom.classList.remove('is-closing');
     tvZoom.classList.add('is-open');
-    syncZoomFrame();
     setCameraAnchor();
     roomScene.classList.add('is-zooming');
   }
 
   function openZoom() {
-    if (isZoomed || isOpening || !layoutBox) return;
-    isOpening = true;
-    var src = layoutBox.v.tvZoom.frame;
-    function start() { beginZoom(); }
-    if (tvZoomFrame.getAttribute('src') === src && tvZoomFrame.complete) {
-      start();
-      return;
-    }
-    tvZoomFrame.src = src;
-    if (tvZoomFrame.decode) {
-      tvZoomFrame.decode().then(start).catch(start);
-    } else {
-      tvZoomFrame.addEventListener('load', start, { once: true });
-      tvZoomFrame.addEventListener('error', start, { once: true });
-    }
+    if (isZoomed || !layoutBox) return;
+    beginZoom();
   }
 
   function closeZoom() {
@@ -491,14 +450,7 @@
     if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: 2000 });
     else setTimeout(fn, 600);
   }
-  idlePreload(function () {
-    primeWoosh();
-    [VARIANTS.desktop.tvZoom.frame, VARIANTS.mobile.tvZoom.frame].forEach(function (src) {
-      var img = new Image();
-      img.src = src;
-      if (img.decode) img.decode().catch(function () {});
-    });
-  });
+  idlePreload(primeWoosh);
 
   var rafPending = false;
   function scheduleLayout() {
