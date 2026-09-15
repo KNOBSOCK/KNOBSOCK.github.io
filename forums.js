@@ -208,8 +208,10 @@
     const nav = terminal && terminal.querySelector(".forum-nav");
     if (!terminal || !nav) return;
     // Keep the arrow/track column aligned with the green rule beneath the
-    // Boards / Recent / Rules navigation, regardless of art scaling.
-    const top = Math.max(0, nav.getBoundingClientRect().bottom - terminal.getBoundingClientRect().top);
+    // Boards / Recent / Rules navigation, regardless of art scaling. offsetTop
+    // stays stable after a user scrolls the inner panel; a viewport rect does
+    // not, which had let the rail retain its old position on some phones.
+    const top = Math.max(0, nav.offsetTop + nav.offsetHeight);
     rail.style.marginTop = Math.round(top) + "px";
   }
   function hideRailSoon() {
@@ -258,6 +260,10 @@
   );
   new ResizeObserver(syncScroll).observe(scroll);
   new ResizeObserver(positionScrollRail).observe(document.querySelector(".forum-nav"));
+  new ResizeObserver(positionScrollRail).observe(document.querySelector(".terminal-content"));
+  const forumLogo = document.querySelector(".forum-logo img");
+  if (forumLogo) forumLogo.addEventListener("load", positionScrollRail);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(positionScrollRail);
   new MutationObserver(syncScroll).observe($("forumView"), {
     childList: true,
     subtree: true,
