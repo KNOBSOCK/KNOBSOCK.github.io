@@ -16,6 +16,25 @@
   line-height: 1.45;
   display: flex;
   overflow: hidden;
+  isolation: isolate;
+}
+/* A repeated, screen-blended layer gives the forum computer an animated CRT
+   texture. It is deliberately non-interactive and sits below the forum UI. */
+#terminal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/forums-crt-static.gif") repeat;
+  background-size: 250px 250px;
+  mix-blend-mode: screen;
+  opacity: 0.22;
+}
+#forumScroll,
+#scrollRail {
+  position: relative;
+  z-index: 1;
 }
 #forumScroll {
   flex: 1;
