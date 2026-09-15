@@ -81,12 +81,17 @@
   }
 
   /* Sits behind room-bg so it only shows through the TV's transparent
-     screen cutout in that artwork. */
+     screen cutout in that artwork. mix-blend-mode: screen means its
+     mostly-black frame contributes ~nothing (whatever's playing behind
+     it stays fully visible) while only its bright grain/scanline
+     highlights add on top — a normal opaque composite would instead
+     black out most of the video underneath. */
   .tv-static {
     position: absolute;
     z-index: 0;
     pointer-events: none;
     object-fit: cover;
+    mix-blend-mode: screen;
   }
 
   /* Channel-switching layers, filling the same screen cutout as
@@ -286,7 +291,7 @@
     <img class="btn-idle-img" src="/remote-back-btn.webp" alt="">
     <img class="btn-active-img" src="/remote-back-btn-active.webp" alt="">
   </button>
-  <a class="remote-btn" id="remoteHnBtn" href="#" aria-label="Hamburger News" data-shell-navigate-after-effect>
+  <a class="remote-btn" id="remoteHnBtn" href="#" hidden aria-label="Hamburger News" data-shell-navigate-after-effect>
     <img id="remoteHnBtnImg" src="" alt="">
   </a>
   <button type="button" class="remote-btn" id="remoteSelectBtn" hidden aria-label="Select">
@@ -320,7 +325,7 @@
       // Sized to the button's full outline including its black border
       // (not just the inner gray fill) — otherwise the graphic sits
       // visibly inset/small within the physical button.
-      remoteSelect: { cx: 3463, cy: 2001, w: 112 },
+      remoteSelect: { cx: 3462, cy: 2002.5, w: 122 },
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
@@ -336,7 +341,7 @@
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
       remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
-      remoteSelect: { cx: 2078, cy: 2960, w: 132 }
+      remoteSelect: { cx: 2076.5, cy: 2959.5, w: 133 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -371,6 +376,11 @@
       hnLogoAspect = remoteHnBtnImg.naturalHeight / remoteHnBtnImg.naturalWidth;
       scheduleLayout();
     }
+    // Only reveal the button once its photo has actually decoded —
+    // starting hidden (rather than showing a broken-image square while
+    // the Firestore data URI is still being parsed) fixes the blank
+    // square some phones would briefly show.
+    remoteHnBtn.hidden = false;
   });
 
   function viewportSize() {
@@ -578,6 +588,12 @@
     audio.play().catch(function () {});
   }
 
+  function playRemoteButtonClick() {
+    var audio = new Audio('/remotebuttonclick.mp3');
+    audio.volume = 0.7;
+    audio.play().catch(function () {});
+  }
+
   function beginZoom() {
     isZoomed = true;
     playWoosh();
@@ -596,7 +612,7 @@
   function closeZoom() {
     if (!isZoomed) return;
     isZoomed = false;
-    playButtonClick();
+    playRemoteButtonClick();
     tvZoomTrigger.style.pointerEvents = '';
     resetChannel();
     layout(); // snap bg/tvStatic/logo/remote buttons back to unzoomed size/place
@@ -651,7 +667,11 @@
     tunedSound = opts.sound;
     tunedPhoto2 = opts.photo2;
     tunedImg = opts.img;
-    loadFeaturedVideo(opts.url);
+
+    // Both start muted (autoplay-safe); a real click is a user gesture,
+    // so unmuting here is allowed and makes the channel switch audible.
+    tvChannelStatic.muted = false;
+    tvFeaturedVideo.muted = false;
 
     remoteSelectBtn.hidden = true;
     tvFeaturedVideo.classList.remove('is-live');
@@ -661,7 +681,13 @@
     var p = tvChannelStatic.play();
     if (p && p.catch) p.catch(function () {});
 
-    channelSwitchTimer = setTimeout(function () {
+    // Look up the featured-video URL now (via opts.getUrl) rather than
+    // requiring it to already be loaded at click time — its own
+    // Firestore fetch is separate from (and can resolve slower than)
+    // the one that makes the button clickable, so gating the click on
+    // it being ready already caused clicks to silently do nothing.
+    function cutToVideo() {
+      loadFeaturedVideo(opts.getUrl());
       tvChannelStatic.classList.remove('is-live');
       tvChannelStatic.pause();
       tvFeaturedVideo.classList.add('is-live');
@@ -669,6 +695,22 @@
       if (fp && fp.catch) fp.catch(function () {});
       remoteSelectBtn.hidden = false;
       isTuned = true;
+    }
+
+    channelSwitchTimer = setTimeout(function () {
+      if (opts.getUrl()) { cutToVideo(); return; }
+      // Not loaded yet — keep the static playing and poll briefly
+      // rather than cutting to a blank video.
+      var tries = 0;
+      channelSwitchTimer = setInterval(function () {
+        tries++;
+        if (opts.getUrl()) {
+          clearInterval(channelSwitchTimer);
+          cutToVideo();
+        } else if (tries > 20) {
+          clearInterval(channelSwitchTimer);
+        }
+      }, 200);
     }, 1300);
   }
 
@@ -816,8 +858,11 @@
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     var href = remoteHnBtn.getAttribute('href');
-    if (!href || href === '#' || !hnFeaturedUrl) return;
-    tuneChannel({ url: hnFeaturedUrl, href: href, sound: hnSound, photo2: hnPhoto2, img: remoteHnBtnImg });
+    if (!href || href === '#') return;
+    tuneChannel({
+      getUrl: function () { return hnFeaturedUrl; },
+      href: href, sound: hnSound, photo2: hnPhoto2, img: remoteHnBtnImg
+    });
   });
 
   if (window.firebase) {
