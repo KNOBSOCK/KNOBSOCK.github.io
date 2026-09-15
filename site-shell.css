@@ -133,22 +133,6 @@ body.site-shell {
   }
 }
 
-/* The routed page is an iframe. Scaling that one surface gives every
-   mobile route the same 25% closer framing while keeping the document's
-   own layout and all of its pointer targets together. */
-@media (max-width: 860px) {
-  .site-route-frame,
-  .site-music-frame {
-    transform: scale(1.25);
-    transform-origin: 50% 50%;
-  }
-
-  .site-mini-player {
-    transform: scale(1.25);
-    transform-origin: left bottom;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .site-route-frame,
   .site-music-frame {
