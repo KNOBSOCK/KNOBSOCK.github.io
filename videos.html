@@ -58,12 +58,20 @@
   .room-scene {
     position: fixed;
     inset: 0;
-    transform-origin: 0 0;
-    transition: transform 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
   .room-scene.is-zooming {
-    transform: translate(var(--tv-zoom-tx, 0), var(--tv-zoom-ty, 0)) scale(var(--tv-zoom-scale, 2));
     pointer-events: none;
+  }
+
+  /* Zoom animates left/top/width/height directly (see zoomifyElement in
+     the script below) rather than CSS-transform-scaling a parent, so the
+     browser always lays out and paints at the real final pixel size —
+     a transform: scale() would instead stretch an already-rasterized
+     bitmap captured at the smaller pre-zoom size, blurring it regardless
+     of source image resolution. */
+  .room-bg, .tv-static, .videos-logo {
+    transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
 
   .room-bg {
@@ -164,7 +172,9 @@
     appearance: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    transition: opacity 0.2s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease;
+    transition: opacity 0.2s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease,
+      left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
   .room-scene.is-zooming .remote-btn {
     opacity: 1;
@@ -352,7 +362,6 @@
     tvZoomTrigger.style.top = (oy + v.tvBezel.top * s) + 'px';
 
     layoutBox = { ox: ox, oy: oy, s: s, v: v };
-    if (isZoomed) setCameraAnchor();
 
     var bw = v.tv.w * s;
     var bh = v.tv.h * s;
@@ -383,6 +392,8 @@
     logo.style.height = lh + 'px';
     logo.style.left = ((vp.w - lw) / 2) + 'px';
     logo.style.top = pad + 'px';
+
+    if (isZoomed) setCameraAnchor();
   }
 
   var isZoomed = false;
@@ -402,9 +413,28 @@
     var centerX = layoutBox.v.tvZoomCenterX != null ? layoutBox.v.tvZoomCenterX : (b.left + b.w / 2);
     var boxCenterX = layoutBox.ox + centerX * s;
     var boxCenterY = layoutBox.oy + (b.top + b.h / 2) * s;
-    roomScene.style.setProperty('--tv-zoom-scale', k);
-    roomScene.style.setProperty('--tv-zoom-tx', (vp.w / 2 - boxCenterX * k) + 'px');
-    roomScene.style.setProperty('--tv-zoom-ty', (vp.h / 2 - boxCenterY * k) + 'px');
+    var tx = vp.w / 2 - boxCenterX * k;
+    var ty = vp.h / 2 - boxCenterY * k;
+    // Reposition each visible element directly to its zoomed size/place
+    // (rather than CSS-transform-scaling the whole room-scene) so the
+    // browser lays out and paints every image at its true final pixel
+    // size. A transform: scale() on the parent would instead stretch an
+    // already-rasterized bitmap captured at the smaller pre-zoom size —
+    // blurry no matter how high-res the source images are.
+    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn].forEach(function (el) {
+      zoomifyElement(el, tx, ty, k);
+    });
+  }
+
+  function zoomifyElement(el, tx, ty, k) {
+    var left = parseFloat(el.style.left) || 0;
+    var top = parseFloat(el.style.top) || 0;
+    var w = parseFloat(el.style.width) || 0;
+    var h = parseFloat(el.style.height) || 0;
+    el.style.left = (tx + left * k) + 'px';
+    el.style.top = (ty + top * k) + 'px';
+    el.style.width = (w * k) + 'px';
+    el.style.height = (h * k) + 'px';
   }
 
   var effectContext = null;
@@ -476,9 +506,8 @@
     playWoosh();
     setCameraAnchor();
     roomScene.classList.add('is-zooming');
-    // Once zoomed, this trigger's own hitbox is also scaled up by the
-    // room-scene transform and can end up covering a large area behind
-    // the remote buttons — stop it from competing for taps there.
+    // Leave this disabled while zoomed as a safety margin — harmless
+    // since the trigger stays tucked at its small unzoomed spot now.
     tvZoomTrigger.style.pointerEvents = 'none';
   }
 
@@ -492,6 +521,7 @@
     isZoomed = false;
     playWoosh();
     tvZoomTrigger.style.pointerEvents = '';
+    layout(); // snap bg/tvStatic/logo/remote buttons back to unzoomed size/place
     clearTimeout(zoomTimer);
     zoomTimer = setTimeout(function () {
       roomScene.classList.remove('is-zooming');
