@@ -2109,7 +2109,7 @@
     const tapinBtn = $('tapinBtn');
     if (tapinBtn) tapinBtn.classList.toggle('is-required', !unlocked);
     if (unlocked) {
-      status.textContent = 'Chat unlocks again in ' + formatHms(remaining);
+      status.textContent = 'Chat locks again in ' + formatHms(remaining);
       status.classList.remove('is-locked');
       chatGateTimer = setTimeout(refreshChatGateState, 1000);
     } else {
