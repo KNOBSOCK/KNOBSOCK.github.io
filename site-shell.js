@@ -77,6 +77,16 @@
   const attachedDocuments = new WeakSet();
   const watchedFrames = new WeakSet();
 
+  /* The music page contains a SoundCloud player and several widgets.  Keeping
+     it alive after it has been opened is what makes music persist between
+     routes, but starting it behind every route wastes substantial CPU and
+     network bandwidth on phones. */
+  function ensureMusicFrame() {
+    if (musicFrame.dataset.loaded) return;
+    musicFrame.dataset.loaded = 'true';
+    musicFrame.src = '/music.html?site-content=1&shell-version=20260913-11';
+  }
+
   function publicRoute(value) {
     const url = value instanceof URL ? value : new URL(value, origin);
     return `${url.pathname || '/'}${url.search}${url.hash}`;
@@ -118,6 +128,7 @@ params.set('shell-version', '20260913-11');
   }
 
   function sendOpenMusic() {
+    ensureMusicFrame();
     if (!musicFrameReady || !musicFrame.contentWindow) return;
     try {
       const frameDocument = musicFrame.contentDocument;
@@ -163,12 +174,14 @@ params.set('shell-version', '20260913-11');
   }
 
   function sendMusicTransport(action) {
+    ensureMusicFrame();
     if (!musicFrame.contentWindow) return;
     musicFrame.contentWindow.postMessage({ type: 'knobsock-shell-transport', action }, origin);
   }
 
   function sendMusicCommand(command) {
     pendingMusicCommand = command;
+    ensureMusicFrame();
     if (!musicFrameReady || !musicFrame.contentWindow) return;
     musicFrame.contentWindow.postMessage(
       { type: 'knobsock-shell-music-command', ...command },
@@ -345,6 +358,7 @@ params.set('shell-version', '20260913-11');
     activeFile = nextFile;
 
     if (musicRoute) {
+      ensureMusicFrame();
       routeFrame.classList.remove('is-active');
       musicFrame.classList.add('is-active');
       pauseFrameMedia(routeFrame.contentWindow, 0);
@@ -671,7 +685,6 @@ params.set('shell-version', '20260913-11');
     updateMiniPlayer();
   });
   attachFrame(musicFrame);
-musicFrame.src = '/music.html?site-content=1&shell-version=20260913-11';
 
   const initialParams = new URLSearchParams(window.location.search);
   const initialRoute = initialParams.get('route') || '/index.html';

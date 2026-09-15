@@ -516,18 +516,17 @@
       w: v.remoteSelect.w, h: v.remoteSelect.w * SELECT_BTN_ASPECT
     }, ox, oy, s);
 
-    var topY = oy + v.tvTopY * s;
     var pad = Math.max(8, Math.min(20, vp.w * 0.02));
-    var targetW = Math.min(vp.w * 0.7, 480);
+    // The Videos masthead is UI rather than part of the room artwork.
+    // Keeping its desktop canvas at one fixed size prevents a wider/taller
+    // monitor from making it look like an entirely different header.
+    var targetW = name === 'desktop' ? 600 : Math.min(vp.w * 0.7, 480);
     var targetH = targetW / LOGO_ASPECT;
+    var topY = oy + v.tvTopY * s;
     var availH = Math.max(34, topY - pad - vp.h * 0.012);
-    var lh = Math.min(targetH, availH);
-    // Desktop's logo is normally capped by availH (the gap above the TV),
-    // not targetW/targetH, so this has to scale the final size directly —
-    // bumping targetW wouldn't do anything visible on its own.
+    var lh = name === 'desktop' ? targetH : Math.min(targetH, availH);
     var logoTop = pad;
     if (name === 'desktop') {
-      lh *= 1.25;
       // Shift the box up by its own top padding so the visible text
       // (not the transparent margin above it) sits at `pad` — otherwise
       // the header reads as sitting low even though the element itself
