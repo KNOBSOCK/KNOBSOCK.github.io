@@ -175,19 +175,18 @@
       s = Math.max(w / iw, h / ih),
       x = (w - iw * s) / 2,
       y = (h - ih * s) / 2;
+    // Sized to fully cover the art's transparent screen cutout (with a
+    // small overscan margin) rather than tracking it exactly, since the
+    // terminal now paints behind the art and any overscan is hidden under
+    // its opaque bezel — undershooting instead leaves a sliver of the
+    // page's green background showing through the cutout.
     const box = m
-      ? { x: 5, y: 520, w: 4501, h: 6999 }
-      : { x: 2020, y: 470, w: 3880, h: 2830 };
+      ? { x: 0, y: 375, w: 4511, h: 7200 }
+      : { x: 1895, y: 375, w: 4130, h: 3050 };
     let left = Math.max(0, x + box.x * s),
       top = Math.max(0, y + box.y * s),
       right = Math.min(w, x + (box.x + box.w) * s),
       bottom = Math.min(h, y + (box.y + box.h) * s);
-    if (m) {
-      const pad = 16;
-      left = Math.min(left + pad, right - 40);
-      top = Math.min(top + pad, bottom - 40);
-      right = Math.max(right - pad, left + 40);
-    }
     Object.assign($("terminal").style, {
       left: left + "px",
       top: top + "px",
@@ -195,6 +194,14 @@
       height: Math.max(0, bottom - top) + "px",
       fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
     });
+    const glow = $("tvGlow");
+    if (glow)
+      Object.assign(glow.style, {
+        left: left + "px",
+        top: top + "px",
+        width: Math.max(0, right - left) + "px",
+        height: Math.max(0, bottom - top) + "px",
+      });
     positionScrollRail();
     syncScroll();
   }

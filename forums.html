@@ -22,7 +22,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="preload" as="image" href="/forums-page-desktop.png?v=2" media="(min-width: 861px)">
 <link rel="preload" as="image" href="/forums-page-mobile.png?v=3" media="(max-width: 860px)">
-<link rel="stylesheet" href="/forums.css?v=21">
+<link rel="stylesheet" href="/forums.css?v=24">
 <style>
   * { box-sizing: border-box; }
   html, body { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #032d00; }
@@ -33,11 +33,39 @@
 <body>
   <main class="forums-scene" aria-label="KNOBSOCK forums">
     <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="bulgeXGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="rgb(0,128,128)"/>
+          <stop offset="20%" stop-color="rgb(107,128,128)"/>
+          <stop offset="50%" stop-color="rgb(128,128,128)"/>
+          <stop offset="80%" stop-color="rgb(148,128,128)"/>
+          <stop offset="100%" stop-color="rgb(255,128,128)"/>
+        </linearGradient>
+        <linearGradient id="bulgeYGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="rgb(128,0,128)"/>
+          <stop offset="20%" stop-color="rgb(128,107,128)"/>
+          <stop offset="50%" stop-color="rgb(128,128,128)"/>
+          <stop offset="80%" stop-color="rgb(128,148,128)"/>
+          <stop offset="100%" stop-color="rgb(128,255,128)"/>
+        </linearGradient>
+        <rect id="bulgeXRect" width="100%" height="100%" fill="url(#bulgeXGrad)"/>
+        <rect id="bulgeYRect" width="100%" height="100%" fill="url(#bulgeYGrad)"/>
+      </defs>
       <filter id="crtWiggle" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
         <feTurbulence type="fractalNoise" numOctaves="2" seed="7" result="crtNoise">
           <animate attributeName="baseFrequency" dur="7s" values="0.006 0.09;0.01 0.12;0.006 0.09" repeatCount="indefinite"/>
         </feTurbulence>
         <feDisplacementMap in="SourceGraphic" in2="crtNoise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <!-- Pushes pixels outward from center along each axis independently
+           (two chained displacement passes) using eased linear ramps as the
+           map, so edges bow out while the middle stays put — a cheap stand-in
+           for true lens curvature that gives the screen a convex CRT feel. -->
+      <filter id="crtConvex" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+        <feImage href="#bulgeXRect" x="0" y="0" width="100%" height="100%" result="bx"/>
+        <feDisplacementMap in="SourceGraphic" in2="bx" scale="16" xChannelSelector="R" yChannelSelector="G" result="stepX"/>
+        <feImage href="#bulgeYRect" x="0" y="0" width="100%" height="100%" result="by"/>
+        <feDisplacementMap in="stepX" in2="by" scale="16" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
     </svg>
     <section id="terminal" aria-label="Forum computer screen">
@@ -60,9 +88,10 @@
       <source media="(max-width: 860px)" srcset="/forums-page-mobile.png?v=3">
       <img class="scene-art" src="/forums-page-desktop.png?v=2" alt="">
     </picture>
+    <div class="tv-glow" id="tvGlow" aria-hidden="true"></div>
   </main>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="/forums.js?v=12"></script>
+<script src="/forums.js?v=15"></script>
 </body>
 </html>
