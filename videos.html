@@ -249,7 +249,7 @@
   #remoteBackBtn .btn-active-img {
     position: absolute;
     left: 50%;
-    top: 50%;
+    top: calc(100% * var(--remote-back-frac-y, 0.5));
     width: calc(100% * var(--remote-back-visual-x, 1));
     height: calc(100% * var(--remote-back-visual-y, 1));
     transform: translate(-50%, -50%);
@@ -455,17 +455,18 @@
   function placeRemoteBack(box, ox, oy, s) {
     var visualW = box.w * s;
     var visualH = box.h * s;
-    // 18px on all sides produces a reliable 50px-plus target on phones
-    // while leaving the visible remote drawing at its exact art size.
     var hitPad = 18;
+    var extraTopPad = 55;
+    var topPad = hitPad + extraTopPad;
     var hitW = visualW + hitPad * 2;
-    var hitH = visualH + hitPad * 2;
+    var hitH = visualH + topPad + hitPad;
     setStyleIfChanged(remoteBackBtn, 'width', hitW);
     setStyleIfChanged(remoteBackBtn, 'height', hitH);
     setStyleIfChanged(remoteBackBtn, 'left', ox + box.cx * s - hitW / 2);
-    setStyleIfChanged(remoteBackBtn, 'top', oy + box.cy * s - hitH / 2);
+    setStyleIfChanged(remoteBackBtn, 'top', oy + box.cy * s - visualH / 2 - topPad);
     remoteBackBtn.style.setProperty('--remote-back-visual-x', visualW / hitW);
     remoteBackBtn.style.setProperty('--remote-back-visual-y', visualH / hitH);
+    remoteBackBtn.style.setProperty('--remote-back-frac-y', (topPad + visualH / 2) / hitH);
     remoteBackBtn.style.setProperty('--pop-y', (visualH * 0.05) + 'px');
     remoteBackBtn.style.setProperty('--pop-blur', (visualH * 0.09) + 'px');
   }
