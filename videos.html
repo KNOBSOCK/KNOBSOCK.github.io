@@ -482,6 +482,10 @@
     var targetH = targetW / LOGO_ASPECT;
     var availH = Math.max(34, topY - pad - vp.h * 0.012);
     var lh = Math.min(targetH, availH);
+    // Desktop's logo is normally capped by availH (the gap above the TV),
+    // not targetW/targetH, so this has to scale the final size directly —
+    // bumping targetW wouldn't do anything visible on its own.
+    if (name === 'desktop') lh *= 1.25;
     var lw = lh * LOGO_ASPECT;
     logo.style.width = lw + 'px';
     logo.style.height = lh + 'px';
