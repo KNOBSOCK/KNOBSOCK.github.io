@@ -82,19 +82,6 @@
   80% { filter: url(#crtConvex) url(#crtWiggle) brightness(0.98); }
   92% { filter: url(#crtConvex) url(#crtWiggle) brightness(1.02); }
 }
-@media (max-width: 860px) {
-  @keyframes crt-content-flicker {
-    0%, 100% { filter: brightness(1); }
-    8% { filter: brightness(0.97); }
-    17% { filter: brightness(1.02); }
-    29% { filter: brightness(0.98); }
-    41% { filter: brightness(1.03); }
-    53% { filter: brightness(0.99); }
-    67% { filter: brightness(1.01); }
-    80% { filter: brightness(0.98); }
-    92% { filter: brightness(1.02); }
-  }
-}
 #forumScroll::-webkit-scrollbar {
   display: none;
 }
