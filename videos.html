@@ -331,11 +331,15 @@
       // aspect ratio at layout time so it never gets stretched/squished.
       remoteHnLogo: { cx: 3597.6, cy: 1892.2, w: 124.2 },
       // The remote's own top-left grid button, same measure-off-the-art
-      // approach as remoteBack. Width only, like remoteHnLogo.
-      // Sized to the button's full outline including its black border
-      // (not just the inner gray fill) — otherwise the graphic sits
-      // visibly inset/small within the physical button.
-      remoteSelect: { cx: 3462, cy: 2002.5, w: 122 },
+      // approach as remoteBack: full outline including its black border
+      // (not just the inner gray fill), else the graphic sits visibly
+      // inset/small within the physical button. w here is the rendered
+      // *container* width (the select image's full 144x100 padded
+      // canvas) — inflated from the measured 122px button footprint by
+      // 144/127 so the image's actual opaque content (127 of that 144)
+      // ends up matching the button's real size instead of the padding
+      // around it eating into the fit.
+      remoteSelect: { cx: 3462, cy: 2002.5, w: 138.3 },
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
@@ -351,7 +355,7 @@
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
       remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
-      remoteSelect: { cx: 2076.5, cy: 2959.5, w: 133 }
+      remoteSelect: { cx: 2076.5, cy: 2959.5, w: 150.8 }
     }
   };
   var LOGO_ASPECT = 50 / 19;
@@ -371,11 +375,12 @@
   var currentVariant = null;
   var layoutBox = null;
 
-  // remote-select-btn.webp's own opaque content, not its full padded
-  // canvas (127x82 of a 144x100 image) — same width-only-derive-height
-  // treatment as remoteHnLogo, just with a constant ratio since this
-  // art never changes at runtime.
-  var SELECT_BTN_ASPECT = 82 / 127;
+  // remote-select-btn.webp's full canvas aspect (144x100) — the
+  // container renders the whole padded canvas (img is 100%/100% of it),
+  // so remoteSelect.w below is sized so the image's OPAQUE CONTENT
+  // (127x82, not the full padded canvas) matches the button's actual
+  // measured footprint — see the accompanying width comment.
+  var SELECT_BTN_ASPECT = 100 / 144;
 
   // Sized by width only (see VARIANTS remoteHnLogo) — height is derived
   // from the logo photo's own natural aspect so it's never stretched,
