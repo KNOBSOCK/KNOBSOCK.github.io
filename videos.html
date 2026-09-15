@@ -73,6 +73,16 @@
     transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
       width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
   }
+  /* Animating left/top/width/height forces layout, unlike a compositor-
+     only transform — contain tells the browser these elements' own
+     layout/paint can't affect (or be affected by) anything outside
+     their box, so it doesn't need to check the rest of the page on
+     every animated frame. Meaningfully cheaper on mobile with no
+     visual change, since these are already-isolated absolutely
+     positioned leaf elements. */
+  .room-bg, .tv-static, .videos-logo, .tv-featured-video, .tv-channel-static, .remote-btn {
+    contain: layout paint;
+  }
 
   .room-bg {
     position: absolute;
