@@ -890,6 +890,7 @@
     e.preventDefault();
     var href = remoteHnBtn.getAttribute('href');
     if (!href || href === '#') return;
+    playRemoteButtonClick();
     tuneChannel({
       getUrl: function () { return hnFeaturedUrl; },
       href: href, sound: hnSound, photo2: hnPhoto2, img: remoteHnBtnImg
