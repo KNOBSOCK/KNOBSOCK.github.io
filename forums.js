@@ -175,11 +175,6 @@
       s = Math.max(w / iw, h / ih),
       x = (w - iw * s) / 2,
       y = (h - ih * s) / 2;
-    // Sized to fully cover the art's transparent screen cutout (with a
-    // small overscan margin) rather than tracking it exactly, since the
-    // terminal now paints behind the art and any overscan is hidden under
-    // its opaque bezel — undershooting instead leaves a sliver of the
-    // page's green background showing through the cutout.
     const box = m
       ? { x: 0, y: 375, w: 4511, h: 7200 }
       : { x: 1895, y: 375, w: 4130, h: 3050 };
@@ -194,10 +189,6 @@
       height: Math.max(0, bottom - top) + "px",
       fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
     });
-    // Matches the art image's own rendered rect (not just the screen
-    // cutout) so the screenEdgeGlow* filter's feImage re-samples the same
-    // PNG at 1:1 scale/position, keeping its traced alpha edge aligned
-    // with what .scene-art actually shows.
     const glow = $("tvGlow");
     if (glow)
       Object.assign(glow.style, {
@@ -206,6 +197,15 @@
         width: iw * s + "px",
         height: ih * s + "px",
       });
+    const scaleAttr = (id, attr, base) => {
+      const el = $(id);
+      if (el) el.setAttribute(attr, base * s);
+    };
+    scaleAttr("feBulgeX", "scale", 460);
+    scaleAttr("feBulgeY", "scale", 460);
+    scaleAttr("feGlowTight", "stdDeviation", 10);
+    scaleAttr("feGlowWide", "stdDeviation", 92);
+    scaleAttr("feGlowSoft", "stdDeviation", 36);
     positionScrollRail();
     syncScroll();
   }
@@ -218,10 +218,6 @@
     const terminal = $("terminal");
     const logo = terminal && terminal.querySelector(".forum-logo");
     if (!terminal || !logo) return;
-    // Keep the arrow/track column aligned with the top of the header logo,
-    // regardless of art scaling. offsetTop stays stable after a user scrolls
-    // the inner panel; a viewport rect does not, which had let the rail
-    // retain its old position on some phones.
     const top = Math.max(0, logo.offsetTop);
     rail.style.marginTop = Math.round(top) + "px";
   }
