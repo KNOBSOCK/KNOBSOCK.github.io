@@ -785,6 +785,7 @@
     color: #ffffff;
     font-family: 'Gratis Neue', var(--font-body);
     font-weight: 700;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
   }
 
   .auth {
@@ -2112,7 +2113,7 @@
       status.classList.remove('is-locked');
       chatGateTimer = setTimeout(refreshChatGateState, 1000);
     } else {
-      status.textContent = 'Tap in above to start chatting — resets every 24 hours.';
+      status.textContent = 'Tap in to chat';
       status.classList.add('is-locked');
     }
   }
