@@ -70,7 +70,7 @@ const NO_IMAGE_PLACEHOLDER =
    post keeps whatever HTML it was first built with, forever. The
    manifest records the version each run built with, and a mismatch
    forces a full rebuild of every article exactly once. */
-const TEMPLATE_VERSION = 9; // bg-video: 100dvh fallback fixes the iOS Safari toolbar gap
+const TEMPLATE_VERSION = 10; // headings: Gratis Neue font + black outline
 
 const MANIFEST_PATH = path.join(OUT_DIR, "_manifest.json");
 const PER_PAGE = 100;
@@ -227,7 +227,18 @@ ${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}
      closing that gap; the plain % stays as a fallback for browsers
      that don't support dvh. */
   .bg-video { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; object-fit: cover; z-index: -1; }
-  h1, h2, h3 { color: yellow; }
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
+  h1, h2, h3 {
+    color: yellow;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    -webkit-text-stroke: 1.5px #000;
+    paint-order: stroke fill;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
   a { text-decoration: none; color: inherit; }
 
   .page-wrapper {

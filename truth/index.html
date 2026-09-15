@@ -51,7 +51,13 @@
     padding: 0;
   }
 
-  h1, h2, h3 { color: yellow; font-family: 'Gratis Neue', Arial, sans-serif; }
+  h1, h2, h3 {
+    color: yellow;
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    -webkit-text-stroke: 1.5px #000;
+    paint-order: stroke fill;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
   .headline-clickable { cursor: pointer; display: block; }
   a { text-decoration: none; color: inherit; }
 
