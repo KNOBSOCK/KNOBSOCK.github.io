@@ -427,22 +427,26 @@
   animation-play-state: paused;
   transition: flex-basis 0.46s cubic-bezier(0.33, 0, 0.2, 1);
 }
-.forums-scene.is-zoomed #forumScroll {
+.forums-scene.is-zoomed #forumScroll,
+.forums-scene.is-zoom-closing #forumScroll {
   flex-basis: 100%;
   max-width: none;
 }
-.forums-scene.is-zoomed .terminal-content {
+.forums-scene.is-zoomed .terminal-content,
+.forums-scene.is-zoom-closing .terminal-content {
   max-width: 104ch;
   margin: 0 auto;
 }
-.forums-scene.is-zoomed #scrollRail {
+.forums-scene.is-zoomed #scrollRail,
+.forums-scene.is-zoom-closing #scrollRail {
   position: absolute;
   right: 6px;
   top: 0;
   bottom: 0;
   margin-left: 0;
 }
-.forums-scene.is-zoomed .crt-zoom-trigger {
+.forums-scene.is-zoomed .crt-zoom-trigger,
+.forums-scene.is-zoom-closing .crt-zoom-trigger {
   pointer-events: none;
 }
 .crt-exit {
