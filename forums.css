@@ -430,6 +430,13 @@
 .forums-scene.is-zoomed .crt-zoom-trigger {
   pointer-events: none;
 }
+.forums-scene.is-zoomed #scrollRail {
+  position: absolute;
+  right: 6px;
+  top: 0;
+  bottom: 0;
+  margin-left: 0;
+}
 .crt-exit {
   position: absolute;
   z-index: 7;
