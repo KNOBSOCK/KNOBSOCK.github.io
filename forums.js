@@ -722,14 +722,16 @@
                 return;
               }
               const p = posts.find((x) => x.id === btn.dataset.quote);
+              const own = p.body
+                .split("\n")
+                .filter((l) => !l.trimStart().startsWith(">"));
+              while (own.length && !own[0].trim()) own.shift();
+              while (own.length && !own[own.length - 1].trim()) own.pop();
               $("compose").body.value =
                 "> " +
                 p.username +
                 " wrote:\n" +
-                p.body
-                  .split("\n")
-                  .map((l) => "> " + l)
-                  .join("\n") +
+                own.map((l) => "> " + l).join("\n") +
                 "\n\n";
               $("compose").body.dispatchEvent(new Event("input"));
               $("compose").scrollIntoView({ block: "end" });
