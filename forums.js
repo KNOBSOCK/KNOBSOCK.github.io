@@ -577,7 +577,7 @@
         : "") +
       '<label>Message<textarea name="body" required maxlength="12000">' +
       esc(body) +
-      '</textarea></label><button type="submit">' +
+      '</textarea><span class="char-count" aria-live="polite"></span></label><button type="submit">' +
       (postId ? "Save edit" : "Post") +
       '</button><input type="hidden" name="postId" value="' +
       esc(postId) +
@@ -589,7 +589,17 @@
     if (!form) return;
     const key = "forum_draft_" + (t ? t.id : b.id);
     if (!form.body.value) form.body.value = localStorage.getItem(key) || "";
-    form.body.oninput = () => localStorage.setItem(key, form.body.value);
+    const updateCharacterCount = () => {
+      form.querySelector(".char-count").textContent =
+        form.body.value.length.toLocaleString() +
+        " / " +
+        form.body.maxLength.toLocaleString();
+    };
+    updateCharacterCount();
+    form.body.oninput = () => {
+      localStorage.setItem(key, form.body.value);
+      updateCharacterCount();
+    };
     form.onsubmit = (e) => {
       e.preventDefault();
       act(form.querySelector("button"), async () => {
@@ -792,6 +802,7 @@
           $('compose').elements.body.value = oldDraft.body;
           $('compose').elements.postId.value = oldDraft.postId;
           if (oldDraft.postId) $('compose').querySelector('button').textContent = 'Save edit';
+          $('compose').elements.body.dispatchEvent(new Event("input"));
         }
         document.querySelectorAll("[data-quote]").forEach(
           (btn) =>

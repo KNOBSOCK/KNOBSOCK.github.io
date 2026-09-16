@@ -315,6 +315,13 @@
 .compose input {
   width: 100%;
 }
+.char-count {
+  display: block;
+  margin-top: 3px;
+  text-align: right;
+  font-size: 0.76em;
+  opacity: 0.75;
+}
 .compose p {
   font-size: 0.85em;
 }
