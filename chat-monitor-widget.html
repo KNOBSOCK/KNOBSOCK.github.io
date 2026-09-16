@@ -379,10 +379,12 @@
     }
 
     let clearedAt = 0;
+    let subscribedClearedAt = null;
     let unsubscribeMessages = null;
 
     function subscribeToMessages() {
       if (unsubscribeMessages) unsubscribeMessages();
+      subscribedClearedAt = clearedAt;
       let query = messagesRef.orderBy('ts', 'asc');
       if (clearedAt) query = query.where('ts', '>', clearedAt);
       unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
@@ -400,32 +402,55 @@
     configRef.doc('clear').onSnapshot((doc) => {
       const data = doc.exists ? doc.data() : null;
       clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
-      subscribeToMessages();
-    }, () => subscribeToMessages());
+      if (subscribedClearedAt !== clearedAt) subscribeToMessages();
+    }, () => { if (subscribedClearedAt === null) subscribeToMessages(); });
 
-    const ACTIVE_WINDOW_MS = 40000;
-    let presenceById = {};
+    const ACTIVE_WINDOW_MS = 150000;
+    const COUNT_REFRESH_MS = 30000;
+    const COUNT_URL = 'https://firestore.googleapis.com/v1/projects/' + firebaseConfig.projectId + '/databases/(default)/documents:runAggregationQuery?key=' + firebaseConfig.apiKey;
+    let countInFlight = false;
 
-    function recomputeActiveCount() {
-      const now = Date.now();
-      let count = 0;
-      Object.keys(presenceById).forEach((id) => {
-        if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
-      });
-      document.getElementById('viewerCount').textContent = count;
+    function refreshActiveCount() {
+      if (countInFlight || document.visibilityState === 'hidden') return;
+      countInFlight = true;
+      fetch(COUNT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          structuredAggregationQuery: {
+            structuredQuery: {
+              from: [{ collectionId: 'chat_presence' }],
+              where: {
+                fieldFilter: {
+                  field: { fieldPath: 'lastSeen' },
+                  op: 'GREATER_THAN',
+                  value: { integerValue: String(Date.now() - ACTIVE_WINDOW_MS) }
+                }
+              }
+            },
+            aggregations: [{ alias: 'viewers', count: {} }]
+          }
+        })
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((rows) => {
+          if (!Array.isArray(rows)) return;
+          for (const row of rows) {
+            const field = row && row.result && row.result.aggregateFields && row.result.aggregateFields.viewers;
+            if (!field || field.integerValue == null) continue;
+            document.getElementById('viewerCount').textContent = String(parseInt(field.integerValue, 10) || 0);
+            return;
+          }
+        })
+        .catch(() => {})
+        .finally(() => { countInFlight = false; });
     }
 
-    db.collection('chat_presence').onSnapshot((snapshot) => {
-      const next = {};
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        next[doc.id] = (data && typeof data.lastSeen === 'number') ? data.lastSeen : 0;
-      });
-      presenceById = next;
-      recomputeActiveCount();
-    }, (err) => console.error(err));
-
-    setInterval(recomputeActiveCount, 5000);
+    refreshActiveCount();
+    setInterval(refreshActiveCount, COUNT_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshActiveCount();
+    });
 
     function extractVideoId(input) {
       if (!input) return null;

@@ -1938,6 +1938,7 @@
     }
   }
   const CLIENT_ID = getClientId();
+  window.KNOBSOCK_CLIENT_ID = CLIENT_ID;
 
   const LAST_USERNAME_KEY = 'chat_last_username';
 
@@ -2305,7 +2306,7 @@
     const data = doc.exists ? doc.data() : null;
     clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
 
-    if (session) subscribeToMessages();
+    if (session && subscribedClearedAt !== clearedAt) subscribeToMessages();
   }, () => {});
 
   function censorText(text) {
@@ -2573,9 +2574,11 @@
   }
 
   let clearedAt = 0;
+  let subscribedClearedAt = null;
 
   function subscribeToMessages() {
     if (unsubscribeMessages) unsubscribeMessages();
+    subscribedClearedAt = clearedAt;
 
     let query = messagesRef.orderBy('ts', 'asc');
     if (clearedAt) query = query.where('ts', '>', clearedAt);
@@ -2595,7 +2598,7 @@
     }
 
     unsubscribeMessages = query
-      .limitToLast(200)
+      .limitToLast(100)
       .onSnapshot(
         (snapshot) => {
           const msgs = snapshot.docs.map(doc => doc.data());
@@ -2728,56 +2731,91 @@
   if (!activeEl) return;
 
   const db = firebase.firestore();
-  const presenceId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
-  const presenceRef = db.collection('chat_presence').doc(presenceId);
 
-  const HEARTBEAT_MS = 15000;
-  const ACTIVE_WINDOW_MS = 40000;
-  const STALE_CLEANUP_MS = 120000;
+  const HEARTBEAT_MS = 60000;
+  const COUNT_REFRESH_MS = 30000;
+  const ACTIVE_WINDOW_MS = 150000;
 
-  let presenceById = {};
+  const COUNT_URL = 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM';
+
+  let presenceRef = null;
+  let countInFlight = false;
+
+  function presenceSeed() {
+    if (window.KNOBSOCK_CLIENT_ID) return window.KNOBSOCK_CLIENT_ID;
+    try {
+      const stored = localStorage.getItem('chat_client_id');
+      if (stored) return stored;
+    } catch (e) {}
+    return 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+  }
+
+  async function presenceDocId(seed) {
+    try {
+      const bytes = new TextEncoder().encode('knobsock-presence-v1' + seed);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest)).slice(0, 16)
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      let h = 7;
+      for (let k = 0; k < seed.length; k++) h = (h * 31 + seed.charCodeAt(k)) >>> 0;
+      return 'p' + h.toString(36) + seed.length.toString(36);
+    }
+  }
 
   function writeHeartbeat() {
-    presenceRef.set({ lastSeen: Date.now() }).catch((e) => console.error(e));
+    if (!presenceRef) return;
+    presenceRef.set({ lastSeen: Date.now() }).catch(() => {});
   }
 
-  function recomputeActiveCount() {
-    const now = Date.now();
-    let count = 0;
-    Object.keys(presenceById).forEach((id) => {
-      if (now - presenceById[id] < ACTIVE_WINDOW_MS) count++;
-    });
-    activeEl.textContent = count;
-  }
-
-  db.collection('chat_presence').onSnapshot(
-    (snapshot) => {
-      const next = {};
-      const now = Date.now();
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const lastSeen = data && typeof data.lastSeen === 'number' ? data.lastSeen : 0;
-        next[doc.id] = lastSeen;
-
-        if (now - lastSeen > STALE_CLEANUP_MS) {
-          doc.ref.delete().catch(() => {});
+  function readActiveCount() {
+    if (countInFlight || document.visibilityState === 'hidden') return;
+    countInFlight = true;
+    fetch(COUNT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        structuredAggregationQuery: {
+          structuredQuery: {
+            from: [{ collectionId: 'chat_presence' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'lastSeen' },
+                op: 'GREATER_THAN',
+                value: { integerValue: String(Date.now() - ACTIVE_WINDOW_MS) }
+              }
+            }
+          },
+          aggregations: [{ alias: 'viewers', count: {} }]
         }
-      });
-      presenceById = next;
-      recomputeActiveCount();
-    },
-    (err) => console.error(err)
-  );
-
-  writeHeartbeat();
-  setInterval(writeHeartbeat, HEARTBEAT_MS);
-  setInterval(recomputeActiveCount, 5000);
-
-  function leavePresence() {
-    presenceRef.delete().catch(() => {});
+      })
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((rows) => {
+        if (!Array.isArray(rows)) return;
+        for (const row of rows) {
+          const field = row && row.result && row.result.aggregateFields && row.result.aggregateFields.viewers;
+          if (!field || field.integerValue == null) continue;
+          activeEl.textContent = String(Math.max(1, parseInt(field.integerValue, 10) || 0));
+          return;
+        }
+      })
+      .catch(() => {})
+      .finally(() => { countInFlight = false; });
   }
-  window.addEventListener('pagehide', leavePresence);
-  window.addEventListener('beforeunload', leavePresence);
+
+  presenceDocId(presenceSeed()).then((id) => {
+    presenceRef = db.collection('chat_presence').doc(id);
+    writeHeartbeat();
+    readActiveCount();
+    setInterval(writeHeartbeat, HEARTBEAT_MS);
+    setInterval(readActiveCount, COUNT_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      writeHeartbeat();
+      readActiveCount();
+    });
+  });
 })();
 </script>
 

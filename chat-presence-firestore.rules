@@ -1,0 +1,30 @@
+// Spliced into the deployed ruleset by scripts/deploy-chat-presence-rules.mjs,
+// which also removes whatever chat_presence block is already live. It has to
+// remove it: Firestore ORs every matching rule together, so a second, stricter
+// match block next to `allow read, write: if true` would change nothing at all.
+//
+// What each client actually needs here, and nothing else:
+//   list    — the count() aggregation both widgets poll for the viewer number.
+//             Aggregations authorise as queries, so this is `list`, not `get`.
+//   create  — a device's first heartbeat.
+//   update  — every heartbeat after that, once a minute.
+//
+// Nothing reads an individual row, and no browser deletes anything any more —
+// scripts/purge-stale-presence.mjs does that on a schedule through the Admin
+// SDK, which bypasses these rules entirely.
+//
+// The write shape is pinned to exactly one numeric field so this collection
+// can't be used as free arbitrary storage, and lastSeen is held near real
+// time so nobody can park a row far in the future and inflate the viewer
+// count permanently. The 5-minute slack is for genuinely skewed device
+// clocks: lastSeen is Date.now() from the browser, not a server timestamp,
+// because the count query has to filter on a plain number.
+match /chat_presence/{id} {
+  allow get: if false;
+  allow list: if true;
+  allow create, update: if request.resource.data.keys().hasOnly(['lastSeen'])
+    && request.resource.data.lastSeen is number
+    && request.resource.data.lastSeen <= request.time.toMillis() + 300000
+    && request.resource.data.lastSeen >= request.time.toMillis() - 300000;
+  allow delete: if false;
+}

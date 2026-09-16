@@ -1,6 +1,7 @@
-name: Purge expired chat IP logs
+name: Purge expired chat data
 
-# Deletes chat_ip_log documents past their own expiresAt — the same
+# Deletes chat_ip_log documents past their own expiresAt, and
+# chat_presence rows no device has heartbeat in a week — the same
 # 90-day window logIpBestEffort() in livestream-chat-widget.html sets at
 # write time, matching what privacy.html's Live Chat section promises.
 #
@@ -58,4 +59,18 @@ jobs:
             node scripts/purge-expired-ip-logs.mjs --dry-run
           else
             node scripts/purge-expired-ip-logs.mjs
+          fi
+
+      # Centralised replacement for the stale-row deletion every viewer's
+      # browser used to do against everybody else's chat_presence rows.
+      - name: Purge stale chat_presence documents
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN_INPUT" = "true" ]; then
+            node scripts/purge-stale-presence.mjs --dry-run
+          else
+            node scripts/purge-stale-presence.mjs
           fi
