@@ -266,11 +266,9 @@
     const scene = document.querySelector(".forums-scene");
     scene.classList.add("is-zoom-animating");
     scene.classList.toggle("is-zoomed", zoomed);
-    scene.classList.toggle("is-zoom-closing", !zoomed);
     clearTimeout(zoomAnimTimer);
     zoomAnimTimer = setTimeout(() => {
       scene.classList.remove("is-zoom-animating");
-      scene.classList.remove("is-zoom-closing");
       positionScrollRail();
       syncScroll();
     }, 520);
