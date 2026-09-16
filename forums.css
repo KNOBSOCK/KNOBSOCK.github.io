@@ -412,7 +412,8 @@
     left 0.46s cubic-bezier(0.33, 0, 0.2, 1),
     top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
     width 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-    height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+    height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+    font-size 0.46s cubic-bezier(0.33, 0, 0.2, 1);
 }
 .forums-scene.is-zoom-animating #forumScroll {
   animation-play-state: paused;
@@ -420,6 +421,7 @@
 }
 .forums-scene.is-zoomed #forumScroll {
   flex-basis: 70%;
+  max-width: 104ch;
 }
 .forums-scene.is-zoomed .crt-zoom-trigger {
   pointer-events: none;

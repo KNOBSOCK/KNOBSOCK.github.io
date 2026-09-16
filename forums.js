@@ -171,7 +171,8 @@
     }
   }
   const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 },
-    ART_OVERSHOOT = 1.15;
+    ART_OVERSHOOT = 1.15,
+    ZOOM_FONT_PX = 18;
   let zoomed = false,
     zoomAnimTimer = null;
   function layout() {
@@ -219,7 +220,8 @@
       top: top + "px",
       width: Math.max(0, right - left) + "px",
       height: Math.max(0, bottom - top) + "px",
-      fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
+      fontSize:
+        (zoomed ? ZOOM_FONT_PX : Math.max(14, s * (m ? 171 : 120))) + "px",
     });
     const art = document.querySelector(".scene-art");
     if (art)
