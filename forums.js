@@ -172,7 +172,8 @@
   }
   const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 },
     ART_OVERSHOOT = 1.15,
-    ZOOM_FONT_PX = 18;
+    ZOOM_FONT_PX = 18,
+    WIGGLE_RATIO = 0.05;
   let zoomed = false,
     zoomAnimTimer = null;
   function layout() {
@@ -215,14 +216,19 @@
       top = Math.max(0, mapY(y + box.y * s)),
       right = Math.min(w, mapX(x + (box.x + box.w) * s)),
       bottom = Math.min(h, mapY(y + (box.y + box.h) * s));
+    const fontPx = zoomed
+      ? ZOOM_FONT_PX
+      : Math.max(14, s * (m ? 171 : 120));
     Object.assign($("terminal").style, {
       left: left + "px",
       top: top + "px",
       width: Math.max(0, right - left) + "px",
       height: Math.max(0, bottom - top) + "px",
-      fontSize:
-        (zoomed ? ZOOM_FONT_PX : Math.max(14, s * (m ? 171 : 120))) + "px",
+      fontSize: fontPx + "px",
     });
+    const wiggle = $("feWiggle");
+    if (wiggle)
+      wiggle.setAttribute("scale", (fontPx * WIGGLE_RATIO).toFixed(2));
     const art = document.querySelector(".scene-art");
     if (art)
       Object.assign(art.style, {
@@ -274,6 +280,10 @@
     const terminal = $("terminal");
     const logo = terminal && terminal.querySelector(".forum-logo");
     if (!terminal || !logo) return;
+    if (zoomed) {
+      rail.style.marginTop = "0px";
+      return;
+    }
     const top = Math.max(0, logo.offsetTop);
     rail.style.marginTop = Math.round(top) + "px";
   }

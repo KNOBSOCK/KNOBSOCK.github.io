@@ -399,10 +399,10 @@
 }
 .crt-zoom-icon {
   position: absolute;
-  left: 26.7%;
-  top: 32.8%;
-  width: 47.7%;
-  height: 32.5%;
+  left: 30.1%;
+  top: 35.1%;
+  width: 41%;
+  height: 28%;
   pointer-events: none;
 }
 .forums-scene.is-zoom-animating .scene-art,
@@ -422,6 +422,13 @@
 .forums-scene.is-zoomed #forumScroll {
   flex-basis: 70%;
   max-width: 104ch;
+}
+.forums-scene.is-zoomed #scrollRail {
+  position: absolute;
+  right: 6px;
+  top: 0;
+  bottom: 0;
+  margin-left: 0;
 }
 .forums-scene.is-zoomed .crt-zoom-trigger {
   pointer-events: none;
