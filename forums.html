@@ -22,10 +22,10 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="preload" as="image" href="/forums-page-desktop.png?v=2" media="(min-width: 861px)">
 <link rel="preload" as="image" href="/forums-page-mobile.png?v=3" media="(max-width: 860px)">
-<link rel="stylesheet" href="/forums.css?v=34">
+<link rel="stylesheet" href="/forums.css?v=35">
 <style>
   * { box-sizing: border-box; }
-  html, body { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #032d00; }
+  html, body { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; }
   .forums-scene { position: fixed; inset: 0; overflow: hidden; }
   .scene-art { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 </style>
@@ -63,32 +63,6 @@
         <feImage href="#bulgeYRect" xlink:href="#bulgeYRect" x="0" y="0" width="100%" height="100%" result="by"/>
         <feDisplacementMap id="feBulgeY" in="stepX" in2="by" scale="90" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
-      <filter id="screenEdgeGlowDesktop" x="-80%" y="-80%" width="260%" height="260%" color-interpolation-filters="sRGB">
-        <feImage href="/forums-page-desktop.png?v=2" xlink:href="/forums-page-desktop.png?v=2" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
-        <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
-        <feGaussianBlur id="feGlowTight" in="alphaMask" stdDeviation="2" result="blurTight"/>
-        <feGaussianBlur id="feGlowWide" in="alphaMask" stdDeviation="40" result="blurWide"/>
-        <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
-        <feComponentTransfer in="edgeBand" result="edgeBandBoost">
-          <feFuncA type="linear" slope="8" intercept="0"/>
-        </feComponentTransfer>
-        <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
-        <feComposite in="tint" in2="edgeBandBoost" operator="in" x="6%" y="2%" width="88%" height="92%" result="tintedEdge"/>
-        <feGaussianBlur id="feGlowSoft" in="tintedEdge" stdDeviation="80"/>
-      </filter>
-      <filter id="screenEdgeGlowMobile" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feImage href="/forums-page-mobile.png?v=3" xlink:href="/forums-page-mobile.png?v=3" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="art"/>
-        <feColorMatrix in="art" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="alphaMask"/>
-        <feGaussianBlur in="alphaMask" stdDeviation="4" result="blurTight"/>
-        <feGaussianBlur in="alphaMask" stdDeviation="45" result="blurWide"/>
-        <feComposite in="blurTight" in2="blurWide" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0" result="edgeBand"/>
-        <feComponentTransfer in="edgeBand" result="edgeBandBoost">
-          <feFuncA type="linear" slope="10" intercept="0"/>
-        </feComponentTransfer>
-        <feFlood flood-color="#3dff85" flood-opacity="1" result="tint"/>
-        <feComposite in="tint" in2="edgeBandBoost" operator="in" x="0%" y="1%" width="100%" height="98%" result="tintedEdge"/>
-        <feGaussianBlur in="tintedEdge" stdDeviation="45"/>
-      </filter>
     </svg>
     <section id="terminal" aria-label="Forum computer screen">
       <div id="forumScroll" tabindex="0">
@@ -111,10 +85,10 @@
       <img class="scene-art" src="/forums-page-desktop.png?v=2" alt="">
     </picture>
     <button type="button" id="crtZoomTrigger" class="crt-zoom-trigger" aria-label="Fill the window with the forum screen" title="Fullscreen"></button>
-    <div class="tv-glow" id="tvGlow" aria-hidden="true"></div>
+    <button type="button" id="crtExit" class="crt-exit" title="Exit fullscreen (Esc)">[ EXIT ]</button>
   </main>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="/forums.js?v=20"></script>
+<script src="/forums.js?v=21"></script>
 </body>
 </html>

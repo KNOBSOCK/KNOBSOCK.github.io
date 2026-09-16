@@ -170,7 +170,8 @@
       button.disabled = false;
     }
   }
-  const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 };
+  const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 },
+    ART_OVERSHOOT = 1.15;
   let zoomed = false,
     zoomAnimTimer = null;
   function layout() {
@@ -190,15 +191,25 @@
       document.querySelector(".forums-scene").classList.remove("is-zoomed");
     }
     let k = 1,
+      ka = 1,
       tx = 0,
-      ty = 0;
+      ty = 0,
+      tax = 0,
+      tay = 0;
     if (zoomed) {
-      k = Math.min(w / (box.w * s), h / (box.h * s));
-      tx = w / 2 - (x + (box.x + box.w / 2) * s) * k;
-      ty = h / 2 - (y + (box.y + box.h / 2) * s) * k;
+      const bcx = x + (box.x + box.w / 2) * s,
+        bcy = y + (box.y + box.h / 2) * s;
+      k = Math.max(w / (box.w * s), h / (box.h * s));
+      ka = k * ART_OVERSHOOT;
+      tx = w / 2 - bcx * k;
+      ty = h / 2 - bcy * k;
+      tax = w / 2 - bcx * ka;
+      tay = h / 2 - bcy * ka;
     }
     const mapX = (v) => tx + v * k,
-      mapY = (v) => ty + v * k;
+      mapY = (v) => ty + v * k,
+      artX = (v) => tax + v * ka,
+      artY = (v) => tay + v * ka;
     let left = Math.max(0, mapX(x + box.x * s)),
       top = Math.max(0, mapY(y + box.y * s)),
       right = Math.min(w, mapX(x + (box.x + box.w) * s)),
@@ -210,24 +221,22 @@
       height: Math.max(0, bottom - top) + "px",
       fontSize: Math.max(14, s * k * (m ? 171 : 120)) + "px",
     });
-    const sceneBox = {
-      left: mapX(x) + "px",
-      top: mapY(y) + "px",
-      width: iw * s * k + "px",
-      height: ih * s * k + "px",
-    };
     const art = document.querySelector(".scene-art");
-    if (art) Object.assign(art.style, sceneBox);
-    const glow = $("tvGlow");
-    if (glow) Object.assign(glow.style, sceneBox);
+    if (art)
+      Object.assign(art.style, {
+        left: artX(x) + "px",
+        top: artY(y) + "px",
+        width: iw * s * ka + "px",
+        height: ih * s * ka + "px",
+      });
     const trigger = $("crtZoomTrigger");
     if (trigger)
       Object.assign(trigger.style, {
-        left: mapX(x + ZOOM_BTN.x * s) + "px",
-        top: mapY(y + ZOOM_BTN.y * s) + "px",
-        width: ZOOM_BTN.w * s * k + "px",
-        height: ZOOM_BTN.h * s * k + "px",
-        borderRadius: ZOOM_BTN.h * s * k * 0.26 + "px",
+        left: artX(x + ZOOM_BTN.x * s) + "px",
+        top: artY(y + ZOOM_BTN.y * s) + "px",
+        width: ZOOM_BTN.w * s * ka + "px",
+        height: ZOOM_BTN.h * s * ka + "px",
+        borderRadius: ZOOM_BTN.h * s * ka * 0.26 + "px",
       });
     const scaleAttr = (id, attr, base) => {
       const el = $(id);
@@ -235,9 +244,6 @@
     };
     scaleAttr("feBulgeX", "scale", 460);
     scaleAttr("feBulgeY", "scale", 460);
-    scaleAttr("feGlowTight", "stdDeviation", 10);
-    scaleAttr("feGlowWide", "stdDeviation", 92);
-    scaleAttr("feGlowSoft", "stdDeviation", 36);
     positionScrollRail();
     syncScroll();
   }
@@ -382,11 +388,8 @@
       e.stopPropagation();
       setZoom(true);
     });
-  document.querySelector(".forums-scene").addEventListener("click", (e) => {
-    if (!zoomed) return;
-    if (e.target.closest("#terminal")) return;
-    setZoom(false);
-  });
+  const zoomExit = $("crtExit");
+  if (zoomExit) zoomExit.addEventListener("click", () => setZoom(false));
   addEventListener("keydown", (e) => {
     if (zoomed && (e.key === "Escape" || e.key === "Esc")) setZoom(false);
   });
