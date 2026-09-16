@@ -399,11 +399,35 @@
   border: 0;
   background: none;
   cursor: pointer;
-  transition: background 0.18s ease;
+  transform-origin: center;
+  animation: crt-zoom-attention 3.4s ease-in-out infinite;
+  transition: filter 0.18s ease;
 }
-.crt-zoom-trigger:hover,
+.crt-zoom-trigger:hover {
+  animation: crt-zoom-pop 0.38s cubic-bezier(0.22, 1.45, 0.36, 1) forwards;
+  filter: drop-shadow(0 8px 6px rgba(0, 0, 0, 0.7));
+}
 .crt-zoom-trigger:focus-visible {
-  background: rgba(61, 255, 133, 0.28);
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+@keyframes crt-zoom-attention {
+  0%, 74%, 100% {
+    filter: drop-shadow(0 0 0 transparent);
+    transform: scale(1);
+  }
+  82% {
+    filter: drop-shadow(0 0 7px rgba(0, 198, 0, 0.95));
+    transform: scale(1.08);
+  }
+  89% {
+    filter: drop-shadow(0 0 3px rgba(0, 198, 0, 0.65));
+    transform: scale(1.025);
+  }
+}
+@keyframes crt-zoom-pop {
+  from { transform: scale(1); }
+  to { transform: translateY(-14%) scale(1.22); }
 }
 .crt-zoom-icon {
   position: absolute;
@@ -412,6 +436,13 @@
   width: 41%;
   height: 28%;
   pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .crt-zoom-trigger,
+  .crt-zoom-trigger:hover {
+    animation: none;
+    transform: none;
+  }
 }
 .forums-scene.is-zoom-animating .scene-art,
 .forums-scene.is-zoom-animating #terminal,
