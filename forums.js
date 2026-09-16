@@ -173,7 +173,8 @@
   const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 },
     ART_OVERSHOOT = 1.15,
     ZOOM_FONT_PX = 18,
-    WIGGLE_RATIO = 0.05;
+    WIGGLE_RATIO = 0.05,
+    WIGGLE_MIN_PX = 1.4;
   let zoomed = false,
     zoomAnimTimer = null;
   function layout() {
@@ -228,7 +229,10 @@
     });
     const wiggle = $("feWiggle");
     if (wiggle)
-      wiggle.setAttribute("scale", (fontPx * WIGGLE_RATIO).toFixed(2));
+      wiggle.setAttribute(
+        "scale",
+        Math.max(WIGGLE_MIN_PX, fontPx * WIGGLE_RATIO).toFixed(2),
+      );
     const art = document.querySelector(".scene-art");
     if (art)
       Object.assign(art.style, {
