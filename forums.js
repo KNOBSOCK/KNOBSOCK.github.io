@@ -172,7 +172,7 @@
   }
   const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 },
     ART_OVERSHOOT = 1.15,
-    ZOOM_FONT_PX = 18,
+    ZOOM_FONT_PX = 22.5,
     WIGGLE_RATIO = 0.05,
     WIGGLE_MIN_PX = 1.4;
   let zoomed = false,
