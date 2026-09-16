@@ -2738,8 +2738,15 @@
 
   const COUNT_URL = 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM';
 
+  const COUNT_TIMEOUT_MS = 15000;
+
   let presenceRef = null;
   let countInFlight = false;
+  let serverSkewMs = 0;
+
+  function serverNow() {
+    return Date.now() + serverSkewMs;
+  }
 
   function presenceSeed() {
     if (window.KNOBSOCK_CLIENT_ID) return window.KNOBSOCK_CLIENT_ID;
@@ -2765,14 +2772,17 @@
 
   function writeHeartbeat() {
     if (!presenceRef) return;
-    presenceRef.set({ lastSeen: Date.now() }).catch(() => {});
+    presenceRef.set({ lastSeen: serverNow() }).catch(() => {});
   }
 
   function readActiveCount() {
-    if (countInFlight || document.visibilityState === 'hidden') return;
+    if (countInFlight || document.visibilityState === 'hidden') return Promise.resolve();
     countInFlight = true;
-    fetch(COUNT_URL, {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), COUNT_TIMEOUT_MS);
+    return fetch(COUNT_URL, {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         structuredAggregationQuery: {
@@ -2782,7 +2792,7 @@
               fieldFilter: {
                 field: { fieldPath: 'lastSeen' },
                 op: 'GREATER_THAN',
-                value: { integerValue: String(Date.now() - ACTIVE_WINDOW_MS) }
+                value: { integerValue: String(serverNow() - ACTIVE_WINDOW_MS) }
               }
             }
           },
@@ -2794,26 +2804,29 @@
       .then((rows) => {
         if (!Array.isArray(rows)) return;
         for (const row of rows) {
-          const field = row && row.result && row.result.aggregateFields && row.result.aggregateFields.viewers;
+          if (!row || !row.result) continue;
+          if (row.readTime) {
+            const serverMs = Date.parse(row.readTime);
+            if (serverMs) serverSkewMs = serverMs - Date.now();
+          }
+          const field = row.result.aggregateFields && row.result.aggregateFields.viewers;
           if (!field || field.integerValue == null) continue;
           activeEl.textContent = String(Math.max(1, parseInt(field.integerValue, 10) || 0));
           return;
         }
       })
       .catch(() => {})
-      .finally(() => { countInFlight = false; });
+      .finally(() => { clearTimeout(timer); countInFlight = false; });
   }
 
   presenceDocId(presenceSeed()).then((id) => {
     presenceRef = db.collection('chat_presence').doc(id);
-    writeHeartbeat();
-    readActiveCount();
+    readActiveCount().then(writeHeartbeat, writeHeartbeat);
     setInterval(writeHeartbeat, HEARTBEAT_MS);
     setInterval(readActiveCount, COUNT_REFRESH_MS);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') return;
-      writeHeartbeat();
-      readActiveCount();
+      readActiveCount().then(writeHeartbeat, writeHeartbeat);
     });
   });
 })();

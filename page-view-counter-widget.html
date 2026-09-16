@@ -60,16 +60,18 @@
   COUNTER_DOC_REF.set(
     { count: firebase.firestore.FieldValue.increment(1) },
     { merge: true }
-  ).catch(err => console.error('View count increment failed:', err));
-
-  COUNTER_DOC_REF.onSnapshot(doc => {
-    const data = doc.data();
-    const count = (data && typeof data.count === 'number') ? data.count : 0;
-    countEl.textContent = count.toLocaleString('en-US') + ' views';
-  }, err => {
-    console.error('View count read failed:', err);
-    countEl.textContent = '0 views';
-  });
+  )
+    .catch(err => console.error('View count increment failed:', err))
+    .then(() => COUNTER_DOC_REF.get())
+    .then(doc => {
+      const data = doc.exists ? doc.data() : null;
+      const count = (data && typeof data.count === 'number') ? data.count : 0;
+      countEl.textContent = count.toLocaleString('en-US') + ' views';
+    })
+    .catch(err => {
+      console.error('View count failed:', err);
+      countEl.textContent = '0 views';
+    });
 </script>
 
 <script>

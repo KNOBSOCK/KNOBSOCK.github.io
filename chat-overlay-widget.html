@@ -155,10 +155,12 @@
   }
 
   let clearedAt = 0;
+  let subscribedClearedAt = null;
   let unsubscribeMessages = null;
 
   function subscribeToMessages() {
     if (unsubscribeMessages) unsubscribeMessages();
+    subscribedClearedAt = clearedAt;
     let query = messagesRef.orderBy('ts', 'asc');
     if (clearedAt) query = query.where('ts', '>', clearedAt);
     unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
@@ -176,8 +178,8 @@
   configRef.doc('clear').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
-    subscribeToMessages();
-  }, () => subscribeToMessages());
+    if (subscribedClearedAt !== clearedAt) subscribeToMessages();
+  }, () => { if (subscribedClearedAt === null) subscribeToMessages(); });
 })();
 </script>
 
