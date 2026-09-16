@@ -219,7 +219,7 @@
       top: top + "px",
       width: Math.max(0, right - left) + "px",
       height: Math.max(0, bottom - top) + "px",
-      fontSize: Math.max(14, s * k * (m ? 171 : 120)) + "px",
+      fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
     });
     const art = document.querySelector(".scene-art");
     if (art)
@@ -257,6 +257,8 @@
     clearTimeout(zoomAnimTimer);
     zoomAnimTimer = setTimeout(() => {
       scene.classList.remove("is-zoom-animating");
+      positionScrollRail();
+      syncScroll();
     }, 520);
     void scene.offsetWidth;
     layout();

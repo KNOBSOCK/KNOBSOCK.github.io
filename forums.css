@@ -404,8 +404,7 @@
     left 0.46s cubic-bezier(0.33, 0, 0.2, 1),
     top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
     width 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-    height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-    font-size 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+    height 0.46s cubic-bezier(0.33, 0, 0.2, 1);
 }
 .forums-scene.is-zoom-animating #forumScroll {
   animation-play-state: paused;
