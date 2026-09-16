@@ -420,8 +420,12 @@
   transition: flex-basis 0.46s cubic-bezier(0.33, 0, 0.2, 1);
 }
 .forums-scene.is-zoomed #forumScroll {
-  flex-basis: 70%;
+  flex-basis: 100%;
+  max-width: none;
+}
+.forums-scene.is-zoomed .terminal-content {
   max-width: 104ch;
+  margin: 0 auto;
 }
 .forums-scene.is-zoomed #scrollRail {
   position: absolute;
