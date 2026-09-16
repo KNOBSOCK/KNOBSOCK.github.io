@@ -222,6 +222,14 @@
 #terminal .board-title {
   font-size: 1.05em;
 }
+.pinned-icon {
+  display: inline-block;
+  width: 0.8em;
+  height: 1.3em;
+  margin: -0.16em 0.2em -0.14em 0;
+  vertical-align: middle;
+  image-rendering: pixelated;
+}
 .new-dot {
   margin-right: 5px;
 }

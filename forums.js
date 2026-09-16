@@ -483,7 +483,9 @@
             '<tr><td><a href="#thread/' +
             t.id +
             '">' +
-            (t.pinned ? "↑ " : "") +
+            (t.pinned
+              ? '<img class="pinned-icon" src="/forums-pin-transparent.png" alt="Pinned"> '
+              : "") +
             (t.locked ? "[LOCKED] " : "") +
             esc(t.title) +
             "</a><small>" +
@@ -914,7 +916,7 @@
             settings.rules ||
               "Be kind. No harassment, hate, threats, spam, impersonation, or sharing private information. Keep posts in the right board. Do not post illegal content. Report problems instead of escalating them. Moderators may remove content, lock discussions, and suspend access to both forums and live chat.",
           ) +
-          "</p><p>■ means unread activity. ↑ means pinned. Drafts stay in this browser. Posts are public. Reports are visible only to moderators.</p><p>For help with your name or moderation, contact the site administrator through the site’s published contact options.</p>";
+          "</p><p>■ means unread activity. The pin icon means pinned. Drafts stay in this browser. Posts are public. Reports are visible only to moderators.</p><p>For help with your name or moderation, contact the site administrator through the site’s published contact options.</p>";
       } else if (kind === "member" && id) {
         const s = await db.collection("chat_devices").doc(id).get();
         if (token !== version) return;
