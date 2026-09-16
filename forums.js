@@ -170,6 +170,9 @@
       button.disabled = false;
     }
   }
+  const ZOOM_BTN = { x: 5744, y: 4023, w: 197, h: 120 };
+  let zoomed = false,
+    zoomAnimTimer = null;
   function layout() {
     const w = innerWidth,
       h = innerHeight,
@@ -182,28 +185,53 @@
     const box = m
       ? { x: 0, y: 375, w: 4511, h: 7200 }
       : { x: 1895, y: 375, w: 4130, h: 3050 };
-    let left = Math.max(0, x + box.x * s),
-      top = Math.max(0, y + box.y * s),
-      right = Math.min(w, x + (box.x + box.w) * s),
-      bottom = Math.min(h, y + (box.y + box.h) * s);
+    if (m && zoomed) {
+      zoomed = false;
+      document.querySelector(".forums-scene").classList.remove("is-zoomed");
+    }
+    let k = 1,
+      tx = 0,
+      ty = 0;
+    if (zoomed) {
+      k = Math.min(w / (box.w * s), h / (box.h * s));
+      tx = w / 2 - (x + (box.x + box.w / 2) * s) * k;
+      ty = h / 2 - (y + (box.y + box.h / 2) * s) * k;
+    }
+    const mapX = (v) => tx + v * k,
+      mapY = (v) => ty + v * k;
+    let left = Math.max(0, mapX(x + box.x * s)),
+      top = Math.max(0, mapY(y + box.y * s)),
+      right = Math.min(w, mapX(x + (box.x + box.w) * s)),
+      bottom = Math.min(h, mapY(y + (box.y + box.h) * s));
     Object.assign($("terminal").style, {
       left: left + "px",
       top: top + "px",
       width: Math.max(0, right - left) + "px",
       height: Math.max(0, bottom - top) + "px",
-      fontSize: Math.max(14, s * (m ? 171 : 120)) + "px",
+      fontSize: Math.max(14, s * k * (m ? 171 : 120)) + "px",
     });
+    const sceneBox = {
+      left: mapX(x) + "px",
+      top: mapY(y) + "px",
+      width: iw * s * k + "px",
+      height: ih * s * k + "px",
+    };
+    const art = document.querySelector(".scene-art");
+    if (art) Object.assign(art.style, sceneBox);
     const glow = $("tvGlow");
-    if (glow)
-      Object.assign(glow.style, {
-        left: x + "px",
-        top: y + "px",
-        width: iw * s + "px",
-        height: ih * s + "px",
+    if (glow) Object.assign(glow.style, sceneBox);
+    const trigger = $("crtZoomTrigger");
+    if (trigger)
+      Object.assign(trigger.style, {
+        left: mapX(x + ZOOM_BTN.x * s) + "px",
+        top: mapY(y + ZOOM_BTN.y * s) + "px",
+        width: ZOOM_BTN.w * s * k + "px",
+        height: ZOOM_BTN.h * s * k + "px",
+        borderRadius: ZOOM_BTN.h * s * k * 0.26 + "px",
       });
     const scaleAttr = (id, attr, base) => {
       const el = $(id);
-      if (el) el.setAttribute(attr, base * s);
+      if (el) el.setAttribute(attr, base * s * k);
     };
     scaleAttr("feBulgeX", "scale", 460);
     scaleAttr("feBulgeY", "scale", 460);
@@ -212,6 +240,20 @@
     scaleAttr("feGlowSoft", "stdDeviation", 36);
     positionScrollRail();
     syncScroll();
+  }
+  function setZoom(next) {
+    if (zoomed === next) return;
+    if (next && innerWidth <= 860) return;
+    zoomed = next;
+    const scene = document.querySelector(".forums-scene");
+    scene.classList.add("is-zoom-animating");
+    scene.classList.toggle("is-zoomed", zoomed);
+    clearTimeout(zoomAnimTimer);
+    zoomAnimTimer = setTimeout(() => {
+      scene.classList.remove("is-zoom-animating");
+    }, 520);
+    void scene.offsetWidth;
+    layout();
   }
   const scroll = $("forumScroll"),
     track = $("scrollTrack"),
@@ -334,6 +376,20 @@
   });
   addEventListener("resize", layout);
   if (window.visualViewport) visualViewport.addEventListener("resize", layout);
+  const zoomTrigger = $("crtZoomTrigger");
+  if (zoomTrigger)
+    zoomTrigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setZoom(true);
+    });
+  document.querySelector(".forums-scene").addEventListener("click", (e) => {
+    if (!zoomed) return;
+    if (e.target.closest("#terminal")) return;
+    setZoom(false);
+  });
+  addEventListener("keydown", (e) => {
+    if (zoomed && (e.key === "Escape" || e.key === "Esc")) setZoom(false);
+  });
   layout();
   showRail();
   function renderIdentity() {

@@ -404,6 +404,48 @@
     margin-left: 8px;
   }
 }
+.crt-zoom-trigger {
+  position: absolute;
+  z-index: 6;
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.crt-zoom-trigger:hover,
+.crt-zoom-trigger:focus-visible {
+  background: rgba(61, 255, 133, 0.28);
+}
+.forums-scene.is-zoom-animating .scene-art,
+.forums-scene.is-zoom-animating #terminal,
+.forums-scene.is-zoom-animating .crt-zoom-trigger {
+  transition:
+    left 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+    top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+    width 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+    height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+    font-size 0.46s cubic-bezier(0.33, 0, 0.2, 1);
+}
+.forums-scene.is-zoom-animating #forumScroll {
+  animation-play-state: paused;
+}
+.forums-scene.is-zoom-animating .tv-glow,
+.forums-scene.is-zoomed .tv-glow {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.forums-scene.is-zoomed .crt-zoom-trigger {
+  pointer-events: none;
+}
+@media (max-width: 860px) {
+  .crt-zoom-trigger {
+    display: none;
+  }
+}
 .sr-only {
   position: absolute;
   width: 1px;
