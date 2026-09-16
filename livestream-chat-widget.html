@@ -1036,7 +1036,7 @@
     cursor: pointer;
     height: clamp(28px, 8cqmin, 36px);
     aspect-ratio: 480 / 286;
-    transition: filter 0.15s ease;
+    transition: filter 0.15s ease, opacity 0.15s ease;
   }
   .send-btn img {
     display: block;
@@ -1047,6 +1047,11 @@
 
   .send-btn:hover:not(:disabled) { filter: brightness(0.82); }
   .send-btn:active:not(:disabled) { filter: brightness(0.68); }
+  .send-btn:disabled {
+    filter: grayscale(1);
+    opacity: 0.5;
+    cursor: default;
+  }
 
   .composer-input-wrap {
     position: relative;
