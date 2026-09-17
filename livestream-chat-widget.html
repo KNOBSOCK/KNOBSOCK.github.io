@@ -936,6 +936,7 @@
     text-align: center;
     color: var(--text-dim);
     font-size: clamp(10px, 2.8cqw, 13px);
+    font-family: 'Gratis Neue', var(--font-body);
     padding: 20px;
   }
 
@@ -2702,7 +2703,7 @@
     if (!container) return;
     lastRenderedMsgs = msgs;
     if (!msgs.length) {
-      container.innerHTML = `<div class="empty-state">No messages yet. Say hello 👋</div>`;
+      container.innerHTML = `<div class="empty-state">No messages yet. Say wassup</div>`;
       return;
     }
 
