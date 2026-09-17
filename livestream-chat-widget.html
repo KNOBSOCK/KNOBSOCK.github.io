@@ -119,11 +119,13 @@
 
   .offline-frame {
     position: absolute;
-    display: block;
+    display: none;
     width: 100cqw;
     height: 100cqh;
     object-fit: cover;
   }
+
+  .video-pane.offline-card .offline-frame { display: block; }
 
   .gif-loader {
     position: relative;
@@ -1176,6 +1178,8 @@
   var offlineVideo = document.getElementById('offlineVideo');
   if (offlineVideo) {
     document.addEventListener('visibilitychange', function () {
+      var pane = document.getElementById('videoPane');
+      if (!pane || !pane.classList.contains('offline-card')) return;
       if (document.visibilityState === 'visible' && offlineVideo.paused) {
         offlineVideo.play().catch(function () {});
       }
@@ -1481,7 +1485,15 @@
   }
 
   function updateOfflineCardState() {
-    videoPane.classList.toggle('offline-card', !watchingVodId && !configuredIsLive);
+    var showOfflineCard = !watchingVodId && !configuredIsLive;
+    videoPane.classList.toggle('offline-card', showOfflineCard);
+    var offlineVideo = document.getElementById('offlineVideo');
+    if (!offlineVideo) return;
+    if (showOfflineCard) {
+      offlineVideo.play().catch(function () {});
+    } else {
+      offlineVideo.pause();
+    }
   }
   updateOfflineCardState();
 
