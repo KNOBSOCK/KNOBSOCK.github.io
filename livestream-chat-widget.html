@@ -20,6 +20,8 @@
     --accent: #cd3232;
     --accent-rgb: 205, 50, 50;
     --accent-dim: #6e1e1e;
+    --interactive-hover: #ffff00;
+    --interactive-hover-text: #000000;
     --text: #ffffff;
     --text-dim: #f5c9c9;
     --error: #ffb3b3;
@@ -60,6 +62,8 @@
   body {
     position: relative;
   }
+
+  .widget-privacy-footer { display: none; }
 
   .bg-glow {
     position: absolute;
@@ -187,6 +191,21 @@
     .chat-pane { min-width: 0; }
     .layout.chat-hidden,
     .layout.fullscreen-active { grid-template-columns: 1fr; }
+    .widget-privacy-footer {
+      position: absolute;
+      top: calc(34.875vw + 10px);
+      left: 0;
+      right: 0;
+      display: block;
+      text-align: center;
+      padding: 3px 0;
+    }
+    .widget-privacy-footer a {
+      color: #fff;
+      font: 9px Arial, Helvetica, sans-serif;
+      opacity: 0.75;
+    }
+    .widget-privacy-footer a:hover { opacity: 1; }
   }
 
   .vods-panel {
@@ -228,9 +247,15 @@
     transition: background 0.2s ease;
   }
 
-  .vods-tab:hover {
-    background: var(--accent-dim);
+  .vods-tab:hover,
+  .vods-tab:active {
+    background: var(--interactive-hover);
+    color: var(--interactive-hover-text);
   }
+  .vods-tab:hover .vods-tab-label,
+  .vods-tab:hover .vods-tab-chevron,
+  .vods-tab:active .vods-tab-label,
+  .vods-tab:active .vods-tab-chevron { color: var(--interactive-hover-text); }
 
   .vods-tab-label,
   .vods-tab-chevron {
@@ -279,7 +304,7 @@
     overflow-y: auto;
     -ms-overflow-style: none;
     scrollbar-width: none;
-    padding: 8px;
+    padding: 8px 8px 8px 18px;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -308,8 +333,8 @@
     color: var(--text);
     font-family: var(--font-body);
   }
-  .vod-row:hover { background: rgba(255, 255, 255, 0.08); }
-  .vod-row.active { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.25); }
+  .vod-row:hover { background: rgba(255, 255, 0, 0.12); }
+  .vod-row.active { border-color: var(--interactive-hover); background: rgba(255, 255, 0, 0.15); }
   .vod-row-thumb {
     flex: none;
     width: 88px;
@@ -506,8 +531,12 @@
     border: 1px solid var(--accent-dim);
     color: #ffffff;
   }
-  .pill-btn:hover:not(:disabled) { background: var(--accent-dim); }
-  .pill-btn:active:not(:disabled) { background: var(--accent-dim); }
+  .pill-btn:hover:not(:disabled),
+  .pill-btn:active:not(:disabled) {
+    background: var(--interactive-hover);
+    border-color: var(--interactive-hover);
+    color: var(--interactive-hover-text);
+  }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
 
   .video-pane-actions {
@@ -520,10 +549,6 @@
   }
 
   .viewer-badge {
-    position: absolute;
-    top: clamp(8px, 2cqh, 14px);
-    right: clamp(8px, 2cqw, 14px);
-    z-index: 5;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -687,7 +712,12 @@
     padding: clamp(4px, 1.2cqh, 6px) clamp(8px, 2.2cqw, 12px);
     cursor: pointer;
   }
-  .live-btn:hover { background: rgba(255, 255, 255, 0.1); }
+  .live-btn:hover,
+  .live-btn:active {
+    background: var(--interactive-hover);
+    border-color: var(--interactive-hover);
+    color: var(--interactive-hover-text);
+  }
   .live-dot {
     flex: none;
     width: 8px;
@@ -749,8 +779,11 @@
     border: 0;
     color: var(--accent);
   }
-  .round-btn:hover:not(:disabled) { color: var(--accent-dim); }
-  .round-btn:active:not(:disabled) { color: var(--accent-dim); }
+  .round-btn:hover:not(:disabled),
+  .round-btn:active:not(:disabled) {
+    background: var(--interactive-hover);
+    color: var(--interactive-hover-text);
+  }
   .round-btn:disabled { opacity: 0.5; cursor: default; }
 
   .round-btn.play-pause-btn,
@@ -758,7 +791,7 @@
   .round-btn.play-pause-btn:hover:not(:disabled),
   .round-btn.play-pause-btn:active:not(:disabled),
   .round-btn.fullscreen-btn:hover:not(:disabled),
-  .round-btn.fullscreen-btn:active:not(:disabled) { color: #ffffff; }
+  .round-btn.fullscreen-btn:active:not(:disabled) { color: var(--interactive-hover-text); }
 
   .status-actions {
     display: flex;
@@ -1098,6 +1131,9 @@
   }
 
   .composer-input-wrap input { padding-right: clamp(58px, 15cqmin, 72px); }
+  .composer-input-wrap input::placeholder {
+    font-family: 'Gratis Neue', var(--font-body);
+  }
   .char-counter {
     position: absolute;
     right: clamp(6px, 1.8cqmin, 9px);
@@ -1137,11 +1173,10 @@
       <div class="video-pane-actions">
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
-      </div>
-
-      <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <span id="activeViewersCount">0</span>
+        <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          <span id="activeViewersCount">0</span>
+        </div>
       </div>
       <div class="video-frame-wrap">
 
@@ -1197,6 +1232,8 @@
     </div>
   </div>
 </div>
+
+<div class="widget-privacy-footer"><a href="/privacy" target="_parent">Privacy Policy &amp; User Agreement</a></div>
 
 <script>
 (function () {
