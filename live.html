@@ -92,6 +92,18 @@
       height: calc(34.875vw + 30px);
     }
     .player-wrap iframe { height: 100%; }
+    .player-wrap.chat-hidden {
+      /* A chat-hidden player spans the full widget width at 16:9. */
+      height: min(calc(56.25vw + 31px), 100dvh);
+    }
+    .page.chat-hidden {
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
+      padding-top: 0;
+      overflow: hidden;
+    }
+    .page.chat-hidden .logo-link { display: none; }
     .privacy-footer {
       display: none;
     }

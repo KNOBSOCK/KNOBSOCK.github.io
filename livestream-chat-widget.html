@@ -178,6 +178,10 @@
       bottom: auto;
       height: calc(34.875vw - 10.5px);
     }
+    body.is-chat-hidden .bg-glow {
+      height: min(calc(56.25vw - 9px), calc(100dvh - 40px));
+      background: transparent;
+    }
     .layout {
       display: grid;
       grid-template-columns: minmax(0, 62fr) minmax(300px, 38fr);
@@ -191,6 +195,17 @@
     .chat-pane { min-width: 0; }
     .layout.chat-hidden,
     .layout.fullscreen-active { grid-template-columns: 1fr; }
+    .layout.chat-hidden {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    body.is-chat-hidden .layout.chat-hidden .video-pane {
+      flex: 0 1 auto;
+      width: auto;
+      height: min(calc(56.25vw - 9px), calc(100dvh - 40px));
+      max-width: 100%;
+    }
     .widget-privacy-footer {
       position: absolute;
       top: calc(34.875vw + 10px);
@@ -206,6 +221,9 @@
       opacity: 0.75;
     }
     .widget-privacy-footer a:hover { opacity: 1; }
+    body.is-chat-hidden .widget-privacy-footer {
+      top: min(calc(56.25vw + 10px), calc(100dvh - 21px));
+    }
   }
 
   .vods-panel {
@@ -1241,6 +1259,13 @@
   var toggleBtn = document.getElementById('toggleChatBtn');
   toggleBtn.addEventListener('click', function () {
     var hidden = layout.classList.toggle('chat-hidden');
+    document.body.classList.toggle('is-chat-hidden', hidden);
+    try {
+      var parentPlayerWrap = window.parent.document.querySelector('.player-wrap');
+      if (parentPlayerWrap) parentPlayerWrap.classList.toggle('chat-hidden', hidden);
+      var parentPage = window.parent.document.querySelector('.page');
+      if (parentPage) parentPage.classList.toggle('chat-hidden', hidden);
+    } catch (e) {}
     toggleBtn.textContent = hidden ? 'Show Chat' : 'Hide Chat';
     toggleBtn.title = hidden ? 'Show chat' : 'Hide chat';
   });
