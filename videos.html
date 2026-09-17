@@ -146,6 +146,18 @@
     --glow-reach: 46%;
   }
 
+  .tv-outer-glow {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      opacity 0.2s ease;
+  }
+  .tv-outer-glow.is-lit { opacity: 0.85; }
+  .tv-outer-glow.is-pressed { opacity: 1; }
+
   .tv-slot {
     position: absolute;
     z-index: 2;
@@ -325,6 +337,7 @@
   <img class="tv-static" id="tvStatic" src="/tv-static-overlay.webp" alt="">
   <div class="tv-glow" id="tvGlow"></div>
   <img class="room-bg" id="roomBg" alt="">
+  <img class="tv-outer-glow" id="tvOuterGlow" alt="">
   <script>
     document.getElementById('roomBg').src = window.innerWidth <= 860
       ? '/videos-room-mobile.webp'
@@ -386,7 +399,9 @@
       // The TV screen's actual transparent cutout (measured off the art's
       // own alpha channel), sized up ~10% so the drawn bezel frames it
       // with no gap at the edges.
-      tvStatic: { cx: 3693.5, cy: 1673.5, w: 2152.7, h: 1230.9 }
+      tvStatic: { cx: 3693.5, cy: 1673.5, w: 2152.7, h: 1230.9 },
+      glowSrc: '/videos-tv-glow-desktop.webp',
+      tvOuterGlow: { cx: 3678.5, cy: 1667, w: 2527, h: 1686 }
     },
     mobile: {
       src: '/videos-room-mobile.webp',
@@ -396,6 +411,8 @@
       tvBezel: { left: 1120, top: 1864, w: 2384, h: 1448 },
       tvZoomCenterX: 2242,
       tvStatic: { cx: 2329, cy: 2602.5, w: 2340.8, h: 1349.7 },
+      glowSrc: '/videos-tv-glow-mobile.webp',
+      tvOuterGlow: { cx: 2316, cy: 2590.5, w: 2746, h: 1837 },
       remoteBack: { cx: 2095.5, cy: 2767.5, w: 134.6, h: 110.1 },
       remoteHnLogo: { cx: 2224.9, cy: 2840.5, w: 134.9 },
       remoteSelect: { cx: 2230.5, cy: 2955, w: 173.4 }
@@ -416,6 +433,7 @@
   var tvStatic = document.getElementById('tvStatic');
   var tvZoomTrigger = document.getElementById('tvZoomTrigger');
   var tvGlow = document.getElementById('tvGlow');
+  var tvOuterGlow = document.getElementById('tvOuterGlow');
   var remoteBackBtn = document.getElementById('remoteBackBtn');
   var remoteHnBtn = document.getElementById('remoteHnBtn');
   var remoteHnBtnImg = document.getElementById('remoteHnBtnImg');
@@ -502,6 +520,7 @@
     if (name !== currentVariant) {
       currentVariant = name;
       bg.src = v.src;
+      tvOuterGlow.src = v.glowSrc;
     }
 
     var s = Math.max(vp.w / v.w, vp.h / v.h);
@@ -535,6 +554,7 @@
 
     placeBox(tvStatic, v.tvStatic, ox, oy, s);
     placeBox(tvGlow, v.tvStatic, ox, oy, s);
+    placeBox(tvOuterGlow, v.tvOuterGlow, ox, oy, s);
     placeBox(tvFeaturedVideo, v.tvStatic, ox, oy, s);
     placeBox(tvChannelStatic, v.tvStatic, ox, oy, s);
     placeRemoteBack(v.remoteBack, ox, oy, s);
@@ -598,7 +618,7 @@
     // size. A transform: scale() on the parent would instead stretch an
     // already-rasterized bitmap captured at the smaller pre-zoom size —
     // blurry no matter how high-res the source images are.
-    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic, tvGlow].forEach(function (el) {
+    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic, tvGlow, tvOuterGlow].forEach(function (el) {
       zoomifyElement(el, tx, ty, k);
     });
   }
@@ -826,31 +846,35 @@
   tvZoomTrigger.addEventListener('click', openZoom);
   tvZoomTrigger.addEventListener('pointerenter', primeWoosh);
 
+  var glowLayers = [tvGlow, tvOuterGlow];
+  function setGlow(cls, on) {
+    glowLayers.forEach(function (el) { el.classList.toggle(cls, on); });
+  }
   function clearGlow() {
-    tvGlow.classList.remove('is-lit');
-    tvGlow.classList.remove('is-pressed');
+    setGlow('is-lit', false);
+    setGlow('is-pressed', false);
   }
   var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
   function lightGlow(e) {
     if (isZoomed) return;
-    if (canHover && e.pointerType !== 'touch') tvGlow.classList.add('is-lit');
+    if (canHover && e.pointerType !== 'touch') setGlow('is-lit', true);
   }
   tvZoomTrigger.addEventListener('pointerenter', lightGlow);
   tvZoomTrigger.addEventListener('pointermove', lightGlow);
   tvZoomTrigger.addEventListener('pointerleave', clearGlow);
   tvZoomTrigger.addEventListener('pointerdown', function () {
     if (isZoomed) return;
-    tvGlow.classList.add('is-pressed');
+    setGlow('is-pressed', true);
   });
   tvZoomTrigger.addEventListener('pointerup', function () {
-    tvGlow.classList.remove('is-pressed');
+    setGlow('is-pressed', false);
   });
   tvZoomTrigger.addEventListener('pointercancel', clearGlow);
   tvZoomTrigger.addEventListener('focus', function () {
     if (isZoomed) return;
     var focusVisible = true;
     try { focusVisible = tvZoomTrigger.matches(':focus-visible'); } catch (_) {}
-    if (focusVisible) tvGlow.classList.add('is-lit');
+    if (focusVisible) setGlow('is-lit', true);
   });
   tvZoomTrigger.addEventListener('blur', clearGlow);
   remoteBackBtn.addEventListener('click', closeZoom);
