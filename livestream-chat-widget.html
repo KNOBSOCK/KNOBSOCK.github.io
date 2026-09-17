@@ -1400,6 +1400,21 @@
     }
   }
 
+  window.unmuteLivePlayer = function () {
+    if (backend === 'video') {
+      if (!videoReady) { pendingUnmute = true; return; }
+      if (!videoEl.muted) return;
+      videoEl.muted = false;
+      videoEl.volume = 1;
+      setMutedUiState(false);
+      return;
+    }
+    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') { pendingUnmute = true; return; }
+    if (!ytPlayer.isMuted()) return;
+    pendingUnmute = true;
+    applyPendingUnmute();
+  };
+
   function formatTime(sec) {
     if (!isFinite(sec) || sec < 0) sec = 0;
     var m = Math.floor(sec / 60);
@@ -2562,7 +2577,10 @@
     $('msgInput').addEventListener('input', updateCharCounter);
     updateCharCounter();
 
-    $('tapinBtn').addEventListener('click', sendTapIn);
+    $('tapinBtn').addEventListener('click', () => {
+      if (typeof window.unmuteLivePlayer === 'function') window.unmuteLivePlayer();
+      sendTapIn();
+    });
     refreshTapInButtonState();
     refreshChatGateState();
   }
