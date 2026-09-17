@@ -2639,32 +2639,44 @@
 
   let lastRenderedMsgs = null;
 
-  // A chat transcript is mostly history.  Keeping the last screenful locally
-  // lets a returning tab paint immediately and, crucially, lets its next
-  // server query ask only for the messages that arrived while it was away.
-  // Firestore's persistent cache is useful, but it cannot prevent a listener
-  // from being re-baselined after the browser suspends an iframe or its
-  // network connection.  This cursor does.
-  const MESSAGE_CACHE_KEY = 'chat_message_cache_v1';
+  // Live chat is intentionally forward-only for viewers: a new tab begins
+  // empty and receives messages from that moment on.  The transcript is kept
+  // in sessionStorage only, so a reload of the same tab is seamless without
+  // pulling history from Firestore, while a new visitor never sees old chat.
+  const MESSAGE_CACHE_KEY = 'chat_message_session_v1';
   const MESSAGE_CACHE_LIMIT = 50;
   let messageCacheSaveTimer = null;
-  let messageCache = (function () {
+  let messageCache = [];
+  let messageSessionStartedAt = 0;
+  let messageSessionOwner = null;
+
+  function startMessageSession(username) {
+    if (messageSessionOwner === username && messageSessionStartedAt) return;
+    messageSessionOwner = username;
+    messageSessionStartedAt = Date.now();
+    messageCache = [];
     try {
-      const saved = JSON.parse(localStorage.getItem(MESSAGE_CACHE_KEY) || '[]');
-      if (!Array.isArray(saved)) return [];
-      return saved
-        .filter((m) => m && typeof m.id === 'string' && typeof m.ts === 'number')
-        .sort((a, b) => a.ts - b.ts)
-        .slice(-MESSAGE_CACHE_LIMIT);
-    } catch (e) {
-      return [];
-    }
-  })();
+      const saved = JSON.parse(sessionStorage.getItem(MESSAGE_CACHE_KEY) || 'null');
+      if (saved && saved.owner === username && typeof saved.startedAt === 'number' && Array.isArray(saved.messages)) {
+        messageSessionStartedAt = saved.startedAt;
+        messageCache = saved.messages
+          .filter((m) => m && typeof m.id === 'string' && typeof m.ts === 'number')
+          .sort((a, b) => a.ts - b.ts)
+          .slice(-MESSAGE_CACHE_LIMIT);
+      }
+    } catch (e) {}
+  }
 
   function saveMessageCache() {
     clearTimeout(messageCacheSaveTimer);
     messageCacheSaveTimer = setTimeout(() => {
-      try { localStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify(messageCache)); } catch (e) {}
+      try {
+        sessionStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify({
+          owner: messageSessionOwner,
+          startedAt: messageSessionStartedAt,
+          messages: messageCache
+        }));
+      } catch (e) {}
     }, 250);
   }
 
@@ -2679,7 +2691,10 @@
   }
 
   function messageCursor() {
-    return messageCache.reduce((latest, m) => Math.max(latest, m.ts || 0), clearedAt || 0);
+    return messageCache.reduce(
+      (latest, m) => Math.max(latest, m.ts || 0),
+      Math.max(clearedAt || 0, messageSessionStartedAt || 0)
+    );
   }
 
   function renderMessages(msgs) {
@@ -2807,6 +2822,7 @@
   }
 
   function startChat() {
+    startMessageSession(session.username);
     renderChatShell();
     subscribeToMessages();
     $('msgInput').focus();
