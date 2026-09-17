@@ -2384,7 +2384,13 @@
 
   configRef.doc('clear').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
+    const previousClearedAt = clearedAt;
     clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+
+    if (clearedAt > previousClearedAt && typeof messageCache !== 'undefined') {
+      messageCache = messageCache.filter((m) => m && m.ts > clearedAt);
+      saveMessageCache();
+    }
 
     if (session && subscribedClearedAt !== clearedAt) subscribeToMessages();
   }, () => {});
@@ -2633,6 +2639,49 @@
 
   let lastRenderedMsgs = null;
 
+  // A chat transcript is mostly history.  Keeping the last screenful locally
+  // lets a returning tab paint immediately and, crucially, lets its next
+  // server query ask only for the messages that arrived while it was away.
+  // Firestore's persistent cache is useful, but it cannot prevent a listener
+  // from being re-baselined after the browser suspends an iframe or its
+  // network connection.  This cursor does.
+  const MESSAGE_CACHE_KEY = 'chat_message_cache_v1';
+  const MESSAGE_CACHE_LIMIT = 50;
+  let messageCacheSaveTimer = null;
+  let messageCache = (function () {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MESSAGE_CACHE_KEY) || '[]');
+      if (!Array.isArray(saved)) return [];
+      return saved
+        .filter((m) => m && typeof m.id === 'string' && typeof m.ts === 'number')
+        .sort((a, b) => a.ts - b.ts)
+        .slice(-MESSAGE_CACHE_LIMIT);
+    } catch (e) {
+      return [];
+    }
+  })();
+
+  function saveMessageCache() {
+    clearTimeout(messageCacheSaveTimer);
+    messageCacheSaveTimer = setTimeout(() => {
+      try { localStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify(messageCache)); } catch (e) {}
+    }, 250);
+  }
+
+  function mergeMessageCache(incoming) {
+    const byId = new Map(messageCache.map((m) => [m.id, m]));
+    incoming.forEach((m) => byId.set(m.id, m));
+    messageCache = Array.from(byId.values())
+      .filter((m) => m && typeof m.ts === 'number' && m.ts > clearedAt)
+      .sort((a, b) => a.ts - b.ts)
+      .slice(-MESSAGE_CACHE_LIMIT);
+    saveMessageCache();
+  }
+
+  function messageCursor() {
+    return messageCache.reduce((latest, m) => Math.max(latest, m.ts || 0), clearedAt || 0);
+  }
+
   function renderMessages(msgs) {
     const container = $('messages');
     if (!container) return;
@@ -2699,10 +2748,19 @@
 
   function subscribeToMessages() {
     if (unsubscribeMessages) unsubscribeMessages();
+    unsubscribeMessages = null;
+    if (document.visibilityState === 'hidden') return;
     subscribedClearedAt = clearedAt;
 
     let query = messagesRef.orderBy('ts', 'asc');
-    if (clearedAt) query = query.where('ts', '>', clearedAt);
+    const cursor = messageCursor();
+    if (cursor) {
+      // Include the cursor document and de-duplicate it locally.  `>=` avoids
+      // losing two messages written in the same millisecond.
+      query = query.where('ts', '>=', cursor);
+    } else if (clearedAt) {
+      query = query.where('ts', '>', clearedAt);
+    }
 
     let sawServerSnapshot = false;
 
@@ -2718,12 +2776,21 @@
       }
     }
 
+    // Bound even a long-hidden tab: the UI only retains one screenful, so a
+    // reconnect must never turn every message since its last visit into a
+    // fresh baseline read.
+    query = query.limitToLast(MESSAGE_CACHE_LIMIT);
+
+    // Paint cached history before the network listener settles.  On a return
+    // visit this is the same transcript the user just had, not an empty chat.
+    renderMessages(messageCache);
+
     unsubscribeMessages = query
-      .limitToLast(50)
       .onSnapshot(
         (snapshot) => {
-          const msgs = snapshot.docs.map(doc => doc.data());
-          renderMessages(msgs);
+          const incoming = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
+          mergeMessageCache(incoming);
+          renderMessages(messageCache);
 
           const stillSettling = !sawServerSnapshot;
           if (!snapshot.metadata.fromCache) sawServerSnapshot = true;
@@ -2843,6 +2910,15 @@
 
     if (!session) enterAuthOrRestore();
   });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (unsubscribeMessages) unsubscribeMessages();
+      unsubscribeMessages = null;
+      return;
+    }
+    if (session && !currentlyBanned) subscribeToMessages();
+  });
 })();
 </script>
 
@@ -2892,7 +2968,7 @@
   }
 
   function writeHeartbeat() {
-    if (!presenceRef) return;
+    if (!presenceRef || document.visibilityState === 'hidden') return;
     presenceRef.set({ lastSeen: serverNow() }).catch(() => {});
   }
 
