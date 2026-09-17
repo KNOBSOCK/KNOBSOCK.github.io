@@ -1846,6 +1846,7 @@
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   const usernamesRef = db.collection('chat_usernames');
   const messagesRef = db.collection('chat_messages');
   const bansRef = db.collection('chat_bans');
@@ -2125,6 +2126,7 @@
     await messagesRef.add({
       username: entry.username,
       text: entry.text,
+      color: myCurrentColor(),
       deviceId: CLIENT_ID,
       ts: Date.now()
     });
@@ -2419,7 +2421,43 @@
     return hslToHex(hashHue(username.toLowerCase()), 70, 72);
   }
 
-  const usernameColorCache = {};
+  const COLOR_CACHE_KEY = 'chat_color_cache_v1';
+  const COLOR_CACHE_TTL = 12 * 60 * 60 * 1000;
+
+  const usernameColorCache = (function () {
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLOR_CACHE_KEY) || '{}');
+      if (raw && typeof raw.at === 'number' && Date.now() - raw.at < COLOR_CACHE_TTL && raw.colors) {
+        return raw.colors;
+      }
+    } catch (e) {}
+    return {};
+  })();
+
+  let colorCacheSaveTimer = null;
+  function persistColorCache() {
+    clearTimeout(colorCacheSaveTimer);
+    colorCacheSaveTimer = setTimeout(() => {
+      try {
+        const colors = {};
+        Object.keys(usernameColorCache).forEach((k) => {
+          if (usernameColorCache[k] !== 'pending') colors[k] = usernameColorCache[k];
+        });
+        localStorage.setItem(COLOR_CACHE_KEY, JSON.stringify({ at: Date.now(), colors: colors }));
+      } catch (e) {}
+    }, 1000);
+  }
+
+  function rememberColor(username, color) {
+    usernameColorCache[username.toLowerCase()] = color;
+    persistColorCache();
+  }
+
+  function myCurrentColor() {
+    if (!session) return null;
+    const cached = usernameColorCache[session.username.toLowerCase()];
+    return (cached && cached !== 'pending') ? cached : defaultColorFor(session.username);
+  }
 
   function colorForUsername(username, onResolved) {
     const key = username.toLowerCase();
@@ -2431,6 +2469,7 @@
       usernamesRef.doc(key).get().then((doc) => {
         const data = doc.exists ? doc.data() : null;
         usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
+        persistColorCache();
         if (onResolved) onResolved();
       }).catch(() => {
         usernameColorCache[key] = defaultColorFor(username);
@@ -2572,7 +2611,7 @@
     $('colorPicker').addEventListener('input', (e) => {
       const color = e.target.value;
       const key = session.username.toLowerCase();
-      usernameColorCache[key] = color;
+      rememberColor(key, color);
       usernamesRef.doc(key).set({ color: color }, { merge: true }).catch((err) => console.error(err));
       if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
     });
@@ -2612,7 +2651,8 @@
       }
       const mine = m.username === session.username;
 
-      const nameHtml = `<span class="msg-name" style="color:${colorForUsername(m.username, () => renderMessages(lastRenderedMsgs))}">${escapeHtml(m.username)}</span>`;
+      const nameColor = m.color || colorForUsername(m.username, () => renderMessages(lastRenderedMsgs));
+      const nameHtml = `<span class="msg-name" style="color:${nameColor}">${escapeHtml(m.username)}</span>`;
       return `
         <div class="msg ${mine ? 'mine' : ''}">
           <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
@@ -2679,7 +2719,7 @@
     }
 
     unsubscribeMessages = query
-      .limitToLast(100)
+      .limitToLast(50)
       .onSnapshot(
         (snapshot) => {
           const msgs = snapshot.docs.map(doc => doc.data());
