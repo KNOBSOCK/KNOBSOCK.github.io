@@ -917,23 +917,26 @@
       Banning blocks a browser at the database level (Firestore itself rejects the write, not just a check in this page) and deletes that browser's previous messages. It targets the device, not the name — a banned visitor typing a new username on the same browser is still blocked. A different browser or device isn't, since nothing on a static site like this one can reach that far. "Last known IP" below is a reference clue only (e.g. spotting two names that share one), not something this can actually block.
     </div>
     <div class="live-grid">
-      <div class="card">
-        <div class="card-head"><h2>Users</h2></div>
+      <div class="card live-chat-card">
+        <div class="card-head"><h2>Look Up a Chat User</h2></div>
         <div class="live-card-body">
-          <input type="text" class="search-input" id="userSearchInput" placeholder="Search every username ever created…">
-          <div class="list-scroll" id="userList" style="max-height:none;overflow-y:auto;"></div>
+          <div class="note">Nothing from chat is loaded automatically. Enter an exact username to open that person's full available history, ban controls, and IP-hash reference.</div>
+          <div class="add-row">
+            <input type="text" class="search-input" id="userLookupInput" placeholder="Exact username">
+            <button type="button" class="btn btn-primary" id="loadUserHistoryBtn">Open</button>
+          </div>
+          <div class="save-status" id="userLookupStatus"></div>
         </div>
       </div>
 
-      <div class="card live-chat-card">
+      <div class="card">
         <div class="card-head">
-          <h2>Chat</h2>
+          <h2>Chat Controls</h2>
           <button type="button" class="btn" id="clearChatBtn">Clear Chat</button>
         </div>
         <div class="live-card-body">
           <div class="note" id="chatClearedNote" hidden></div>
-          <input type="text" class="search-input" id="chatSearchInput" placeholder="Search messages or usernames…">
-          <div class="list-scroll" id="liveMessagesList" style="max-height:none;overflow-y:auto;"></div>
+          <div class="note">Use the username lookup above to inspect messages. This page no longer loads a site-wide chat archive.</div>
         </div>
       </div>
 
@@ -973,7 +976,7 @@
         <div class="card">
           <div class="card-head"><h2>Banned</h2></div>
           <div class="live-card-body" style="max-height:260px;">
-            <div class="list-scroll" id="bannedList" style="max-height:none;overflow-y:auto;"></div>
+            <div class="note">Ban status is shown when you open a user. The complete ban collection is not loaded automatically.</div>
           </div>
         </div>
         <div class="card">
@@ -2549,7 +2552,7 @@
   let banModalTarget = null;
   let banModalDuration = 'permanent';
 
-  const MESSAGE_LOAD_LIMIT = 3000;
+  const MESSAGE_LOAD_LIMIT = 500;
 
   function isBanRowActive(ban) {
     if (!ban) return false;
@@ -2568,6 +2571,18 @@
     if (!entry || !entry.ipHash) return null;
     if (entry.expiresAt && toMillis(entry.expiresAt) <= Date.now()) return null;
     return entry.ipHash;
+  }
+
+  function loadIpForUsername(username) {
+    const key = String(username || '').toLowerCase();
+    if (!key || Object.prototype.hasOwnProperty.call(liveIpLog, key)) return;
+    // Mark pending so opening and re-rendering the same user cannot make a
+    // second request.  IP logs are only useful in that user's detail view.
+    liveIpLog[key] = null;
+    CHAT_IP_LOG_REF.doc(key).get().then(function (doc) {
+      liveIpLog[key] = doc.exists ? doc.data() : null;
+      if (userHistoryUsername && userHistoryUsername.toLowerCase() === key) renderUserHistory();
+    }).catch(function () { liveIpLog[key] = null; });
   }
 
   function resolveIdentity(username) {
@@ -2824,6 +2839,7 @@
   function openUserHistory(username) {
     userHistoryUsername = username;
     document.getElementById('userHistoryOverlay').hidden = false;
+    loadIpForUsername(username);
     renderUserHistory();
   }
 
@@ -2883,7 +2899,7 @@
     const listEl = document.getElementById('userHistoryMessages');
     listEl.innerHTML = msgs.length
       ? msgs.map(renderChatRow).join('')
-      : '<div class="empty-state">No messages from this user in the most recent ' + MESSAGE_LOAD_LIMIT + ' site-wide.</div>';
+      : '<div class="empty-state">No messages found for this user.</div>';
     wireChatRowActions(listEl);
   }
 
@@ -2943,46 +2959,46 @@
     if (liveModerationStarted) return;
     liveModerationStarted = true;
 
-    CHAT_MESSAGES_REF.orderBy('ts', 'desc').limit(MESSAGE_LOAD_LIMIT).onSnapshot(function (snapshot) {
-      liveMessages = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
-      renderChatLog();
-      renderUserList();
-      if (userHistoryUsername) renderUserHistory();
-    }, function (err) {
-      const root = document.getElementById('liveMessagesList');
-      if (root) root.innerHTML = '<div class="empty-state">Could not load chat: ' + escapeAttr(err.message) + '</div>';
+    function loadUserHistoryOnDemand() {
+      const input = document.getElementById('userLookupInput');
+      const status = document.getElementById('userLookupStatus');
+      const key = input.value.trim().toLowerCase();
+      if (!key) { status.textContent = 'Enter a username.'; return; }
+      status.textContent = 'Loading…';
+      status.style.color = 'var(--text-dim)';
+
+      CHAT_USERNAMES_REF.doc(key).get().then(function (userDoc) {
+        if (!userDoc.exists) throw new Error('No account found with that exact username.');
+        const user = Object.assign({ id: userDoc.id }, userDoc.data());
+        const identity = { username: user.username, deviceId: user.lastDeviceId || null };
+        const messageQuery = identity.deviceId
+          ? CHAT_MESSAGES_REF.where('deviceId', '==', identity.deviceId)
+          : CHAT_MESSAGES_REF.where('username', '==', identity.username);
+        const reads = [messageQuery.get(), CHAT_IP_LOG_REF.doc(userDoc.id).get()];
+        if (identity.deviceId) reads.push(CHAT_BANS_REF.doc(identity.deviceId).get());
+        return Promise.all(reads).then(function (results) {
+          liveUsers = [user];
+          liveMessages = results[0].docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); })
+            .sort(function (a, b) { return toMillis(b.ts) - toMillis(a.ts); });
+          liveIpLog = {};
+          liveIpLog[userDoc.id] = results[1].exists ? results[1].data() : null;
+          liveBans = {};
+          if (identity.deviceId && results[2] && results[2].exists) liveBans[identity.deviceId] = results[2].data();
+          input.value = user.username;
+          status.textContent = liveMessages.length + ' message' + (liveMessages.length === 1 ? '' : 's') + ' loaded.';
+          status.style.color = 'var(--accent)';
+          openUserHistory(user.username);
+        });
+      }).catch(function (err) {
+        status.textContent = err.message || 'Could not load that user.';
+        status.style.color = 'var(--danger)';
+      });
+    }
+
+    document.getElementById('loadUserHistoryBtn').addEventListener('click', loadUserHistoryOnDemand);
+    document.getElementById('userLookupInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') loadUserHistoryOnDemand();
     });
-
-    CHAT_USERNAMES_REF.onSnapshot(function (snapshot) {
-      liveUsers = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
-      liveUsers.sort(function (a, b) { return toMillis(b.createdAt) - toMillis(a.createdAt); });
-      renderUserList();
-      if (userHistoryUsername) renderUserHistory();
-    }, function (err) {
-      const root = document.getElementById('userList');
-      if (root) root.innerHTML = '<div class="empty-state">Could not load users: ' + escapeAttr(err.message) + '</div>';
-    });
-
-    CHAT_IP_LOG_REF.onSnapshot(function (snapshot) {
-      liveIpLog = {};
-      snapshot.docs.forEach(function (doc) { liveIpLog[doc.id] = doc.data(); });
-      if (userHistoryUsername) renderUserHistory();
-    }, function () {
-
-    });
-
-    CHAT_BANS_REF.onSnapshot(function (snapshot) {
-      liveBans = {};
-      snapshot.docs.forEach(function (doc) { liveBans[doc.id] = doc.data(); });
-      renderBannedList();
-      renderUserList();
-      if (userHistoryUsername) renderUserHistory();
-    }, function (err) {
-      const root = document.getElementById('bannedList');
-      if (root) root.innerHTML = '<div class="empty-state">Could not load bans: ' + escapeAttr(err.message) + '</div>';
-    });
-
-    setInterval(renderBannedList, 15000);
 
     CHAT_CENSORED_WORDS_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
@@ -3192,15 +3208,6 @@
     });
 
     document.getElementById('clearChatBtn').addEventListener('click', clearChatOnFrontend);
-
-    document.getElementById('chatSearchInput').addEventListener('input', function (e) {
-      chatSearchQuery = e.target.value;
-      renderChatLog();
-    });
-    document.getElementById('userSearchInput').addEventListener('input', function (e) {
-      userSearchQuery = e.target.value;
-      renderUserList();
-    });
 
     document.getElementById('addCensorWordBtn').addEventListener('click', function () {
       const input = document.getElementById('newCensorWord');

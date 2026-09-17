@@ -73,11 +73,13 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const messagesRef = db.collection('chat_messages');
-  const usernamesRef = db.collection('chat_usernames');
   const configRef = db.collection('chat_config');
 
   const MAX_VISIBLE = 12;
   const FETCH_LIMIT = 60;
+  // OBS is a live overlay.  It should never pay to replay a chat transcript
+  // that was already over before the scene opened.
+  const OVERLAY_STARTED_AT = Date.now();
 
   const DEFAULT_CENSORED_WORDS = [
     'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
@@ -128,25 +130,6 @@
   function defaultColorFor(username) {
     return hslToHex(hashHue(username.toLowerCase()), 70, 72);
   }
-  const usernameColorCache = {};
-  function colorForUsername(username, onResolved) {
-    const key = username.toLowerCase();
-    if (usernameColorCache[key] && usernameColorCache[key] !== 'pending') {
-      return usernameColorCache[key];
-    }
-    if (!usernameColorCache[key]) {
-      usernameColorCache[key] = 'pending';
-      usernamesRef.doc(key).get().then((doc) => {
-        const data = doc.exists ? doc.data() : null;
-        usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
-        if (onResolved) onResolved();
-      }).catch(() => {
-        usernameColorCache[key] = defaultColorFor(username);
-        if (onResolved) onResolved();
-      });
-    }
-    return defaultColorFor(username);
-  }
 
   const container = document.getElementById('messages');
   let lastMsgs = [];
@@ -154,7 +137,7 @@
   function render(msgs) {
     lastMsgs = msgs;
     container.innerHTML = msgs.map(m => {
-      const color = colorForUsername(m.username, () => render(lastMsgs));
+      const color = m.color || defaultColorFor(m.username);
       return '<div class="msg">' +
         '<span class="msg-name" style="color:' + color + '">' + escapeHtml(m.username) + ':</span> ' +
         '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
@@ -170,7 +153,7 @@
     if (unsubscribeMessages) unsubscribeMessages();
     subscribedClearedAt = clearedAt;
     let query = messagesRef.orderBy('ts', 'asc');
-    if (clearedAt) query = query.where('ts', '>', clearedAt);
+    query = query.where('ts', '>=', Math.max(clearedAt || 0, OVERLAY_STARTED_AT));
     unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
       (snapshot) => {
         const msgs = snapshot.docs.map(doc => doc.data())

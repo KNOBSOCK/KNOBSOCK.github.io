@@ -291,6 +291,9 @@
     const MAX_VISIBLE = 50;
 
     const FETCH_LIMIT = 120;
+    // This is a live monitor, not an archive.  Begin at authentication time
+    // and receive only messages posted while the monitor is open.
+    const MONITOR_STARTED_AT = Date.now();
 
     const DEFAULT_CENSORED_WORDS = [
       'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
@@ -341,25 +344,6 @@
     function defaultColorFor(username) {
       return hslToHex(hashHue(username.toLowerCase()), 70, 72);
     }
-    const usernameColorCache = {};
-    function colorForUsername(username, onResolved) {
-      const key = username.toLowerCase();
-      if (usernameColorCache[key] && usernameColorCache[key] !== 'pending') {
-        return usernameColorCache[key];
-      }
-      if (!usernameColorCache[key]) {
-        usernameColorCache[key] = 'pending';
-        usernamesRef.doc(key).get().then((doc) => {
-          const data = doc.exists ? doc.data() : null;
-          usernameColorCache[key] = (data && data.color) || defaultColorFor(username);
-          if (onResolved) onResolved();
-        }).catch(() => {
-          usernameColorCache[key] = defaultColorFor(username);
-          if (onResolved) onResolved();
-        });
-      }
-      return defaultColorFor(username);
-    }
 
     const container = document.getElementById('messages');
     let lastMsgs = [];
@@ -369,7 +353,7 @@
 
       const wasNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 40;
       container.innerHTML = msgs.map(m => {
-        const color = colorForUsername(m.username, () => render(lastMsgs));
+        const color = m.color || defaultColorFor(m.username);
         return '<div class="msg">' +
           '<span class="msg-name" style="color:' + color + '">' + escapeHtml(m.username) + ':</span> ' +
           '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
@@ -386,7 +370,7 @@
       if (unsubscribeMessages) unsubscribeMessages();
       subscribedClearedAt = clearedAt;
       let query = messagesRef.orderBy('ts', 'asc');
-      if (clearedAt) query = query.where('ts', '>', clearedAt);
+      query = query.where('ts', '>=', Math.max(clearedAt || 0, MONITOR_STARTED_AT));
       unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
         (snapshot) => {
           const msgs = snapshot.docs.map(doc => doc.data())
