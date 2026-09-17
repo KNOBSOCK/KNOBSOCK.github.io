@@ -83,6 +83,23 @@
     background: transparent;
   }
 
+  @media (min-width: 861px) {
+    .player-wrap {
+      flex: 0 0 auto;
+      min-height: 0;
+      /* 62% of the inner widget width is a 16:9 player. The fixed amount
+         accounts for its horizontal gap plus the widget's top/bottom insets. */
+      height: calc(34.875vw + 30px);
+    }
+    .player-wrap iframe { height: 100%; }
+    .privacy-footer {
+      position: absolute;
+      top: calc(34.875vw + 182.4px + clamp(8px, 2vw, 20px));
+      left: 0;
+      right: 0;
+    }
+  }
+
   .privacy-footer {
     flex: 0 0 auto;
     text-align: center;

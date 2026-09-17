@@ -166,6 +166,29 @@
     container-name: chatbox;
   }
 
+  /* On desktop, make the shared row as tall as the 16:9 player. This lets the
+     chat sit flush with the player instead of stretching down the page. */
+  @media (min-width: 861px) {
+    .bg-glow {
+      /* Match the 16:9 video-column height instead of the iframe's height. */
+      bottom: auto;
+      height: calc(34.875vw - 10.5px);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 62fr) minmax(300px, 38fr);
+      align-content: start;
+    }
+    .video-pane {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+    }
+    .chat-pane { min-width: 0; }
+    .layout.chat-hidden,
+    .layout.fullscreen-active { grid-template-columns: 1fr; }
+  }
+
   .vods-panel {
     position: absolute;
     top: 0;
@@ -254,11 +277,14 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     padding: 8px;
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
+  .vods-list::-webkit-scrollbar { display: none; }
   .vods-empty {
     padding: 16px 10px;
     text-align: center;
@@ -292,8 +318,10 @@
     object-fit: cover;
     background: var(--panel);
   }
-  .vod-row-title {
+  .vod-row-details {
     min-width: 0;
+  }
+  .vod-row-title {
     font-family: 'Gratis Neue', var(--font-body);
     font-size: clamp(11px, 2.8cqw, 13px);
     line-height: 1.3;
@@ -301,6 +329,13 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+  }
+  .vod-row-date {
+    display: block;
+    margin-top: 3px;
+    color: var(--text-dim);
+    font-size: clamp(9px, 2.3cqw, 11px);
+    line-height: 1.2;
   }
 
   @media (max-width: 860px) {
@@ -1172,6 +1207,7 @@
     toggleBtn.textContent = hidden ? 'Show Chat' : 'Hide Chat';
     toggleBtn.title = hidden ? 'Show chat' : 'Hide chat';
   });
+
 })();
 
 (function () {
@@ -1962,9 +1998,11 @@
     vodsListEl.innerHTML = latestVods.map((v) => {
       const active = v.id === activeVodId;
       const thumbSrc = v.thumb || (v.type === 'direct' ? '' : ('https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg'));
+      const addedDate = formatVodAddedDate(v.addedAt);
       return '<button type="button" class="vod-row' + (active ? ' active' : '') + '" data-vod-id="' + escapeHtml(v.id) + '">' +
         (thumbSrc ? '<img class="vod-row-thumb" src="' + escapeHtml(thumbSrc) + '" alt="" loading="lazy">' : '<span class="vod-row-thumb" aria-hidden="true"></span>') +
-        '<span class="vod-row-title">' + escapeHtml(v.title || 'Untitled') + '</span>' +
+        '<span class="vod-row-details"><span class="vod-row-title">' + escapeHtml(v.title || 'Untitled') + '</span>' +
+        (addedDate ? '<span class="vod-row-date">' + escapeHtml(addedDate) + '</span>' : '') + '</span>' +
       '</button>';
     }).join('');
     vodsListEl.querySelectorAll('.vod-row').forEach((row) => {
@@ -1977,14 +2015,24 @@
     });
   }
 
+  function formatVodAddedDate(value) {
+    const timestamp = Number(value);
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+    return new Date(timestamp).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+
   let vodDeepLinkAttempted = false;
   configRef.doc('vods').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const items = (data && Array.isArray(data.items)) ? data.items : [];
     latestVods = items.map((v) => {
       const ytId = extractVideoId(v.url);
-      if (ytId) return { id: ytId, type: 'youtube', title: v.title, thumb: v.thumb || '' };
-      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '' };
+      if (ytId) return { id: ytId, type: 'youtube', title: v.title, thumb: v.thumb || '', addedAt: v.addedAt || 0 };
+      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '', addedAt: v.addedAt || 0 };
       return null;
     }).filter(Boolean);
     renderVods();
