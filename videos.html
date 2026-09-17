@@ -124,28 +124,6 @@
   .tv-channel-static { z-index: -1; }
   .tv-featured-video.is-live, .tv-channel-static.is-live { opacity: 1; }
 
-  .tv-glow {
-    position: absolute;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0;
-    --glow-alpha: 1;
-    --glow-reach: 27%;
-    background:
-      linear-gradient(to right, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach)),
-      linear-gradient(to left, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach)),
-      linear-gradient(to bottom, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach)),
-      linear-gradient(to top, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach));
-    transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-      opacity 0.2s ease;
-  }
-  .tv-glow.is-lit { opacity: 1; }
-  .tv-glow.is-pressed {
-    opacity: 1;
-    --glow-reach: 46%;
-  }
-
   .tv-outer-glow {
     position: absolute;
     z-index: 1;
@@ -335,7 +313,6 @@
   <video class="tv-featured-video" id="tvFeaturedVideo" muted playsinline loop preload="auto"></video>
   <video class="tv-channel-static" id="tvChannelStatic" src="/YTDown.com_YouTube_TV-STATIC-4K-60FPS_Media_wf2Ojwq4gYU_003_480p.mp4" muted playsinline preload="auto"></video>
   <img class="tv-static" id="tvStatic" src="/tv-static-overlay.webp" alt="">
-  <div class="tv-glow" id="tvGlow"></div>
   <img class="room-bg" id="roomBg" alt="">
   <img class="tv-outer-glow" id="tvOuterGlow" alt="">
   <script>
@@ -432,7 +409,6 @@
   var roomScene = document.getElementById('roomScene');
   var tvStatic = document.getElementById('tvStatic');
   var tvZoomTrigger = document.getElementById('tvZoomTrigger');
-  var tvGlow = document.getElementById('tvGlow');
   var tvOuterGlow = document.getElementById('tvOuterGlow');
   var remoteBackBtn = document.getElementById('remoteBackBtn');
   var remoteHnBtn = document.getElementById('remoteHnBtn');
@@ -553,7 +529,6 @@
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
 
     placeBox(tvStatic, v.tvStatic, ox, oy, s);
-    placeBox(tvGlow, v.tvStatic, ox, oy, s);
     placeBox(tvOuterGlow, v.tvOuterGlow, ox, oy, s);
     placeBox(tvFeaturedVideo, v.tvStatic, ox, oy, s);
     placeBox(tvChannelStatic, v.tvStatic, ox, oy, s);
@@ -618,7 +593,7 @@
     // size. A transform: scale() on the parent would instead stretch an
     // already-rasterized bitmap captured at the smaller pre-zoom size —
     // blurry no matter how high-res the source images are.
-    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic, tvGlow, tvOuterGlow].forEach(function (el) {
+    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic, tvOuterGlow].forEach(function (el) {
       zoomifyElement(el, tx, ty, k);
     });
   }
@@ -846,9 +821,8 @@
   tvZoomTrigger.addEventListener('click', openZoom);
   tvZoomTrigger.addEventListener('pointerenter', primeWoosh);
 
-  var glowLayers = [tvGlow, tvOuterGlow];
   function setGlow(cls, on) {
-    glowLayers.forEach(function (el) { el.classList.toggle(cls, on); });
+    tvOuterGlow.classList.toggle(cls, on);
   }
   function clearGlow() {
     setGlow('is-lit', false);
