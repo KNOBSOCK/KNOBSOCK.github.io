@@ -124,6 +124,28 @@
   .tv-channel-static { z-index: -1; }
   .tv-featured-video.is-live, .tv-channel-static.is-live { opacity: 1; }
 
+  .tv-glow {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    --glow-alpha: 1;
+    --glow-reach: 27%;
+    background:
+      linear-gradient(to right, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach)),
+      linear-gradient(to left, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach)),
+      linear-gradient(to bottom, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach)),
+      linear-gradient(to top, rgba(255, 224, 51, var(--glow-alpha)), rgba(255, 224, 51, 0) var(--glow-reach));
+    transition: left 0.46s cubic-bezier(0.33, 0, 0.2, 1), top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      width 0.46s cubic-bezier(0.33, 0, 0.2, 1), height 0.46s cubic-bezier(0.33, 0, 0.2, 1),
+      opacity 0.2s ease;
+  }
+  .tv-glow.is-lit { opacity: 1; }
+  .tv-glow.is-pressed {
+    opacity: 1;
+    --glow-reach: 46%;
+  }
+
   .tv-slot {
     position: absolute;
     z-index: 2;
@@ -139,27 +161,9 @@
     z-index: 2;
     padding: 0;
     border: 0;
-    border-radius: 2.2%;
     background: transparent;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: box-shadow 0.18s ease;
-  }
-  @media (hover: hover) {
-    .tv-zoom-trigger:hover {
-      box-shadow:
-        inset 0 0 22px 2px rgba(255, 214, 0, 0.55),
-        0 0 26px 6px rgba(255, 214, 0, 0.75);
-    }
-  }
-  .tv-zoom-trigger:focus-visible {
-    outline: 2px solid #ffd600;
-    outline-offset: 3px;
-  }
-  .tv-zoom-trigger:active {
-    box-shadow:
-      inset 0 0 30px 4px rgba(255, 228, 92, 0.75),
-      0 0 40px 12px rgba(255, 214, 0, 0.95);
   }
 
   .tv-btn {
@@ -319,6 +323,7 @@
   <video class="tv-featured-video" id="tvFeaturedVideo" muted playsinline loop preload="auto"></video>
   <video class="tv-channel-static" id="tvChannelStatic" src="/YTDown.com_YouTube_TV-STATIC-4K-60FPS_Media_wf2Ojwq4gYU_003_480p.mp4" muted playsinline preload="auto"></video>
   <img class="tv-static" id="tvStatic" src="/tv-static-overlay.webp" alt="">
+  <div class="tv-glow" id="tvGlow"></div>
   <img class="room-bg" id="roomBg" alt="">
   <script>
     document.getElementById('roomBg').src = window.innerWidth <= 860
@@ -410,6 +415,7 @@
   var roomScene = document.getElementById('roomScene');
   var tvStatic = document.getElementById('tvStatic');
   var tvZoomTrigger = document.getElementById('tvZoomTrigger');
+  var tvGlow = document.getElementById('tvGlow');
   var remoteBackBtn = document.getElementById('remoteBackBtn');
   var remoteHnBtn = document.getElementById('remoteHnBtn');
   var remoteHnBtnImg = document.getElementById('remoteHnBtnImg');
@@ -528,6 +534,7 @@
     slot.style.setProperty('--pop-blur', (bh * 0.09) + 'px');
 
     placeBox(tvStatic, v.tvStatic, ox, oy, s);
+    placeBox(tvGlow, v.tvStatic, ox, oy, s);
     placeBox(tvFeaturedVideo, v.tvStatic, ox, oy, s);
     placeBox(tvChannelStatic, v.tvStatic, ox, oy, s);
     placeRemoteBack(v.remoteBack, ox, oy, s);
@@ -591,7 +598,7 @@
     // size. A transform: scale() on the parent would instead stretch an
     // already-rasterized bitmap captured at the smaller pre-zoom size —
     // blurry no matter how high-res the source images are.
-    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic].forEach(function (el) {
+    [bg, tvStatic, logo, remoteBackBtn, remoteHnBtn, remoteSelectBtn, tvFeaturedVideo, tvChannelStatic, tvGlow].forEach(function (el) {
       zoomifyElement(el, tx, ty, k);
     });
   }
@@ -685,6 +692,7 @@
 
   function beginZoom() {
     isZoomed = true;
+    clearGlow();
     playWoosh();
     setCameraAnchor();
     roomScene.classList.add('is-zooming');
@@ -817,6 +825,34 @@
 
   tvZoomTrigger.addEventListener('click', openZoom);
   tvZoomTrigger.addEventListener('pointerenter', primeWoosh);
+
+  function clearGlow() {
+    tvGlow.classList.remove('is-lit');
+    tvGlow.classList.remove('is-pressed');
+  }
+  var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  function lightGlow(e) {
+    if (isZoomed) return;
+    if (canHover && e.pointerType !== 'touch') tvGlow.classList.add('is-lit');
+  }
+  tvZoomTrigger.addEventListener('pointerenter', lightGlow);
+  tvZoomTrigger.addEventListener('pointermove', lightGlow);
+  tvZoomTrigger.addEventListener('pointerleave', clearGlow);
+  tvZoomTrigger.addEventListener('pointerdown', function () {
+    if (isZoomed) return;
+    tvGlow.classList.add('is-pressed');
+  });
+  tvZoomTrigger.addEventListener('pointerup', function () {
+    tvGlow.classList.remove('is-pressed');
+  });
+  tvZoomTrigger.addEventListener('pointercancel', clearGlow);
+  tvZoomTrigger.addEventListener('focus', function () {
+    if (isZoomed) return;
+    var focusVisible = true;
+    try { focusVisible = tvZoomTrigger.matches(':focus-visible'); } catch (_) {}
+    if (focusVisible) tvGlow.classList.add('is-lit');
+  });
+  tvZoomTrigger.addEventListener('blur', clearGlow);
   remoteBackBtn.addEventListener('click', closeZoom);
   remoteBackBtn.addEventListener('pointerdown', function () { remoteBackBtn.classList.add('is-pressed'); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (evt) {
