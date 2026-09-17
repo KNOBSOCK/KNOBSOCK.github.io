@@ -965,6 +965,8 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     padding: clamp(10px, 3.2cqh, 16px) clamp(10px, 3.4cqw, 18px);
     display: flex;
     flex-direction: column;
@@ -973,12 +975,7 @@
     transform: translateZ(0);
   }
 
-  .messages::-webkit-scrollbar { width: 8px; }
-  .messages::-webkit-scrollbar-track { background: transparent; }
-  .messages::-webkit-scrollbar-thumb {
-    background: var(--accent-dim);
-    border-radius: 4px;
-  }
+  .messages::-webkit-scrollbar { display: none; }
 
   .msg {
     max-width: 82%;
