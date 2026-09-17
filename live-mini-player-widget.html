@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live</title>
+<style>
+
+  html, body { cursor: url("/cursor-hamburger.png?v=2") 24 17, auto; }
+  a, button { cursor: url("/cursor-hamburger.png?v=2") 24 17, pointer; }
+  :root {
+
+    --accent: #E10600;
+    --accent-rgb: 225, 6, 0;
+    --text-dim: rgba(255, 255, 0, 0.65);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+  }
+
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: yellow;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    padding: 6px;
+  }
+
+  a { text-decoration: none; color: inherit; }
+
+  .grid-frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    align-self: stretch;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 2px;
+    overflow: hidden;
+  }
+
+  .unmute-btn {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .grid-frame.controls-visible .unmute-btn {
+    opacity: 1;
+  }
+
+  .player-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .player-box {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  }
+
+  .video-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .video-loading[hidden] { display: none; }
+  .player-box.is-loading iframe { visibility: hidden; }
+
+  .gif-loader {
+    display: block;
+    width: min(67.5px, 30%);
+    height: auto;
+    opacity: 0.35;
+  }
+  .player-box iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 0;
+
+    pointer-events: none;
+  }
+  .player-box video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  .unmute-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 5;
+    background: rgba(var(--accent-rgb), 0.5);
+
+    color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+  }
+
+  @media (max-width: 480px) {
+    .grid-frame { padding: 0; }
+    .player-box { border-radius: 0; }
+
+    .unmute-btn {
+      padding: 3px 6px;
+      font-size: 9px;
+      border-radius: 5px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="grid-frame" id="gridFrame">
+    <div class="player-wrap">
+      <div class="player-box is-loading">
+        <div id="ytPlayer"></div>
+        <video id="videoEl" playsinline webkit-playsinline muted referrerpolicy="origin" disablePictureInPicture disableRemotePlayback controlsList="nodownload noplaybackrate noremoteplayback" style="display:none;"></video>
+        <div class="video-loading" id="videoLoading">
+          <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading stream…">
+        </div>
+        <button class="unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+      authDomain: "chat-for-website-efee2.firebaseapp.com",
+      projectId: "chat-for-website-efee2",
+      storageBucket: "chat-for-website-efee2.firebasestorage.app",
+      messagingSenderId: "509309222193",
+      appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const LIVE_VIDEO_DOC_REF = db.collection('chat_config').doc('liveVideo');
+  </script>
+
+  <script>
+
+    const unmuteBtn = document.getElementById('unmuteBtn');
+    const gridFrameEl = document.getElementById('gridFrame');
+    const videoEl = document.getElementById('videoEl');
+    const videoLoading = document.getElementById('videoLoading');
+    const playerBoxEl = document.querySelector('.player-box');
+
+    let backend = 'youtube';
+    let videoReady = false;
+    let hlsInstance = null;
+    let wantsUnmute = false;
+    let isUnmutedIntent = false;
+    let externalPauseRequested = false;
+    let loadedSourceKey = null;
+
+    function isDirectVideoUrl(input) {
+      if (!input) return false;
+      const trimmed = String(input).trim();
+      return /^https?:\/\//i.test(trimmed) && /\.(m3u8|mp4|webm|mov)(\?.*)?$/i.test(trimmed);
+    }
+
+    const CONTROLS_AUTO_HIDE_MS = 3000;
+    const supportsHover = window.matchMedia('(hover: hover)').matches;
+    let controlsHideTimer = null;
+
+    function showControls(autoHide) {
+      gridFrameEl.classList.add('controls-visible');
+      clearTimeout(controlsHideTimer);
+      if (autoHide) {
+        controlsHideTimer = setTimeout(() => {
+          gridFrameEl.classList.remove('controls-visible');
+        }, CONTROLS_AUTO_HIDE_MS);
+      }
+    }
+    function hideControlsNow() {
+      clearTimeout(controlsHideTimer);
+      gridFrameEl.classList.remove('controls-visible');
+    }
+
+    if (supportsHover) {
+      playerBoxEl.addEventListener('mouseenter', () => showControls(true));
+      playerBoxEl.addEventListener('mousemove', () => showControls(true));
+      playerBoxEl.addEventListener('mouseleave', () => hideControlsNow());
+    } else {
+      playerBoxEl.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.unmute-btn')) {
+          showControls(true);
+          return;
+        }
+        if (gridFrameEl.classList.contains('controls-visible')) {
+          hideControlsNow();
+        } else {
+          showControls(true);
+        }
+      }, { passive: true });
+    }
+
+    let ytPlayer = null;
+    let ytApiReady = false;
+    let playerReady = false;
+    let pendingVideo = null;
+
+    function showVideoLoading() {
+      videoLoading.hidden = false;
+      playerBoxEl.classList.add('is-loading');
+    }
+    function hideVideoLoading() {
+      videoLoading.hidden = true;
+      playerBoxEl.classList.remove('is-loading');
+    }
+
+    function updateMuteBtnLabel() {
+      if (backend === 'video') {
+        unmuteBtn.textContent = videoEl.muted ? 'Unmute' : 'Mute';
+        return;
+      }
+      if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
+      unmuteBtn.textContent = ytPlayer.isMuted() ? 'Unmute' : 'Mute';
+    }
+
+    function showBackendEl(kind) {
+      document.getElementById('ytPlayer').style.display = kind === 'youtube' ? '' : 'none';
+      videoEl.style.display = kind === 'video' ? '' : 'none';
+    }
+
+    function stopDirectVideo() {
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      videoEl.pause();
+      videoEl.removeAttribute('src');
+      videoEl.load();
+      videoReady = false;
+    }
+
+    function applyUnmute() {
+      if (!wantsUnmute) return;
+      if (backend === 'video') {
+        if (!videoReady) return;
+        videoEl.muted = false;
+        videoEl.volume = 1;
+      } else {
+        if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return;
+        ytPlayer.unMute();
+        ytPlayer.setVolume(100);
+      }
+      updateMuteBtnLabel();
+      wantsUnmute = false;
+    }
+
+    function loadDirectVideo(url) {
+      if (/\.m3u8($|\?)/i.test(url) && !window.Hls && !videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        showVideoLoading();
+        setTimeout(function () { loadDirectVideo(url); }, 100);
+        return;
+      }
+      backend = 'video';
+      showBackendEl('video');
+      showVideoLoading();
+      videoReady = false;
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      if (/\.m3u8($|\?)/i.test(url) && window.Hls && Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(videoEl);
+      } else {
+        videoEl.src = url;
+      }
+      videoEl.muted = true;
+      videoEl.play().catch(() => {});
+    }
+
+    videoEl.addEventListener('loadedmetadata', () => {
+      videoReady = true;
+      updateMuteBtnLabel();
+      applyUnmute();
+    });
+    videoEl.addEventListener('waiting', () => { if (backend === 'video') showVideoLoading(); });
+    videoEl.addEventListener('playing', () => { if (backend === 'video') hideVideoLoading(); });
+    videoEl.addEventListener('pause', () => {
+      if (backend === 'video' && videoReady && !externalPauseRequested) videoEl.play().catch(() => {});
+    });
+
+    const OVERSCAN = 1.35;
+    function sizePlayerToCover() {
+      const frame = playerBoxEl ? playerBoxEl.querySelector('iframe') : null;
+      if (!playerBoxEl || !frame) return;
+      const w = playerBoxEl.clientWidth;
+      const h = playerBoxEl.clientHeight;
+      if (!w || !h) return;
+      const targetRatio = 16 / 9;
+      let frameW, frameH;
+      if (w / h > targetRatio) {
+        frameW = w;
+        frameH = w / targetRatio;
+      } else {
+        frameH = h;
+        frameW = h * targetRatio;
+      }
+      frame.style.width = (frameW * OVERSCAN) + 'px';
+      frame.style.height = (frameH * OVERSCAN) + 'px';
+    }
+    window.addEventListener('resize', sizePlayerToCover);
+    if (window.ResizeObserver && playerBoxEl) {
+      new ResizeObserver(sizePlayerToCover).observe(playerBoxEl);
+    }
+
+    function onPlayerReady() {
+      playerReady = true;
+      updateMuteBtnLabel();
+      sizePlayerToCover();
+      applyUnmute();
+      if (pendingVideo) {
+        showVideoLoading();
+        ytPlayer.loadVideoById(pendingVideo.id);
+        pendingVideo = null;
+      }
+    }
+
+    function onPlayerStateChange(e) {
+      if (backend !== 'youtube') return;
+      if (e.data === YT.PlayerState.PLAYING) {
+        hideVideoLoading();
+        applyUnmute();
+      } else if (e.data === YT.PlayerState.BUFFERING) {
+        showVideoLoading();
+      } else if (e.data === YT.PlayerState.PAUSED) {
+        if (!externalPauseRequested) ytPlayer.playVideo();
+      }
+    }
+
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data.type !== 'knobsock-pause-media') return;
+      externalPauseRequested = true;
+      if (backend === 'video') videoEl.pause();
+      else if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+    });
+
+    function createPlayer(id) {
+      ytPlayer = new YT.Player('ytPlayer', {
+        videoId: id,
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          iv_load_policy: 3,
+          cc_load_policy: 0
+        },
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange
+        }
+      });
+    }
+
+    function loadSource(source) {
+      const key = source.type === 'direct' ? source.url : source.id;
+      if (!key || key === loadedSourceKey) return;
+      loadedSourceKey = key;
+      externalPauseRequested = false;
+
+      if (source.type === 'direct') {
+        if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+        wantsUnmute = isUnmutedIntent;
+        loadDirectVideo(source.url);
+        return;
+      }
+
+      backend = 'youtube';
+      showBackendEl('youtube');
+      stopDirectVideo();
+      wantsUnmute = isUnmutedIntent;
+      if (ytPlayer && playerReady) {
+        showVideoLoading();
+        ytPlayer.loadVideoById(source.id);
+      } else if (ytApiReady && !ytPlayer) {
+        createPlayer(source.id);
+      } else {
+        pendingVideo = { id: source.id };
+      }
+    }
+
+    window.onYouTubeIframeAPIReady = function () {
+      ytApiReady = true;
+      if (pendingVideo && !ytPlayer) {
+        const { id } = pendingVideo;
+        pendingVideo = null;
+        createPlayer(id);
+      }
+    };
+
+    unmuteBtn.addEventListener('click', () => {
+      showControls(true);
+      if (backend === 'video') {
+        if (!videoReady) return;
+        if (videoEl.muted) { videoEl.muted = false; videoEl.volume = 1; isUnmutedIntent = true; }
+        else { videoEl.muted = true; isUnmutedIntent = false; }
+        updateMuteBtnLabel();
+        return;
+      }
+      if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
+      if (ytPlayer.isMuted()) {
+        ytPlayer.unMute();
+        ytPlayer.setVolume(100);
+        isUnmutedIntent = true;
+      } else {
+        ytPlayer.mute();
+        isUnmutedIntent = false;
+      }
+      updateMuteBtnLabel();
+    });
+
+    LIVE_VIDEO_DOC_REF.onSnapshot(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      const isLive = !(data && data.isLive === false);
+      if (!isLive) {
+        loadedSourceKey = null;
+        stopDirectVideo();
+        if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
+          try { ytPlayer.stopVideo(); } catch (err) {}
+        }
+        showVideoLoading();
+        return;
+      }
+      const directUrl = data && data.directUrl;
+      if (directUrl && isDirectVideoUrl(directUrl)) {
+        loadSource({ type: 'direct', url: String(directUrl).trim() });
+        return;
+      }
+      if (data && data.videoId) loadSource({ type: 'youtube', id: data.videoId });
+    }, function (err) {
+      console.error('Live video sync error:', err);
+    });
+  </script>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.6.15/hls.min.js"></script>
+
+<script>
+
+  if (window.parent !== window) {
+    document.addEventListener('mousemove', function (e) {
+      window.parent.postMessage({ type: 'knobsock-chase-mousemove', x: e.clientX, y: e.clientY }, '*');
+    }, { passive: true });
+  }
+</script>
+
+</body>
+</html>

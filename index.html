@@ -256,6 +256,11 @@
     cursor: url("/cursor-hamburger.png?v=2") 24 17, pointer;
   }
   .panel-label img { display: block; width: 100%; height: auto; }
+  .panel-label[hidden] { display: none; }
+
+  .panel-label-live {
+    width: clamp(150px, 33%, 250px);
+  }
   @keyframes floatY {
     0%, 100% { transform: translateY(0px) rotate(-2deg); }
     50% { transform: translateY(-10px) rotate(2deg); }
@@ -296,6 +301,10 @@
 
     margin-top: clamp(-40px, -4vw, -20px);
 
+  }
+
+  .video-panel.is-live {
+    background: #E10600;
   }
 
   .video-frame {
@@ -441,13 +450,16 @@
         <iframe src="/recent-articles-widget.html" title="Recent Articles" loading="lazy"></iframe>
         <span class="card-touch" aria-hidden="true"></span>
       </div>
-      <div class="panel video-panel">
-        <a class="panel-label" href="/videos" target="_top">
+      <div class="panel video-panel" id="videoPanel">
+        <a class="panel-label" id="videoPanelLabel" href="/videos" target="_top">
           <img src="https://raw.githubusercontent.com/KNOBSOCK/KNOBSOCK.github.io/refs/heads/main/SIX_8C91B2F3-4C60-4ADC-9384-53593F97B594.png" alt="Newest Video">
+        </a>
+        <a class="panel-label panel-label-live" id="livePanelLabel" href="/live" target="_top" hidden>
+          <img src="/knobsock-is-live-label.png" alt="KNOBSOCK IS LIVE!">
         </a>
 
         <div class="video-frame">
-          <iframe src="/video-mini-player-widget.html" title="Videos" loading="lazy"
+          <iframe id="videoPanelFrame" src="/video-mini-player-widget.html" title="Videos" loading="lazy"
                   sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
         </div>
         <span class="card-touch" aria-hidden="true"></span>
@@ -888,13 +900,34 @@
   const db = firebase.firestore();
 
   const liveNowBadge = document.getElementById('liveNowBadge');
+
+  const videoPanel = document.getElementById('videoPanel');
+  const videoPanelLabel = document.getElementById('videoPanelLabel');
+  const livePanelLabel = document.getElementById('livePanelLabel');
+  const videoPanelFrame = document.getElementById('videoPanelFrame');
+  const VIDEO_WIDGET_SRC = '/video-mini-player-widget.html';
+  const LIVE_WIDGET_SRC = '/live-mini-player-widget.html';
+
+  function setVideoPanelLive(isLive) {
+    if (!videoPanel || !videoPanelFrame) return;
+    videoPanel.classList.toggle('is-live', isLive);
+    videoPanelLabel.hidden = isLive;
+    livePanelLabel.hidden = !isLive;
+    const nextSrc = isLive ? LIVE_WIDGET_SRC : VIDEO_WIDGET_SRC;
+    if (videoPanelFrame.getAttribute('src') === nextSrc) return;
+    videoPanelFrame.title = isLive ? 'Live' : 'Videos';
+    videoPanelFrame.setAttribute('src', nextSrc);
+  }
+
   db.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
     const isLive = !(data && data.isLive === false);
     liveNowBadge.hidden = !isLive;
+    setVideoPanelLive(isLive);
   }, function () {
 
     liveNowBadge.hidden = true;
+    setVideoPanelLive(false);
   });
 </script>
 
