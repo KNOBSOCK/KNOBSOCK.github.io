@@ -6,6 +6,12 @@
 <title>Recent Articles</title>
 <style>
 
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
+
   html, body { cursor: url("/cursor-hamburger.png?v=2") 24 17, auto; }
   a, button { cursor: url("/cursor-hamburger.png?v=2") 24 17, pointer; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -35,11 +41,15 @@
   }
 
   h2 {
-    font-size: clamp(12px, 3.75vw, 17px);
+    font-family: 'Gratis Neue', Arial, sans-serif;
+    font-size: clamp(14px, 4.4vw, 20px);
     margin-bottom: clamp(9px, 3vw, 15px);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     text-align: center;
+    -webkit-text-stroke: 1px #000;
+    paint-order: stroke fill;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
   }
 
   .article-grid {
