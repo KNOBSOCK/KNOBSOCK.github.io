@@ -1316,6 +1316,7 @@
     playPauseBtn.disabled = false;
     scrubRange.disabled = false;
     updatePlayPauseIcon(true);
+    applyPendingUnmute();
   });
   videoEl.addEventListener('waiting', function () { if (backend === 'video') showVideoLoading(); });
   videoEl.addEventListener('playing', function () { if (backend === 'video') { directVideoWasPlaying = true; hideVideoLoading(); updatePlayPauseIcon(true); } });
@@ -1373,6 +1374,31 @@
   }
 
   unmuteBtn.disabled = true;
+
+  var pendingUnmute = false;
+
+  function setMutedUiState(isMuted) {
+    unmuteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+    unmuteBtn.title = isMuted ? 'Unmute' : 'Mute';
+  }
+
+  function applyPendingUnmute() {
+    if (!pendingUnmute) return;
+    if (backend === 'video') {
+      videoEl.muted = false;
+      videoEl.volume = 1;
+      setMutedUiState(false);
+      pendingUnmute = false;
+      return;
+    }
+    if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return;
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+    setMutedUiState(false);
+    if (typeof ytPlayer.getPlayerState === 'function' && ytPlayer.getPlayerState() === 1) {
+      pendingUnmute = false;
+    }
+  }
 
   function formatTime(sec) {
     if (!isFinite(sec) || sec < 0) sec = 0;
@@ -1439,12 +1465,14 @@
           scrubRange.disabled = false;
           updatePlayPauseIcon(true);
           updateProgress();
+          applyPendingUnmute();
         },
         onStateChange: function (event) {
           if (backend !== 'youtube') return;
           updatePlayPauseIcon(event.data === YT.PlayerState.PLAYING);
           if (event.data === YT.PlayerState.PLAYING) {
             hideVideoLoading();
+            applyPendingUnmute();
           } else if (event.data === YT.PlayerState.BUFFERING) {
             showVideoLoading();
           }
@@ -1504,6 +1532,7 @@
   updateOfflineTheme();
 
   window.applyLiveVideoState = function (source, isLive) {
+    pendingUnmute = false;
     configuredLiveSource = isLive ? source : null;
     configuredIsLive = !!isLive;
     updateLiveButtonState();
@@ -1544,10 +1573,11 @@
     requestYouTubeIframeApi();
   };
 
-  window.switchToVod = function (vodId, entry) {
+  window.switchToVod = function (vodId, entry, unmute) {
     if (!vodId || (watchingVodId === vodId && loadedVideoId === vodId)) return;
     watchingVodId = vodId;
     loadedVideoId = vodId;
+    pendingUnmute = !!unmute;
     showVideoLoading();
     if (entry && entry.type === 'direct') {
       loadDirectVideo(entry.url);
@@ -1564,6 +1594,7 @@
         requestYouTubeIframeApi();
       }
     }
+    applyPendingUnmute();
     updateLiveButtonState();
     updateOfflineCardState();
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(watchingVodId);
@@ -1607,17 +1638,16 @@
   }
 
   unmuteBtn.addEventListener('click', function () {
+    pendingUnmute = false;
     if (backend === 'video') {
       if (!videoReady) return;
       if (videoEl.muted) {
         videoEl.muted = false;
         videoEl.volume = 1;
-        unmuteBtn.textContent = 'Mute';
-        unmuteBtn.title = 'Mute';
+        setMutedUiState(false);
       } else {
         videoEl.muted = true;
-        unmuteBtn.textContent = 'Unmute';
-        unmuteBtn.title = 'Unmute';
+        setMutedUiState(true);
       }
       return;
     }
@@ -1625,12 +1655,10 @@
     if (ytPlayer.isMuted()) {
       ytPlayer.unMute();
       ytPlayer.setVolume(100);
-      unmuteBtn.textContent = 'Mute';
-      unmuteBtn.title = 'Mute';
+      setMutedUiState(false);
     } else {
       ytPlayer.mute();
-      unmuteBtn.textContent = 'Unmute';
-      unmuteBtn.title = 'Unmute';
+      setMutedUiState(true);
     }
   });
 
@@ -1919,7 +1947,7 @@
       row.addEventListener('click', () => {
         const id = row.dataset.vodId;
         const entry = latestVods.find((v) => v.id === id);
-        if (typeof window.switchToVod === 'function') window.switchToVod(id, entry);
+        if (typeof window.switchToVod === 'function') window.switchToVod(id, entry, true);
         setVodsOpen(false);
       });
     });
