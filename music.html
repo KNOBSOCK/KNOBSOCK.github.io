@@ -244,7 +244,7 @@
     width: 100%;
     transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.16s ease;
   }
-  .radio-overlay .radio-art {
+  .radio-assembly .radio-art {
     position: relative;
     z-index: 2;
     display: block;
@@ -309,6 +309,20 @@
     user-select: none;
   }
   .radio-panel img.is-active { opacity: 1; }
+  /* iOS Safari can rasterize images inside the scaled room before applying
+     the 4.2× camera zoom. Render the close-up at its final size instead. */
+  .radio-player-zoom {
+    position: fixed;
+    z-index: 10;
+    top: 50%;
+    left: 50%;
+    display: none;
+    width: var(--radio-zoom-width, 0px);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .radio-player-zoom.is-open { display: block; }
+  .radio-is-zoomed .radio-overlay { visibility: hidden; }
   .boombox-overlay:hover img,
   .boombox-overlay:focus-visible img,
   .boombox-overlay.is-glowing img,
@@ -594,6 +608,21 @@
 
 <button class="radio-zoom-close" id="radioZoomClose" type="button" aria-label="Zoom out to the full music room"></button>
 
+<div class="radio-player-zoom" id="radioZoomPlayer" aria-hidden="true">
+  <span class="radio-assembly">
+    <span class="radio-vu" aria-hidden="true">
+      <img src="/music-radio-vu-meter.png" alt="">
+      <img class="radio-vu-needle" data-radio-vu-needle src="/music-radio-vu-needle.png" alt="">
+    </span>
+    <span class="radio-panel" aria-hidden="true">
+      <img class="is-active" data-radio-panel-state="offline" src="/music-radio-panel-offline.png" alt="">
+      <img data-radio-panel-state="playing" src="/music-radio-panel-play.png" alt="">
+      <img data-radio-panel-state="paused" src="/music-radio-panel-pause.png" alt="">
+    </span>
+    <img class="radio-art" src="/music-radio.png" alt="">
+  </span>
+</div>
+
 <div class="music-zoom" id="musicZoom" inert aria-hidden="true">
   <div class="scene-canvas" id="musicZoomCanvas">
     <section class="music-lcd" id="musicLcd" aria-label="Music library and player">
@@ -643,9 +672,10 @@
   (function () {
     var boombox = document.getElementById('boomboxOverlay');
     var radio = document.getElementById('radioOverlay');
-    var radioVuNeedle = document.getElementById('radioVuNeedle');
+    var radioVuNeedles = Array.prototype.slice.call(document.querySelectorAll('[data-radio-vu-needle], #radioVuNeedle'));
     var radioPanelArt = Array.prototype.slice.call(document.querySelectorAll('[data-radio-panel-state]'));
     var radioZoomClose = document.getElementById('radioZoomClose');
+    var radioZoomPlayer = document.getElementById('radioZoomPlayer');
     var scene = document.getElementById('musicScene');
     var zoom = document.getElementById('musicZoom');
     var zoomArt = document.getElementById('musicZoomArt');
@@ -696,12 +726,13 @@
     window.knobsockRadioPanel = window.knobsockRadioPanel || {};
     window.knobsockRadioPanel.setState = setRadioPanelState;
     function setVuNeedle(level) {
-      if (!radioVuNeedle) return;
       /* The supplied needle starts at the far-left, quiet end of the dial. */
-      radioVuNeedle.style.setProperty('--vu-needle-angle', (-12 + Math.max(0, Math.min(1, level)) * 84) + 'deg');
+      radioVuNeedles.forEach(function (needle) {
+        needle.style.setProperty('--vu-needle-angle', (-12 + Math.max(0, Math.min(1, level)) * 84) + 'deg');
+      });
     }
     function getVuAnalyser(context) {
-      if (!radioVuNeedle || vuAnalyser) return vuAnalyser;
+      if (!radioVuNeedles.length || vuAnalyser) return vuAnalyser;
       try {
         vuAnalyser = context.createAnalyser();
         vuAnalyser.fftSize = 256;
@@ -834,7 +865,7 @@
       playEffect('buttonclick', 0.7);
       if (navigator.vibrate) navigator.vibrate(8);
     }
-    if (!boombox || !radio || !radioZoomClose || !scene || !zoom || !zoomArt || !zoomNightArt || !zoomClose) return;
+    if (!boombox || !radio || !radioZoomClose || !radioZoomPlayer || !scene || !zoom || !zoomArt || !zoomNightArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
     var sceneHideTimer = null;
@@ -919,6 +950,7 @@
       /* The square radio illustration needs a slightly wider desktop frame
          than the boombox close-up so its bottom is not cropped. */
       var scale = mobileQuery.matches ? 4.2 : 3.2;
+      radioZoomPlayer.style.setProperty('--radio-zoom-width', (rect.width * scale) + 'px');
       var radioCenterX = rect.left + rect.width / 2;
       var radioCenterY = rect.top + rect.height / 2;
       /* A transform normally keeps its origin fixed in place. Solve for an
@@ -941,6 +973,7 @@
          The persistent player shell also owns a transform layer, and an
          inline value keeps this close-up reliable inside that iframe. */
       scene.style.transform = 'scale(' + (mobileQuery.matches ? 4.2 : 3.2) + ')';
+      radioZoomPlayer.classList.add('is-open');
       radioZoomClose.classList.add('is-open');
     }
     function closeRadioZoom() {
@@ -948,6 +981,7 @@
       isRadioZoomed = false;
       playZoomSound();
       radioZoomClose.classList.remove('is-open');
+      radioZoomPlayer.classList.remove('is-open');
       scene.classList.remove('is-radio-zooming');
       scene.style.transform = '';
       document.body.classList.remove('radio-is-zoomed');
