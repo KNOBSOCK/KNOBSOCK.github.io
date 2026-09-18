@@ -439,7 +439,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    cursor: zoom-out;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
   .radio-zoom-close.is-open { display: block; }
@@ -750,7 +750,9 @@
     }
     function setRadioCameraAnchor() {
       var rect = radio.getBoundingClientRect();
-      var scale = mobileQuery.matches ? 4.2 : 4.4;
+      /* The square radio illustration needs a slightly wider desktop frame
+         than the boombox close-up so its bottom is not cropped. */
+      var scale = mobileQuery.matches ? 4.2 : 3.2;
       var radioCenterX = rect.left + rect.width / 2;
       var radioCenterY = rect.top + rect.height / 2;
       /* A transform normally keeps its origin fixed in place. Solve for an
@@ -772,7 +774,7 @@
       /* Set the radio camera transform directly as well as via its class.
          The persistent player shell also owns a transform layer, and an
          inline value keeps this close-up reliable inside that iframe. */
-      scene.style.transform = 'scale(' + (mobileQuery.matches ? 4.2 : 4.4) + ')';
+      scene.style.transform = 'scale(' + (mobileQuery.matches ? 4.2 : 3.2) + ')';
       radioZoomClose.classList.add('is-open');
     }
     function closeRadioZoom() {
@@ -868,7 +870,21 @@
     boombox.addEventListener('pointerdown', function () { flashGlow(boombox); });
     radio.addEventListener('click', openRadioZoom);
     radio.addEventListener('pointerdown', function () { flashGlow(radio); });
-    radioZoomClose.addEventListener('click', closeRadioZoom);
+    radioZoomClose.addEventListener('click', function (event) {
+      /* The close layer fills the screen, but the radio itself remains a
+         safe, non-closing island inside it. The artwork has a transparent
+         margin, so use its visible bounds rather than the full image box. */
+      var rect = radio.getBoundingClientRect();
+      var visibleBounds = {
+        left: rect.left + rect.width * 0.077,
+        right: rect.left + rect.width * 0.955,
+        top: rect.top + rect.height * 0.045,
+        bottom: rect.top + rect.height * 0.925
+      };
+      var isInsideRadio = event.clientX >= visibleBounds.left && event.clientX <= visibleBounds.right &&
+        event.clientY >= visibleBounds.top && event.clientY <= visibleBounds.bottom;
+      if (!isInsideRadio) closeRadioZoom();
+    });
     boombox.addEventListener('animationend', function () {
       boombox.classList.remove('is-popping');
     });
