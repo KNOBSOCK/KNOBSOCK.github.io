@@ -39,6 +39,9 @@
 <link rel="preload" as="image" href="/music-radio.png">
 <link rel="preload" as="image" href="/music-radio-vu-meter.png">
 <link rel="preload" as="image" href="/music-radio-vu-needle.png">
+<link rel="preload" as="image" href="/music-radio-panel-offline.png">
+<link rel="preload" as="image" href="/music-radio-panel-play.png">
+<link rel="preload" as="image" href="/music-radio-panel-pause.png">
 <link rel="preload" as="image" href="/music-button-artist.png">
 <link rel="preload" as="image" href="/music-button-album.png">
 <link rel="preload" as="image" href="/music-button-shuffle.png">
@@ -276,6 +279,30 @@
     transform: rotate(var(--vu-needle-angle, -12deg));
     will-change: transform;
   }
+  /* Future station-status display, fitted inside the lower transparent panel. */
+  .radio-panel {
+    position: absolute;
+    z-index: 1;
+    left: 20.85%;
+    top: 60.55%;
+    width: 21.95%;
+    height: 8.45%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .radio-panel img {
+    position: absolute;
+    left: -3.02%;
+    top: -6.39%;
+    display: block;
+    width: 106.04%;
+    height: 114.35%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    user-select: none;
+  }
+  .radio-panel img.is-active { opacity: 1; }
   .boombox-overlay:hover img,
   .boombox-overlay:focus-visible img,
   .boombox-overlay.is-glowing img,
@@ -545,6 +572,11 @@
           <img src="/music-radio-vu-meter.png" alt="">
           <img class="radio-vu-needle" id="radioVuNeedle" src="/music-radio-vu-needle.png" alt="">
         </span>
+        <span class="radio-panel" aria-hidden="true">
+          <img class="is-active" data-radio-panel-state="offline" src="/music-radio-panel-offline.png" alt="">
+          <img data-radio-panel-state="playing" src="/music-radio-panel-play.png" alt="">
+          <img data-radio-panel-state="paused" src="/music-radio-panel-pause.png" alt="">
+        </span>
         <img class="radio-art" src="/music-radio.png" alt="A portable radio">
       </span>
     </button>
@@ -606,6 +638,7 @@
     var boombox = document.getElementById('boomboxOverlay');
     var radio = document.getElementById('radioOverlay');
     var radioVuNeedle = document.getElementById('radioVuNeedle');
+    var radioPanelArt = Array.prototype.slice.call(document.querySelectorAll('[data-radio-panel-state]'));
     var radioZoomClose = document.getElementById('radioZoomClose');
     var scene = document.getElementById('musicScene');
     var zoom = document.getElementById('musicZoom');
@@ -646,6 +679,16 @@
     var vuKick = 0;
     var vuFrame = 0;
     var vuNextAccent = 0;
+    function setRadioPanelState(state) {
+      var nextState = state === 'playing' || state === 'paused' ? state : 'offline';
+      radioPanelArt.forEach(function (image) {
+        image.classList.toggle('is-active', image.getAttribute('data-radio-panel-state') === nextState);
+      });
+    }
+    /* The future radio player can call this without needing to know anything
+       about the room artwork: knobsockRadioPanel.setState('playing'). */
+    window.knobsockRadioPanel = window.knobsockRadioPanel || {};
+    window.knobsockRadioPanel.setState = setRadioPanelState;
     function setVuNeedle(level) {
       if (!radioVuNeedle) return;
       /* The supplied needle starts at the far-left, quiet end of the dial. */
