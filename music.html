@@ -310,27 +310,21 @@
   }
   .radio-panel img.is-active { opacity: 1; }
   /* iOS Safari can rasterize images inside the scaled room before applying
-     the 4.2× camera zoom. Render the close-up at its final size instead. */
+     the 4.2× camera zoom. After the camera move, replace it with a player
+     rendered at its final size. Keeping the in-scene radio for the move
+     makes its motion exactly match the room. */
   .radio-player-zoom {
     position: fixed;
     z-index: 10;
-    top: var(--radio-zoom-start-top, 50%);
-    left: var(--radio-zoom-start-left, 50%);
-    display: none;
-    width: var(--radio-zoom-start-width, 0px);
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    transition: top 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-                left 0.46s cubic-bezier(0.33, 0, 0.2, 1),
-                width 0.46s cubic-bezier(0.33, 0, 0.2, 1);
-  }
-  .radio-player-zoom.is-mounted { display: block; }
-  .radio-player-zoom.is-open {
     top: 50%;
     left: 50%;
+    display: none;
     width: var(--radio-zoom-width, 0px);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
   }
-  .radio-is-zoomed .radio-overlay { visibility: hidden; }
+  .radio-player-zoom.is-static { display: block; }
+  .radio-is-zoomed.radio-player-is-sharp .radio-overlay { visibility: hidden; }
   .boombox-overlay:hover img,
   .boombox-overlay:focus-visible img,
   .boombox-overlay.is-glowing img,
@@ -876,7 +870,6 @@
     if (!boombox || !radio || !radioZoomClose || !radioZoomPlayer || !scene || !zoom || !zoomArt || !zoomNightArt || !zoomClose) return;
     var mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
     var zoomTimer = null;
-    var radioZoomTimer = null;
     var sceneHideTimer = null;
     var danceResumeTimer = null;
     var isZoomed = false;
@@ -962,9 +955,6 @@
       radioZoomPlayer.style.setProperty('--radio-zoom-width', (rect.width * scale) + 'px');
       var radioCenterX = rect.left + rect.width / 2;
       var radioCenterY = rect.top + rect.height / 2;
-      radioZoomPlayer.style.setProperty('--radio-zoom-start-left', radioCenterX + 'px');
-      radioZoomPlayer.style.setProperty('--radio-zoom-start-top', radioCenterY + 'px');
-      radioZoomPlayer.style.setProperty('--radio-zoom-start-width', rect.width + 'px');
       /* A transform normally keeps its origin fixed in place. Solve for an
          origin that instead lands the radio at the center of the viewport. */
       var originX = (window.innerWidth / 2 - scale * radioCenterX) / (1 - scale);
@@ -979,35 +969,30 @@
       flashGlow(radio);
       playZoomSound();
       setRadioCameraAnchor();
-      clearTimeout(radioZoomTimer);
       document.body.classList.add('radio-is-zoomed');
-      radioZoomPlayer.classList.remove('is-open');
-      radioZoomPlayer.classList.add('is-mounted');
-      /* Commit the small in-room dimensions before animating to the close-up. */
-      void radioZoomPlayer.offsetWidth;
       scene.classList.add('is-radio-zooming');
       /* Set the radio camera transform directly as well as via its class.
          The persistent player shell also owns a transform layer, and an
          inline value keeps this close-up reliable inside that iframe. */
       scene.style.transform = 'scale(' + (mobileQuery.matches ? 4.2 : 3.2) + ')';
-      radioZoomPlayer.classList.add('is-open');
       radioZoomClose.classList.add('is-open');
     }
     function closeRadioZoom() {
       if (!isRadioZoomed) return;
       isRadioZoomed = false;
       playZoomSound();
-      radioZoomPlayer.classList.remove('is-open');
+      document.body.classList.remove('radio-player-is-sharp');
+      radioZoomPlayer.classList.remove('is-static');
+      radioZoomClose.classList.remove('is-open');
       scene.classList.remove('is-radio-zooming');
       scene.style.transform = '';
-      clearTimeout(radioZoomTimer);
-      radioZoomTimer = setTimeout(function () {
-        if (isRadioZoomed) return;
-        radioZoomPlayer.classList.remove('is-mounted');
-        radioZoomClose.classList.remove('is-open');
-        document.body.classList.remove('radio-is-zoomed');
-      }, 470);
+      document.body.classList.remove('radio-is-zoomed');
     }
+    scene.addEventListener('transitionend', function (event) {
+      if (event.target !== scene || event.propertyName !== 'transform' || !isRadioZoomed) return;
+      radioZoomPlayer.classList.add('is-static');
+      document.body.classList.add('radio-player-is-sharp');
+    });
     function beginZoom(source) {
       if (isZoomed) return;
       isZoomed = true;
