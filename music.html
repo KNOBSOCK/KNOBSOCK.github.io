@@ -297,6 +297,9 @@
     display: block;
     width: 106.04%;
     height: 114.35%;
+    /* A tiny overscale lets the panel sit more snugly behind the bezel. */
+    transform: scale(1.025);
+    transform-origin: center;
     opacity: 0;
     transition: opacity 0.2s ease;
     pointer-events: none;
