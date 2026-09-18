@@ -37,6 +37,8 @@
 <link rel="preload" as="image" href="/music-room-desktop-night.png">
 <link rel="preload" as="image" href="/music-room-mobile-night.png">
 <link rel="preload" as="image" href="/music-radio.png">
+<link rel="preload" as="image" href="/music-radio-vu-meter.png">
+<link rel="preload" as="image" href="/music-radio-vu-needle.png">
 <link rel="preload" as="image" href="/music-button-artist.png">
 <link rel="preload" as="image" href="/music-button-album.png">
 <link rel="preload" as="image" href="/music-button-shuffle.png">
@@ -232,7 +234,9 @@
     line-height: 0;
     -webkit-tap-highlight-color: transparent;
   }
-  .radio-overlay img {
+  .radio-overlay .radio-art {
+    position: relative;
+    z-index: 2;
     display: block;
     width: 100%;
     height: auto;
@@ -240,22 +244,47 @@
     user-select: none;
     transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.16s ease;
   }
+  /* These share the radio's coordinate system. The radio art is transparent
+     at its display, so the meter can sit behind its original bezel. */
+  .radio-vu {
+    position: absolute;
+    z-index: 1;
+    left: 54%;
+    top: 37.6%;
+    width: 23.85%;
+    line-height: 0;
+    pointer-events: none;
+  }
+  .radio-vu img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+  }
+  .radio-vu-needle {
+    position: absolute;
+    inset: 0;
+    transform-origin: 45.2% 81.6%;
+    transform: rotate(var(--vu-needle-angle, -12deg));
+    will-change: transform;
+  }
   .boombox-overlay:hover img,
   .boombox-overlay:focus-visible img,
   .boombox-overlay.is-glowing img,
-  .radio-overlay:hover img,
-  .radio-overlay:focus-visible img,
-  .radio-overlay.is-glowing img {
+  .radio-overlay:hover .radio-art,
+  .radio-overlay:focus-visible .radio-art,
+  .radio-overlay.is-glowing .radio-art {
     filter: drop-shadow(0 0 5px rgba(255, 117, 0, 0.98)) drop-shadow(0 0 16px rgba(255, 117, 0, 0.8));
   }
   @media (hover: hover) {
     .boombox-overlay:hover img,
-    .radio-overlay:hover img {
+    .radio-overlay:hover .radio-art {
       transform: scale(1.018);
     }
   }
   .boombox-overlay:active img,
-  .radio-overlay:active img { transform: scale(0.97); }
+  .radio-overlay:active .radio-art { transform: scale(0.97); }
   .boombox-overlay.is-popping img {
     animation: boombox-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
@@ -504,7 +533,11 @@
       <img src="/music-boombox-overlay.png" alt="">
     </button>
     <button class="radio-overlay" id="radioOverlay" type="button" aria-label="Zoom into KNOBSOCK Radio">
-      <img src="/music-radio.png" alt="A portable radio">
+      <span class="radio-vu" aria-hidden="true">
+        <img src="/music-radio-vu-meter.png" alt="">
+        <img class="radio-vu-needle" id="radioVuNeedle" src="/music-radio-vu-needle.png" alt="">
+      </span>
+      <img class="radio-art" src="/music-radio.png" alt="A portable radio">
     </button>
     <a class="music-logo-link" href="/index.html" aria-label="KNOBSOCK home">
       <img src="/knobsock-music-scene-logo.png" alt="KNOBSOCK Music">
@@ -563,6 +596,7 @@
   (function () {
     var boombox = document.getElementById('boomboxOverlay');
     var radio = document.getElementById('radioOverlay');
+    var radioVuNeedle = document.getElementById('radioVuNeedle');
     var radioZoomClose = document.getElementById('radioZoomClose');
     var scene = document.getElementById('musicScene');
     var zoom = document.getElementById('musicZoom');
@@ -596,6 +630,77 @@
     var effectBuffers = {};
     var effectLoads = {};
     var legacyEffects = {};
+    var vuAnalyser = null;
+    var vuAnalyserData = null;
+    var vuIsPlaying = false;
+    var vuLevel = 0;
+    var vuKick = 0;
+    var vuFrame = 0;
+    var vuNextAccent = 0;
+    function setVuNeedle(level) {
+      if (!radioVuNeedle) return;
+      /* The supplied needle starts at the far-left, quiet end of the dial. */
+      radioVuNeedle.style.setProperty('--vu-needle-angle', (-12 + Math.max(0, Math.min(1, level)) * 84) + 'deg');
+    }
+    function getVuAnalyser(context) {
+      if (!radioVuNeedle || vuAnalyser) return vuAnalyser;
+      try {
+        vuAnalyser = context.createAnalyser();
+        vuAnalyser.fftSize = 256;
+        vuAnalyser.smoothingTimeConstant = 0.7;
+        vuAnalyserData = new Uint8Array(vuAnalyser.fftSize);
+        vuAnalyser.connect(context.destination);
+      } catch (_) { vuAnalyser = null; }
+      return vuAnalyser;
+    }
+    function sampledVuLevel() {
+      if (!vuAnalyser || !vuAnalyserData) return 0;
+      vuAnalyser.getByteTimeDomainData(vuAnalyserData);
+      var sum = 0;
+      for (var i = 0; i < vuAnalyserData.length; i++) {
+        var normalized = (vuAnalyserData[i] - 128) / 128;
+        sum += normalized * normalized;
+      }
+      return Math.min(1, Math.sqrt(sum / vuAnalyserData.length) * 7);
+    }
+    function animateVuMeter(now) {
+      var audioLevel = sampledVuLevel();
+      var target = audioLevel;
+      if (vuIsPlaying) {
+        /* SoundCloud plays inside a cross-origin iframe, so its waveform is
+           intentionally not exposed to this page. Give the meter a musical
+           playback pulse until the future radio stream supplies direct audio. */
+        if (now >= vuNextAccent) {
+          vuKick = Math.max(vuKick, 0.24 + Math.random() * 0.48);
+          vuNextAccent = now + 150 + Math.random() * 330;
+        }
+        var pulse = 0.24 + Math.abs(Math.sin(now / 137)) * 0.18 + Math.abs(Math.sin(now / 421 + 1.4)) * 0.15;
+        target = Math.max(target, pulse + vuKick);
+      }
+      vuKick *= 0.86;
+      vuLevel += (target - vuLevel) * (target > vuLevel ? 0.28 : 0.09);
+      setVuNeedle(vuLevel);
+      if (vuIsPlaying || vuLevel > 0.008 || vuKick > 0.008) {
+        vuFrame = window.requestAnimationFrame(animateVuMeter);
+      } else {
+        vuFrame = 0;
+        setVuNeedle(0);
+      }
+    }
+    function ensureVuAnimation() {
+      if (!vuFrame && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        vuFrame = window.requestAnimationFrame(animateVuMeter);
+      }
+    }
+    function kickVuMeter(amount) {
+      vuKick = Math.max(vuKick, Math.min(0.7, Number(amount) || 0.3));
+      ensureVuAnimation();
+    }
+    function setVuPlayback(isPlaying) {
+      vuIsPlaying = isPlaying;
+      if (isPlaying) ensureVuAnimation();
+      else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setVuNeedle(0);
+    }
     function getEffectContext() {
       if (effectContext && effectContext.state !== 'closed') return effectContext;
       var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -628,6 +733,7 @@
     }
     function playLegacyEffect(name, volume) {
       if (!effectUrls[name]) return;
+      kickVuMeter(volume);
       var source = legacyEffects[name] || (legacyEffects[name] = new Audio(effectUrls[name]));
       source.preload = 'none';
       try { source.pause(); source.currentTime = 0; } catch (_) {}
@@ -642,8 +748,10 @@
         source.buffer = buffer;
         gain.gain.value = volume;
         source.connect(gain);
-        gain.connect(context.destination);
+        var analyser = getVuAnalyser(context);
+        gain.connect(analyser || context.destination);
         source.start(0);
+        kickVuMeter(volume);
       } catch (_) {}
     }
     function playEffect(name, volume) {
@@ -1082,6 +1190,7 @@
       document.addEventListener('music-playback-state', function (event) {
         setPlaybackAction(event.detail);
         musicIsPlaying = event.detail === 'play';
+        setVuPlayback(musicIsPlaying);
         scene.classList.toggle('is-playing', musicIsPlaying);
         document.body.classList.toggle('music-is-playing', musicIsPlaying);
         setClubLightBeat(musicIsPlaying);
