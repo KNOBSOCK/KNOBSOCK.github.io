@@ -1366,6 +1366,7 @@
     .layout.mode-portrait .portrait-video-logo {
       display: block;
       pointer-events: auto;
+      transition: opacity 0.25s ease;
       position: absolute;
       z-index: 7;
       top: 6px;
@@ -1512,12 +1513,14 @@
       pointer-events: auto;
     }
     .layout.mode-portrait .video-pane .video-pane-actions,
-    .layout.mode-portrait .video-pane .viewer-badge {
+    .layout.mode-portrait .video-pane .viewer-badge,
+    .layout.mode-portrait .portrait-video-logo {
       opacity: 0;
       pointer-events: none;
     }
     .layout.mode-portrait .video-pane.controls-visible .video-pane-actions,
-    .layout.mode-portrait .video-pane.controls-visible .viewer-badge {
+    .layout.mode-portrait .video-pane.controls-visible .viewer-badge,
+    .layout.mode-portrait .video-pane.controls-visible .portrait-video-logo {
       opacity: 1;
       pointer-events: auto;
     }
