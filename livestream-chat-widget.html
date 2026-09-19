@@ -1484,7 +1484,9 @@
     .layout.mode-portrait .vods-list { padding: 10px 16px 16px; gap: 12px; }
     .layout.mode-portrait .vod-row-thumb { width: 90px; }
     .layout.mode-portrait .video-pane-actions {
-      top: 13%;
+      /* Leave a real touch gap below the linked logo so its hit target cannot
+         steal taps intended for the controls. */
+      top: 16%;
       left: 50%;
       transform: translateX(-50%);
     }
@@ -1508,10 +1510,21 @@
     /* The composer owns the only live control on a portrait phone. Keeping
        controls out of the video prevents them from sitting behind the input. */
     .layout.mode-portrait .video-controls { display: none !important; }
-    .layout.mode-portrait .composer { align-items: flex-end; }
+    .layout.mode-portrait .composer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 54px;
+      grid-template-rows: auto;
+      align-items: end;
+      column-gap: 8px;
+    }
     .layout.mode-portrait .composer-bar,
     .layout.mode-portrait .composer { width: 100%; }
-    .layout.mode-portrait .composer-input-wrap { flex: 1 1 auto; }
+    .layout.mode-portrait .composer-input-wrap {
+      grid-column: 1;
+      grid-row: 1;
+      width: 100%;
+      min-width: 0;
+    }
     .layout.mode-portrait .composer-input-wrap input {
       display: block;
       width: 100% !important;
@@ -1519,11 +1532,13 @@
     }
     .layout.mode-portrait .portrait-send-stack {
       display: flex;
+      grid-column: 2;
+      grid-row: 1;
       flex: none;
       flex-direction: column;
       align-items: center;
       gap: 3px;
-      margin-left: auto;
+      margin-left: 0;
     }
     .layout.mode-portrait .portrait-send-stack .live-btn {
       padding: 3px 8px;
@@ -1957,8 +1972,30 @@
      tap-to-reveal/fade behavior as the 16:9 player. */
   var portraitControlReveal = document.getElementById('portraitControlReveal');
   if (portraitControlReveal) {
-    portraitControlReveal.addEventListener('touchstart', function () { showControls(true); }, { passive: true });
-    portraitControlReveal.addEventListener('click', function () { showControls(true); });
+    var lastPortraitRevealTouchAt = 0;
+    function togglePortraitControls(event) {
+      /* The layer is a child of videoPane. Stop its tap reaching the pane's
+         own touch handler, otherwise one tap would toggle twice. */
+      if (event) event.stopPropagation();
+      if (videoPane.classList.contains('controls-visible')) {
+        hideControlsNow();
+      } else {
+        showControls(true);
+      }
+    }
+    portraitControlReveal.addEventListener('touchstart', function (event) {
+      lastPortraitRevealTouchAt = Date.now();
+      togglePortraitControls(event);
+    }, { passive: true });
+    portraitControlReveal.addEventListener('click', function (event) {
+      /* iOS dispatches a synthetic click after touchstart. Ignore that second
+         event so a single finger tap is one predictable toggle. */
+      if (Date.now() - lastPortraitRevealTouchAt < 750) {
+        event.stopPropagation();
+        return;
+      }
+      togglePortraitControls(event);
+    });
   }
 
   unmuteBtn.disabled = true;
