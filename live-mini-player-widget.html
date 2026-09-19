@@ -184,6 +184,7 @@
     let isUnmutedIntent = false;
     let externalPauseRequested = false;
     let loadedSourceKey = null;
+    let portraitLiveSource = false;
 
     function isDirectVideoUrl(input) {
       if (!input) return false;
@@ -318,6 +319,16 @@
       const w = playerBoxEl.clientWidth;
       const h = playerBoxEl.clientHeight;
       if (!w || !h) return;
+      /* A vertical YouTube source is painted inside YouTube's 16:9 canvas.
+         On the phone-sized home card, size that canvas from its height so
+         the 9:16 picture itself reaches both card edges. */
+      if (portraitLiveSource && window.matchMedia('(max-width: 720px)').matches) {
+        const frameH = w * 16 / 9 + 2;
+        const frameW = frameH * 16 / 9 + 4;
+        frame.style.width = frameW + 'px';
+        frame.style.height = frameH + 'px';
+        return;
+      }
       const targetRatio = 16 / 9;
       let frameW, frameH;
       if (w / h > targetRatio) {
@@ -447,6 +458,8 @@
     LIVE_VIDEO_DOC_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
       const isLive = !(data && data.isLive === false);
+      portraitLiveSource = !!(isLive && data && data.aspect === '9:16');
+      sizePlayerToCover();
       if (!isLive) {
         loadedSourceKey = null;
         stopDirectVideo();

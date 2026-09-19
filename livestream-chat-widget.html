@@ -1181,7 +1181,8 @@
   /* Portrait layout owns its geometry. Media, chat and the drawer retain their
      existing elements/events; none of the landscape offsets apply here. */
   .portrait-video-logo,
-  .portrait-chat-logo { display: none; pointer-events: none; }
+  .portrait-chat-logo,
+  .portrait-control-reveal { display: none; pointer-events: none; }
   .portrait-video-logo img,
   .portrait-chat-logo img { display: block; width: 100%; height: auto; }
 
@@ -1355,7 +1356,8 @@
       position: absolute;
       z-index: 1;
       left: 50%;
-      bottom: 0;
+      top: 0;
+      bottom: auto;
       width: calc(var(--portrait-video-height) * 9 / 16);
       height: var(--portrait-video-height);
       transform: translateX(-50%);
@@ -1481,9 +1483,25 @@
     }
     .layout.mode-portrait .vods-list { padding: 10px 16px 16px; gap: 12px; }
     .layout.mode-portrait .vod-row-thumb { width: 90px; }
-    .layout.mode-portrait .video-pane-actions { top: 15%; }
+    .layout.mode-portrait .video-pane-actions {
+      top: 13%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .layout.mode-portrait .portrait-control-reveal {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: block;
+      pointer-events: auto;
+    }
     .layout.mode-portrait .video-pane .video-pane-actions,
     .layout.mode-portrait .video-pane .viewer-badge {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .layout.mode-portrait .video-pane.controls-visible .video-pane-actions,
+    .layout.mode-portrait .video-pane.controls-visible .viewer-badge {
       opacity: 1;
       pointer-events: auto;
     }
@@ -1491,12 +1509,21 @@
        controls out of the video prevents them from sitting behind the input. */
     .layout.mode-portrait .video-controls { display: none !important; }
     .layout.mode-portrait .composer { align-items: flex-end; }
+    .layout.mode-portrait .composer-bar,
+    .layout.mode-portrait .composer { width: 100%; }
+    .layout.mode-portrait .composer-input-wrap { flex: 1 1 auto; }
+    .layout.mode-portrait .composer-input-wrap input {
+      display: block;
+      width: 100% !important;
+      min-width: 0;
+    }
     .layout.mode-portrait .portrait-send-stack {
       display: flex;
       flex: none;
       flex-direction: column;
       align-items: center;
       gap: 3px;
+      margin-left: auto;
     }
     .layout.mode-portrait .portrait-send-stack .live-btn {
       padding: 3px 8px;
@@ -1504,6 +1531,12 @@
       line-height: 1;
       background: rgba(0, 0, 0, 0.42);
     }
+    .layout.mode-portrait .portrait-send-stack .live-btn.at-live {
+      background: var(--interactive-hover);
+      border-color: var(--interactive-hover);
+      color: var(--interactive-hover-text);
+    }
+    .layout.mode-portrait .portrait-send-stack .live-btn.at-live .live-dot { background: var(--interactive-hover-text); }
     .layout.mode-portrait .portrait-send-stack .live-dot {
       width: 6px;
       height: 6px;
@@ -1511,6 +1544,7 @@
     .layout.mode-portrait .portrait-send-stack .send-btn { height: 32px; }
     .layout.mode-portrait.chat-hidden .chat-pane,
     .layout.mode-portrait.fullscreen-active .chat-pane { display: none; }
+    .layout.mode-portrait.chat-hidden .portrait-video-logo { display: none; }
     .layout.mode-portrait.chat-hidden,
     .layout.mode-portrait.fullscreen-active { --portrait-tab-height: 0px; }
     .layout.mode-portrait .video-controls { z-index: 9; }
@@ -1569,6 +1603,7 @@
         <video class="offline-frame" id="offlineVideo" src="/OFFLINE%20CARD.mp4" autoplay muted loop playsinline webkit-playsinline="true" disablepictureinpicture disableRemotePlayback preload="auto" aria-label="We are currently offline"></video>
         <img class="gif-loader" src="/KNOBSOCK-loading-animation.gif" alt="Loading video…">
       </div>
+      <div class="portrait-control-reveal" id="portraitControlReveal" aria-hidden="true"></div>
       <div class="video-controls" id="videoControls">
         <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
         <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
@@ -1782,6 +1817,18 @@
   }
 
   function showBackendEl(kind) {
+    /* Hiding a media element does not stop its audio. Tear down the previous
+       backend before showing the next one so VOD audio cannot survive a
+       Return to Live transition. */
+    if (kind === 'youtube') {
+      stopDirectVideo();
+    } else {
+      if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
+        try { ytPlayer.stopVideo(); } catch (e) {}
+      } else if (ytFrame.src && ytFrame.src !== 'about:blank') {
+        ytFrame.src = 'about:blank';
+      }
+    }
     ytFrame.style.display = kind === 'youtube' ? '' : 'none';
     videoEl.style.display = kind === 'video' ? '' : 'none';
   }
@@ -1903,6 +1950,15 @@
         showControls(true);
       }
     }, { passive: true });
+  }
+
+  /* A cross-origin YouTube iframe consumes touches before they reach
+     videoPane. This transparent portrait-only layer restores the same
+     tap-to-reveal/fade behavior as the 16:9 player. */
+  var portraitControlReveal = document.getElementById('portraitControlReveal');
+  if (portraitControlReveal) {
+    portraitControlReveal.addEventListener('touchstart', function () { showControls(true); }, { passive: true });
+    portraitControlReveal.addEventListener('click', function () { showControls(true); });
   }
 
   unmuteBtn.disabled = true;

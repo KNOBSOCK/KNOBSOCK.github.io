@@ -515,10 +515,8 @@
     sat.style.left = x + 'px';
     sat.style.top = y + 'px';
 
-    /* These are purely decorative.  A pair of full-rate animation loops is
-       especially costly on mobile Safari, where the home page is already
-       rendering several interactive embeds. */
-    if (window.matchMedia('(pointer: coarse), (prefers-reduced-motion: reduce)').matches) return;
+    /* Decorative motion respects the visitor's system reduced-motion choice. */
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     requestAnimationFrame(drift);
   }
 
@@ -565,7 +563,7 @@
         }
       }
       wrap.style.transform = 'translate3d(' + x + 'px, ' + y + 'px, 0)';
-      if (window.matchMedia('(pointer: coarse), (prefers-reduced-motion: reduce)').matches) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       requestAnimationFrame(fly);
     }
     requestAnimationFrame(fly);
