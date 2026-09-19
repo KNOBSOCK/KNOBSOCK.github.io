@@ -1453,7 +1453,7 @@
       position: absolute;
       inset: auto 0 calc(-1 * var(--portrait-tab-height));
       width: 100%;
-      border-radius: 0 0 10px 10px;
+      border-radius: 0;
       pointer-events: none;
       z-index: 12;
     }
@@ -1912,6 +1912,9 @@
   videoEl.addEventListener('error', function () { if (backend === 'video') hideVideoLoading(); });
 
   function showVideoLoading() {
+    /* The offline card lives inside the loading layer. It is not a loading
+       placeholder, so do not let the normal player lifecycle hide it. */
+    if (videoPane.classList.contains('offline-card')) return;
     videoLoading.hidden = false;
     videoPane.classList.add('is-loading');
     clearTimeout(youtubeRevealTimer);
@@ -1925,6 +1928,7 @@
     }
   }
   function hideVideoLoading() {
+    if (videoPane.classList.contains('offline-card')) return;
     clearTimeout(youtubeRevealTimer);
     videoLoading.hidden = true;
     videoPane.classList.remove('is-loading');
@@ -2230,6 +2234,8 @@
     var offlineVideo = document.getElementById('offlineVideo');
     if (!offlineVideo) return;
     if (showOfflineCard) {
+      videoLoading.hidden = false;
+      videoPane.classList.remove('is-loading');
       offlineVideo.play().catch(function () {});
     } else {
       offlineVideo.pause();
