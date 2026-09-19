@@ -227,13 +227,22 @@
     line-height: 14px;
   }
   @media (max-width: 600px) {
+    html:has(.page.layout-portrait),
+    body:has(.page.layout-portrait) {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
     .page.layout-portrait,
-    .page.layout-portrait.chat-hidden { padding: 0; }
+    .page.layout-portrait.chat-hidden {
+      position: fixed;
+      inset: 0;
+      padding: 0;
+      overscroll-behavior: none;
+    }
     .page.layout-portrait .privacy-footer {
-      flex-basis: calc(18px + env(safe-area-inset-bottom));
-      height: calc(18px + env(safe-area-inset-bottom));
-      padding: 0 0 env(safe-area-inset-bottom);
-      line-height: 18px;
+      /* Portrait mobile keeps its policy link in the widget's Past Streams
+         bar, so this outer row must not steal height from a 9:16 video. */
+      display: none;
     }
   }
 </style>
@@ -345,12 +354,25 @@
     if (window.visualViewport) {
       document.documentElement.style.setProperty('--live-viewport-height', window.visualViewport.height + 'px');
     }
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.scrollTo(0, 0);
+    requestAnimationFrame(function () { window.scrollTo(0, 0); });
+    /* Mobile Safari/Instagram can apply its input-scroll after the resize
+       callback. A second frame catches that delayed adjustment. */
+    setTimeout(function () { window.scrollTo(0, 0); }, 80);
   }
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', resetScroll);
   }
   window.addEventListener('resize', resetScroll);
+  window.addEventListener('scroll', function () {
+    if (document.querySelector('.page.layout-portrait')) resetScroll();
+  }, { passive: true });
+  document.addEventListener('focusin', function () {
+    if (document.querySelector('.page.layout-portrait')) resetScroll();
+  });
+  window.addEventListener('message', function (event) {
+    if (event.data && event.data.type === 'knobsock-lock-live-scroll') resetScroll();
+  });
   resetScroll();
 })();
 </script>

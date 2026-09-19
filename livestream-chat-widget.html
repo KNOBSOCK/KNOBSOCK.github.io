@@ -1304,6 +1304,7 @@
     }
     .layout.mode-portrait .portrait-chat-logo {
       display: block;
+      pointer-events: auto;
       position: relative;
       flex: none;
       order: -1;
@@ -1332,9 +1333,19 @@
   }
 
   @media (max-width: 600px) {
+    html:has(body.is-portrait),
+    body.is-portrait {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+    body.is-portrait {
+      position: fixed;
+      inset: 0;
+    }
     .layout.mode-portrait {
-      --portrait-tab-height: 44px;
-      --portrait-video-height: min(calc(100cqh - var(--portrait-tab-height)), calc(100cqw * 16 / 9));
+      --portrait-tab-height: 56px;
+      --portrait-video-height: min(100cqh, calc(100cqw * 16 / 9));
+      --portrait-chat-height: min(calc(100cqh - var(--portrait-tab-height)), calc(100cqw * 16 / 9));
       display: block;
       width: 100%;
       height: 100%;
@@ -1344,7 +1355,7 @@
       position: absolute;
       z-index: 1;
       left: 50%;
-      bottom: var(--portrait-tab-height);
+      bottom: 0;
       width: calc(var(--portrait-video-height) * 9 / 16);
       height: var(--portrait-video-height);
       transform: translateX(-50%);
@@ -1352,6 +1363,7 @@
     }
     .layout.mode-portrait .portrait-video-logo {
       display: block;
+      pointer-events: auto;
       position: absolute;
       z-index: 7;
       top: 6px;
@@ -1367,7 +1379,7 @@
       display: flex;
       inset: auto 0 var(--portrait-tab-height);
       width: 100%;
-      height: var(--portrait-video-height);
+      height: var(--portrait-chat-height);
       background: transparent;
       border-radius: 0;
       pointer-events: none;
@@ -1389,6 +1401,7 @@
       gap: 12px;
       -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px);
       mask-image: linear-gradient(to bottom, transparent, #000 16px);
+      overscroll-behavior: contain;
     }
     .layout.mode-portrait .messages > :first-child { margin-top: auto; }
     .layout.mode-portrait .messages > * { flex-shrink: 0; }
@@ -1444,8 +1457,22 @@
       min-height: var(--portrait-tab-height);
       flex: none;
       background: #080808;
+      color: var(--text);
       pointer-events: auto;
     }
+    /* iOS can leave :hover active after tapping the drawer. Keep this label
+       white instead of inheriting the black hover text on its black bar. */
+    .layout.mode-portrait .vods-tab:hover,
+    .layout.mode-portrait .vods-tab:active {
+      background: #080808;
+      color: var(--text);
+    }
+    .layout.mode-portrait .vods-tab-label,
+    .layout.mode-portrait .vods-tab-chevron,
+    .layout.mode-portrait .vods-tab:hover .vods-tab-label,
+    .layout.mode-portrait .vods-tab:hover .vods-tab-chevron,
+    .layout.mode-portrait .vods-tab:active .vods-tab-label,
+    .layout.mode-portrait .vods-tab:active .vods-tab-chevron { color: var(--text); }
     .layout.mode-portrait .vods-tab-chevron { transform: rotate(180deg); }
     .layout.mode-portrait .vods-panel.open .vods-tab-chevron { transform: none; }
     .layout.mode-portrait .vods-drawer { background: #080808; pointer-events: auto; border-radius: 0; }
@@ -1455,11 +1482,58 @@
     .layout.mode-portrait .vods-list { padding: 10px 16px 16px; gap: 12px; }
     .layout.mode-portrait .vod-row-thumb { width: 90px; }
     .layout.mode-portrait .video-pane-actions { top: 15%; }
+    .layout.mode-portrait .video-pane .video-pane-actions,
+    .layout.mode-portrait .video-pane .viewer-badge {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* The composer owns the only live control on a portrait phone. Keeping
+       controls out of the video prevents them from sitting behind the input. */
+    .layout.mode-portrait .video-controls { display: none !important; }
+    .layout.mode-portrait .composer { align-items: flex-end; }
+    .layout.mode-portrait .portrait-send-stack {
+      display: flex;
+      flex: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .layout.mode-portrait .portrait-send-stack .live-btn {
+      padding: 3px 8px;
+      font-size: 10px;
+      line-height: 1;
+      background: rgba(0, 0, 0, 0.42);
+    }
+    .layout.mode-portrait .portrait-send-stack .live-dot {
+      width: 6px;
+      height: 6px;
+    }
+    .layout.mode-portrait .portrait-send-stack .send-btn { height: 32px; }
     .layout.mode-portrait.chat-hidden .chat-pane,
     .layout.mode-portrait.fullscreen-active .chat-pane { display: none; }
     .layout.mode-portrait.chat-hidden,
     .layout.mode-portrait.fullscreen-active { --portrait-tab-height: 0px; }
     .layout.mode-portrait .video-controls { z-index: 9; }
+    /* Keep the required policy link available without reserving a separate
+       bottom row that would letterbox the fixed 9:16 player. */
+    body.is-portrait > .widget-privacy-footer {
+      display: block;
+      position: absolute;
+      z-index: 13;
+      right: 0;
+      bottom: 3px;
+      left: 0;
+      height: 12px;
+      pointer-events: auto;
+      text-align: center;
+      line-height: 12px;
+    }
+    body.is-portrait > .widget-privacy-footer a {
+      color: rgba(255,255,255,.76);
+      font: 8px/12px Arial, Helvetica, sans-serif;
+      text-decoration: underline;
+    }
+    body:has(.layout.mode-portrait.vods-open) > .widget-privacy-footer { display: none; }
   }
 </style>
 </head>
@@ -1468,7 +1542,7 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
   <div class="video-pane is-loading" id="videoPane">
-    <div class="portrait-video-logo" aria-hidden="true"><img src="/knobsock-live-logo.png" alt=""></div>
+    <a class="portrait-video-logo" href="/" target="_top" aria-label="KNOBSOCK home"><img src="/knobsock-live-logo.png" alt="KNOBSOCK LIVE"></a>
     <div class="video-stage" id="videoStage">
       <div class="video-pane-actions">
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
@@ -1515,7 +1589,7 @@
 
   <div class="chat-pane" id="chatPane">
 
-    <div class="portrait-chat-logo" aria-hidden="true"><img src="/knobsock-live-logo.png" alt=""></div>
+    <a class="portrait-chat-logo" href="/" target="_top" aria-label="KNOBSOCK home"><img src="/knobsock-live-logo.png" alt="KNOBSOCK LIVE"></a>
     <div class="chat-card" id="app">
       <div class="loading">Loading chat…</div>
     </div>
@@ -1579,12 +1653,34 @@
     try {
       window.parent.postMessage({ type: 'knobsock-layout-mode', mode: isPortrait ? '9:16' : '16:9' }, '*');
     } catch (e) {}
+    window.dispatchEvent(new Event('knobsock-aspect-change'));
   };
   window.setLiveAspectMode('16:9');
   window.addEventListener('load', function () {
     setTimeout(function () { window.setLiveAspectMode(activeLiveAspect); }, 250);
   });
 
+})();
+
+(function () {
+  function isPortraitPhone() {
+    return document.body.classList.contains('is-portrait') && window.matchMedia('(max-width: 600px)').matches;
+  }
+  function lockPortraitScroll() {
+    if (!isPortraitPhone()) return;
+    window.scrollTo(0, 0);
+    try { window.parent.postMessage({ type: 'knobsock-lock-live-scroll' }, '*'); } catch (e) {}
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', lockPortraitScroll);
+    window.visualViewport.addEventListener('scroll', lockPortraitScroll);
+  }
+  window.addEventListener('scroll', lockPortraitScroll, { passive: true });
+  document.addEventListener('focusin', function (event) {
+    if (!event.target.matches('#msgInput')) return;
+    requestAnimationFrame(lockPortraitScroll);
+    setTimeout(lockPortraitScroll, 80);
+  });
 })();
 
 (function () {
@@ -1747,11 +1843,29 @@
   function showVideoLoading() {
     videoLoading.hidden = false;
     videoPane.classList.add('is-loading');
+    clearTimeout(youtubeRevealTimer);
+    if (backend === 'youtube') {
+      /* The raw YouTube embed can play without its JS API. Never leave a
+         successfully loaded iframe hidden just because that API was slow or
+         briefly failed to initialise. */
+      youtubeRevealTimer = setTimeout(function () {
+        if (backend === 'youtube') hideVideoLoading();
+      }, 4000);
+    }
   }
   function hideVideoLoading() {
+    clearTimeout(youtubeRevealTimer);
     videoLoading.hidden = true;
     videoPane.classList.remove('is-loading');
   }
+
+  ytFrame.addEventListener('load', function () {
+    if (backend !== 'youtube') return;
+    clearTimeout(youtubeRevealTimer);
+    youtubeRevealTimer = setTimeout(function () {
+      if (backend === 'youtube') hideVideoLoading();
+    }, 250);
+  });
 
   var CONTROLS_AUTO_HIDE_MS = 3000;
   var supportsHover = window.matchMedia('(hover: hover)').matches;
@@ -1902,6 +2016,7 @@
           updatePlayPauseIcon(true);
           updateProgress();
           applyPendingUnmute();
+          hideVideoLoading();
         },
         onStateChange: function (event) {
           if (backend !== 'youtube') return;
@@ -1923,13 +2038,58 @@
   var loadedVideoId = null;
   var watchingVodId = null;
   var ytApiRequested = false;
+  var ytApiRetryCount = 0;
+  var youtubeRevealTimer = null;
   var liveBtn = document.getElementById('liveBtn');
 
+  /* On a portrait phone, the chat composer is above the video. Move the real
+     Live button beside Send instead of rendering a second control or letting
+     video controls disappear under the composer. */
+  function syncPortraitMobileLiveButton() {
+    var controls = document.getElementById('videoControls');
+    var composer = document.querySelector('.composer');
+    var sendBtn = document.getElementById('sendBtn');
+    if (!controls || !liveBtn) return;
+    var useComposerControl = layoutEl.classList.contains('mode-portrait') && window.matchMedia('(max-width: 600px)').matches;
+    var stack = document.getElementById('portraitSendStack');
+
+    if (useComposerControl && composer && sendBtn) {
+      if (!stack) {
+        stack = document.createElement('div');
+        stack.className = 'portrait-send-stack';
+        stack.id = 'portraitSendStack';
+        composer.insertBefore(stack, sendBtn);
+        stack.appendChild(sendBtn);
+      }
+      if (liveBtn.parentNode !== stack) stack.insertBefore(liveBtn, stack.firstChild);
+      return;
+    }
+
+    if (liveBtn.parentNode !== controls) controls.insertBefore(liveBtn, fullscreenBtn);
+    if (stack) {
+      var stackedSend = stack.querySelector('.send-btn');
+      var stackComposer = stack.closest('.composer');
+      if (stackedSend && stackComposer) stackComposer.appendChild(stackedSend);
+      stack.remove();
+    }
+  }
+  window.syncPortraitMobileLiveButton = syncPortraitMobileLiveButton;
+  window.addEventListener('knobsock-aspect-change', syncPortraitMobileLiveButton);
+  window.addEventListener('resize', syncPortraitMobileLiveButton);
+
   function requestYouTubeIframeApi() {
+    if (window.YT && typeof window.YT.Player === 'function') {
+      if (!ytPlayer) window.onYouTubeIframeAPIReady();
+      return;
+    }
     if (ytApiRequested) return;
     ytApiRequested = true;
     var s = document.createElement('script');
     s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = function () {
+      ytApiRequested = false;
+      if (ytApiRetryCount++ < 1) setTimeout(requestYouTubeIframeApi, 1000);
+    };
     document.body.appendChild(s);
   }
 
@@ -3072,6 +3232,7 @@
     });
     refreshTapInButtonState();
     refreshChatGateState();
+    if (typeof window.syncPortraitMobileLiveButton === 'function') window.syncPortraitMobileLiveButton();
   }
 
   let lastRenderedMsgs = null;
