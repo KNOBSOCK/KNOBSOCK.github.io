@@ -1372,6 +1372,10 @@
       left: 16%;
       width: 68%;
       aspect-ratio: 4000 / 1100;
+      /* The cropped image extends past its intrinsic box. Keep its whole
+         visible area inside the home-link hit target instead of allowing the
+         lower artwork to fall through to the video-control layer. */
+      height: calc(18.7cqw + 20px);
       overflow: hidden;
     }
     .layout.mode-portrait .portrait-video-logo img { transform: translateY(-14%); }
@@ -1486,7 +1490,7 @@
     .layout.mode-portrait .video-pane-actions {
       /* Leave a real touch gap below the linked logo so its hit target cannot
          steal taps intended for the controls. */
-      top: 16%;
+      top: 18%;
       left: 50%;
       transform: translateX(-50%);
     }
@@ -1971,6 +1975,11 @@
      videoPane. This transparent portrait-only layer restores the same
      tap-to-reveal/fade behavior as the 16:9 player. */
   var portraitControlReveal = document.getElementById('portraitControlReveal');
+  function isPortraitPhonePlayer() {
+    return document.body.classList.contains('is-portrait') &&
+      layoutEl.classList.contains('mode-portrait') &&
+      window.matchMedia('(max-width: 600px)').matches;
+  }
   if (portraitControlReveal) {
     var lastPortraitRevealTouchAt = 0;
     function togglePortraitControls(event) {
@@ -1997,6 +2006,14 @@
       togglePortraitControls(event);
     });
   }
+  /* Chat messages are intentionally scrollable and sit above the player.
+     Let a tap (but never a drag) on that layer control the portrait player. */
+  window.togglePortraitVideoControls = function () {
+    if (!isPortraitPhonePlayer()) return false;
+    if (videoPane.classList.contains('controls-visible')) hideControlsNow();
+    else showControls(true);
+    return true;
+  };
 
   unmuteBtn.disabled = true;
 
@@ -3318,6 +3335,40 @@
     });
     $('msgInput').addEventListener('input', updateCharCounter);
     updateCharCounter();
+
+    /* Messages need to keep their native vertical drag-to-scroll behavior.
+       A stationary tap on that same surface is treated as a player tap, so
+       portrait controls can be revealed from anywhere over the video. */
+    const messagesEl = $('messages');
+    let messageTouchStart = null;
+    let ignoreMessageClickUntil = 0;
+    function isMessageInteractive(target) {
+      return !!(target && target.closest('a, button, input, textarea, select, label'));
+    }
+    function toggleFromMessageTap(event) {
+      if (isMessageInteractive(event.target)) return;
+      if (typeof window.togglePortraitVideoControls === 'function') {
+        window.togglePortraitVideoControls();
+      }
+    }
+    messagesEl.addEventListener('touchstart', (event) => {
+      if (isMessageInteractive(event.target)) { messageTouchStart = null; return; }
+      const touch = event.touches && event.touches[0];
+      messageTouchStart = touch ? { x: touch.clientX, y: touch.clientY, at: Date.now() } : null;
+    }, { passive: true });
+    messagesEl.addEventListener('touchend', (event) => {
+      const touch = event.changedTouches && event.changedTouches[0];
+      const started = messageTouchStart;
+      messageTouchStart = null;
+      if (!started || !touch || Date.now() - started.at > 450) return;
+      if (Math.abs(touch.clientX - started.x) > 12 || Math.abs(touch.clientY - started.y) > 12) return;
+      ignoreMessageClickUntil = Date.now() + 750;
+      toggleFromMessageTap(event);
+    }, { passive: true });
+    messagesEl.addEventListener('click', (event) => {
+      if (Date.now() < ignoreMessageClickUntil) return;
+      toggleFromMessageTap(event);
+    });
 
     $('tapinBtn').addEventListener('click', () => {
       if (typeof window.unmuteLivePlayer === 'function') window.unmuteLivePlayer();
