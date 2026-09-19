@@ -1980,6 +1980,9 @@
   } else {
     videoPane.addEventListener('touchstart', function (e) {
 
+      /* The portrait header is a home link. Do not let its touch also hide
+         the controls before the browser can follow that link. */
+      if (e.target.closest('.portrait-video-logo')) return;
       if (e.target.closest('.stream-stats')) return;
       if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls')) {
         showControls(true);
