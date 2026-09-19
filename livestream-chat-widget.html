@@ -1177,6 +1177,290 @@
     font-size: clamp(10px, 2.8cqw, 13px);
     padding: 40px 20px;
   }
+
+  /* Portrait layout owns its geometry. Media, chat and the drawer retain their
+     existing elements/events; none of the landscape offsets apply here. */
+  .portrait-video-logo,
+  .portrait-chat-logo { display: none; pointer-events: none; }
+  .portrait-video-logo img,
+  .portrait-chat-logo img { display: block; width: 100%; height: auto; }
+
+  body.is-portrait {
+    container-type: size;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  body.is-portrait > .bg-glow,
+  body.is-portrait > .widget-privacy-footer { display: none; }
+  .layout.mode-portrait {
+    padding: 0;
+    gap: 0;
+    flex: none;
+    min-height: 0;
+    background: transparent;
+  }
+  .layout.mode-portrait .video-pane {
+    box-sizing: border-box;
+    flex: none;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    aspect-ratio: 9 / 16;
+  }
+  .layout.mode-portrait .video-stage,
+  .layout.mode-portrait .video-frame-wrap {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  /* YouTube always paints its player as a 16:9 canvas, even when the source
+     itself is vertical.  In a 9:16 slot, make that canvas full-height and
+     crop its side bars.  The vertical picture in the centre then exactly
+     fills the 9:16 slot instead of appearing as a small pillarboxed strip. */
+  .layout.mode-portrait .video-frame-wrap { overflow: hidden; }
+  .layout.mode-portrait .video-frame-wrap iframe {
+    position: absolute;
+    /* A one-pixel bleed prevents a fractional-pixel seam at either edge when
+       a responsive 9:16 panel is rendered on a high-density display. */
+    top: -1px;
+    left: 50%;
+    width: calc(100% * 256 / 81 + 4px);
+    max-width: none;
+    height: calc(100% + 2px);
+    transform: translateX(-50%);
+  }
+  .layout.mode-portrait .video-frame-wrap video { object-fit: contain; }
+  .layout.mode-portrait .video-loading { inset: 0; }
+  .layout.mode-portrait .video-controls { bottom: 0; }
+  .layout.mode-portrait .stream-stats { display: none; }
+  .layout.mode-portrait .chat-pane {
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+  }
+  .layout.mode-portrait .chat-card {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .layout.mode-portrait .chat-screen { min-height: 0; }
+  .layout.mode-portrait .vods-tab {
+    display: flex;
+    width: 100%;
+    min-height: 42px;
+    border: 0;
+    border-radius: 0;
+    font-size: 15px;
+    padding: 10px;
+  }
+  .layout.mode-portrait .vods-tab-label { display: inline; }
+  .layout.mode-portrait .vods-heading { display: none; }
+
+  /* Two equal 9:16 columns share one row and one clipped outer silhouette. */
+  @media (min-width: 601px) {
+    .layout.mode-portrait {
+      --portrait-height: min(100cqh, calc(100cqw * 8 / 9), 960px);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: minmax(0, 1fr);
+      width: calc(var(--portrait-height) * 9 / 8);
+      height: var(--portrait-height);
+      align-content: stretch;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .layout.mode-portrait .video-pane {
+      grid-column: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+    }
+    .layout.mode-portrait .chat-pane {
+      grid-column: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 0;
+      background: rgba(var(--accent-rgb), 0.45);
+      backdrop-filter: blur(10px) saturate(150%);
+      -webkit-backdrop-filter: blur(10px) saturate(150%);
+    }
+    .layout.mode-portrait .vods-panel {
+      position: relative;
+      inset: auto;
+      flex: none;
+      order: -2;
+      width: 100%;
+      border-radius: 0;
+    }
+    .layout.mode-portrait .vods-panel.open .vods-drawer {
+      max-height: min(44cqh, 340px);
+    }
+    .layout.mode-portrait .portrait-chat-logo {
+      display: block;
+      position: relative;
+      flex: none;
+      order: -1;
+      /* Crop only transparent pixels in the supplied logo, not its artwork. */
+      width: 56%;
+      aspect-ratio: 4000 / 1100;
+      overflow: hidden;
+      margin: 2px auto 0;
+    }
+    .layout.mode-portrait .portrait-chat-logo img {
+      transform: translateY(calc(-24% + 2px));
+    }
+    .layout.mode-portrait .messages { padding-top: 8px; }
+    body.is-chat-hidden .layout.mode-portrait.chat-hidden,
+    .layout.mode-portrait.fullscreen-active {
+      display: block;
+      width: min(100cqw, calc(100cqh * 9 / 16));
+      height: min(100cqh, calc(100cqw * 16 / 9));
+    }
+    body.is-chat-hidden .layout.mode-portrait.chat-hidden .video-pane,
+    .layout.mode-portrait.fullscreen-active .video-pane {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .layout.mode-portrait {
+      --portrait-tab-height: 44px;
+      --portrait-video-height: min(calc(100cqh - var(--portrait-tab-height)), calc(100cqw * 16 / 9));
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    .layout.mode-portrait .video-pane {
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      bottom: var(--portrait-tab-height);
+      width: calc(var(--portrait-video-height) * 9 / 16);
+      height: var(--portrait-video-height);
+      transform: translateX(-50%);
+      border-radius: 0;
+    }
+    .layout.mode-portrait .portrait-video-logo {
+      display: block;
+      position: absolute;
+      z-index: 7;
+      top: 6px;
+      left: 16%;
+      width: 68%;
+      aspect-ratio: 4000 / 1100;
+      overflow: hidden;
+    }
+    .layout.mode-portrait .portrait-video-logo img { transform: translateY(-14%); }
+    .layout.mode-portrait .chat-pane {
+      position: absolute;
+      z-index: 5;
+      display: flex;
+      inset: auto 0 var(--portrait-tab-height);
+      width: 100%;
+      height: var(--portrait-video-height);
+      background: transparent;
+      border-radius: 0;
+      pointer-events: none;
+    }
+    .layout.mode-portrait .chat-card,
+    .layout.mode-portrait .chat-screen {
+      height: 100%;
+      pointer-events: none;
+      background: transparent;
+      overflow: hidden;
+    }
+    .layout.mode-portrait .chat-screen {
+      padding-top: min(36cqh, max(0px, calc(100cqh - 250px)));
+    }
+    .layout.mode-portrait .messages {
+      pointer-events: auto;
+      padding: 8px 12px 12px;
+      align-items: flex-start;
+      gap: 12px;
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px);
+      mask-image: linear-gradient(to bottom, transparent, #000 16px);
+    }
+    .layout.mode-portrait .messages > :first-child { margin-top: auto; }
+    .layout.mode-portrait .messages > * { flex-shrink: 0; }
+    .layout.mode-portrait .empty-state { display: none; }
+    .layout.mode-portrait .msg,
+    .layout.mode-portrait .msg.mine {
+      align-self: flex-start;
+      align-items: flex-start;
+      max-width: 82%;
+    }
+    .layout.mode-portrait .msg-meta,
+    .layout.mode-portrait .msg.mine .msg-meta {
+      color: #d99aff;
+      text-shadow: 0 1px 2px #000;
+    }
+    .layout.mode-portrait .msg-bubble,
+    .layout.mode-portrait .msg.mine .msg-bubble {
+      background: rgba(35,35,35,.86);
+      border: 0;
+      border-radius: 13px;
+      padding: 9px 14px;
+    }
+    .layout.mode-portrait .composer-bar {
+      position: static;
+      flex: none;
+      pointer-events: auto;
+      border: 0;
+      padding: 4px 0 0;
+      background: linear-gradient(to top, rgba(0,0,0,.65), transparent);
+    }
+    .layout.mode-portrait .composer-status {
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      justify-content: flex-start;
+      padding: 0 10px;
+    }
+    .layout.mode-portrait .who { flex-basis: 100%; }
+    .layout.mode-portrait .chat-lock-timer { text-align: left; padding: 2px 10px; }
+    .layout.mode-portrait .composer { padding: 6px 10px 10px; align-items: center; }
+    .layout.mode-portrait .composer input { background: rgba(25,3,3,.5); }
+    .layout.mode-portrait .auth { pointer-events: auto; background: rgba(0,0,0,.5); }
+    .layout.mode-portrait .vods-panel {
+      position: absolute;
+      inset: auto 0 calc(-1 * var(--portrait-tab-height));
+      width: 100%;
+      border-radius: 0 0 10px 10px;
+      pointer-events: none;
+      z-index: 12;
+    }
+    .layout.mode-portrait .vods-tab {
+      order: -1;
+      height: var(--portrait-tab-height);
+      min-height: var(--portrait-tab-height);
+      flex: none;
+      background: #080808;
+      pointer-events: auto;
+    }
+    .layout.mode-portrait .vods-tab-chevron { transform: rotate(180deg); }
+    .layout.mode-portrait .vods-panel.open .vods-tab-chevron { transform: none; }
+    .layout.mode-portrait .vods-drawer { background: #080808; pointer-events: auto; border-radius: 0; }
+    .layout.mode-portrait .vods-panel.open .vods-drawer {
+      max-height: min(55cqh, 320px);
+    }
+    .layout.mode-portrait .vods-list { padding: 10px 16px 16px; gap: 12px; }
+    .layout.mode-portrait .vod-row-thumb { width: 90px; }
+    .layout.mode-portrait .video-pane-actions { top: 15%; }
+    .layout.mode-portrait.chat-hidden .chat-pane,
+    .layout.mode-portrait.fullscreen-active .chat-pane { display: none; }
+    .layout.mode-portrait.chat-hidden,
+    .layout.mode-portrait.fullscreen-active { --portrait-tab-height: 0px; }
+    .layout.mode-portrait .video-controls { z-index: 9; }
+  }
 </style>
 </head>
 <body>
@@ -1184,6 +1468,7 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="layout" id="layout">
   <div class="video-pane is-loading" id="videoPane">
+    <div class="portrait-video-logo" aria-hidden="true"><img src="/knobsock-live-logo.png" alt=""></div>
     <div class="video-stage" id="videoStage">
       <div class="video-pane-actions">
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
@@ -1230,6 +1515,11 @@
 
   <div class="chat-pane" id="chatPane">
 
+    <div class="portrait-chat-logo" aria-hidden="true"><img src="/knobsock-live-logo.png" alt=""></div>
+    <div class="chat-card" id="app">
+      <div class="loading">Loading chat…</div>
+    </div>
+
     <div class="vods-panel" id="vodsPanel">
       <div class="vods-drawer" id="vodsDrawer">
         <div class="vods-heading">Past Streams</div>
@@ -1242,9 +1532,6 @@
         <span class="vods-tab-chevron" aria-hidden="true">&#9660;</span>
       </button>
     </div>
-    <div class="chat-card" id="app">
-      <div class="loading">Loading chat…</div>
-    </div>
   </div>
 </div>
 
@@ -1254,6 +1541,7 @@
 (function () {
   var layout = document.getElementById('layout');
   var toggleBtn = document.getElementById('toggleChatBtn');
+  var activeLiveAspect = '16:9';
   toggleBtn.addEventListener('click', function () {
     var hidden = layout.classList.toggle('chat-hidden');
     document.body.classList.toggle('is-chat-hidden', hidden);
@@ -1265,6 +1553,36 @@
     } catch (e) {}
     toggleBtn.textContent = hidden ? 'Show Chat' : 'Hide Chat';
     toggleBtn.title = hidden ? 'Show chat' : 'Hide chat';
+  });
+
+  window.setLiveAspectMode = function (aspect) {
+    var isPortrait = aspect === '9:16';
+    activeLiveAspect = isPortrait ? '9:16' : '16:9';
+    layout.classList.toggle('mode-portrait', isPortrait);
+    document.body.classList.toggle('is-portrait', isPortrait);
+    /* The live page and widget are same-origin. Update it directly as well as
+       posting the event, so a very fast Firestore response cannot beat the
+       parent page's message listener during startup. */
+    try {
+      /* Live can sit inside the app shell, so update every same-origin parent
+         rather than assuming the widget's immediate parent owns the header. */
+      var frame = window;
+      while (frame.parent && frame.parent !== frame) {
+        frame = frame.parent;
+        var parentPage = frame.document.querySelector('.page');
+        if (parentPage) parentPage.classList.toggle('layout-portrait', isPortrait);
+        frame.document.querySelectorAll('.page .logo-link').forEach(function (parentLogo) {
+          parentLogo.style.display = isPortrait ? 'none' : '';
+        });
+      }
+    } catch (e) {}
+    try {
+      window.parent.postMessage({ type: 'knobsock-layout-mode', mode: isPortrait ? '9:16' : '16:9' }, '*');
+    } catch (e) {}
+  };
+  window.setLiveAspectMode('16:9');
+  window.addEventListener('load', function () {
+    setTimeout(function () { window.setLiveAspectMode(activeLiveAspect); }, 250);
   });
 
 })();
@@ -1407,6 +1725,10 @@
   }
 
   videoEl.addEventListener('loadedmetadata', function () {
+    if (watchingVodId && videoEl.videoWidth && videoEl.videoHeight) {
+      /* Archived streams never enter the vertical live presentation. */
+      window.setLiveAspectMode('16:9');
+    }
     videoReady = true;
     unmuteBtn.disabled = false;
     playPauseBtn.disabled = false;
@@ -1597,6 +1919,7 @@
 
   var configuredLiveSource = null;
   var configuredIsLive = false;
+  var configuredLiveAspect = '16:9';
   var loadedVideoId = null;
   var watchingVodId = null;
   var ytApiRequested = false;
@@ -1645,10 +1968,14 @@
   }
   updateOfflineTheme();
 
-  window.applyLiveVideoState = function (source, isLive) {
+  window.applyLiveVideoState = function (source, isLive, aspect) {
     pendingUnmute = false;
     configuredLiveSource = isLive ? source : null;
     configuredIsLive = !!isLive;
+    configuredLiveAspect = aspect === '9:16' ? '9:16' : '16:9';
+    /* Portrait is a live-only presentation. Going offline always restores the
+       normal player, even if the next configured live stream is vertical. */
+    if (!watchingVodId) window.setLiveAspectMode(isLive ? configuredLiveAspect : '16:9');
     updateLiveButtonState();
     updateOfflineCardState();
     updateOfflineTheme();
@@ -1690,6 +2017,8 @@
   window.switchToVod = function (vodId, entry, unmute) {
     if (!vodId || (watchingVodId === vodId && loadedVideoId === vodId)) return;
     watchingVodId = vodId;
+    /* VOD playback always uses the standard player layout. */
+    window.setLiveAspectMode('16:9');
     loadedVideoId = vodId;
     pendingUnmute = !!unmute;
     showVideoLoading();
@@ -1717,7 +2046,7 @@
   window.returnToLive = function () {
     watchingVodId = null;
     loadedVideoId = null;
-    window.applyLiveVideoState(configuredLiveSource, configuredIsLive);
+    window.applyLiveVideoState(configuredLiveSource, configuredIsLive, configuredLiveAspect);
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(null);
   };
 
@@ -1973,7 +2302,7 @@
       : { type: 'youtube', id: (data && data.videoId) || DEFAULT_LIVE_VIDEO_ID };
     const isLive = !(data && data.isLive === false);
     if (typeof window.applyLiveVideoState === 'function') {
-      window.applyLiveVideoState(source, isLive);
+      window.applyLiveVideoState(source, isLive, data && data.aspect);
     }
   }, () => {
 
@@ -2090,8 +2419,8 @@
     const items = (data && Array.isArray(data.items)) ? data.items : [];
     latestVods = items.map((v) => {
       const ytId = extractVideoId(v.url);
-      if (ytId) return { id: ytId, type: 'youtube', title: v.title, thumb: v.thumb || '', addedAt: v.addedAt || 0 };
-      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '', addedAt: v.addedAt || 0 };
+      if (ytId) return { id: ytId, type: 'youtube', title: v.title, thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0 };
+      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0 };
       return null;
     }).filter(Boolean);
     renderVods();

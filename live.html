@@ -197,6 +197,45 @@
     65%  { transform: translateX(-50%) scale(1.1); }
     100% { transform: translateX(-50%) scale(1); }
   }
+
+  /* Portrait fills the viewport; the child owns its fixed-ratio columns. */
+  body:has(.page.layout-portrait) { overflow: hidden; }
+  .page.layout-portrait,
+  .page.layout-portrait.chat-hidden {
+    width: 100%;
+    height: var(--live-viewport-height, 100dvh);
+    min-height: 0;
+    margin: 0;
+    padding: 8px 8px 0;
+    gap: 0;
+    overflow: hidden;
+  }
+  .page.layout-portrait .logo-link { display: none; }
+  .page.layout-portrait .player-wrap,
+  .page.layout-portrait .player-wrap.chat-hidden {
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+  }
+  .page.layout-portrait .player-wrap iframe { height: 100%; min-height: 0; }
+  .page.layout-portrait .privacy-footer {
+    display: block;
+    position: static;
+    flex: 0 0 20px;
+    height: 20px;
+    padding: 3px 0;
+    line-height: 14px;
+  }
+  @media (max-width: 600px) {
+    .page.layout-portrait,
+    .page.layout-portrait.chat-hidden { padding: 0; }
+    .page.layout-portrait .privacy-footer {
+      flex-basis: calc(18px + env(safe-area-inset-bottom));
+      height: calc(18px + env(safe-area-inset-bottom));
+      padding: 0 0 env(safe-area-inset-bottom);
+      line-height: 18px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -207,7 +246,7 @@
   </a>
 
   <div class="player-wrap">
-    <iframe src="/livestream-chat-widget.html"
+    <iframe src="/livestream-chat-widget.html?v=portrait-layout-2"
             title="KNOBSOCK Live"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>
@@ -280,6 +319,10 @@
     if (e.data && e.data.type === 'knobsock-live-state') {
       document.body.classList.toggle('is-live', !!e.data.isLive);
     }
+    if (e.data && e.data.type === 'knobsock-layout-mode') {
+      var page = document.querySelector('.page');
+      if (page) page.classList.toggle('layout-portrait', e.data.mode === '9:16');
+    }
     if (e.data && e.data.type === 'knobsock-vod-state') {
       var vodPath = e.data.vodId ? '/live/v/' + e.data.vodId + '/' : '/live';
       history.replaceState(null, '', vodPath);
@@ -299,12 +342,16 @@
 (function () {
 
   function resetScroll() {
+    if (window.visualViewport) {
+      document.documentElement.style.setProperty('--live-viewport-height', window.visualViewport.height + 'px');
+    }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', resetScroll);
   }
   window.addEventListener('resize', resetScroll);
+  resetScroll();
 })();
 </script>
 
