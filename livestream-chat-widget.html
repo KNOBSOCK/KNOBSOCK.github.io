@@ -1448,7 +1448,15 @@
     .layout.mode-portrait .chat-lock-timer { text-align: left; padding: 2px 10px; }
     .layout.mode-portrait .composer { padding: 6px 10px 10px; align-items: center; }
     .layout.mode-portrait .composer input { background: rgba(25,3,3,.5); }
-    .layout.mode-portrait .auth { pointer-events: auto; background: rgba(0,0,0,.5); }
+    /* A signed-out portrait viewer should see the video cleanly behind a
+       centered gate, not a second dark panel over the stream. */
+    .layout.mode-portrait .chat-screen.auth-screen { padding-top: 0; }
+    .layout.mode-portrait .auth {
+      height: 100%;
+      min-height: 0;
+      pointer-events: auto;
+      background: transparent;
+    }
     .layout.mode-portrait .vods-panel {
       position: absolute;
       inset: auto 0 calc(-1 * var(--portrait-tab-height));
@@ -1488,10 +1496,12 @@
     .layout.mode-portrait .vods-list { padding: 10px 16px 16px; gap: 12px; }
     .layout.mode-portrait .vod-row-thumb { width: 90px; }
     .layout.mode-portrait .video-pane-actions {
-      /* Leave a real touch gap below the linked logo so its hit target cannot
-         steal taps intended for the controls. */
-      top: 18%;
+      /* Align with the bottom of the visible logo art. The row deliberately
+         sits above the logo's transparent hit-area, so a control tap cannot
+         accidentally navigate home. */
+      top: 11%;
       left: 50%;
+      z-index: 8;
       transform: translateX(-50%);
     }
     .layout.mode-portrait .portrait-control-reveal {
@@ -3205,7 +3215,7 @@
 
   function renderAuth(errorMsg, prefillUsername, termsChecked) {
     app.innerHTML = `
-      <div class="chat-screen">
+      <div class="chat-screen auth-screen">
         <div class="auth">
           <div class="auth-inner">
             <label for="chatHandle">what are you gonna call yourself?</label>
