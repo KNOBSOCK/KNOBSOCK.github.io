@@ -1555,7 +1555,9 @@
       border-color: var(--interactive-hover);
       color: var(--interactive-hover-text);
     }
-    .layout.mode-portrait .portrait-send-stack .live-btn.at-live .live-dot { background: var(--interactive-hover-text); }
+    /* Keep the conventional red live indicator even when the active button
+       itself is yellow. */
+    .layout.mode-portrait .portrait-send-stack .live-btn.at-live .live-dot { background: var(--accent); }
     .layout.mode-portrait .portrait-send-stack .live-dot {
       width: 6px;
       height: 6px;
@@ -1564,6 +1566,9 @@
     .layout.mode-portrait.chat-hidden .chat-pane,
     .layout.mode-portrait.fullscreen-active .chat-pane { display: none; }
     .layout.mode-portrait.chat-hidden .portrait-video-logo { display: none; }
+    /* Once chat is hidden the linked logo disappears too, so use that clean
+       top space for the surviving player controls. */
+    .layout.mode-portrait.chat-hidden .video-pane-actions { top: 8px; }
     .layout.mode-portrait.chat-hidden,
     .layout.mode-portrait.fullscreen-active { --portrait-tab-height: 0px; }
     .layout.mode-portrait .video-controls { z-index: 9; }
