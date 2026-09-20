@@ -1608,7 +1608,10 @@
     .layout.mode-portrait .video-controls { display: none !important; }
     .layout.mode-portrait .composer {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 34px 54px;
+      /* Keep the emoji button at the exact midpoint of the composer. The
+         first track includes the preceding grid gap, so the button's own
+         32px track begins at 50% minus half its width. */
+      grid-template-columns: calc(50% - 24px) 32px minmax(0, 1fr);
       grid-template-rows: auto;
       align-items: end;
       column-gap: 8px;
