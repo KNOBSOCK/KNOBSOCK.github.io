@@ -2044,6 +2044,10 @@
 
   var pendingUnmute = false;
   var userMutedDeliberately = false;
+  /* Keep our own mute state as well as asking the YouTube API. Mobile Safari
+     can restore the iframe in a new renderer after the page was backgrounded;
+     in that state its old API object may report a stale mute value. */
+  var youtubeMuted = true;
 
   function setMutedUiState(isMuted) {
     unmuteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
@@ -2063,6 +2067,7 @@
     if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return;
     ytPlayer.unMute();
     ytPlayer.setVolume(100);
+    youtubeMuted = false;
     setMutedUiState(false);
     if (typeof ytPlayer.getPlayerState === 'function' && ytPlayer.getPlayerState() === 1) {
       pendingUnmute = false;
@@ -2079,8 +2084,8 @@
       setMutedUiState(false);
       return;
     }
-    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') { pendingUnmute = true; return; }
-    if (!ytPlayer.isMuted()) return;
+    if (!ytPlayer || typeof ytPlayer.unMute !== 'function') { pendingUnmute = true; return; }
+    if (!youtubeMuted) return;
     pendingUnmute = true;
     applyPendingUnmute();
   };
@@ -2228,6 +2233,43 @@
     document.body.appendChild(s);
   }
 
+  function youtubeEmbedUrl(videoId) {
+    return 'https://www.youtube.com/embed/' + videoId +
+      '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
+  }
+
+  function replaceYouTubeFrame() {
+    /* A backgrounded iOS browser can discard the renderer behind a
+       cross-origin iframe while leaving the old YT.Player object in this
+       document. Replace the iframe itself, rather than reusing that stale
+       object, so the next user tap always reaches a live player. */
+    var replacement = ytFrame.cloneNode(false);
+    replacement.removeAttribute('src');
+    ytFrame.parentNode.replaceChild(replacement, ytFrame);
+    ytFrame = replacement;
+    ytFrame.addEventListener('load', function () {
+      if (backend !== 'youtube') return;
+      clearTimeout(youtubeRevealTimer);
+      youtubeRevealTimer = setTimeout(function () {
+        if (backend === 'youtube') hideVideoLoading();
+      }, 250);
+    });
+  }
+
+  function reloadYoutubePlayer(videoId) {
+    if (!videoId) return;
+    apiReady = false;
+    videoReady = false;
+    ytPlayer = null;
+    youtubeMuted = true;
+    pendingUnmute = false;
+    setMutedUiState(true);
+    unmuteBtn.disabled = false;
+    replaceYouTubeFrame();
+    ytFrame.src = youtubeEmbedUrl(videoId);
+    requestYouTubeIframeApi();
+  }
+
   var LIVE_EDGE_THRESHOLD_SEC = 8;
 
   function updateLiveButtonState() {
@@ -2299,6 +2341,8 @@
 
     backend = 'youtube';
     showBackendEl('youtube');
+    youtubeMuted = true;
+    setMutedUiState(true);
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
       ytPlayer.loadVideoById(source.id);
       return;
@@ -2306,7 +2350,7 @@
 
     var frame = document.getElementById('ytFrame');
     if (frame) {
-      frame.src = 'https://www.youtube.com/embed/' + source.id + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
+      frame.src = youtubeEmbedUrl(source.id);
     }
     requestYouTubeIframeApi();
   };
@@ -2318,6 +2362,8 @@
     window.setLiveAspectMode('16:9');
     loadedVideoId = vodId;
     pendingUnmute = !!unmute;
+    youtubeMuted = !pendingUnmute;
+    setMutedUiState(youtubeMuted);
     showVideoLoading();
     if (entry && entry.type === 'direct') {
       loadDirectVideo(entry.url);
@@ -2329,7 +2375,7 @@
       } else {
         var frame = document.getElementById('ytFrame');
         if (frame) {
-          frame.src = 'https://www.youtube.com/embed/' + vodId + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0';
+          frame.src = youtubeEmbedUrl(vodId);
         }
         requestYouTubeIframeApi();
       }
@@ -2393,17 +2439,51 @@
       }
       return;
     }
-    if (!ytPlayer || typeof ytPlayer.isMuted !== 'function') return;
-    if (ytPlayer.isMuted()) {
-      ytPlayer.unMute();
-      ytPlayer.setVolume(100);
+    if (youtubeMuted) {
+      /* Queue this gesture if the iframe is still reconnecting. onReady will
+         apply it as soon as the new player is usable. */
+      pendingUnmute = true;
       userMutedDeliberately = false;
-      setMutedUiState(false);
-    } else {
-      ytPlayer.mute();
-      userMutedDeliberately = true;
-      setMutedUiState(true);
+      applyPendingUnmute();
+      return;
     }
+    if (!ytPlayer || typeof ytPlayer.mute !== 'function') return;
+    ytPlayer.mute();
+    youtubeMuted = true;
+    userMutedDeliberately = true;
+    setMutedUiState(true);
+  });
+
+  var playerWasBackgrounded = false;
+  var playerResumeTimer = null;
+
+  function isPortraitMobileLive() {
+    return configuredIsLive && !watchingVodId && backend === 'youtube' &&
+      document.body.classList.contains('is-portrait') &&
+      window.matchMedia('(max-width: 600px)').matches;
+  }
+
+  function recoverPortraitPlayerAfterBackground() {
+    if (!isPortraitMobileLive() || !configuredLiveSource ||
+        configuredLiveSource.type === 'direct') return;
+    clearTimeout(playerResumeTimer);
+    playerResumeTimer = setTimeout(function () {
+      if (!isPortraitMobileLive()) return;
+      reloadYoutubePlayer(configuredLiveSource.id);
+    }, 100);
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      playerWasBackgrounded = true;
+      return;
+    }
+    if (!playerWasBackgrounded) return;
+    playerWasBackgrounded = false;
+    recoverPortraitPlayerAfterBackground();
+  });
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) recoverPortraitPlayerAfterBackground();
   });
 
   playPauseBtn.addEventListener('click', function () {
