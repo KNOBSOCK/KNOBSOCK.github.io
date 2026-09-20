@@ -1656,6 +1656,12 @@
       height: var(--portrait-tab-height);
     }
     .layout.mode-portrait.portrait-vod .vods-panel { inset: auto 0 0; }
+    /* The archive chat pane is intentionally just one tab tall. Its drawer
+       therefore cannot use cqh (which would cap it at about 31px); size it
+       against the viewport so the list opens to a useful height. */
+    .layout.mode-portrait.portrait-vod .vods-panel.open .vods-drawer {
+      max-height: min(55dvh, 320px);
+    }
     /* A previously hidden chat must not also hide the VOD switcher. */
     .layout.mode-portrait.portrait-vod.chat-hidden {
       --portrait-tab-height: 56px;
