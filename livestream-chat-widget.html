@@ -1188,6 +1188,12 @@
     line-height: 1;
     cursor: pointer;
   }
+  .emoji-picker-toggle svg {
+    display: block;
+    flex: none;
+    width: 60%;
+    height: 60%;
+  }
   .emoji-picker-toggle:hover,
   .emoji-picker-toggle:active,
   .emoji-picker-toggle[aria-expanded="true"] {
@@ -1608,10 +1614,7 @@
     .layout.mode-portrait .video-controls { display: none !important; }
     .layout.mode-portrait .composer {
       display: grid;
-      /* Keep the emoji button at the exact midpoint of the composer. The
-         first track includes the preceding grid gap, so the button's own
-         32px track begins at 50% minus half its width. */
-      grid-template-columns: calc(50% - 24px) 32px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) 34px 54px;
       grid-template-rows: auto;
       align-items: end;
       column-gap: 8px;
@@ -1633,7 +1636,6 @@
       width: 32px;
       height: 32px;
       font-size: 17px;
-      transform: translateY(-1px);
     }
     .layout.mode-portrait .emoji-picker-popover {
       right: -54px;
@@ -3557,7 +3559,7 @@
               <span class="char-counter" id="charCounter">0/${MAX_MSG_LEN}</span>
             </div>
             <div class="emoji-picker-wrap">
-              <button type="button" class="emoji-picker-toggle" id="emojiPickerToggle" title="Custom emojis" aria-label="Custom emojis" aria-expanded="false">☺</button>
+              <button type="button" class="emoji-picker-toggle" id="emojiPickerToggle" title="Custom emojis" aria-label="Custom emojis" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M8 14 Q12 19 16 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
               <div class="emoji-picker-popover" id="emojiPickerPopover"></div>
             </div>
             <button class="send-btn" id="sendBtn" title="Send" aria-label="Send"><img src="/send-button.png" alt=""></button>
