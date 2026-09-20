@@ -398,14 +398,11 @@
 
   .live-grid {
     display: grid;
-    grid-template-columns: 260px 1fr 280px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
     align-items: start;
   }
-  @media (max-width: 1100px) {
-    .live-grid { grid-template-columns: 1fr 1fr; }
-    .live-chat-card { grid-column: 1 / -1; order: -1; }
-  }
+  #tab-live { max-width: 840px; }
   @media (max-width: 700px) {
     .live-grid { grid-template-columns: 1fr; }
     .live-chat-card { grid-column: auto; }
@@ -952,16 +949,6 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head">
-          <h2>Chat Controls</h2>
-          <button type="button" class="btn" id="clearChatBtn">Clear Chat</button>
-        </div>
-        <div class="live-card-body">
-          <div class="note" id="chatClearedNote" hidden></div>
-        </div>
-      </div>
-
       <div style="display:flex;flex-direction:column;gap:20px;">
         <div class="card">
           <div class="card-head"><h2>Custom Chat Emojis</h2></div>
@@ -1221,7 +1208,6 @@
 
   const CHAT_IP_LOG_REF = db.collection('chat_ip_log');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
-  const CHAT_CLEAR_REF = db.collection('chat_config').doc('clear');
   const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
   const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
 
@@ -2628,7 +2614,6 @@
   let chatEmojiDraft = [];
   let chatEmojisLoaded = false;
   let revealedCensorWords = new Set();
-  let chatClearedAt = 0;
   let chatSearchQuery = '';
   let userSearchQuery = '';
   let userHistoryUsername = null;
@@ -2892,25 +2877,6 @@
     CHAT_CENSORED_WORDS_REF.set({ words: words }, { merge: true }).catch(function (err) { alert('Save failed: ' + err.message); });
   }
 
-  function renderClearChatStatus() {
-    const note = document.getElementById('chatClearedNote');
-    const btn = document.getElementById('clearChatBtn');
-    if (chatClearedAt) {
-      note.hidden = false;
-      note.innerHTML = 'Chat was cleared on the front end as of ' + escapeAttr(timeLabel(chatClearedAt)) +
-        ' — everything from before that is still here to search, it just isn\'t shown to visitors. ' +
-        '<button type="button" class="btn-link" id="restoreChatBtn">Restore it</button>';
-      document.getElementById('restoreChatBtn').addEventListener('click', function () {
-        CHAT_CLEAR_REF.set({ clearedAt: 0 }).catch(function (err) { alert('Restore failed: ' + err.message); });
-      });
-      btn.textContent = 'Clear Chat Again';
-    } else {
-      note.hidden = true;
-      note.innerHTML = '';
-      btn.textContent = 'Clear Chat';
-    }
-  }
-
   function normalizeChatEmojiDraft(item) {
     const name = String(item && item.name || '').toLowerCase();
     const url = String(item && item.url || '');
@@ -3038,14 +3004,6 @@
         uploadBtn.disabled = false;
       });
     });
-  }
-
-  function clearChatOnFrontend() {
-    if (!confirm('Clear the chat on the live front end? Nothing is deleted — every message stays here to search, visitors just won\'t see anything from before now.')) return;
-    CHAT_CLEAR_REF.set({
-      clearedAt: Date.now(),
-      clearedBy: (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)) || 'admin'
-    }).catch(function (err) { alert('Clear failed: ' + err.message); });
   }
 
   function openUserHistory(username) {
@@ -3222,12 +3180,6 @@
       const root = document.getElementById('censorWordsList');
       if (root) root.innerHTML = '<div class="empty-state">Could not load censored words: ' + escapeAttr(err.message) + '</div>';
     });
-
-    CHAT_CLEAR_REF.onSnapshot(function (doc) {
-      const data = doc.exists ? doc.data() : null;
-      chatClearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
-      renderClearChatStatus();
-    }, function () {});
 
     let liveVideoUrlPrefilled = false;
     let currentLiveStatus = true;
@@ -3441,7 +3393,6 @@
       });
     });
 
-    document.getElementById('clearChatBtn').addEventListener('click', clearChatOnFrontend);
 
     document.getElementById('addCensorWordBtn').addEventListener('click', function () {
       const input = document.getElementById('newCensorWord');
