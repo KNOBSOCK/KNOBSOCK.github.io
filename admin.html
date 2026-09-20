@@ -850,8 +850,6 @@
 
   <div class="tab-panel" id="tab-videos">
     <h2 class="panel-heading">Videos</h2>
-    <p class="panel-sub">Reorder, add, or remove videos on the Videos page, and reorder the creator chips. Drag the grip (&#10303;) to reorder either list.</p>
-    <div class="note">For Bunny Stream videos: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
     <div class="editor-grid">
       <div class="card">
         <div class="card-head">
@@ -874,8 +872,6 @@
       </div>
     </div>
 
-    <div class="note">Feeds the burger-themed player at /videos/hamburgernews.html — a separate list from the main Video List above, its own player, its own creators.</div>
-    <div class="note">For Bunny Stream videos: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste below is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
     <div class="editor-grid">
       <div class="card">
         <div class="card-head">
@@ -901,14 +897,12 @@
 
   <div class="tab-panel" id="tab-games" hidden>
     <h2 class="panel-heading">Games</h2>
-    <p class="panel-sub">The games behind the Games pickle on /videos/hamburgernews.html. Point each one at any HTML game by its link — the first nine fill the pickle's grid, and anything past that pages.</p>
 
     <div class="card">
       <div class="card-head">
         <h2>Games List</h2>
         <button type="button" class="btn btn-primary" id="gamesAddBtn">+ Add Game</button>
       </div>
-      <div class="note">Drag the grip (&#10303;) to reorder — that's the order the pickle's slots fill in. A link can point anywhere: a page on this site (like <code>/joegame.html</code>) or a full URL somewhere else. The thumbnail is optional and gets cropped to a square in the pickle's grid; leave it blank for a plain black slot.</div>
       <div class="list-scroll" id="gamesList"></div>
       <div class="footer-actions">
         <button type="button" class="btn btn-primary" id="gamesSaveBtn">Save Changes</button>
@@ -919,16 +913,13 @@
 
   <div class="tab-panel" id="tab-music" hidden>
     <h2 class="panel-heading">Music</h2>
-    <p class="panel-sub">The boombox library is imported automatically from every SoundCloud profile you add.</p>
     <div class="card">
       <div class="card-head">
         <h2>SoundCloud Profiles</h2>
         <button type="button" class="btn" id="addSoundcloudBtn">+ Add Profile</button>
       </div>
       <div class="live-card-body" style="max-height:none;">
-        <div class="note">Add one profile per row and save. Every profile's tracks are merged into the Music-page LCD and homepage Listen widget automatically. Set an optional artist name to replace the profile username in the LCD.</div>
         <div id="soundcloudProfilesList" class="soundcloud-profile-list"></div>
-        <div class="note" style="margin-top:14px;">Paste a track link below to pin it as the song that plays the first time someone presses PLAY on the boombox (before they've picked anything themselves). Leave blank to just use whichever track loads first.</div>
         <input type="text" class="search-input" id="soundcloudFirstTrackInput" aria-label="Opening track SoundCloud URL" placeholder="soundcloud.com/yourname/track-name">
         <div class="footer-actions">
           <button type="button" class="btn btn-primary" id="saveSoundcloudBtn">Save Profiles</button>
@@ -942,7 +933,6 @@
         <button type="button" class="btn" id="addSoundcloudAlbumBtn">+ Add Album</button>
       </div>
       <div class="live-card-body" style="max-height:none;">
-        <div class="note">Make an album by naming it and pasting its individual SoundCloud track links, one link per line. Tracks not assigned here remain under SoundCloud.</div>
         <div id="soundcloudAlbumsList" class="soundcloud-profile-list"></div>
       </div>
     </div>
@@ -950,15 +940,10 @@
 
   <div class="tab-panel" id="tab-live" hidden>
     <h2 class="panel-heading">Live Chat Moderation</h2>
-    <p class="panel-sub">This is the same live.html chat, in real time — search it, click any name to pull up everything they've said, and ban, timeout, or delete from there.</p>
-    <div class="note">
-      Banning blocks a browser at the database level (Firestore itself rejects the write, not just a check in this page) and deletes that browser's previous messages. It targets the device, not the name — a banned visitor typing a new username on the same browser is still blocked. A different browser or device isn't, since nothing on a static site like this one can reach that far. "Last known IP" below is a reference clue only (e.g. spotting two names that share one), not something this can actually block.
-    </div>
     <div class="live-grid">
       <div class="card live-chat-card">
         <div class="card-head"><h2>Look Up a Chat User</h2></div>
         <div class="live-card-body">
-          <div class="note">Nothing from chat is loaded automatically. Enter an exact username to open that person's full available history, ban controls, and IP-hash reference.</div>
           <div class="add-row">
             <input type="text" class="search-input" id="userLookupInput" placeholder="Exact username">
             <button type="button" class="btn btn-primary" id="loadUserHistoryBtn">Open</button>
@@ -974,7 +959,6 @@
         </div>
         <div class="live-card-body">
           <div class="note" id="chatClearedNote" hidden></div>
-          <div class="note">Use the username lookup above to inspect messages. This page no longer loads a site-wide chat archive.</div>
         </div>
       </div>
 
@@ -982,7 +966,6 @@
         <div class="card">
           <div class="card-head"><h2>Custom Chat Emojis</h2></div>
           <div class="live-card-body" style="max-height:none;">
-            <div class="note">Upload a PNG, JPG, WebP, or animated GIF (1.5 MB max). Give it a short name and chatters can select it with the smiley button; it sends as <code>:name:</code>. Files and this catalog live on GitHub Pages, so this uses no Firestore reads or writes. Changes go live after GitHub Pages deploys and viewers refresh.</div>
             <div class="add-row">
               <input type="text" class="search-input" id="chatEmojiNameInput" placeholder="Emoji name, e.g. knobsock">
             </div>
@@ -1008,10 +991,6 @@
                 <option value="9:16">9:16 portrait</option>
               </select>
             </div>
-            <div class="note">Choose the live stream’s native layout. Portrait mode becomes a full-screen, no-scroll mobile experience and a tall video column on desktop.</div>
-            <div class="note">When offline, live.html shows the "We are currently offline" card instead of playing the last broadcast's replay — flip this the moment a stream ends, and back on before the next one starts. Takes effect immediately for anyone already on the page.</div>
-            <div class="note">Paste the YouTube link for whatever's live (or about to go live) — or a direct Bunny .m3u8 link if you're pushing the stream through Bunny instead. Takes effect for anyone who loads or refreshes the page after saving.</div>
-            <div class="note">For a Bunny Stream link: the "Direct URL Link" in Bunny's dashboard (player.mediadelivery.net/play/…) is just another embed page and won't work here. You need the actual .m3u8 file — open that link, view its page source (Cmd/Ctrl+Option/Alt+U), and search for ".b-cdn.net" — you'll find it in an og:image tag, e.g. vz-xxxxxxxx-xxx.b-cdn.net. The link to paste is https://THAT-HOSTNAME/THE-VIDEO-ID/playlist.m3u8 (the video ID is the last part of the Direct URL Link you started with).</div>
             <div class="add-row">
               <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste a YouTube or Bunny .m3u8 link">
               <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
@@ -1025,7 +1004,6 @@
             <button type="button" class="btn btn-primary" id="vodsSaveBtn">Save Changes</button>
           </div>
           <div class="live-card-body" style="max-height:none;">
-            <div class="note">Past streams the viewer can pick from the "VODs" drawer on live.html. Drag the grip (&#10303;) to reorder — that order is what viewers see. YouTube or direct Bunny .m3u8 links both work; a Bunny VOD needs a thumbnail pasted in manually since there's no automatic one.</div>
             <div class="list-scroll" id="vodsList" style="max-height:320px;overflow-y:auto;"></div>
             <div class="add-row">
               <input type="text" class="search-input" id="vodsAddInput" placeholder="Paste a YouTube or Bunny .m3u8 link">
@@ -1036,9 +1014,7 @@
         </div>
         <div class="card">
           <div class="card-head"><h2>Banned</h2></div>
-          <div class="live-card-body" style="max-height:260px;">
-            <div class="note">Ban status is shown when you open a user. The complete ban collection is not loaded automatically.</div>
-          </div>
+          <div class="live-card-body" style="max-height:260px;"></div>
         </div>
         <div class="card">
           <div class="card-head"><h2>Censored Words</h2></div>
@@ -1056,16 +1032,13 @@
 
   <div class="tab-panel" id="tab-forums" hidden>
     <h1 class="panel-title">Forums</h1>
-    <p class="panel-sub">Manage boards, threads, reports, and shared live-chat bans. Content removal is reversible.</p>
     <div id="forumsAdmin">Sign in to load forum moderation.</div>
   </div>
   <div class="tab-panel" id="tab-store" hidden>
     <h2 class="panel-heading">Store</h2>
-    <p class="panel-sub">Add and edit what's for sale on the Store page, and see every order that's come in once checkout is actually connected (see functions/README.md) — this is the closest thing to a shipping queue this site has.</p>
 
     <div class="card">
       <div class="card-head"><h2>Photo Uploads</h2></div>
-      <div class="note">Product photos upload straight to this GitHub repo (no Firebase Storage/Blaze needed) — paste a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained GitHub token</a> scoped to just this repo, with Contents set to Read and write. Saved on this device only (never sent anywhere but GitHub) — paste it once, or hit Forget below if you ever want it gone from here.</div>
       <div class="add-row">
         <input type="password" class="search-input" id="githubTokenInput" placeholder="github_pat_…" autocomplete="off">
         <button type="button" class="btn" id="githubTokenSaveBtn">Save</button>
@@ -1079,7 +1052,6 @@
         <h2>Products</h2>
         <button type="button" class="btn btn-primary" id="productAddBtn">+ Add Product</button>
       </div>
-      <div class="note">Drag the grip (&#10303;) to reorder — that's the order they show in on the Store page. A product marked (draft) is saved but hidden from visitors until you check Active.</div>
       <div class="list-scroll" id="productsList" style="max-height:420px;"></div>
       <div class="save-status" id="productsStatus"></div>
     </div>
@@ -1089,7 +1061,6 @@
         <h2>Orders</h2>
         <button type="button" class="btn" id="ordersExportBtn">Export CSV</button>
       </div>
-      <div class="note">Every completed order lands here automatically the moment Stripe confirms payment — nothing to add by hand. Once something's packed and dropped off, flip its Status to Shipped; that's the only thing here you ever need to touch.</div>
       <div class="table-scroll">
         <table class="orders-table">
           <thead>
@@ -1106,8 +1077,6 @@
 
   <div class="tab-panel" id="tab-seo" hidden>
     <h2 class="panel-heading">SEO</h2>
-    <p class="panel-sub">Per-page title and meta description — the text Google shows in search results. Saved here once, applied live to whichever of these pages someone loads or refreshes next.</p>
-    <div class="note">This only reaches search engines that run JavaScript to see a page (Google does). Link-preview cards on Discord, Twitter/X, iMessage, Slack, etc. never run a page's JavaScript at all, so they'll keep showing whatever's already built into that page's own code regardless of what's saved here — ask separately whenever there's real copy ready for those.</div>
     <div class="card">
       <div class="card-head"><h2>Pages</h2></div>
       <div id="seoPages"></div>
@@ -1120,7 +1089,6 @@
 
   <div class="tab-panel" id="tab-netanyahu" hidden>
     <h2 class="panel-heading">Netanyahu</h2>
-    <p class="panel-sub">Text shown on the tribute page at /netanyahu.</p>
     <div class="card">
       <div class="card-head"><h2>Text</h2></div>
       <textarea id="netanyahuTextInput" rows="8" placeholder="Write whatever you want here." style="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:9px 10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
@@ -2195,7 +2163,7 @@
       resetBtn: document.getElementById('videosResetBtn'),
       statusEl: document.getElementById('videosStatus'),
       defaultList: DEFAULT_VIDEO_LIST,
-      urlPlaceholder: 'Paste a YouTube link, or a direct Bunny .m3u8 link (see note above)',
+      urlPlaceholder: 'Paste a YouTube or direct Bunny .m3u8 link',
       singular: 'Video',
       plural: 'videos',
       allowDirectVideo: true,
@@ -2214,7 +2182,7 @@
       resetBtn: document.getElementById('hamburgerNewsResetBtn'),
       statusEl: document.getElementById('hamburgerNewsStatus'),
       defaultList: DEFAULT_HAMBURGER_NEWS_LIST,
-      urlPlaceholder: 'Paste a YouTube link, or a direct Bunny .m3u8 link (see note above)',
+      urlPlaceholder: 'Paste a YouTube or direct Bunny .m3u8 link',
       singular: 'Video',
       plural: 'videos',
       allowDirectVideo: true,
@@ -2239,7 +2207,7 @@
 
     function render() {
       if (!draft.length) {
-        listRoot.innerHTML = '<div class="note">No games yet — add one and save.</div>';
+        listRoot.innerHTML = '<div class="note">No games yet.</div>';
         return;
       }
       listRoot.innerHTML = draft.map(function (g, i) {
@@ -2372,7 +2340,7 @@
 
     function render() {
       if (!profiles.length) {
-        listRoot.innerHTML = '<div class="note" style="margin:0;">No profiles yet — click + Add Profile to begin.</div>';
+        listRoot.innerHTML = '<div class="note" style="margin:0;">No profiles yet.</div>';
         return;
       }
       listRoot.innerHTML = profiles.map(function (profile, index) {
@@ -2402,7 +2370,7 @@
 
     function renderAlbums() {
       if (!albums.length) {
-        albumsRoot.innerHTML = '<div class="note" style="margin:0;">No albums yet — click + Add Album to begin.</div>';
+        albumsRoot.innerHTML = '<div class="note" style="margin:0;">No albums yet.</div>';
         return;
       }
       albumsRoot.innerHTML = albums.map(function (album, index) {
@@ -3574,7 +3542,7 @@
   function renderProductsList() {
     renderProductCategoryOptions();
     if (!storeProducts.length) {
-      productsList.innerHTML = '<div class="note">No products yet — use + Add Product to create the first one.</div>';
+      productsList.innerHTML = '<div class="note">No products yet.</div>';
       return;
     }
     productsList.innerHTML = storeProducts.map(function (p, i) {
@@ -3632,7 +3600,7 @@
 
   function renderColorsList() {
     if (!editingProductColors.length) {
-      productColorsList.innerHTML = '<div class="note" style="margin:0;">No colors added — the Store page hides the color picker entirely until at least one exists.</div>';
+      productColorsList.innerHTML = '<div class="note" style="margin:0;">No colors yet.</div>';
       return;
     }
     productColorsList.innerHTML = editingProductColors.map(function (c, i) {
