@@ -817,6 +817,9 @@
 
     gap: clamp(6px, 2cqmin, 10px);
     flex: none;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
   }
 
   .color-picker {
@@ -1097,10 +1100,22 @@
   .composer-status {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
 
     padding: clamp(5px, 1.6cqmin, 8px) clamp(10px, 3cqmin, 14px) 0;
   }
+
+  /* Keep the account label anchored to the composer itself.  Action buttons
+     can grow above it without moving this useful bit of context away from the
+     field it describes. */
+  .composer-bar > .who {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    padding: clamp(2px, 0.8cqmin, 4px) clamp(8px, 2.8cqmin, 14px) 0;
+    text-align: left;
+  }
+  .layout:not(.mode-portrait) .composer { padding-top: clamp(3px, 1cqmin, 5px); }
 
   .composer {
     display: flex;
@@ -1530,7 +1545,11 @@
       justify-content: flex-start;
       padding: 0 10px;
     }
-    .layout.mode-portrait .who { flex-basis: 100%; }
+    .layout.mode-portrait .composer-bar > .who {
+      box-sizing: border-box;
+      padding: 0 10px;
+      text-align: left;
+    }
     .layout.mode-portrait .chat-lock-timer { text-align: left; padding: 2px 10px; }
     .layout.mode-portrait .composer { padding: 6px 10px 10px; align-items: center; }
     .layout.mode-portrait .composer input { background: rgba(25,3,3,.5); }
@@ -1612,6 +1631,24 @@
     /* The composer owns the only live control on a portrait phone. Keeping
        controls out of the video prevents them from sitting behind the input. */
     .layout.mode-portrait .video-controls { display: none !important; }
+    /* A portrait archive has no chat overlay, so its player controls take the
+       composer slot instead. Keep the Past Streams drawer in place below
+       them, though, so viewers can move between recordings without first
+       returning to live. */
+    .layout.mode-portrait.portrait-vod .portrait-chat-logo,
+    .layout.mode-portrait.portrait-vod .chat-card { display: none; }
+    .layout.mode-portrait.portrait-vod .toggle-chat-btn { display: none; }
+    /* A previously hidden chat must not also hide the VOD switcher. */
+    .layout.mode-portrait.portrait-vod.chat-hidden {
+      --portrait-tab-height: 56px;
+    }
+    .layout.mode-portrait.portrait-vod.chat-hidden .chat-pane { display: flex; }
+    .layout.mode-portrait.portrait-vod .video-pane .video-controls {
+      display: flex !important;
+      bottom: var(--portrait-tab-height);
+      opacity: 1;
+      pointer-events: auto;
+    }
     .layout.mode-portrait .composer {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 34px 54px;
@@ -2004,9 +2041,11 @@
   }
 
   videoEl.addEventListener('loadedmetadata', function () {
-    if (watchingVodId && videoEl.videoWidth && videoEl.videoHeight) {
-      /* Archived streams never enter the vertical live presentation. */
-      window.setLiveAspectMode('16:9');
+    if (watchingVodId) {
+      /* Direct-file VODs report their metadata after the player has loaded.
+         Re-apply the aspect saved with that VOD instead of resetting every
+         archive to landscape. */
+      window.setLiveAspectMode(watchingVodAspect);
     }
     videoReady = true;
     unmuteBtn.disabled = false;
@@ -2276,6 +2315,7 @@
   var configuredLiveAspect = '16:9';
   var loadedVideoId = null;
   var watchingVodId = null;
+  var watchingVodAspect = '16:9';
   var ytApiRequested = false;
   var ytApiRetryCount = 0;
   var youtubeRevealTimer = null;
@@ -2289,7 +2329,9 @@
     var composer = document.querySelector('.composer');
     var sendBtn = document.getElementById('sendBtn');
     if (!controls || !liveBtn) return;
-    var useComposerControl = layoutEl.classList.contains('mode-portrait') && window.matchMedia('(max-width: 600px)').matches;
+    var useComposerControl = layoutEl.classList.contains('mode-portrait') &&
+      !layoutEl.classList.contains('portrait-vod') &&
+      window.matchMedia('(max-width: 600px)').matches;
     var stack = document.getElementById('portraitSendStack');
 
     if (useComposerControl && composer && sendBtn) {
@@ -2315,6 +2357,15 @@
   window.syncPortraitMobileLiveButton = syncPortraitMobileLiveButton;
   window.addEventListener('knobsock-aspect-change', syncPortraitMobileLiveButton);
   window.addEventListener('resize', syncPortraitMobileLiveButton);
+
+  function syncVodPlaybackLayout() {
+    var isPortraitVod = !!watchingVodId && watchingVodAspect === '9:16';
+    layoutEl.classList.toggle('portrait-vod', isPortraitVod);
+    syncPortraitMobileLiveButton();
+    if (isPortraitVod && window.matchMedia('(max-width: 600px)').matches) {
+      showControls(false);
+    }
+  }
 
   function requestYouTubeIframeApi() {
     if (window.YT && typeof window.YT.Player === 'function') {
@@ -2411,8 +2462,8 @@
     configuredLiveSource = isLive ? source : null;
     configuredIsLive = !!isLive;
     configuredLiveAspect = aspect === '9:16' ? '9:16' : '16:9';
-    /* Portrait is a live-only presentation. Going offline always restores the
-       normal player, even if the next configured live stream is vertical. */
+    /* Leave an active VOD in its saved presentation; otherwise follow the
+       configured live stream's aspect. */
     if (!watchingVodId) window.setLiveAspectMode(isLive ? configuredLiveAspect : '16:9');
     updateLiveButtonState();
     updateOfflineCardState();
@@ -2457,8 +2508,9 @@
   window.switchToVod = function (vodId, entry, unmute) {
     if (!vodId || (watchingVodId === vodId && loadedVideoId === vodId)) return;
     watchingVodId = vodId;
-    /* VOD playback always uses the standard player layout. */
-    window.setLiveAspectMode('16:9');
+    watchingVodAspect = entry && entry.aspect === '9:16' ? '9:16' : '16:9';
+    syncVodPlaybackLayout();
+    window.setLiveAspectMode(watchingVodAspect);
     loadedVideoId = vodId;
     pendingUnmute = !!unmute;
     youtubeMuted = !pendingUnmute;
@@ -2487,7 +2539,9 @@
 
   window.returnToLive = function () {
     watchingVodId = null;
+    watchingVodAspect = '16:9';
     loadedVideoId = null;
+    syncVodPlaybackLayout();
     window.applyLiveVideoState(configuredLiveSource, configuredIsLive, configuredLiveAspect);
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(null);
   };
@@ -3545,7 +3599,6 @@
             <div class="streak-bar" id="streakBar"></div>
           </div>
           <div class="composer-status">
-            <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
             <div class="status-actions">
               <span class="chat-gate-status" id="chatGateStatus"></span>
               <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel"><img class="tapin-btn-icon" src="/tapin-cheers.png" alt=""></span></button>
@@ -3553,6 +3606,7 @@
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
+          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
