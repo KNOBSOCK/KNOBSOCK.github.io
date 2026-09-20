@@ -1166,6 +1166,10 @@
   .emoji-picker-wrap {
     position: relative;
     flex: none;
+    display: flex;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
   }
   .emoji-picker-toggle {
     -webkit-appearance: none;
@@ -1620,9 +1624,7 @@
     .layout.mode-portrait .emoji-picker-wrap {
       grid-column: 2;
       grid-row: 1;
-      display: flex;
-      align-self: center;
-      align-items: center;
+      align-self: stretch;
     }
     .layout.mode-portrait .emoji-picker-toggle {
       width: 32px;

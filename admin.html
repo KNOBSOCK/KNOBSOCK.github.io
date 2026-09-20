@@ -1295,7 +1295,9 @@
     }).then(function (res) {
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function (body) {
-          throw new Error((body && body.message) || ('GitHub upload failed: ' + res.status + ' ' + res.statusText));
+          var err = new Error((body && body.message) || ('GitHub upload failed: ' + res.status + ' ' + res.statusText));
+          err.status = res.status;
+          throw err;
         });
       }
       return res.json();
@@ -1306,6 +1308,7 @@
     var token = getGithubToken();
     if (!token) return Promise.reject(new Error('Paste a GitHub token in the Store tab’s Photo Uploads card first.'));
     return fetch('https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/contents/' + path + '?ref=' + encodeURIComponent(GITHUB_BRANCH), {
+      cache: 'no-store',
       headers: {
         'Authorization': 'Bearer ' + token,
         'Accept': 'application/vnd.github+json',
@@ -2963,7 +2966,8 @@
     return btoa(unescape(encodeURIComponent(text)));
   }
 
-  function saveChatEmojiManifest(next, message) {
+  function saveChatEmojiManifest(next, message, attempt) {
+    attempt = attempt || 0;
     const status = document.getElementById('chatEmojiStatus');
     if (status) { status.textContent = 'Saving…'; status.style.color = 'var(--text-dim)'; }
     return githubReadContent('chat-emojis.json').then(function (remote) {
@@ -2975,6 +2979,9 @@
         if (status) { status.textContent = 'Saved — GitHub Pages will publish it shortly.'; status.style.color = 'var(--accent)'; }
       });
     }).catch(function (err) {
+      if (attempt < 2 && (err.status === 409 || /does not match/i.test(err.message || ''))) {
+        return saveChatEmojiManifest(next, message, attempt + 1);
+      }
       if (status) { status.textContent = 'Could not save: ' + (err.message || 'unknown error'); status.style.color = 'var(--danger)'; }
       throw err;
     });
