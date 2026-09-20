@@ -1163,6 +1163,81 @@
 
   .char-counter.is-over { color: var(--error); font-weight: 700; }
 
+  .emoji-picker-wrap {
+    position: relative;
+    flex: none;
+  }
+  .emoji-picker-toggle {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(28px, 8cqmin, 36px);
+    height: clamp(28px, 8cqmin, 36px);
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: clamp(15px, 4.5cqmin, 20px);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .emoji-picker-toggle:hover,
+  .emoji-picker-toggle:active,
+  .emoji-picker-toggle[aria-expanded="true"] {
+    background: var(--interactive-hover);
+    border-color: var(--interactive-hover);
+    color: var(--interactive-hover-text);
+  }
+  .emoji-picker-popover {
+    position: absolute;
+    z-index: 30;
+    right: 0;
+    bottom: calc(100% + 8px);
+    width: min(260px, 72cqw);
+    max-height: min(210px, 44cqh);
+    overflow-y: auto;
+    display: none;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--ink);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  }
+  .emoji-picker-popover.is-open { display: grid; }
+  .emoji-picker-empty {
+    grid-column: 1 / -1;
+    padding: 8px;
+    color: var(--text-dim);
+    font-size: clamp(10px, 2.5cqmin, 12px);
+    text-align: center;
+  }
+  .emoji-choice {
+    -webkit-appearance: none;
+    appearance: none;
+    aspect-ratio: 1;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .emoji-choice:hover,
+  .emoji-choice:focus-visible { border-color: var(--interactive-hover); background: rgba(255,255,0,.12); outline: none; }
+  .emoji-choice img,
+  .chat-emoji {
+    display: inline-block;
+    width: 1.35em;
+    height: 1.35em;
+    object-fit: contain;
+    vertical-align: -0.28em;
+  }
+  .emoji-choice img { width: 100%; height: 100%; vertical-align: middle; }
+
   .composer-limit-msg {
     color: var(--error);
     font-size: clamp(10px, 2.6cqmin, 12px);
@@ -1529,7 +1604,7 @@
     .layout.mode-portrait .video-controls { display: none !important; }
     .layout.mode-portrait .composer {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 54px;
+      grid-template-columns: minmax(0, 1fr) 34px 54px;
       grid-template-rows: auto;
       align-items: end;
       column-gap: 8px;
@@ -1541,6 +1616,19 @@
       grid-row: 1;
       width: 100%;
       min-width: 0;
+    }
+    .layout.mode-portrait .emoji-picker-wrap {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .layout.mode-portrait .emoji-picker-toggle {
+      width: 32px;
+      height: 32px;
+      font-size: 17px;
+    }
+    .layout.mode-portrait .emoji-picker-popover {
+      right: -54px;
+      width: min(250px, 88cqw);
     }
     .layout.mode-portrait .composer-input-wrap input {
       display: block;
@@ -2661,6 +2749,36 @@
 
   const IP_RETENTION_DAYS = 90;
 
+  let chatEmojis = [];
+  let chatEmojiByName = {};
+
+  function normalizeChatEmoji(item) {
+    const name = String(item && item.name || '').toLowerCase();
+    const url = String(item && item.url || '');
+    if (!/^[a-z0-9_-]{1,32}$/.test(name) || (!/^https?:\/\//i.test(url) && url.charAt(0) !== '/')) return null;
+    return { name: name, url: url };
+  }
+
+  function setChatEmojis(items) {
+    const byName = {};
+    chatEmojis = (Array.isArray(items) ? items : []).map(normalizeChatEmoji).filter(function (item) {
+      if (!item || byName[item.name]) return false;
+      byName[item.name] = item;
+      return true;
+    });
+    chatEmojiByName = byName;
+    if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
+    renderEmojiPicker();
+  }
+
+  function loadChatEmojis() {
+    fetch('/chat-emojis.json', { cache: 'no-cache' })
+      .then(function (res) { return res.ok ? res.json() : { emojis: [] }; })
+      .then(function (data) { setChatEmojis(data && data.emojis); })
+      .catch(function () { setChatEmojis([]); });
+  }
+  loadChatEmojis();
+
   async function hashIp(ip) {
     const bytes = new TextEncoder().encode(IP_LOG_SALT + ip);
     const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -3146,9 +3264,17 @@
   }
 
   function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, c => ({
+    return String(s || '').replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
+  }
+
+  function renderMessageText(text) {
+    return escapeHtml(censorText(String(text || ''))).replace(/:([a-z0-9_-]{1,32}):/gi, function (match, name) {
+      const emoji = chatEmojiByName[String(name).toLowerCase()];
+      if (!emoji) return match;
+      return '<img class="chat-emoji" src="' + escapeHtml(emoji.url) + '" alt="' + escapeHtml(match) + '" title="' + escapeHtml(match) + '" loading="lazy">';
+    });
   }
 
   const DEFAULT_CENSORED_WORDS = [
@@ -3421,6 +3547,10 @@
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
               <span class="char-counter" id="charCounter">0/${MAX_MSG_LEN}</span>
             </div>
+            <div class="emoji-picker-wrap">
+              <button type="button" class="emoji-picker-toggle" id="emojiPickerToggle" title="Custom emojis" aria-label="Custom emojis" aria-expanded="false">☺</button>
+              <div class="emoji-picker-popover" id="emojiPickerPopover"></div>
+            </div>
             <button class="send-btn" id="sendBtn" title="Send" aria-label="Send"><img src="/send-button.png" alt=""></button>
           </div>
           <div class="composer-limit-msg" id="composerLimitMsg" hidden>Messages have to be ${MAX_MSG_LEN} characters or fewer — trim it down and hit send again.</div>
@@ -3441,7 +3571,13 @@
       if (e.key === 'Enter') sendMessage();
     });
     $('msgInput').addEventListener('input', updateCharCounter);
+    $('emojiPickerToggle').addEventListener('click', function () {
+      const popover = $('emojiPickerPopover');
+      const isOpen = popover.classList.toggle('is-open');
+      this.setAttribute('aria-expanded', String(isOpen));
+    });
     updateCharCounter();
+    renderEmojiPicker();
 
     /* Messages need to keep their native vertical drag-to-scroll behavior.
        A stationary tap on that same surface is treated as a player tap, so
@@ -3487,6 +3623,36 @@
   }
 
   let lastRenderedMsgs = null;
+
+  function renderEmojiPicker() {
+    const popover = $('emojiPickerPopover');
+    if (!popover) return;
+    if (!chatEmojis.length) {
+      popover.innerHTML = '<div class="emoji-picker-empty">No custom emojis yet.</div>';
+      return;
+    }
+    popover.innerHTML = chatEmojis.map(function (emoji) {
+      const code = ':' + emoji.name + ':';
+      return '<button type="button" class="emoji-choice" title="' + escapeHtml(code) + '" aria-label="' + escapeHtml(code) + '" data-emoji-code="' + escapeHtml(code) + '"><img src="' + escapeHtml(emoji.url) + '" alt="' + escapeHtml(code) + '"></button>';
+    }).join('');
+    popover.querySelectorAll('.emoji-choice').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const input = $('msgInput');
+        if (!input || input.disabled) return;
+        const code = button.getAttribute('data-emoji-code');
+        const start = input.selectionStart || 0;
+        const end = input.selectionEnd || 0;
+        input.value = input.value.slice(0, start) + code + input.value.slice(end);
+        const cursor = start + code.length;
+        input.focus();
+        input.setSelectionRange(cursor, cursor);
+        updateCharCounter();
+        popover.classList.remove('is-open');
+        const toggle = $('emojiPickerToggle');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
 
   // Live chat is intentionally forward-only for viewers: a new tab begins
   // empty and receives messages from that moment on.  The transcript is kept
@@ -3569,7 +3735,7 @@
       return `
         <div class="msg ${mine ? 'mine' : ''}">
           <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
-          <div class="msg-bubble">${escapeHtml(censorText(m.text))}</div>
+          <div class="msg-bubble">${renderMessageText(m.text)}</div>
         </div>
       `;
     }).join('');

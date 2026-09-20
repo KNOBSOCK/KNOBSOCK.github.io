@@ -419,6 +419,44 @@
     max-height: 560px;
   }
 
+  .chat-emoji-admin-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    gap: 8px;
+  }
+  .chat-emoji-admin-item {
+    position: relative;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+    text-align: center;
+  }
+  .chat-emoji-admin-item img {
+    display: block;
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 5px;
+    object-fit: contain;
+  }
+  .chat-emoji-admin-name {
+    display: block;
+    overflow: hidden;
+    color: var(--text-dim);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-emoji-admin-item .icon-btn {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+  }
+
   .search-input {
     width: 100%;
     background: var(--panel-2);
@@ -942,6 +980,21 @@
 
       <div style="display:flex;flex-direction:column;gap:20px;">
         <div class="card">
+          <div class="card-head"><h2>Custom Chat Emojis</h2></div>
+          <div class="live-card-body" style="max-height:none;">
+            <div class="note">Upload a PNG, JPG, WebP, or animated GIF (1.5 MB max). Give it a short name and chatters can select it with the smiley button; it sends as <code>:name:</code>. Files and this catalog live on GitHub Pages, so this uses no Firestore reads or writes. Changes go live after GitHub Pages deploys and viewers refresh.</div>
+            <div class="add-row">
+              <input type="text" class="search-input" id="chatEmojiNameInput" placeholder="Emoji name, e.g. knobsock">
+            </div>
+            <div class="add-row">
+              <input type="file" class="search-input" id="chatEmojiFileInput" accept="image/png,image/jpeg,image/webp,image/gif">
+              <button type="button" class="btn btn-primary" id="uploadChatEmojiBtn">Upload</button>
+            </div>
+            <div class="save-status" id="chatEmojiStatus"></div>
+            <div class="chat-emoji-admin-list" id="chatEmojiAdminList"></div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Live Stream Video</h2></div>
           <div class="live-card-body" style="max-height:none;">
             <div class="add-row" style="align-items:center;">
@@ -1255,6 +1308,55 @@
     }).then(function (data) {
       if (!data.content || !data.content.download_url) throw new Error('GitHub upload succeeded but returned no URL — check store-photos/ in the repo.');
       return data.content.download_url;
+    });
+  }
+
+  function githubPutContent(path, base64, message, sha) {
+    var token = getGithubToken();
+    if (!token) return Promise.reject(new Error('Paste a GitHub token in the Store tab’s Photo Uploads card first.'));
+    var body = { message: message, content: base64, branch: GITHUB_BRANCH };
+    if (sha) body.sha = sha;
+    return fetch('https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/contents/' + path, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          throw new Error((body && body.message) || ('GitHub upload failed: ' + res.status + ' ' + res.statusText));
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function githubReadContent(path) {
+    var token = getGithubToken();
+    if (!token) return Promise.reject(new Error('Paste a GitHub token in the Store tab’s Photo Uploads card first.'));
+    return fetch('https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/contents/' + path + '?ref=' + encodeURIComponent(GITHUB_BRANCH), {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('Could not read ' + path + ' from GitHub.');
+      return res.json();
+    }).then(function (data) {
+      return { sha: data.sha, text: atob(String(data.content || '').replace(/\s/g, '')) };
+    });
+  }
+
+  function readImageFileAsDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(reader.error || new Error('could not read image')); };
+      reader.onload = function () { resolve(reader.result); };
+      reader.readAsDataURL(file);
     });
   }
 
@@ -2552,6 +2654,8 @@
   let liveIpLog = {};
   let liveBans = {};
   let liveCensorWords = [];
+  let chatEmojiDraft = [];
+  let chatEmojisLoaded = false;
   let revealedCensorWords = new Set();
   let chatClearedAt = 0;
   let chatSearchQuery = '';
@@ -2836,6 +2940,131 @@
     }
   }
 
+  function normalizeChatEmojiDraft(item) {
+    const name = String(item && item.name || '').toLowerCase();
+    const url = String(item && item.url || '');
+    if (!/^[a-z0-9_-]{1,32}$/.test(name) || (!/^https?:\/\//i.test(url) && url.charAt(0) !== '/')) return null;
+    return { name: name, url: url };
+  }
+
+  function renderChatEmojiAdminList() {
+    const root = document.getElementById('chatEmojiAdminList');
+    if (!root) return;
+    if (!chatEmojiDraft.length) {
+      root.innerHTML = '<div class="empty-state">No custom emojis uploaded yet.</div>';
+      return;
+    }
+    root.innerHTML = chatEmojiDraft.map(function (emoji) {
+      return '<div class="chat-emoji-admin-item">' +
+        '<img src="' + escapeAttr(emoji.url) + '" alt="' + escapeAttr(':' + emoji.name + ':') + '">' +
+        '<span class="chat-emoji-admin-name">:' + escapeAttr(emoji.name) + ':</span>' +
+        '<button type="button" class="icon-btn" data-remove-chat-emoji="' + escapeAttr(emoji.name) + '" title="Remove :' + escapeAttr(emoji.name) + ':" aria-label="Remove :' + escapeAttr(emoji.name) + ':">×</button>' +
+      '</div>';
+    }).join('');
+    root.querySelectorAll('[data-remove-chat-emoji]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const name = btn.getAttribute('data-remove-chat-emoji');
+        const next = chatEmojiDraft.filter(function (emoji) { return emoji.name !== name; });
+        saveChatEmojiManifest(next, 'Remove chat emoji :' + name + ':');
+      });
+    });
+  }
+
+  function loadChatEmojiManifest() {
+    return fetch('/chat-emojis.json', { cache: 'no-cache' })
+      .then(function (res) { return res.ok ? res.json() : { emojis: [] }; })
+      .then(function (data) {
+        const used = {};
+        chatEmojiDraft = (Array.isArray(data && data.emojis) ? data.emojis : []).map(normalizeChatEmojiDraft).filter(function (emoji) {
+          if (!emoji || used[emoji.name]) return false;
+          used[emoji.name] = true;
+          return true;
+        });
+        chatEmojisLoaded = true;
+        renderChatEmojiAdminList();
+        return chatEmojiDraft;
+      }).catch(function () {
+        chatEmojiDraft = [];
+        chatEmojisLoaded = true;
+        renderChatEmojiAdminList();
+        return chatEmojiDraft;
+      });
+  }
+
+  function encodeGithubText(text) {
+    return btoa(unescape(encodeURIComponent(text)));
+  }
+
+  function saveChatEmojiManifest(next, message) {
+    const status = document.getElementById('chatEmojiStatus');
+    if (status) { status.textContent = 'Saving…'; status.style.color = 'var(--text-dim)'; }
+    return githubReadContent('chat-emojis.json').then(function (remote) {
+      const clean = next.map(normalizeChatEmojiDraft).filter(Boolean);
+      const text = JSON.stringify({ emojis: clean }, null, 2) + '\n';
+      return githubPutContent('chat-emojis.json', encodeGithubText(text), message, remote.sha).then(function () {
+        chatEmojiDraft = clean;
+        renderChatEmojiAdminList();
+        if (status) { status.textContent = 'Saved — GitHub Pages will publish it shortly.'; status.style.color = 'var(--accent)'; }
+      });
+    }).catch(function (err) {
+      if (status) { status.textContent = 'Could not save: ' + (err.message || 'unknown error'); status.style.color = 'var(--danger)'; }
+      throw err;
+    });
+  }
+
+  function wireChatEmojiControls() {
+    const nameInput = document.getElementById('chatEmojiNameInput');
+    const fileInput = document.getElementById('chatEmojiFileInput');
+    const uploadBtn = document.getElementById('uploadChatEmojiBtn');
+    const status = document.getElementById('chatEmojiStatus');
+    if (!nameInput || !fileInput || !uploadBtn || uploadBtn.dataset.wired) return;
+    uploadBtn.dataset.wired = 'true';
+    uploadBtn.addEventListener('click', function () {
+      const name = nameInput.value.trim().toLowerCase();
+      const file = (fileInput.files || [])[0];
+      const extensions = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+      if (!/^[a-z0-9_-]{1,32}$/.test(name)) {
+        status.textContent = 'Use 1–32 lowercase letters, numbers, hyphens, or underscores for the name.';
+        status.style.color = 'var(--danger)';
+        return;
+      }
+      if (!file || !extensions[file.type]) {
+        status.textContent = 'Choose a PNG, JPG, WebP, or GIF image.';
+        status.style.color = 'var(--danger)';
+        return;
+      }
+      if (file.size > 1.5 * 1024 * 1024) {
+        status.textContent = 'That file is over the 1.5 MB limit.';
+        status.style.color = 'var(--danger)';
+        return;
+      }
+      if (chatEmojiDraft.some(function (emoji) { return emoji.name === name; })) {
+        status.textContent = 'That emoji name is already in use.';
+        status.style.color = 'var(--danger)';
+        return;
+      }
+      const filename = name + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.' + extensions[file.type];
+      const path = 'chat-emojis/' + filename;
+      uploadBtn.disabled = true;
+      status.textContent = 'Uploading image…';
+      status.style.color = 'var(--text-dim)';
+      readImageFileAsDataUrl(file).then(function (dataUrl) {
+        return githubPutContent(path, dataUrl.slice(dataUrl.indexOf(',') + 1), 'Add chat emoji :' + name + ':');
+      }).then(function () {
+        status.textContent = 'Adding emoji to the chat…';
+        return saveChatEmojiManifest(chatEmojiDraft.concat([{ name: name, url: '/' + path }]), 'Add chat emoji :' + name + ':');
+      }).then(function () {
+        nameInput.value = '';
+        fileInput.value = '';
+      }).catch(function (err) {
+        status.textContent = 'Upload failed: ' + (err && err.message ? err.message : 'unknown error');
+        status.style.color = 'var(--danger)';
+      }).finally(function () {
+        uploadBtn.disabled = false;
+      });
+    });
+  }
+
   function clearChatOnFrontend() {
     if (!confirm('Clear the chat on the live front end? Nothing is deleted — every message stays here to search, visitors just won\'t see anything from before now.')) return;
     CHAT_CLEAR_REF.set({
@@ -2966,6 +3195,8 @@
   function startLiveModerationIfNeeded() {
     if (liveModerationStarted) return;
     liveModerationStarted = true;
+    wireChatEmojiControls();
+    if (!chatEmojisLoaded) loadChatEmojiManifest();
 
     function loadUserHistoryOnDemand() {
       const input = document.getElementById('userLookupInput');
