@@ -1631,13 +1631,31 @@
     /* The composer owns the only live control on a portrait phone. Keeping
        controls out of the video prevents them from sitting behind the input. */
     .layout.mode-portrait .video-controls { display: none !important; }
-    /* A portrait archive has no chat overlay, so its player controls take the
-       composer slot instead. Keep the Past Streams drawer in place below
-       them, though, so viewers can move between recordings without first
-       returning to live. */
+    /* A portrait archive has no chat overlay, so its player controls use the
+       composer slot. The Past Streams drawer remains fixed below them so
+       viewers can move between recordings without first returning to live. */
     .layout.mode-portrait.portrait-vod .portrait-chat-logo,
     .layout.mode-portrait.portrait-vod .chat-card { display: none; }
     .layout.mode-portrait.portrait-vod .toggle-chat-btn { display: none; }
+    /* Keep the video, its controls, and the VOD switcher in one contiguous
+       stack. A tall mobile viewport otherwise leaves the switcher anchored
+       to the screen while the 9:16 player ends above it. */
+    .layout.mode-portrait.portrait-vod {
+      --portrait-vod-video-height: min(
+        calc(100cqh - var(--portrait-tab-height)),
+        calc(100cqw * 16 / 9)
+      );
+    }
+    .layout.mode-portrait.portrait-vod .video-pane {
+      width: calc(var(--portrait-vod-video-height) * 9 / 16);
+      height: var(--portrait-vod-video-height);
+    }
+    .layout.mode-portrait.portrait-vod .chat-pane {
+      top: var(--portrait-vod-video-height);
+      bottom: auto;
+      height: var(--portrait-tab-height);
+    }
+    .layout.mode-portrait.portrait-vod .vods-panel { inset: auto 0 0; }
     /* A previously hidden chat must not also hide the VOD switcher. */
     .layout.mode-portrait.portrait-vod.chat-hidden {
       --portrait-tab-height: 56px;
@@ -1645,9 +1663,7 @@
     .layout.mode-portrait.portrait-vod.chat-hidden .chat-pane { display: flex; }
     .layout.mode-portrait.portrait-vod .video-pane .video-controls {
       display: flex !important;
-      bottom: var(--portrait-tab-height);
-      opacity: 1;
-      pointer-events: auto;
+      bottom: 0;
     }
     .layout.mode-portrait .composer {
       display: grid;
@@ -2363,7 +2379,7 @@
     layoutEl.classList.toggle('portrait-vod', isPortraitVod);
     syncPortraitMobileLiveButton();
     if (isPortraitVod && window.matchMedia('(max-width: 600px)').matches) {
-      showControls(false);
+      showControls(true);
     }
   }
 
@@ -2749,7 +2765,7 @@
     layoutEl.classList.toggle('fullscreen-active', fs);
   }
 
-  fullscreenBtn.addEventListener('click', function () {
+  function toggleFullscreen() {
     if (isFullscreen()) {
       if (usingPseudoFullscreen) exitPseudoFullscreen();
       else exitFs();
@@ -2766,6 +2782,23 @@
     } else {
       enterPseudoFullscreen();
     }
+  }
+
+  /* iOS in-app browsers can drop the delayed synthetic click after a touch
+     while preserving the button's pressed highlight. Handle the touch end
+     directly in portrait mode, then ignore that synthetic click so the first
+     tap enters fullscreen instead of requiring a second one. */
+  var lastPortraitFullscreenTouchAt = 0;
+  fullscreenBtn.addEventListener('touchend', function (event) {
+    if (!isPortraitPhonePlayer()) return;
+    lastPortraitFullscreenTouchAt = Date.now();
+    event.preventDefault();
+    toggleFullscreen();
+  }, { passive: false });
+
+  fullscreenBtn.addEventListener('click', function () {
+    if (Date.now() - lastPortraitFullscreenTouchAt < 750) return;
+    toggleFullscreen();
   });
 
   ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(
