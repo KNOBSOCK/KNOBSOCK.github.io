@@ -3357,7 +3357,7 @@
       const url = input.value.trim();
       if (!url) return;
       const item = { url: url, title: '', thumb: '', aspect: '16:9', addedAt: Date.now() };
-      vodDraftList.push(item);
+      vodDraftList.unshift(item);
       renderVodsList();
       fetchVodTitleFor(item);
       input.value = '';
