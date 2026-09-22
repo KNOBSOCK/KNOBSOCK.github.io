@@ -64,7 +64,25 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
     animation: msgIn 0.25s ease-out;
   }
-  .msg .msg-name { font-weight: 700; }
+  .msg .msg-name {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    margin: 0;
+    padding: 0;
+    text-shadow: inherit;
+  }
+  .msg .msg-name:hover { text-decoration: underline; }
+  .msg .msg-name:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
 
   @keyframes msgIn {
     from { opacity: 0; transform: translateY(8px); }
@@ -177,6 +195,129 @@
     min-height: 16px;
     color: #f5c9c9;
   }
+
+  .moderation-overlay {
+    position: fixed;
+    z-index: 10;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(18, 0, 0, 0.72);
+  }
+  .moderation-overlay[hidden] { display: none; }
+  .moderation-card {
+    display: flex;
+    flex-direction: column;
+    width: min(560px, 100%);
+    max-height: min(720px, calc(100dvh - 32px));
+    overflow: hidden;
+    padding: 18px;
+    color: #fff;
+    background: #4a0d0d;
+    border: 1px solid rgba(255, 180, 150, 0.45);
+    border-radius: 12px;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+  }
+  .moderation-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .moderation-card-head h2 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .moderation-close {
+    flex: none;
+    margin-left: auto;
+    color: #f5c9c9;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    text-decoration: underline;
+  }
+  .moderation-close:hover { color: #fff; }
+  .moderation-meta,
+  .moderation-history-status,
+  .moderation-action-status {
+    min-height: 16px;
+    margin-top: 7px;
+    color: #f5c9c9;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .moderation-history-title {
+    margin: 16px 0 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .moderation-history-list {
+    min-height: 112px;
+    max-height: 32dvh;
+    margin-top: 8px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 180, 150, 0.25);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.18);
+  }
+  .moderation-log {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(255, 180, 150, 0.16);
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .moderation-log:last-child { border-bottom: 0; }
+  .moderation-log-time {
+    display: block;
+    margin-bottom: 2px;
+    color: #f5c9c9;
+    font-size: 11px;
+  }
+  .moderation-empty { padding: 14px 10px; color: #f5c9c9; font-size: 13px; }
+  .moderation-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+    min-height: 31px;
+    margin-top: 8px;
+  }
+  .moderation-page-label { min-width: 48px; color: #f5c9c9; font-size: 12px; text-align: center; }
+  .moderation-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .moderation-controls select {
+    min-width: 0;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 180, 150, 0.35);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 13px;
+  }
+  .moderation-controls select:focus { outline: none; border-color: #cd3232; }
+  .moderation-reason { margin-top: 8px; }
+
+  @media (max-width: 420px) {
+    .moderation-overlay { align-items: flex-end; padding: 8px; }
+    .moderation-card { max-height: calc(100dvh - 16px); padding: 14px; }
+    .moderation-history-list { max-height: 28dvh; }
+    .moderation-controls { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -214,6 +355,35 @@
   <div id="messages"></div>
 </div>
 
+<div class="moderation-overlay" id="moderationOverlay" hidden>
+  <section class="moderation-card" role="dialog" aria-modal="true" aria-labelledby="moderationTitle">
+    <div class="moderation-card-head">
+      <h2 id="moderationTitle">Chat history</h2>
+      <button type="button" class="moderation-close" id="moderationCloseBtn">Close</button>
+    </div>
+    <div class="moderation-meta" id="moderationMeta"></div>
+    <h3 class="moderation-history-title">Chat history</h3>
+    <div class="moderation-history-status" id="moderationHistoryStatus"></div>
+    <div class="moderation-history-list" id="moderationHistoryList"></div>
+    <div class="moderation-pagination" id="moderationPagination">
+      <button type="button" class="btn" id="moderationPreviousBtn">Newer</button>
+      <span class="moderation-page-label" id="moderationPageLabel"></span>
+      <button type="button" class="btn" id="moderationNextBtn">Older</button>
+    </div>
+    <div class="moderation-controls">
+      <select id="moderationDuration" aria-label="Moderation action">
+        <option value="3600000">Timeout — 1 hour</option>
+        <option value="86400000">Timeout — 24 hours</option>
+        <option value="604800000">Timeout — 7 days</option>
+        <option value="permanent">Ban — permanent</option>
+      </select>
+      <button type="button" class="btn btn-primary" id="moderationApplyBtn">Apply timeout</button>
+    </div>
+    <input class="moderation-reason" type="text" id="moderationReason" maxlength="500" aria-label="Reason, optional" placeholder="Reason (optional, shown to them)">
+    <div class="moderation-action-status" id="moderationActionStatus"></div>
+  </section>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -234,6 +404,7 @@
   const auth = firebase.auth();
   const messagesRef = db.collection('chat_messages');
   const usernamesRef = db.collection('chat_usernames');
+  const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
 
   const CHAT_LIVE_VIDEO_REF = configRef.doc('liveVideo');
@@ -323,7 +494,7 @@
     }
 
     function escapeHtml(s) {
-      return s.replace(/[&<>"']/g, c => ({
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       }[c]));
     }
@@ -346,19 +517,295 @@
     }
 
     const container = document.getElementById('messages');
+    const moderationOverlay = document.getElementById('moderationOverlay');
+    const moderationTitle = document.getElementById('moderationTitle');
+    const moderationMeta = document.getElementById('moderationMeta');
+    const moderationHistoryStatus = document.getElementById('moderationHistoryStatus');
+    const moderationHistoryList = document.getElementById('moderationHistoryList');
+    const moderationPagination = document.getElementById('moderationPagination');
+    const moderationPreviousBtn = document.getElementById('moderationPreviousBtn');
+    const moderationNextBtn = document.getElementById('moderationNextBtn');
+    const moderationPageLabel = document.getElementById('moderationPageLabel');
+    const moderationDuration = document.getElementById('moderationDuration');
+    const moderationApplyBtn = document.getElementById('moderationApplyBtn');
+    const moderationReason = document.getElementById('moderationReason');
+    const moderationActionStatus = document.getElementById('moderationActionStatus');
+    const MODERATION_HISTORY_PAGE_SIZE = 20;
+
     let lastMsgs = [];
+    let messagesById = new Map();
+    let moderationTarget = null;
+    let moderationPageIndex = 0;
+    let moderationRequestToken = 0;
+    const moderationHistoryCache = new Map();
+
+    function toMillis(value) {
+      if (!value) return 0;
+      if (typeof value === 'number') return value;
+      if (typeof value.toMillis === 'function') return value.toMillis();
+      if (typeof value.seconds === 'number') return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+      return 0;
+    }
+
+    function historyTimeLabel(value) {
+      const ms = toMillis(value);
+      return ms ? new Date(ms).toLocaleString() : 'Time unavailable';
+    }
+
+    function moderationHistoryKey(target) {
+      return target.deviceId ? 'device:' + target.deviceId : 'username:' + target.username.toLowerCase();
+    }
+
+    function getModerationHistory(target) {
+      const key = moderationHistoryKey(target);
+      let history = moderationHistoryCache.get(key);
+      if (!history) {
+        history = { pages: [], loading: false, error: '' };
+        moderationHistoryCache.set(key, history);
+      }
+      return history;
+    }
+
+    function historyQueryFor(target) {
+      const field = target.deviceId ? 'deviceId' : 'username';
+      const value = target.deviceId || target.username;
+      return messagesRef.where(field, '==', value).orderBy('ts', 'desc');
+    }
+
+    function renderHistoryMessage(message) {
+      const username = String(message.username || 'Unknown');
+      const text = message.type === 'join'
+        ? 'joined chat'
+        : message.type === 'tapin'
+          ? 'tapped in'
+          : String(message.text || '');
+      return '<div class="moderation-log">' +
+        '<span class="moderation-log-time">' + escapeHtml(historyTimeLabel(message.ts)) + '</span>' +
+        '<strong>' + escapeHtml(username) + ':</strong> ' + escapeHtml(censorText(text)) +
+        '</div>';
+    }
+
+    function updateModerationActionLabel() {
+      moderationApplyBtn.textContent = moderationDuration.value === 'permanent' ? 'Ban permanently' : 'Apply timeout';
+    }
+
+    function renderModeration() {
+      if (!moderationTarget) return;
+      const target = moderationTarget;
+      const history = getModerationHistory(target);
+      const page = history.pages[moderationPageIndex] || null;
+      const pageNumber = page ? moderationPageIndex + 1 : 0;
+      const hasCachedOlderPage = moderationPageIndex < history.pages.length - 1;
+      const mayHaveOlderPage = page && page.hasMore;
+
+      moderationTitle.textContent = target.username;
+      moderationMeta.textContent = target.deviceId
+        ? 'Ready to moderate using the device ID already attached to this live message.'
+        : target.deviceLookupStatus === 'unavailable'
+          ? 'No current device was found for this username, so a ban cannot be enforced.'
+          : target.deviceLookupStatus === 'error'
+            ? 'Could not look up a device for this username. History can still load by username.'
+            : 'No device ID was attached to this older message. Checking the username record once so a ban can be enforced.';
+
+      if (history.error) {
+        moderationHistoryStatus.textContent = 'Couldn’t load chat history: ' + history.error;
+      } else if (history.loading) {
+        moderationHistoryStatus.textContent = page ? 'Loading the next 20 messages…' : 'Loading up to 20 messages…';
+      } else if (page && page.messages.length) {
+        moderationHistoryStatus.textContent = 'Showing ' + page.messages.length + ' message' + (page.messages.length === 1 ? '' : 's') + ' on this page.';
+      } else if (page) {
+        moderationHistoryStatus.textContent = 'No chat messages found for this user.';
+      } else {
+        moderationHistoryStatus.textContent = 'Preparing chat history…';
+      }
+
+      moderationHistoryList.innerHTML = page
+        ? (page.messages.length ? page.messages.map(renderHistoryMessage).join('') : '<div class="moderation-empty">No chat messages found for this user.</div>')
+        : '<div class="moderation-empty">Loading…</div>';
+
+      moderationPagination.hidden = !page;
+      moderationPreviousBtn.hidden = !page || moderationPageIndex === 0;
+      moderationPreviousBtn.disabled = moderationPageIndex === 0 || history.loading;
+      moderationPageLabel.textContent = pageNumber ? 'Page ' + pageNumber : '';
+      moderationNextBtn.hidden = !page || (!hasCachedOlderPage && !mayHaveOlderPage);
+      moderationNextBtn.disabled = history.loading;
+
+      moderationApplyBtn.disabled = !target.deviceId;
+      if (!target.deviceId && !moderationActionStatus.textContent) {
+        moderationActionStatus.textContent = 'A ban needs the chat device ID. History can still load by username.';
+      }
+    }
+
+    function loadModerationHistoryPage() {
+      if (!moderationTarget) return;
+      const target = moderationTarget;
+      const history = getModerationHistory(target);
+      if (history.loading) return;
+      const previousPage = history.pages.length ? history.pages[history.pages.length - 1] : null;
+      if (previousPage && !previousPage.hasMore) return;
+
+      const token = moderationRequestToken;
+      history.loading = true;
+      history.error = '';
+      renderModeration();
+
+      let query = historyQueryFor(target);
+      if (previousPage && previousPage.cursor) query = query.startAfter(previousPage.cursor);
+      query.limit(MODERATION_HISTORY_PAGE_SIZE).get().then(function (snapshot) {
+        if (token !== moderationRequestToken || moderationTarget !== target) return;
+        history.loading = false;
+        const messages = snapshot.docs.map(function (doc) {
+          return Object.assign({ id: doc.id }, doc.data());
+        });
+
+        if (!messages.length && previousPage) {
+          previousPage.hasMore = false;
+        } else {
+          history.pages.push({
+            messages: messages,
+            cursor: snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null,
+            hasMore: snapshot.size === MODERATION_HISTORY_PAGE_SIZE
+          });
+          moderationPageIndex = history.pages.length - 1;
+        }
+        renderModeration();
+      }).catch(function (err) {
+        if (token !== moderationRequestToken || moderationTarget !== target) return;
+        history.loading = false;
+        history.error = (err && err.message) || 'unknown error';
+        renderModeration();
+      });
+    }
+
+    function loadModerationHistoryForTarget() {
+      if (!moderationTarget) return;
+      const history = getModerationHistory(moderationTarget);
+      if (history.pages.length) {
+        moderationPageIndex = 0;
+        renderModeration();
+      } else {
+        loadModerationHistoryPage();
+      }
+    }
+
+    function openUserModeration(message) {
+      const username = String(message && message.username || '').trim();
+      if (!username) return;
+      const deviceId = message && typeof message.deviceId === 'string' ? message.deviceId : '';
+      moderationTarget = { username: username, deviceId: deviceId, deviceLookupStatus: deviceId ? 'ready' : 'checking' };
+      moderationPageIndex = 0;
+      moderationRequestToken += 1;
+      moderationReason.value = '';
+      moderationActionStatus.textContent = '';
+      moderationOverlay.hidden = false;
+      updateModerationActionLabel();
+      renderModeration();
+
+      if (deviceId) {
+        loadModerationHistoryForTarget();
+        return;
+      }
+
+      const token = moderationRequestToken;
+      usernamesRef.doc(username.toLowerCase()).get().then(function (doc) {
+        if (token !== moderationRequestToken || !moderationTarget) return;
+        const data = doc.exists ? doc.data() : null;
+        const resolvedDeviceId = data && typeof data.lastDeviceId === 'string' ? data.lastDeviceId : '';
+        if (resolvedDeviceId) moderationTarget = { username: username, deviceId: resolvedDeviceId, deviceLookupStatus: 'ready' };
+        else moderationTarget.deviceLookupStatus = 'unavailable';
+        moderationPageIndex = 0;
+        renderModeration();
+        loadModerationHistoryForTarget();
+      }).catch(function () {
+        if (token !== moderationRequestToken || !moderationTarget) return;
+        moderationTarget.deviceLookupStatus = 'error';
+        renderModeration();
+        loadModerationHistoryForTarget();
+      });
+    }
+
+    function closeUserModeration() {
+      moderationRequestToken += 1;
+      moderationTarget = null;
+      moderationOverlay.hidden = true;
+    }
+
+    function applyModeration() {
+      const target = moderationTarget;
+      if (!target || !target.deviceId) return;
+      const duration = moderationDuration.value;
+      const permanent = duration === 'permanent';
+      const expiresAt = permanent ? null : Date.now() + Number(duration);
+      const reason = moderationReason.value.trim();
+
+      moderationApplyBtn.disabled = true;
+      moderationActionStatus.textContent = permanent ? 'Banning…' : 'Applying timeout…';
+      bansRef.doc(target.deviceId).set({
+        bannedAt: Date.now(),
+        bannedBy: (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)) || 'admin',
+        expiresAt: expiresAt,
+        reason: reason,
+        enforced: true,
+        usernames: firebase.firestore.FieldValue.arrayUnion(target.username)
+      }, { merge: true }).then(function () {
+        if (moderationTarget === target) {
+          moderationActionStatus.textContent = permanent
+            ? 'Permanent ban applied.'
+            : 'Timeout applied until ' + new Date(expiresAt).toLocaleString() + '.';
+        }
+      }).catch(function (err) {
+        if (moderationTarget === target) {
+          moderationActionStatus.textContent = 'Couldn’t apply moderation: ' + ((err && err.message) || 'unknown error');
+        }
+      }).finally(function () {
+        if (moderationTarget === target) renderModeration();
+      });
+    }
+
+    document.getElementById('moderationCloseBtn').addEventListener('click', closeUserModeration);
+    moderationOverlay.addEventListener('click', function (event) {
+      if (event.target === moderationOverlay) closeUserModeration();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !moderationOverlay.hidden) closeUserModeration();
+    });
+    moderationDuration.addEventListener('change', updateModerationActionLabel);
+    moderationApplyBtn.addEventListener('click', applyModeration);
+    moderationPreviousBtn.addEventListener('click', function () {
+      if (!moderationTarget || moderationPageIndex === 0) return;
+      moderationPageIndex -= 1;
+      renderModeration();
+    });
+    moderationNextBtn.addEventListener('click', function () {
+      if (!moderationTarget) return;
+      const history = getModerationHistory(moderationTarget);
+      if (moderationPageIndex < history.pages.length - 1) {
+        moderationPageIndex += 1;
+        renderModeration();
+      } else {
+        loadModerationHistoryPage();
+      }
+    });
 
     function render(msgs) {
       lastMsgs = msgs;
+      messagesById = new Map(msgs.map(function (message) { return [message.id, message]; }));
 
       const wasNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 40;
       container.innerHTML = msgs.map(m => {
-        const color = m.color || defaultColorFor(m.username);
+        const username = String(m.username || 'Unknown');
+        const color = m.color || defaultColorFor(username);
         return '<div class="msg">' +
-          '<span class="msg-name" style="color:' + color + '">' + escapeHtml(m.username) + ':</span> ' +
-          '<span class="msg-text">' + escapeHtml(censorText(m.text)) + '</span>' +
+          '<button type="button" class="msg-name" data-message-id="' + escapeHtml(m.id) + '" style="color:' + color + '">' + escapeHtml(username) + ':</button> ' +
+          '<span class="msg-text">' + escapeHtml(censorText(String(m.text || ''))) + '</span>' +
           '</div>';
       }).join('');
+      container.querySelectorAll('.msg-name').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const message = messagesById.get(button.getAttribute('data-message-id'));
+          if (message) openUserModeration(message);
+        });
+      });
       if (wasNearBottom) container.scrollTop = container.scrollHeight;
     }
 
@@ -373,7 +820,7 @@
       query = query.where('ts', '>=', Math.max(clearedAt || 0, MONITOR_STARTED_AT));
       unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
         (snapshot) => {
-          const msgs = snapshot.docs.map(doc => doc.data())
+          const msgs = snapshot.docs.map(doc => Object.assign({ id: doc.id }, doc.data()))
             .filter(m => m.type !== 'join')
             .slice(-MAX_VISIBLE);
           render(msgs);
