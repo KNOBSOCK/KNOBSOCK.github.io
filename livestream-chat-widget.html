@@ -1098,6 +1098,24 @@
     height: clamp(18px, 5cqmin, 23px);
     object-fit: contain;
   }
+  /* The active match gets its own compact scoreboard row. Keeping the clock
+     beside the title leaves the area below the tug for the punch itself. */
+  .fight-live-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(8px, 2.2cqmin, 12px);
+  }
+  .fight-live-header .fight-panel-header {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+  .fight-live-header .fight-clock {
+    flex: none;
+    margin-top: 0;
+    font-size: clamp(14px, 4.3cqmin, 21px);
+    white-space: nowrap;
+  }
   .fight-panel-copy {
     margin: clamp(4px, 1.2cqmin, 6px) 0 0;
     color: var(--text-dim);
@@ -1236,7 +1254,7 @@
     width: clamp(74px, 21cqmin, 96px);
     aspect-ratio: 4 / 3;
     place-items: center;
-    margin-top: clamp(8px, 2.2cqmin, 10px);
+    margin-top: clamp(7px, 1.9cqmin, 9px);
     margin-right: auto;
     margin-left: auto;
     padding: 0;
@@ -1304,6 +1322,37 @@
     font-family: 'Gratis Neue', var(--font-body);
     font-size: clamp(12px, 3cqmin, 14px);
     text-align: center;
+  }
+
+  /* A locked, empty mobile chat only needs enough height for its gate and
+     composer. The parent widget still fills its iframe, but the rounded chat
+     surface now ends with that compact content instead of leaving a tall
+     empty panel below it. The exact height is measured in script so it stays
+     correct for every phone width and font size. */
+  @media (max-width: 860px) {
+    .layout.is-chat-compact .chat-pane {
+      flex: 0 0 var(--compact-chat-height);
+      height: var(--compact-chat-height);
+    }
+    body.is-chat-compact .bg-glow {
+      bottom: auto;
+      height: var(--compact-chat-glow-height);
+    }
+  }
+
+  .fight-target.is-on-cooldown {
+    cursor: default;
+    opacity: .58;
+  }
+  .fight-target.is-on-cooldown::before {
+    background: var(--text-dim);
+    box-shadow: none;
+  }
+  .fight-target-cooldown {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: .88em;
+    white-space: nowrap;
   }
   @media (prefers-reduced-motion: reduce) {
     .fight-menu.is-open { animation: none; }
@@ -3703,6 +3752,7 @@
       lockTimer.textContent = '';
     }
     refreshFightPanel();
+    scheduleCompactChatLayout();
   }
 
   const TAPIN_ICON_HTML = '<img class="tapin-btn-icon" src="/tapin-cheers.png" alt="">';
@@ -3796,6 +3846,76 @@
   let fightPunchIndex = 0;
   let fightPunchAnimationTimer = null;
   let fightHitWordIndex = 0;
+
+  let compactChatLayoutFrame = 0;
+  let compactChatLayoutSettleFrame = 0;
+
+  function clearCompactChatLayout() {
+    const layout = document.getElementById('layout');
+    if (layout) {
+      layout.classList.remove('is-chat-compact');
+      layout.style.removeProperty('--compact-chat-height');
+    }
+    document.body.classList.remove('is-chat-compact');
+    document.body.style.removeProperty('--compact-chat-glow-height');
+  }
+
+  function compactChatMeasure() {
+    const screen = app.querySelector('.chat-screen');
+    const composerBar = app.querySelector('.composer-bar');
+    const chatPane = document.getElementById('chatPane');
+    const layout = document.getElementById('layout');
+    const isRegularMobile = window.matchMedia('(max-width: 860px)').matches && !document.body.classList.contains('is-portrait');
+    const shouldCompact = isRegularMobile && !!screen && !!composerBar && !!chatPane && !!layout &&
+      screen.classList.contains('is-chat-locked') && screen.classList.contains('is-chat-empty') && !currentFight;
+
+    if (!shouldCompact) {
+      clearCompactChatLayout();
+      return;
+    }
+
+    const screenStyle = window.getComputedStyle(screen);
+    const topPadding = parseFloat(screenStyle.paddingTop) || 0;
+    const bottomPadding = parseFloat(screenStyle.paddingBottom) || 0;
+    // The two pixels keep the composer's border inside the rounded surface on
+    // fractional-pixel phone layouts.
+    const compactHeight = Math.ceil(composerBar.getBoundingClientRect().height + topPadding + bottomPadding + 2);
+    layout.style.setProperty('--compact-chat-height', compactHeight + 'px');
+    layout.classList.add('is-chat-compact');
+    document.body.classList.add('is-chat-compact');
+
+    // `cqmin` values settle after the chat pane gets its compact height, so
+    // take one more measurement before sizing the background's lower edge.
+    cancelAnimationFrame(compactChatLayoutSettleFrame);
+    compactChatLayoutSettleFrame = requestAnimationFrame(() => {
+      if (!document.body.classList.contains('is-chat-compact')) return;
+      const latestScreen = app.querySelector('.chat-screen');
+      const latestComposer = app.querySelector('.composer-bar');
+      const latestPane = document.getElementById('chatPane');
+      const latestLayout = document.getElementById('layout');
+      const glow = document.querySelector('.bg-glow');
+      if (!latestScreen || !latestComposer || !latestPane || !latestLayout || !glow) return;
+
+      const latestStyle = window.getComputedStyle(latestScreen);
+      const settledHeight = Math.ceil(
+        latestComposer.getBoundingClientRect().height +
+        (parseFloat(latestStyle.paddingTop) || 0) +
+        (parseFloat(latestStyle.paddingBottom) || 0) + 2
+      );
+      latestLayout.style.setProperty('--compact-chat-height', settledHeight + 'px');
+
+      const glowTop = glow.getBoundingClientRect().top;
+      const paneBottom = latestPane.getBoundingClientRect().bottom;
+      document.body.style.setProperty('--compact-chat-glow-height', Math.max(0, Math.ceil(paneBottom - glowTop + 8)) + 'px');
+    });
+  }
+
+  function scheduleCompactChatLayout() {
+    cancelAnimationFrame(compactChatLayoutFrame);
+    compactChatLayoutFrame = requestAnimationFrame(compactChatMeasure);
+  }
+
+  window.addEventListener('resize', scheduleCompactChatLayout, { passive: true });
 
   function isFightEvent(message) {
     return !!(message && typeof message.type === 'string' && message.type.indexOf('fight_') === 0);
@@ -4057,6 +4177,7 @@
     clearFightTimers();
     currentFight = null;
     refreshFightPanel();
+    scheduleCompactChatLayout();
   }
 
   function scheduleFightExpiry(fight) {
@@ -4273,19 +4394,6 @@
     const red = fightTugRedPercent(fight);
     tug.style.setProperty('--fight-red', red + '%');
     tug.setAttribute('aria-valuenow', String(red));
-    const hint = $('fightTugHint');
-    if (!hint) return;
-    const role = fightRole(fight);
-    if (fight.status === 'result') {
-      hint.textContent = red === 50 ? 'Dead even at the center.' : (red > 50 ? 'Red held the line.' : 'Blue held the line.');
-    } else if (role === 'spectator') {
-      hint.textContent = Object.keys(fight.liveScores || {}).length
-        ? 'Watching the live tug.'
-        : 'Watching the tug — fighters are getting ready.';
-    } else {
-      const mineIsAhead = (role === 'challenger' && red > 50) || (role === 'opponent' && red < 50);
-      hint.textContent = mineIsAhead ? 'You are past the middle — hold the line!' : 'Push your color past the yellow middle!';
-    }
   }
 
   function fightTugMarkup(fight) {
@@ -4294,7 +4402,7 @@
       '<div class="fight-tug-red"><span class="fight-tug-side-label">Red</span></div>' +
       '<div class="fight-tug-blue"><span class="fight-tug-side-label">Blue</span></div>' +
       '<div class="fight-tug-center" aria-hidden="true"></div>' +
-      '</div><div class="fight-tug-hint" id="fightTugHint"></div>';
+      '</div>';
   }
 
   function punchFight() {
@@ -4303,8 +4411,6 @@
     fight.localClicks = (fight.localClicks || 0) + 1;
     fight.liveScores = fight.liveScores || {};
     fight.liveScores[session.username] = fight.localClicks;
-    const clicks = $('fightClicks');
-    if (clicks) clicks.textContent = fight.localClicks + ' knock outs';
     const button = $('fightSmashBtn');
     if (button) {
       clearTimeout(fightPunchAnimationTimer);
@@ -4562,6 +4668,7 @@
     if (!fight) {
       wrap.classList.remove('is-visible');
       panel.innerHTML = '';
+      scheduleCompactChatLayout();
       return;
     }
     wrap.classList.add('is-visible');
@@ -4612,15 +4719,17 @@
     const myScoreIsSubmitted = isFighter && !!fight.scoreSubmitted;
     const countdownLabel = isPlaying ? Math.max(0, Math.ceil((fight.endsAt - Date.now()) / 1000)) + ' SECONDS' : 'STARTS IN ' + Math.max(1, Math.ceil((fight.startsAt - Date.now()) / 1000));
     panel.innerHTML = `
-      <div class="fight-panel-header"><img src="/fight-gloves.png" alt="">Live fight</div>
+      <div class="fight-live-header">
+        <div class="fight-panel-header"><img src="/fight-gloves.png" alt="">Live fight</div>
+        <div class="fight-clock" id="fightClock">${countdownLabel}</div>
+      </div>
       <div class="fight-arena">
         <div class="fight-fighter ${role === 'challenger' ? 'is-me' : ''}">${challenger}</div>
         <div class="fight-versus">VS</div>
         <div class="fight-fighter ${role === 'opponent' ? 'is-me' : ''}">${opponent}</div>
       </div>
       ${fightTugMarkup(fight)}
-      <div class="fight-clock" id="fightClock">${countdownLabel}</div>
-      ${isPlaying && isFighter && !myScoreIsSubmitted ? '<div class="fight-clicks" id="fightClicks">' + (fight.localClicks || 0) + ' knock outs</div><button type="button" class="fight-smash-btn" id="fightSmashBtn" title="Knock out!" aria-label="Knock out!"><img src="/fight-punch.png" alt=""></button>' : '<div class="fight-spectator-note">' + (myScoreIsSubmitted ? 'Your score is locked. Waiting for the other fighter.' : isFighter ? 'Get ready to tap fast when the bell rings.' : 'Watching the live tug.') + '</div>'}
+      ${isPlaying && isFighter && !myScoreIsSubmitted ? '<button type="button" class="fight-smash-btn" id="fightSmashBtn" title="Knock out!" aria-label="Knock out!"><img src="/fight-punch.png" alt=""></button>' : ''}
     `;
     const smash = $('fightSmashBtn');
     if (smash) smash.addEventListener('click', punchFight);
@@ -5221,6 +5330,7 @@
     if (screen) screen.classList.toggle('is-chat-empty', !hasVisibleMessage);
     if (!msgs.length) {
       container.innerHTML = `<div class="empty-state">No messages yet. Say wassup</div>`;
+      scheduleCompactChatLayout();
       return;
     }
 
@@ -5258,6 +5368,7 @@
     container.scrollTop = container.scrollHeight;
     const fightMenu = $('fightMenu');
     if (fightMenu && fightMenu.classList.contains('is-open')) renderFightTargetList();
+    scheduleCompactChatLayout();
   }
 
   async function sendMessage() {
