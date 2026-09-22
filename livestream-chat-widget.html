@@ -813,13 +813,48 @@
 
   .status-actions {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
 
     gap: clamp(6px, 2cqmin, 10px);
     flex: none;
     flex-wrap: wrap;
     justify-content: flex-end;
     max-width: 100%;
+  }
+
+  /* Keep the chat-unlock cue out of the row of controls. This leaves that
+     row available for future actions while making its target unambiguous. */
+  .tapin-gate {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+  }
+  .tapin-cue {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    margin-bottom: 2px;
+  }
+  .tapin-gate.is-locked .tapin-cue {
+    display: flex;
+    animation: tapinCueFloat 1.6s ease-in-out infinite;
+  }
+  .tapin-cue-arrow {
+    color: #ffffff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: clamp(15px, 4.5cqmin, 20px);
+    font-weight: 900;
+    line-height: 0.65;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
+  @keyframes tapinCueFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tapin-gate.is-locked .tapin-cue { animation: none; }
   }
 
   .color-picker {
@@ -3213,14 +3248,16 @@
     sendBtn.disabled = !unlocked;
     input.placeholder = unlocked ? 'Type a message…' : 'Tap in above to chat…';
     const tapinBtn = $('tapinBtn');
+    const tapinGate = $('tapinGate');
     if (tapinBtn) tapinBtn.classList.toggle('is-required', !unlocked);
+    if (tapinGate) tapinGate.classList.toggle('is-locked', !unlocked);
     if (unlocked) {
       status.textContent = '';
       status.classList.remove('is-locked');
       lockTimer.textContent = 'Chat locks again in ' + formatHms(remaining);
       chatGateTimer = setTimeout(refreshChatGateState, 1000);
     } else {
-      status.textContent = 'Tap in to chat →';
+      status.textContent = 'Tap in to chat';
       status.classList.add('is-locked');
       lockTimer.textContent = '';
     }
@@ -3639,8 +3676,13 @@
           </div>
           <div class="composer-status">
             <div class="status-actions">
-              <span class="chat-gate-status" id="chatGateStatus"></span>
-              <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel"><img class="tapin-btn-icon" src="/tapin-cheers.png" alt=""></span></button>
+              <div class="tapin-gate" id="tapinGate">
+                <div class="tapin-cue">
+                  <span class="chat-gate-status" id="chatGateStatus"></span>
+                  <span class="tapin-cue-arrow" aria-hidden="true">↓</span>
+                </div>
+                <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel"><img class="tapin-btn-icon" src="/tapin-cheers.png" alt=""></span></button>
+              </div>
               <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
             </div>
           </div>
