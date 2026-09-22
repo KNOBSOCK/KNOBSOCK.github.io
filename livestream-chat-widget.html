@@ -1234,19 +1234,6 @@
     box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 7px rgba(255,255,0,.7);
     pointer-events: none;
   }
-  .fight-tug-hint {
-    margin-top: 4px;
-    color: var(--text-dim);
-    font-size: clamp(9px, 2.3cqmin, 11px);
-    line-height: 1.2;
-    text-align: center;
-  }
-  .fight-clicks {
-    margin-top: 3px;
-    color: var(--text-dim);
-    font-size: clamp(10px, 2.5cqmin, 12px);
-    text-align: center;
-  }
   .fight-smash-btn {
     -webkit-appearance: none;
     appearance: none;
@@ -2061,6 +2048,20 @@
       gap: 4px 12px;
       justify-content: flex-start;
       padding: 0 10px;
+    }
+    /* On a 9:16 phone the fight icon lives at the edge of a very small
+       control row. Anchor its picker to the whole composer instead, so the
+       upward-unrolling list remains fully inside the visible chat area. */
+    .layout.mode-portrait .composer-bar { position: relative; }
+    .layout.mode-portrait .fight-menu-wrap { position: static; }
+    .layout.mode-portrait .fight-menu {
+      z-index: 60;
+      right: 10px;
+      bottom: calc(100% + 8px);
+      left: 10px;
+      width: auto;
+      max-height: min(280px, 44dvh);
+      transform-origin: bottom center;
     }
     .layout.mode-portrait .composer-bar > .who {
       box-sizing: border-box;
@@ -3821,6 +3822,7 @@
   const FIGHT_LIVE_SCORE_INTERVAL_MS = 1000;
   const FIGHT_RESULT_HOLD_MS = 8 * 1000;
   const FIGHT_COOLDOWN_MS = 10 * 60 * 1000;
+  const FIGHT_REJECT_COOLDOWN_MS = 5 * 60 * 1000;
   const FIGHT_TARGET_ACTIVE_MS = 150 * 1000;
   const FIGHT_TARGET_CACHE_MS = 60 * 1000;
   const FIGHT_TARGET_EMPTY_RETRY_MS = 1600;
@@ -3834,7 +3836,10 @@
   let fightTargetFetchInFlight = false;
   let fightTargetEmptyRetries = 0;
   let fightTargetRetryTimer = null;
+  let fightTargetCooldownTimer = null;
   const fightPresenceTargets = new Map();
+  const fightRejectedTargets = new Map();
+  const FIGHT_REJECT_COOLDOWNS_KEY = 'knobsock_fight_reject_cooldowns_' + CLIENT_ID;
   const pendingOwnFightTimestamps = new Set();
   const FIGHT_PUNCH_SOURCES = [
     '/Punch1.mp3',
@@ -3916,6 +3921,87 @@
   }
 
   window.addEventListener('resize', scheduleCompactChatLayout, { passive: true });
+
+  function fightTargetKey(username) {
+    return String(username || '').trim().toLowerCase();
+  }
+
+  function pruneFightRejectCooldowns() {
+    const now = Date.now();
+    let changed = false;
+    fightRejectedTargets.forEach((until, target) => {
+      if (!Number.isFinite(until) || until <= now) {
+        fightRejectedTargets.delete(target);
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function saveFightRejectCooldowns() {
+    pruneFightRejectCooldowns();
+    try {
+      const saved = {};
+      fightRejectedTargets.forEach((until, target) => { saved[target] = until; });
+      localStorage.setItem(FIGHT_REJECT_COOLDOWNS_KEY, JSON.stringify(saved));
+    } catch (e) {}
+  }
+
+  function loadFightRejectCooldowns() {
+    fightRejectedTargets.clear();
+    try {
+      const saved = JSON.parse(localStorage.getItem(FIGHT_REJECT_COOLDOWNS_KEY) || '{}');
+      if (saved && typeof saved === 'object') {
+        Object.keys(saved).forEach((target) => {
+          const until = Number(saved[target]);
+          if (target && Number.isFinite(until) && until > Date.now()) fightRejectedTargets.set(target, until);
+        });
+      }
+    } catch (e) {}
+  }
+
+  function fightRejectCooldownRemaining(username) {
+    const target = fightTargetKey(username);
+    const until = Number(fightRejectedTargets.get(target)) || 0;
+    const remaining = Math.max(0, until - Date.now());
+    if (!remaining && until) {
+      fightRejectedTargets.delete(target);
+      saveFightRejectCooldowns();
+    }
+    return remaining;
+  }
+
+  function scheduleFightRejectCooldownRefresh() {
+    clearTimeout(fightTargetCooldownTimer);
+    const menu = $('fightMenu');
+    if (!menu || !menu.classList.contains('is-open')) return;
+    pruneFightRejectCooldowns();
+    let next = Infinity;
+    fightRejectedTargets.forEach((until) => { next = Math.min(next, until - Date.now()); });
+    if (!Number.isFinite(next) || next <= 0) return;
+    fightTargetCooldownTimer = setTimeout(() => {
+      renderFightTargetList();
+    }, Math.min(next, 1000));
+  }
+
+  function setFightRejectCooldown(username, until) {
+    const target = fightTargetKey(username);
+    const nextUntil = Number(until) || 0;
+    if (!target || nextUntil <= Date.now()) return;
+    if ((fightRejectedTargets.get(target) || 0) >= nextUntil) return;
+    fightRejectedTargets.set(target, nextUntil);
+    saveFightRejectCooldowns();
+    const menu = $('fightMenu');
+    if (menu && menu.classList.contains('is-open')) renderFightTargetList();
+  }
+
+  loadFightRejectCooldowns();
+  window.addEventListener('storage', (event) => {
+    if (event.key !== FIGHT_REJECT_COOLDOWNS_KEY) return;
+    loadFightRejectCooldowns();
+    const menu = $('fightMenu');
+    if (menu && menu.classList.contains('is-open')) renderFightTargetList();
+  });
 
   function isFightEvent(message) {
     return !!(message && typeof message.type === 'string' && message.type.indexOf('fight_') === 0);
@@ -4065,6 +4151,7 @@
   function renderFightTargetList() {
     const list = $('fightTargetList');
     if (!list) return;
+    pruneFightRejectCooldowns();
     if (isFightOnCooldown()) {
       list.innerHTML = '<div class="fight-target-empty">You can challenge again in ' +
         formatFightCooldown(fightCooldownRemaining()) + '.</div>';
@@ -4077,9 +4164,14 @@
         : '<div class="fight-target-empty">No chatters online right now.</div>';
       return;
     }
-    list.innerHTML = targets.map((username) =>
-      '<button type="button" class="fight-target" data-fight-target="' + escapeHtml(username) + '">' + escapeHtml(username) + '</button>'
-    ).join('');
+    list.innerHTML = targets.map((username) => {
+      const rejectRemaining = fightRejectCooldownRemaining(username);
+      if (rejectRemaining) {
+        return '<button type="button" class="fight-target is-on-cooldown" disabled aria-label="' + escapeHtml(username) + ' declined your challenge. Try again in ' + formatFightCooldown(rejectRemaining) + '">' +
+          '<span>' + escapeHtml(username) + '</span><span class="fight-target-cooldown">Try again ' + formatFightCooldown(rejectRemaining) + '</span></button>';
+      }
+      return '<button type="button" class="fight-target" data-fight-target="' + escapeHtml(username) + '">' + escapeHtml(username) + '</button>';
+    }).join('');
     list.querySelectorAll('[data-fight-target]').forEach((button) => {
       button.addEventListener('click', function () {
         const target = this.getAttribute('data-fight-target');
@@ -4087,6 +4179,7 @@
         beginFightChallenge(target);
       });
     });
+    scheduleFightRejectCooldownRefresh();
   }
 
   function queueFightTargetRetry() {
@@ -4137,6 +4230,7 @@
     const menu = $('fightMenu');
     const button = $('fightBtn');
     clearTimeout(fightTargetRetryTimer);
+    clearTimeout(fightTargetCooldownTimer);
     if (menu) menu.classList.remove('is-open');
     if (button) button.setAttribute('aria-expanded', 'false');
   }
@@ -4219,6 +4313,10 @@
 
   function beginFightChallenge(opponent) {
     if (!session || !isChatUnlocked() || !opponent || opponent === session.username || currentFight || isFightOnCooldown()) return;
+    if (fightRejectCooldownRemaining(opponent)) {
+      renderFightTargetList();
+      return;
+    }
     const now = Date.now();
     const challenge = {
       fightId: makeFightId(),
@@ -4260,10 +4358,12 @@
   function declineFight() {
     const fight = currentFight;
     if (!fight || !session || fight.status !== 'pending' || session.username !== fight.opponent) return;
+    const rejectCooldownUntil = Date.now() + FIGHT_REJECT_COOLDOWN_MS;
     emitFightEvent('fight_decline', {
       fightId: fight.id,
       challenger: fight.challenger,
-      opponent: fight.opponent
+      opponent: fight.opponent,
+      rejectCooldownUntil: rejectCooldownUntil
     }).catch(() => {});
     clearCurrentFight(fight.id);
   }
@@ -4293,6 +4393,11 @@
     clearInterval(fightTicker);
     fightTicker = setInterval(updateFightClock, 200);
     updateFightClock();
+  }
+
+  function ensureFightTicker(fight) {
+    if (!fight || (fight.status !== 'countdown' && fight.status !== 'playing') || fightTicker !== null) return;
+    startFightTicker();
   }
 
   function publishFightLiveScore(fight, now) {
@@ -4595,6 +4700,7 @@
     if (!Number.isFinite(score) || score < 0) return;
     fight.liveScores = fight.liveScores || {};
     fight.liveScores[message.player] = Math.floor(score);
+    ensureFightTicker(fight);
     updateFightTug();
   }
 
@@ -4621,17 +4727,30 @@
           leaderWins: message.leaderWins
         };
     clearInterval(fightTicker);
+    fightTicker = null;
     clearTimeout(fightExpiryTimer);
     refreshFightPanel();
     clearTimeout(fightResultTimer);
     fightResultTimer = setTimeout(() => clearCurrentFight(message.fightId), FIGHT_RESULT_HOLD_MS);
   }
 
+  function applyFightDecline(message) {
+    if (!message || !message.fightId) return;
+    // The inviter owns this lightweight, target-specific cooldown. The
+    // decline is already an event in the existing message stream, so saving
+    // it in localStorage adds no Firestore write or read.
+    if (session && message.challenger === session.username && message.opponent) {
+      const until = Number(message.rejectCooldownUntil) || ((Number(message.ts) || Date.now()) + FIGHT_REJECT_COOLDOWN_MS);
+      setFightRejectCooldown(message.opponent, until);
+    }
+    if (currentFight && currentFight.id === message.fightId) clearCurrentFight(message.fightId);
+  }
+
   function handleFightMessage(message) {
     if (!isFightEvent(message)) return;
     if (message.type === 'fight_challenge') adoptFightChallenge(message);
     if (message.type === 'fight_accept') applyFightAcceptance(message);
-    if (message.type === 'fight_decline' && currentFight && currentFight.id === message.fightId) clearCurrentFight(message.fightId);
+    if (message.type === 'fight_decline') applyFightDecline(message);
     if (message.type === 'fight_live') applyFightLiveScore(message);
     if (message.type === 'fight_score') applyFightScore(message);
     if (message.type === 'fight_result' || message.type === 'fight_draw') applyFightResult(message);
@@ -4671,6 +4790,7 @@
       scheduleCompactChatLayout();
       return;
     }
+    ensureFightTicker(fight);
     wrap.classList.add('is-visible');
     const role = fightRole(fight);
     const challenger = escapeHtml(fight.challenger || '');
@@ -5591,6 +5711,14 @@
       return;
     }
     if (session && !currentlyBanned) subscribeToMessages();
+    // Mobile browsers can suspend iframe intervals while the browser chrome
+    // is changing. Recreate the local timer on return; its Date.now()-based
+    // label immediately catches up without a database request.
+    if (currentFight && (currentFight.status === 'countdown' || currentFight.status === 'playing')) {
+      clearInterval(fightTicker);
+      fightTicker = null;
+      startFightTicker();
+    }
   });
 
 })();
