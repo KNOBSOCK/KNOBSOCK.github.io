@@ -1073,8 +1073,8 @@
   }
   .fight-panel {
     position: relative;
-    margin: clamp(6px, 1.8cqmin, 10px) clamp(10px, 3cqmin, 14px) 0;
-    padding: clamp(9px, 2.6cqmin, 12px);
+    margin: clamp(4px, 1.2cqmin, 6px) clamp(10px, 3cqmin, 14px) 0;
+    padding: clamp(6px, 1.8cqmin, 8px);
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -1151,29 +1151,6 @@
     outline: none;
   }
   .fight-action-btn.decline { opacity: .72; }
-  .fight-arena {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: center;
-    gap: clamp(5px, 1.6cqmin, 8px);
-    margin-top: clamp(8px, 2.2cqmin, 10px);
-  }
-  .fight-fighter {
-    min-width: 0;
-    color: #ffffff;
-    font-family: 'Gratis Neue', var(--font-body);
-    font-size: clamp(10px, 2.8cqmin, 13px);
-    overflow: hidden;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .fight-fighter.is-me { color: #ffff00; }
-  .fight-versus {
-    color: #ffff00;
-    font-family: 'Gratis Neue', var(--font-body);
-    font-size: clamp(13px, 3.6cqmin, 17px);
-  }
   .fight-clock {
     margin-top: clamp(7px, 2cqmin, 9px);
     color: #ffffff;
@@ -1186,7 +1163,7 @@
     position: relative;
     display: flex;
     height: clamp(21px, 5.8cqmin, 28px);
-    margin-top: clamp(7px, 2cqmin, 9px);
+    margin-top: clamp(4px, 1.2cqmin, 6px);
     overflow: hidden;
     border: 1px solid rgba(255,255,255,.48);
     border-radius: 999px;
@@ -1194,7 +1171,7 @@
     box-shadow: inset 0 1px 4px rgba(0,0,0,.5);
   }
   .fight-tug-red,
-  .fight-tug-blue {
+  .fight-tug-yellow {
     display: flex;
     min-width: 0;
     align-items: center;
@@ -1209,19 +1186,28 @@
     justify-content: flex-start;
     background: linear-gradient(90deg, #7d1111, #ed3333);
   }
-  .fight-tug-blue {
+  .fight-tug-yellow {
     flex: 1 1 auto;
     justify-content: flex-end;
-    background: linear-gradient(90deg, #3286e5, #103c83);
+    background: linear-gradient(90deg, #f3ca18, #f6ee48);
   }
   .fight-tug-side-label {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     padding: 0 7px;
     color: rgba(255,255,255,.88);
     font-family: 'Gratis Neue', var(--font-body);
     font-size: clamp(8px, 2.1cqmin, 10px);
     letter-spacing: .04em;
     text-transform: uppercase;
+    text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .fight-tug-yellow .fight-tug-side-label {
+    color: rgba(45, 24, 0, .92);
+    text-shadow: 0 1px 0 rgba(255,255,255,.22);
   }
   .fight-tug-center {
     position: absolute;
@@ -1238,10 +1224,10 @@
     -webkit-appearance: none;
     appearance: none;
     display: grid;
-    width: clamp(74px, 21cqmin, 96px);
+    width: clamp(70px, 19cqmin, 88px);
     aspect-ratio: 4 / 3;
     place-items: center;
-    margin-top: clamp(7px, 1.9cqmin, 9px);
+    margin-top: clamp(3px, 1cqmin, 5px);
     margin-right: auto;
     margin-left: auto;
     padding: 0;
@@ -3821,6 +3807,15 @@
   const FIGHT_DURATION_MS = 30 * 1000;
   const FIGHT_LIVE_SCORE_INTERVAL_MS = 1000;
   const FIGHT_RESULT_HOLD_MS = 8 * 1000;
+  // The loser can publish a final result only if the winner's browser has
+  // not done so after this short grace period. This prevents a disconnected
+  // winner from leaving every screen at 0 seconds, without adding a normal
+  // per-fight write or listener.
+  const FIGHT_RESULT_FAILOVER_MS = 4500;
+  // A leaderboard lookup is decorative; it must never be allowed to hold up
+  // the result event. The known winner total is used as a display fallback.
+  const FIGHT_RESULT_SCORE_SAVE_GRACE_MS = 1500;
+  const FIGHT_RESULT_LEADER_GRACE_MS = 1500;
   const FIGHT_COOLDOWN_MS = 10 * 60 * 1000;
   const FIGHT_REJECT_COOLDOWN_MS = 5 * 60 * 1000;
   const FIGHT_TARGET_ACTIVE_MS = 150 * 1000;
@@ -3831,6 +3826,7 @@
   let fightTicker = null;
   let fightExpiryTimer = null;
   let fightResultTimer = null;
+  let fightOutcomeFallbackTimer = null;
   let fightCooldownTimer = null;
   let fightTargetFetchAt = 0;
   let fightTargetFetchInFlight = false;
@@ -4261,9 +4257,11 @@
     clearInterval(fightTicker);
     clearTimeout(fightExpiryTimer);
     clearTimeout(fightResultTimer);
+    clearTimeout(fightOutcomeFallbackTimer);
     fightTicker = null;
     fightExpiryTimer = null;
     fightResultTimer = null;
+    fightOutcomeFallbackTimer = null;
   }
 
   function clearCurrentFight(fightId) {
@@ -4460,28 +4458,28 @@
   function fightTugRedPercent(fight) {
     if (!fight) return 50;
     let redScore = Number(fight.scores && fight.scores[fight.challenger]);
-    let blueScore = Number(fight.scores && fight.scores[fight.opponent]);
-    if ((!Number.isFinite(redScore) || !Number.isFinite(blueScore)) && fight.result && !fight.result.draw) {
+    let yellowScore = Number(fight.scores && fight.scores[fight.opponent]);
+    if ((!Number.isFinite(redScore) || !Number.isFinite(yellowScore)) && fight.result && !fight.result.draw) {
       const result = fight.result;
       const winnerScore = Number(result.winnerScore);
       const loserScore = Number(result.loserScore);
       if (Number.isFinite(winnerScore) && Number.isFinite(loserScore)) {
         redScore = result.winner === fight.challenger ? winnerScore : loserScore;
-        blueScore = result.winner === fight.opponent ? winnerScore : loserScore;
+        yellowScore = result.winner === fight.opponent ? winnerScore : loserScore;
       }
     }
-    if (Number.isFinite(redScore) && Number.isFinite(blueScore)) {
-      const total = redScore + blueScore;
+    if (Number.isFinite(redScore) && Number.isFinite(yellowScore)) {
+      const total = redScore + yellowScore;
       return total > 0 ? clampFightTug(Math.round((redScore / total) * 100)) : 50;
     }
 
     const liveScores = fight.liveScores || {};
     const liveRed = Number(liveScores[fight.challenger]);
-    const liveBlue = Number(liveScores[fight.opponent]);
-    if (Number.isFinite(liveRed) || Number.isFinite(liveBlue)) {
+    const liveYellow = Number(liveScores[fight.opponent]);
+    if (Number.isFinite(liveRed) || Number.isFinite(liveYellow)) {
       const red = Number.isFinite(liveRed) ? liveRed : 0;
-      const blue = Number.isFinite(liveBlue) ? liveBlue : 0;
-      const total = red + blue;
+      const yellow = Number.isFinite(liveYellow) ? liveYellow : 0;
+      const total = red + yellow;
       return total > 0 ? clampFightTug(Math.round((red / total) * 100)) : 50;
     }
 
@@ -4503,9 +4501,11 @@
 
   function fightTugMarkup(fight) {
     const red = fightTugRedPercent(fight);
-    return '<div class="fight-tug" id="fightTug" role="progressbar" aria-label="Red versus blue tug of war" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + red + '" style="--fight-red:' + red + '%">' +
-      '<div class="fight-tug-red"><span class="fight-tug-side-label">Red</span></div>' +
-      '<div class="fight-tug-blue"><span class="fight-tug-side-label">Blue</span></div>' +
+    const redName = escapeHtml(fight && fight.challenger || '');
+    const yellowName = escapeHtml(fight && fight.opponent || '');
+    return '<div class="fight-tug" id="fightTug" role="progressbar" aria-label="' + redName + ' versus ' + yellowName + ' tug of war" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + red + '" style="--fight-red:' + red + '%">' +
+      '<div class="fight-tug-red"><span class="fight-tug-side-label">' + redName + '</span></div>' +
+      '<div class="fight-tug-yellow"><span class="fight-tug-side-label">' + yellowName + '</span></div>' +
       '<div class="fight-tug-center" aria-hidden="true"></div>' +
       '</div>';
   }
@@ -4579,15 +4579,58 @@
     }).catch(() => null);
   }
 
-  async function publishFightResult(fight, winner, loser) {
+  function waitForFightPromise(promise, timeoutMs) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (outcome) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(outcome);
+      };
+      const timer = setTimeout(() => finish({ timedOut: true }), timeoutMs);
+      Promise.resolve(promise).then(
+        (value) => finish({ value: value, timedOut: false }),
+        (error) => finish({ error: error, timedOut: false })
+      );
+    });
+  }
+
+  function fightStillNeedsResult(fightId) {
+    return !!(currentFight && currentFight.id === fightId && currentFight.status !== 'result');
+  }
+
+  async function publishFightResult(fight, winner, loser, options) {
     if (!claimFightPublication(fight.id, 'result')) return;
+    const isFailover = !!(options && options.failover);
     const winnerScore = fight.scores[winner];
     const loserScore = fight.scores[loser];
-    const winnerWins = Math.max(0, myFightWins || 0) + 1;
+    // Only the winning player updates their own all-time total.  A delayed
+    // loser-side failover below deliberately skips this write: it can safely
+    // announce the already-known match result, but must never alter another
+    // account's score.
+    const winnerWins = isFailover ? null : Math.max(0, myFightWins || 0) + 1;
+    if (!isFailover) {
+      const saveHighScore = devicesRef.doc(CLIENT_ID).set({ fightWins: winnerWins }, { merge: true });
+      saveHighScore.then(() => {
+        myFightWins = winnerWins;
+      }).catch((e) => {
+        // A device-score write must not prevent the actual match result from
+        // reaching the chat. The next fight can retry the score update.
+        console.error('Could not save fight high score:', e);
+      });
+      await waitForFightPromise(saveHighScore, FIGHT_RESULT_SCORE_SAVE_GRACE_MS);
+    }
+
+    // Another client may have published the result while this browser was
+    // waiting on its device write. Do not create a second announcement.
+    if (!fightStillNeedsResult(fight.id)) return;
+
+    const leaderOutcome = await waitForFightPromise(fetchFightLeader(), FIGHT_RESULT_LEADER_GRACE_MS);
+    const leader = leaderOutcome.value || null;
+    if (!fightStillNeedsResult(fight.id)) return;
+    const displayLeader = leader || (winnerWins ? { username: winner, wins: winnerWins } : null);
     try {
-      await devicesRef.doc(CLIENT_ID).set({ fightWins: winnerWins }, { merge: true });
-      myFightWins = winnerWins;
-      const leader = await fetchFightLeader();
       await emitFightEvent('fight_result', {
         fightId: fight.id,
         challenger: fight.challenger,
@@ -4597,8 +4640,8 @@
         winnerScore: winnerScore,
         loserScore: loserScore,
         winnerWins: winnerWins,
-        leaderUsername: leader && leader.username,
-        leaderWins: leader && leader.wins
+        leaderUsername: displayLeader && displayLeader.username,
+        leaderWins: displayLeader && displayLeader.wins
       });
     } catch (e) {
       releaseFightPublication(fight.id, 'result');
@@ -4616,6 +4659,39 @@
     }).catch(() => releaseFightPublication(fight.id, 'draw'));
   }
 
+  function scheduleFightResultFailover(fight, winner, loser) {
+    // The loser waits briefly for the winner's normal result publication.
+    // This is only a recovery path for a closed/offline winning tab, so it
+    // adds no Firestore work during a healthy fight.
+    if (!fight || !session || session.username !== loser) return;
+    clearTimeout(fightOutcomeFallbackTimer);
+    fightOutcomeFallbackTimer = setTimeout(() => {
+      fightOutcomeFallbackTimer = null;
+      const activeFight = currentFight;
+      if (!activeFight || activeFight.id !== fight.id || activeFight.status === 'result') return;
+      const challengerScore = Number(activeFight.scores && activeFight.scores[activeFight.challenger]);
+      const opponentScore = Number(activeFight.scores && activeFight.scores[activeFight.opponent]);
+      if (!Number.isFinite(challengerScore) || !Number.isFinite(opponentScore) || challengerScore === opponentScore) return;
+      const resolvedWinner = challengerScore > opponentScore ? activeFight.challenger : activeFight.opponent;
+      if (resolvedWinner !== winner) return;
+      publishFightResult(activeFight, winner, loser, { failover: true });
+    }, FIGHT_RESULT_FAILOVER_MS);
+  }
+
+  function scheduleFightDrawFailover(fight) {
+    if (!fight || !session || session.username !== fight.opponent) return;
+    clearTimeout(fightOutcomeFallbackTimer);
+    fightOutcomeFallbackTimer = setTimeout(() => {
+      fightOutcomeFallbackTimer = null;
+      const activeFight = currentFight;
+      if (!activeFight || activeFight.id !== fight.id || activeFight.status === 'result') return;
+      const challengerScore = Number(activeFight.scores && activeFight.scores[activeFight.challenger]);
+      const opponentScore = Number(activeFight.scores && activeFight.scores[activeFight.opponent]);
+      if (!Number.isFinite(challengerScore) || challengerScore !== opponentScore) return;
+      publishFightDraw(activeFight);
+    }, FIGHT_RESULT_FAILOVER_MS);
+  }
+
   function resolveFightScores() {
     const fight = currentFight;
     if (!fight || !fight.scores || fight.scores[fight.challenger] == null || fight.scores[fight.opponent] == null) return;
@@ -4623,11 +4699,13 @@
     const opponentScore = fight.scores[fight.opponent];
     if (challengerScore === opponentScore) {
       if (session && session.username === fight.challenger) publishFightDraw(fight);
+      else scheduleFightDrawFailover(fight);
       return;
     }
     const winner = challengerScore > opponentScore ? fight.challenger : fight.opponent;
     const loser = winner === fight.challenger ? fight.opponent : fight.challenger;
     if (session && session.username === winner) publishFightResult(fight, winner, loser);
+    else scheduleFightResultFailover(fight, winner, loser);
   }
 
   function applyFightScore(message) {
@@ -4714,6 +4792,8 @@
         scores: {}
       };
     }
+    clearTimeout(fightOutcomeFallbackTimer);
+    fightOutcomeFallbackTimer = null;
     currentFight.status = 'result';
     currentFight.result = message.type === 'fight_draw'
       ? { draw: true, score: message.score }
@@ -4842,11 +4922,6 @@
       <div class="fight-live-header">
         <div class="fight-panel-header"><img src="/fight-gloves.png" alt="">Live fight</div>
         <div class="fight-clock" id="fightClock">${countdownLabel}</div>
-      </div>
-      <div class="fight-arena">
-        <div class="fight-fighter ${role === 'challenger' ? 'is-me' : ''}">${challenger}</div>
-        <div class="fight-versus">VS</div>
-        <div class="fight-fighter ${role === 'opponent' ? 'is-me' : ''}">${opponent}</div>
       </div>
       ${fightTugMarkup(fight)}
       ${isPlaying && isFighter && !myScoreIsSubmitted ? '<button type="button" class="fight-smash-btn" id="fightSmashBtn" title="Knock out!" aria-label="Knock out!"><img src="/fight-punch.png" alt=""></button>' : ''}
@@ -5549,11 +5624,15 @@
       const isFreshFight = isFightEvent(m) && Date.now() - m.ts < FIGHT_EVENT_MAX_AGE_MS;
       const isPendingOwnEvent = pendingOwnTapinTimestamps.has(m.ts) || pendingOwnFightTimestamps.has(m.ts);
       const isCompletedFight = m.type === 'fight_result' || m.type === 'fight_draw';
-      // A result in the listener's baseline is historical state from a page
-      // reload, not a new result worth popping back open. If it closes a
-      // fight we restored from live packets, quietly clear that stale panel.
+      // A completed result in a brand-new listener baseline is historical
+      // state from a reload, not something to pop open again.  There is one
+      // important exception: a tab can reconnect while it is already showing
+      // the live fight. In that case this baseline result is the exact final
+      // packet it needs to leave the 0-second screen, so apply it normally.
       if (stillSettling && isCompletedFight && !isPendingOwnEvent) {
-        if (currentFight && currentFight.id === m.fightId) clearCurrentFight(m.fightId);
+        const isResolvingVisibleFight = currentFight && currentFight.id === m.fightId &&
+          (currentFight.status === 'countdown' || currentFight.status === 'playing');
+        if (isResolvingVisibleFight) handleFightMessage(m);
         return;
       }
       if (stillSettling && !isPendingOwnEvent && !isFreshFight) return;
