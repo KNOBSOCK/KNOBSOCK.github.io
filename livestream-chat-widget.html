@@ -1297,22 +1297,6 @@
     text-align: center;
   }
 
-  /* A locked, empty mobile chat only needs enough height for its gate and
-     composer. The parent widget still fills its iframe, but the rounded chat
-     surface now ends with that compact content instead of leaving a tall
-     empty panel below it. The exact height is measured in script so it stays
-     correct for every phone width and font size. */
-  @media (max-width: 860px) {
-    .layout.is-chat-compact .chat-pane {
-      flex: 0 0 var(--compact-chat-height);
-      height: var(--compact-chat-height);
-    }
-    body.is-chat-compact .bg-glow {
-      bottom: auto;
-      height: var(--compact-chat-glow-height);
-    }
-  }
-
   .fight-target.is-on-cooldown {
     cursor: default;
     opacity: .58;
@@ -1446,23 +1430,6 @@
     gap: clamp(6px, 2.4cqh, 12px);
 
     transform: translateZ(0);
-  }
-
-  /* An untapped new viewer has no usable composer yet. Do not reserve a
-     full transcript-height hole above it until there is something to read. */
-  .chat-screen.is-chat-locked.is-chat-empty .messages {
-    flex: 0 0 0;
-    min-height: 0;
-    overflow: hidden;
-    padding: 0;
-  }
-  /* In the stacked layout the Past Streams tab overlaps the top of chat.
-     Leave only that small clearance—not a whole empty transcript—above the
-     locked composer. */
-  .chat-screen.is-chat-locked.is-chat-empty {
-    /* The cue floats above Tap In, so reserve just its label height below
-       the tab as well. */
-    padding-top: calc(var(--stats-h) + 40px);
   }
 
   .messages::-webkit-scrollbar { display: none; }
@@ -1987,9 +1954,6 @@
     }
     .layout.mode-portrait .chat-screen {
       padding-top: min(36cqh, max(0px, calc(100cqh - 250px)));
-    }
-    .layout.mode-portrait .chat-screen.is-chat-locked.is-chat-empty {
-      padding-top: 0;
     }
     .layout.mode-portrait .messages {
       pointer-events: auto;
@@ -3739,7 +3703,6 @@
       lockTimer.textContent = '';
     }
     refreshFightPanel();
-    scheduleCompactChatLayout();
   }
 
   const TAPIN_ICON_HTML = '<img class="tapin-btn-icon" src="/tapin-cheers.png" alt="">';
@@ -3847,76 +3810,6 @@
   let fightPunchIndex = 0;
   let fightPunchAnimationTimer = null;
   let fightHitWordIndex = 0;
-
-  let compactChatLayoutFrame = 0;
-  let compactChatLayoutSettleFrame = 0;
-
-  function clearCompactChatLayout() {
-    const layout = document.getElementById('layout');
-    if (layout) {
-      layout.classList.remove('is-chat-compact');
-      layout.style.removeProperty('--compact-chat-height');
-    }
-    document.body.classList.remove('is-chat-compact');
-    document.body.style.removeProperty('--compact-chat-glow-height');
-  }
-
-  function compactChatMeasure() {
-    const screen = app.querySelector('.chat-screen');
-    const composerBar = app.querySelector('.composer-bar');
-    const chatPane = document.getElementById('chatPane');
-    const layout = document.getElementById('layout');
-    const isRegularMobile = window.matchMedia('(max-width: 860px)').matches && !document.body.classList.contains('is-portrait');
-    const shouldCompact = isRegularMobile && !!screen && !!composerBar && !!chatPane && !!layout &&
-      screen.classList.contains('is-chat-locked') && screen.classList.contains('is-chat-empty') && !currentFight;
-
-    if (!shouldCompact) {
-      clearCompactChatLayout();
-      return;
-    }
-
-    const screenStyle = window.getComputedStyle(screen);
-    const topPadding = parseFloat(screenStyle.paddingTop) || 0;
-    const bottomPadding = parseFloat(screenStyle.paddingBottom) || 0;
-    // The two pixels keep the composer's border inside the rounded surface on
-    // fractional-pixel phone layouts.
-    const compactHeight = Math.ceil(composerBar.getBoundingClientRect().height + topPadding + bottomPadding + 2);
-    layout.style.setProperty('--compact-chat-height', compactHeight + 'px');
-    layout.classList.add('is-chat-compact');
-    document.body.classList.add('is-chat-compact');
-
-    // `cqmin` values settle after the chat pane gets its compact height, so
-    // take one more measurement before sizing the background's lower edge.
-    cancelAnimationFrame(compactChatLayoutSettleFrame);
-    compactChatLayoutSettleFrame = requestAnimationFrame(() => {
-      if (!document.body.classList.contains('is-chat-compact')) return;
-      const latestScreen = app.querySelector('.chat-screen');
-      const latestComposer = app.querySelector('.composer-bar');
-      const latestPane = document.getElementById('chatPane');
-      const latestLayout = document.getElementById('layout');
-      const glow = document.querySelector('.bg-glow');
-      if (!latestScreen || !latestComposer || !latestPane || !latestLayout || !glow) return;
-
-      const latestStyle = window.getComputedStyle(latestScreen);
-      const settledHeight = Math.ceil(
-        latestComposer.getBoundingClientRect().height +
-        (parseFloat(latestStyle.paddingTop) || 0) +
-        (parseFloat(latestStyle.paddingBottom) || 0) + 2
-      );
-      latestLayout.style.setProperty('--compact-chat-height', settledHeight + 'px');
-
-      const glowTop = glow.getBoundingClientRect().top;
-      const paneBottom = latestPane.getBoundingClientRect().bottom;
-      document.body.style.setProperty('--compact-chat-glow-height', Math.max(0, Math.ceil(paneBottom - glowTop + 8)) + 'px');
-    });
-  }
-
-  function scheduleCompactChatLayout() {
-    cancelAnimationFrame(compactChatLayoutFrame);
-    compactChatLayoutFrame = requestAnimationFrame(compactChatMeasure);
-  }
-
-  window.addEventListener('resize', scheduleCompactChatLayout, { passive: true });
 
   function fightTargetKey(username) {
     return String(username || '').trim().toLowerCase();
@@ -4269,7 +4162,6 @@
     clearFightTimers();
     currentFight = null;
     refreshFightPanel();
-    scheduleCompactChatLayout();
   }
 
   function scheduleFightExpiry(fight) {
@@ -4867,7 +4759,6 @@
     if (!fight) {
       wrap.classList.remove('is-visible');
       panel.innerHTML = '';
-      scheduleCompactChatLayout();
       return;
     }
     ensureFightTicker(fight);
@@ -5525,7 +5416,6 @@
     if (screen) screen.classList.toggle('is-chat-empty', !hasVisibleMessage);
     if (!msgs.length) {
       container.innerHTML = `<div class="empty-state">No messages yet. Say wassup</div>`;
-      scheduleCompactChatLayout();
       return;
     }
 
@@ -5563,7 +5453,6 @@
     container.scrollTop = container.scrollHeight;
     const fightMenu = $('fightMenu');
     if (fightMenu && fightMenu.classList.contains('is-open')) renderFightTargetList();
-    scheduleCompactChatLayout();
   }
 
   async function sendMessage() {
