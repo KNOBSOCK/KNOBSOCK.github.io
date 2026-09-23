@@ -5689,9 +5689,16 @@
 
   const db = firebase.firestore();
 
-  const HEARTBEAT_MS = 60000;
-  const COUNT_REFRESH_MS = 30000;
-  const ACTIVE_WINDOW_MS = 150000;
+  // These values are deliberately longer than the original 60s / 30s cadence.
+  // Presence is still announced immediately when a tab opens, regains focus,
+  // or learns a chat identity, so this does not make the live UI feel slower.
+  // It does prevent an idle tab from creating a Firestore write every minute
+  // and an aggregation read every 30 seconds all day long.
+  const HEARTBEAT_MS = 120000;
+  const COUNT_REFRESH_MS = 120000;
+  // Leave enough headroom for a delayed background timer: a genuine active
+  // tab remains visible to the fighter picker between two heartbeats.
+  const ACTIVE_WINDOW_MS = 270000;
 
   const COUNT_URL = 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM';
 
