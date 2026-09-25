@@ -917,15 +917,77 @@
     videoPanelFrame.setAttribute('src', nextSrc);
   }
 
-  db.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
-    const data = doc.exists ? doc.data() : null;
-    const isLive = !(data && data.isLive === false);
+  // A Bunny direct stream's on-air state isn't trustworthy from the admin's
+  // manual isLive flag alone — probe its HLS manifest directly, the same way
+  // livestream-chat-widget.html does, so this badge and the mini player
+  // match what the live page itself is actually showing.
+  const DIRECT_LIVE_PROBE_MS = 8000;
+  let manualIsLive = true;
+  let configuredDirectUrl = null;
+  let directLiveProbeUrl = null;
+  let directLiveProbeTimer = null;
+  let directLiveConfirmed = true;
+
+  function computeEffectiveLive() {
+    return configuredDirectUrl ? directLiveConfirmed : manualIsLive;
+  }
+
+  function refreshLiveUi() {
+    const isLive = computeEffectiveLive();
     liveNowBadge.hidden = !isLive;
     setVideoPanelLive(isLive);
-  }, function () {
+  }
 
-    liveNowBadge.hidden = true;
-    setVideoPanelLive(false);
+  function setDirectLiveConfirmed(confirmed) {
+    if (directLiveConfirmed === confirmed) return;
+    directLiveConfirmed = confirmed;
+    if (configuredDirectUrl) refreshLiveUi();
+  }
+
+  function probeDirectLiveOnce(url) {
+    fetch(url, { method: 'GET', cache: 'no-store', mode: 'cors' }).then(function (res) {
+      if (directLiveProbeUrl !== url) return;
+      setDirectLiveConfirmed(!!res && res.ok);
+    }).catch(function () {
+      if (directLiveProbeUrl !== url) return;
+      setDirectLiveConfirmed(false);
+    });
+  }
+
+  function stopDirectLiveProbe() {
+    clearInterval(directLiveProbeTimer);
+    directLiveProbeTimer = null;
+    directLiveProbeUrl = null;
+  }
+
+  function startDirectLiveProbe(url) {
+    if (directLiveProbeUrl === url) return;
+    stopDirectLiveProbe();
+    directLiveProbeUrl = url;
+    /* Assume live optimistically so an already-broadcasting stream shows up
+       immediately; a failed probe corrects this a moment later. */
+    directLiveConfirmed = true;
+    probeDirectLiveOnce(url);
+    directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
+  }
+
+  db.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
+    const data = doc.exists ? doc.data() : null;
+    manualIsLive = !(data && data.isLive === false);
+    const directUrl = data && data.directUrl ? String(data.directUrl).trim() : null;
+    configuredDirectUrl = directUrl;
+    if (directUrl) {
+      startDirectLiveProbe(directUrl);
+    } else {
+      stopDirectLiveProbe();
+      directLiveConfirmed = true;
+    }
+    refreshLiveUi();
+  }, function () {
+    configuredDirectUrl = null;
+    stopDirectLiveProbe();
+    manualIsLive = false;
+    refreshLiveUi();
   });
 </script>
 

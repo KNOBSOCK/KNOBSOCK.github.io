@@ -186,6 +186,48 @@
     let loadedSourceKey = null;
     let portraitLiveSource = false;
 
+    // A Bunny direct stream's on-air state isn't trustworthy from the
+    // admin's manual isLive flag alone — probe its HLS manifest directly,
+    // the same way livestream-chat-widget.html does, so this mini player
+    // doesn't sit idle while a Bunny stream is actually live, or try to play
+    // one that isn't.
+    const DIRECT_LIVE_PROBE_MS = 8000;
+    let directLiveProbeUrl = null;
+    let directLiveProbeTimer = null;
+    let directLiveConfirmed = true;
+
+    function probeDirectLiveOnce(url, onChange) {
+      fetch(url, { method: 'GET', cache: 'no-store', mode: 'cors' }).then(function (res) {
+        if (directLiveProbeUrl !== url) return;
+        const confirmed = !!res && res.ok;
+        if (confirmed === directLiveConfirmed) return;
+        directLiveConfirmed = confirmed;
+        onChange(confirmed);
+      }).catch(function () {
+        if (directLiveProbeUrl !== url) return;
+        if (directLiveConfirmed === false) return;
+        directLiveConfirmed = false;
+        onChange(false);
+      });
+    }
+
+    function stopDirectLiveProbe() {
+      clearInterval(directLiveProbeTimer);
+      directLiveProbeTimer = null;
+      directLiveProbeUrl = null;
+    }
+
+    function startDirectLiveProbe(url, onChange) {
+      if (directLiveProbeUrl === url) return;
+      stopDirectLiveProbe();
+      directLiveProbeUrl = url;
+      /* Assume live optimistically so an already-broadcasting stream loads
+         immediately; a failed probe corrects this a moment later. */
+      directLiveConfirmed = true;
+      probeDirectLiveOnce(url, onChange);
+      directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url, onChange); }, DIRECT_LIVE_PROBE_MS);
+    }
+
     function isDirectVideoUrl(input) {
       if (!input) return false;
       const trimmed = String(input).trim();
@@ -455,9 +497,12 @@
       updateMuteBtnLabel();
     });
 
-    LIVE_VIDEO_DOC_REF.onSnapshot(function (doc) {
-      const data = doc.exists ? doc.data() : null;
-      const isLive = !(data && data.isLive === false);
+    function applyLiveDoc(data) {
+      const manualIsLive = !(data && data.isLive === false);
+      const directUrl = data && data.directUrl ? String(data.directUrl).trim() : null;
+      const isDirect = !!(directUrl && isDirectVideoUrl(directUrl));
+      const isLive = isDirect ? directLiveConfirmed : manualIsLive;
+
       portraitLiveSource = !!(isLive && data && data.aspect === '9:16');
       sizePlayerToCover();
       if (!isLive) {
@@ -469,12 +514,23 @@
         showVideoLoading();
         return;
       }
-      const directUrl = data && data.directUrl;
-      if (directUrl && isDirectVideoUrl(directUrl)) {
-        loadSource({ type: 'direct', url: String(directUrl).trim() });
+      if (isDirect) {
+        loadSource({ type: 'direct', url: directUrl });
         return;
       }
       if (data && data.videoId) loadSource({ type: 'youtube', id: data.videoId });
+    }
+
+    LIVE_VIDEO_DOC_REF.onSnapshot(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      const directUrl = data && data.directUrl ? String(data.directUrl).trim() : null;
+      if (directUrl && isDirectVideoUrl(directUrl)) {
+        startDirectLiveProbe(directUrl, function () { applyLiveDoc(data); });
+      } else {
+        stopDirectLiveProbe();
+        directLiveConfirmed = true;
+      }
+      applyLiveDoc(data);
     }, function (err) {
       console.error('Live video sync error:', err);
     });

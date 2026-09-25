@@ -1,0 +1,64 @@
+name: Sync live stream link
+
+# Bunny's "KNOBSOCK LIVE" Stream library forces a brand new live stream
+# (new GUID, new direct-play link) to be created manually before every
+# broadcast. This polls that library for the newest one and keeps
+# chat_config/liveVideo pointed at it, so nobody has to paste a fresh
+# link into admin.html by hand each time — the outgoing link gets
+# archived into Past Streams automatically, same as a manual paste does.
+#
+# One-time setup this workflow depends on, done outside this repo:
+#   1. FIREBASE_SERVICE_ACCOUNT_KEY already exists as a repo secret (the
+#      same one purge-ip-logs.yml uses) — reused here as-is.
+#   2. Add the KNOBSOCK LIVE library's own Bunny API key as a new repo
+#      secret named BUNNY_STREAM_API_KEY (Settings -> Secrets and
+#      variables -> Actions, or `gh secret set BUNNY_STREAM_API_KEY`).
+#      See scripts/sync-live-stream.mjs's header comment for where to
+#      find that key.
+
+on:
+  schedule:
+    # Every 5 minutes — GitHub's own minimum useful cron granularity.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would change without writing anything"
+        type: boolean
+        default: false
+
+# Least privilege: this job only talks to Bunny and Firestore, never the
+# repo itself.
+permissions:
+  contents: read
+
+# If a run is already going, let it finish rather than having two runs
+# race to archive the same outgoing link.
+concurrency:
+  group: sync-live-stream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install --prefix scripts
+
+      - name: Sync live stream link
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN_INPUT" = "true" ]; then
+            node scripts/sync-live-stream.mjs --dry-run
+          else
+            node scripts/sync-live-stream.mjs
+          fi

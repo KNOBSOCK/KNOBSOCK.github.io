@@ -3155,6 +3155,8 @@
     let currentLiveStatus = true;
     let currentLiveAspect = '16:9';
     let currentLiveIsDirect = false;
+    let currentLiveDirectUrl = null;
+    let currentLiveVideoId = null;
 
     function renderLiveStatusToggle() {
       const label = document.getElementById('liveStatusLabel');
@@ -3179,6 +3181,8 @@
       currentLiveStatus = !(data && data.isLive === false);
       currentLiveAspect = data && data.aspect === '9:16' ? '9:16' : '16:9';
       currentLiveIsDirect = !!(data && data.directUrl);
+      currentLiveDirectUrl = data && data.directUrl ? data.directUrl : null;
+      currentLiveVideoId = data && data.videoId ? data.videoId : null;
       renderLiveStatusToggle();
       const aspectSelect = document.getElementById('liveAspectMode');
       if (aspectSelect) aspectSelect.value = currentLiveAspect;
@@ -3215,6 +3219,31 @@
       autoConvertBunnyInput(this);
     });
 
+    // A live link that gets replaced by a new one keeps working as a
+    // rewatchable recording at its old URL (Bunny does this automatically;
+    // a YouTube live video does too) — so archive the outgoing link into
+    // Past Streams instead of just discarding it, no API access needed.
+    function archivePreviousLiveLinkAsVod(url) {
+      if (vodDraftList.some(function (v) { return v.url === url; })) return;
+      vodDraftList.unshift({
+        url: url,
+        title: 'Past Live Stream — ' + new Date().toLocaleDateString(),
+        thumb: '',
+        aspect: currentLiveAspect,
+        addedAt: Date.now()
+      });
+      renderVodsList();
+      CHAT_VODS_REF.set({
+        items: vodDraftList.map(function (v) {
+          return { url: (v.url || '').trim(), title: (v.title || '').trim(), thumb: (v.thumb || '').trim(), aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || Date.now() };
+        }),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: auth.currentUser.email || auth.currentUser.uid
+      }).catch(function (err) {
+        console.error('Failed to auto-archive previous live link as a VOD:', err);
+      });
+    }
+
     document.getElementById('saveLiveVideoBtn').addEventListener('click', function () {
       const input = document.getElementById('liveVideoUrlInput');
       const statusEl = document.getElementById('liveVideoStatus');
@@ -3226,12 +3255,15 @@
         statusEl.style.color = 'var(--danger)';
         return;
       }
+      const previousUrl = currentLiveDirectUrl || (currentLiveVideoId ? 'https://www.youtube.com/watch?v=' + currentLiveVideoId : null);
+      const previousIsSameAsNew = (directUrl && previousUrl === directUrl) || (id && currentLiveVideoId === id);
       statusEl.textContent = 'Saving…';
       statusEl.style.color = 'var(--text-dim)';
       CHAT_LIVE_VIDEO_REF.set({ videoId: id || null, directUrl: directUrl || null }, { merge: true }).then(function () {
         input.value = id ? ('https://www.youtube.com/watch?v=' + id) : directUrl;
         statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes live.html.';
         statusEl.style.color = 'var(--accent)';
+        if (previousUrl && !previousIsSameAsNew) archivePreviousLiveLinkAsVod(previousUrl);
       }).catch(function (err) {
         statusEl.textContent = 'Save failed: ' + err.message;
         statusEl.style.color = 'var(--danger)';
