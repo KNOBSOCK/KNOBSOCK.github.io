@@ -3445,10 +3445,15 @@
     }
     // A live Bunny stream has no scrub pipeline to break, so let iOS use its
     // real native fullscreen video player there (system controls, AirPlay,
-    // OS-level quality switching). VOD still forces the in-page pseudo
-    // fullscreen below, since iOS's native player's own seek pipeline can
-    // stall after a scrub.
-    if (isIOS && backend === 'video' && !watchingVodId && typeof videoEl.webkitEnterFullscreen === 'function') {
+    // OS-level quality switching). Archived VODs are also Bunny-hosted now,
+    // and loadDirectVideo() already swaps their manifest for a finished MP4
+    // on iOS specifically because that format seeks reliably there — so the
+    // same native fullscreen is safe once that swap actually happened.
+    // Anything still playing as HLS (the swap didn't match, or hls.js/MSE is
+    // in use) keeps the in-page pseudo fullscreen, since that's the seek
+    // pipeline that used to stall.
+    var directPlaybackIsReliable = !watchingVodId || /\.mp4($|\?)/i.test(videoEl.currentSrc || '');
+    if (isIOS && backend === 'video' && directPlaybackIsReliable && typeof videoEl.webkitEnterFullscreen === 'function') {
       try {
         videoEl.webkitEnterFullscreen();
         return;
