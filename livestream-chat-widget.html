@@ -474,7 +474,19 @@
   @media (max-height: 860px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
     .layout .chat-pane { display: none; }
 
-    .layout .video-pane { flex: 1 1 100%; padding-bottom: 0; }
+    .layout .video-pane {
+      flex: 1 1 100%;
+      padding-bottom: 0;
+      /* The >=861px breakpoint's width:100%/aspect-ratio:16:9 rule derives
+         .video-pane's height FROM that width, assuming a generously tall
+         column. Letting it span the full row on a short landscape phone
+         computed a height far past the actual viewport, overflowing and
+         reading as "zoomed in". Fill the grid cell instead — the existing
+         min()-based sizing on .video-frame-wrap already letterboxes the
+         16:9 video correctly inside whatever box .video-pane provides. */
+      width: 100%;
+      height: 100%;
+    }
     .layout .stream-stats { display: none; }
 
     .layout {
@@ -482,13 +494,13 @@
       /* At >=601px .layout is a grid (62/38 or two equal columns depending
          on aspect), and hiding .chat-pane above doesn't collapse those grid
          tracks on its own — the video sat in column 1 while column 2 stayed
-         reserved as empty space, off-center instead of filling the row. */
+         reserved as empty space instead of filling the row. */
       grid-template-columns: 1fr;
-      /* The video-pane's own width is aspect-ratio-derived from the row's
-         height, so it can end up narrower than this now-full-width column —
-         center it in that column instead of leaving it at the grid default
-         start edge. */
-      justify-items: center;
+      /* align-content:start (from the >=861px rule) sizes the grid row to
+         fit its content instead of the container's full height, leaving
+         .video-pane's height:100% above with nothing definite to resolve
+         against. */
+      align-content: stretch;
     }
 
     .bg-glow { bottom: 0; }
