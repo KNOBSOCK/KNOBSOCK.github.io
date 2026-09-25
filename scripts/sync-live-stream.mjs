@@ -5,20 +5,21 @@
  *
  * Bunny's "KNOBSOCK LIVE" Stream library forces a brand new live stream
  * (new GUID, new RTMP stream key) to be created manually before every
- * broadcast — there's no way to keep reusing one. This script polls that
- * library, finds whichever video object is newest, and if it isn't the
- * one already saved, archives the outgoing link into chat_config/vods
- * (it keeps working as a rewatchable recording once superseded — see
- * admin.html's archivePreviousLiveLinkAsVod, which does the same thing
- * for a manual paste) and writes the new one in.
+ * broadcast — there's no way to keep reusing one. Live streams are NOT
+ * part of the regular GET /library/{id}/videos listing (that's VOD
+ * uploads only, hence VideoModel's Created/Uploaded/.../Finished status
+ * enum never showing a "Live" state) — they live under their own
+ * GET /library/{id}/live endpoint, confirmed directly against this
+ * account. Each item there already carries a ready-made playbackUrlHls
+ * (no need to hand-build <host>/live/<guid>/live.m3u8), and endedAt is
+ * null for exactly as long as that stream is actually live.
  *
- * The manifest URL shape for a Bunny LIVE stream is NOT the same as a
- * VOD's — it's <host>/live/<guid>/live.m3u8, not <host>/<guid>/playlist.m3u8
- * (confirmed by watching Bunny's own embed player's real network requests
- * while genuinely live; see the "Fix: Bunny live streams use a different
- * manifest path than VOD" commit). BUNNY_LIBRARY_ID/BUNNY_CDN_HOST below
- * must stay in sync with BUNNY_LIBRARY_HOSTS in admin.html if either ever
- * changes.
+ * This script finds whichever entry has endedAt === null (if any), and
+ * if its playbackUrlHls isn't the one already saved, archives the
+ * outgoing link into chat_config/vods first — it keeps working as a
+ * rewatchable recording once superseded, same as admin.html's
+ * archivePreviousLiveLinkAsVod does for a manual paste — then writes
+ * the new one in.
  *
  * Run by .github/workflows/sync-live-stream.yml on a schedule.
  *
@@ -31,7 +32,7 @@
  *     dashboard page in Bunny shows this, or `ApiKey`/`ReadOnlyApiKey`
  *     from `GET /videolibrary/762310` with an account-level key; this
  *     script only reads, so the read-only one is enough). Add it as a
- *     new repo secret named BUNNY_STREAM_API_KEY.
+ *     repo secret named BUNNY_STREAM_API_KEY.
  *
  * Usage:
  *   node scripts/sync-live-stream.mjs              # sync, report
@@ -44,7 +45,6 @@ import { getFirestore } from "firebase-admin/firestore";
 const DRY_RUN = process.argv.includes("--dry-run");
 
 const BUNNY_LIBRARY_ID = "762310";
-const BUNNY_CDN_HOST = "vz-168e0ecf-c9d.b-cdn.net";
 
 const keyJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
 if (!keyJson) {
@@ -62,38 +62,45 @@ if (!bunnyApiKey) {
 initializeApp({ credential: cert(JSON.parse(keyJson)) });
 const db = getFirestore();
 
-function liveUrlFor(guid) {
-  return `https://${BUNNY_CDN_HOST}/live/${guid}/live.m3u8`;
+// Never let a stream key reach a log line — it's a live-broadcast
+// credential (whoever has it can push video as this channel).
+function redact(item) {
+  const { streamKey, rtmpOutputs, ingestEndpoints, ...safe } = item;
+  return safe;
 }
 
-async function fetchNewestVideo() {
+async function fetchActiveLiveStream() {
   const res = await fetch(
-    `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos?page=1&itemsPerPage=5&orderBy=date`,
+    `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/live?page=1&itemsPerPage=100`,
     { headers: { AccessKey: bunnyApiKey, Accept: "application/json" } }
   );
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(
-      `Bunny video list request failed: HTTP ${res.status} ${body.slice(0, 300)}`
+      `Bunny live stream list request failed: HTTP ${res.status} ${body.slice(0, 300)}`
     );
   }
   const data = await res.json();
-  const items = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
-  if (!items.length) return null;
-  items.sort(
-    (a, b) => new Date(b.dateUploaded).getTime() - new Date(a.dateUploaded).getTime()
+  const items = Array.isArray(data.items) ? data.items : [];
+  const active = items.filter((v) => v.endedAt == null && v.playbackUrlHls);
+  if (!active.length) return null;
+  // Normally there's only ever one, but prefer the most recently started
+  // if somehow more than one shows no endedAt yet.
+  active.sort(
+    (a, b) => new Date(b.startedAt || b.dateCreated).getTime() - new Date(a.startedAt || a.dateCreated).getTime()
   );
-  return items[0];
+  return active[0];
 }
 
 async function main() {
-  const newest = await fetchNewestVideo();
-  if (!newest || !newest.guid) {
-    console.log("No live stream found in the library — nothing to sync.");
+  const active = await fetchActiveLiveStream();
+  if (!active) {
+    console.log("No currently-live Bunny stream — nothing to sync.");
     return;
   }
+  console.log("Active live stream:", JSON.stringify(redact(active)));
 
-  const newUrl = liveUrlFor(newest.guid);
+  const newUrl = active.playbackUrlHls;
   const liveRef = db.collection("chat_config").doc("liveVideo");
   const liveSnap = await liveRef.get();
   const liveData = liveSnap.exists ? liveSnap.data() : null;
