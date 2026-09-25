@@ -2941,7 +2941,7 @@
   var DIRECT_LIVE_PROBE_MS = 8000;
   var directLiveProbeUrl = null;
   var directLiveProbeTimer = null;
-  var directLiveConfirmed = true;
+  var directLiveConfirmed = false;
 
   function isEffectivelyLive() {
     if (!configuredLiveSource) return false;
@@ -2980,10 +2980,10 @@
     if (directLiveProbeUrl === url) return;
     stopDirectLiveProbe();
     directLiveProbeUrl = url;
-    /* Assume live optimistically so an already-broadcasting stream plays
-       immediately; a failed probe corrects this to the offline card a
-       moment later instead of stalling on a manifest that isn't there. */
-    directLiveConfirmed = true;
+    /* Stay on the offline card until the probe actually confirms a live
+       manifest, so a cold load never flashes the "online" UI before
+       correcting itself. */
+    directLiveConfirmed = false;
     probeDirectLiveOnce(url);
     directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
   }

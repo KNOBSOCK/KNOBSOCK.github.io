@@ -194,7 +194,7 @@
     const DIRECT_LIVE_PROBE_MS = 8000;
     let directLiveProbeUrl = null;
     let directLiveProbeTimer = null;
-    let directLiveConfirmed = true;
+    let directLiveConfirmed = false;
 
     function probeDirectLiveOnce(url, onChange) {
       fetch(url, { method: 'GET', cache: 'no-store', mode: 'cors' }).then(function (res) {
@@ -221,9 +221,9 @@
       if (directLiveProbeUrl === url) return;
       stopDirectLiveProbe();
       directLiveProbeUrl = url;
-      /* Assume live optimistically so an already-broadcasting stream loads
-         immediately; a failed probe corrects this a moment later. */
-      directLiveConfirmed = true;
+      /* Stay offline until the probe actually confirms a live manifest, so
+         this player never flashes "online" before correcting itself. */
+      directLiveConfirmed = false;
       probeDirectLiveOnce(url, onChange);
       directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url, onChange); }, DIRECT_LIVE_PROBE_MS);
     }

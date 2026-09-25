@@ -926,7 +926,7 @@
   let configuredDirectUrl = null;
   let directLiveProbeUrl = null;
   let directLiveProbeTimer = null;
-  let directLiveConfirmed = true;
+  let directLiveConfirmed = false;
 
   function computeEffectiveLive() {
     return configuredDirectUrl ? directLiveConfirmed : manualIsLive;
@@ -964,9 +964,9 @@
     if (directLiveProbeUrl === url) return;
     stopDirectLiveProbe();
     directLiveProbeUrl = url;
-    /* Assume live optimistically so an already-broadcasting stream shows up
-       immediately; a failed probe corrects this a moment later. */
-    directLiveConfirmed = true;
+    /* Stay offline until the probe actually confirms a live manifest, so a
+       cold load never flashes the "online" UI before correcting itself. */
+    directLiveConfirmed = false;
     probeDirectLiveOnce(url);
     directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
   }
