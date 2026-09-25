@@ -649,10 +649,14 @@
     min-width: clamp(26px, 7.5cqw, 34px);
     padding: 0 6px;
     font-size: clamp(9px, 2.6cqw, 11px);
-    color: #ffffff;
   }
-  .quality-btn:hover:not(:disabled),
-  .quality-btn:active:not(:disabled) { color: var(--interactive-hover-text); }
+  /* .round-btn's own color rule is declared after this in the cascade, so a
+     plain .quality-btn selector loses to it at equal specificity — pair it
+     with .round-btn here (same fix already used for play-pause/fullscreen)
+     so this button's color actually sticks. */
+  .round-btn.quality-btn { color: var(--interactive-hover); }
+  .round-btn.quality-btn:hover:not(:disabled),
+  .round-btn.quality-btn:active:not(:disabled) { color: var(--accent); }
   .quality-btn[hidden] { display: none; }
 
   .quality-menu {
