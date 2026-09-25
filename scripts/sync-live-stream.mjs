@@ -72,12 +72,23 @@ function redact(item) {
 // A live stream's /live/<guid>/live.m3u8 manifest stops working once the
 // broadcast ends — Bunny's finished recording is only reachable at the
 // ordinary VOD path, <host>/<guid>/playlist.m3u8, instead. Translate before
-// archiving, or the "Past Stream" entry just won't play.
-function toPastStreamVodUrl(url) {
+// archiving, or the "Past Stream" entry just won't play. Bunny's
+// auto-generated thumbnail for that same recording lives right alongside it.
+function parseLiveManifestUrl(url) {
   const m = String(url || "").match(
     /^https:\/\/([a-z0-9.-]+\.b-cdn\.net)\/live\/([0-9a-fA-F-]{10,})\/live\.m3u8(?:\?.*)?$/i
   );
-  return m ? `https://${m[1]}/${m[2]}/playlist.m3u8` : url;
+  return m ? { host: m[1], guid: m[2] } : null;
+}
+
+function toPastStreamVodUrl(url) {
+  const parsed = parseLiveManifestUrl(url);
+  return parsed ? `https://${parsed.host}/${parsed.guid}/playlist.m3u8` : url;
+}
+
+function toPastStreamThumbUrl(url) {
+  const parsed = parseLiveManifestUrl(url);
+  return parsed ? `https://${parsed.host}/${parsed.guid}/thumbnail.jpg` : "";
 }
 
 async function fetchActiveLiveStream() {
@@ -141,7 +152,7 @@ async function main() {
       const archived = {
         url: archiveUrl,
         title: `Past Live Stream — ${new Date().toLocaleDateString("en-US")}`,
-        thumb: "",
+        thumb: toPastStreamThumbUrl(previousUrl),
         aspect,
         addedAt: Date.now(),
       };
