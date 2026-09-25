@@ -654,7 +654,10 @@
      plain .quality-btn selector loses to it at equal specificity — pair it
      with .round-btn here (same fix already used for play-pause/fullscreen)
      so this button's color actually sticks. */
-  .round-btn.quality-btn { color: var(--interactive-hover); }
+  .round-btn.quality-btn {
+    color: var(--interactive-hover);
+    font-family: 'Gratis Neue', var(--font-body);
+  }
   .round-btn.quality-btn:hover:not(:disabled),
   .round-btn.quality-btn:active:not(:disabled) { color: var(--accent); }
   .quality-btn[hidden] { display: none; }
@@ -680,7 +683,7 @@
     border: 0;
     background: none;
     color: var(--text);
-    font-family: var(--font-body);
+    font-family: 'Gratis Neue', var(--font-body);
     font-size: clamp(11px, 3cqw, 13px);
     text-align: left;
     padding: 6px 10px;
