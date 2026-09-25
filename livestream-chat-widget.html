@@ -2468,6 +2468,7 @@
   var directVideoWasPlaying = false;
   var directSeekTarget = 0;
   var directSeekGeneration = 0;
+  var directMp4Generation = 0;
 
   function resumeDirectVideoAfterSeek() {
     if (!resumeAfterDirectSeek || backend !== 'video' || videoEl.ended) return;
@@ -2617,15 +2618,90 @@
     hideQualityControl();
   }
 
+  // Bunny renders a family of fixed-resolution MP4s alongside every finished
+  // VOD's HLS ladder (play_240p.mp4 up through whatever the source supports).
+  // The iOS MP4 substitution below can only ever pick one by name, so probe
+  // this fixed set with a 2-byte range request — cheap, and a 404 for a
+  // resolution the source didn't reach just drops it from the menu.
+  var MP4_QUALITY_HEIGHTS = [1440, 1080, 720, 480, 360, 240];
+
+  function probeMp4QualityExists(url) {
+    return fetch(url, { method: 'GET', headers: { Range: 'bytes=0-1' }, cache: 'no-store', mode: 'cors' })
+      .then(function (res) { return !!res && (res.ok || res.status === 206); })
+      .catch(function () { return false; });
+  }
+
+  function activeMp4Height(available) {
+    var m = String(videoEl.currentSrc || '').match(/play_(\d+)p\.mp4/i);
+    if (m) return parseInt(m[1], 10);
+    return available.length ? available[0].height : null;
+  }
+
+  function renderMp4QualityMenu(available) {
+    if (!qualityMenu || !qualityBtn) return;
+    if (!available || available.length < 2) { hideQualityControl(); return; }
+    var active = activeMp4Height(available);
+    qualityMenu.innerHTML = '';
+    available.forEach(function (option) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = option.height + 'p';
+      btn.className = option.height === active ? 'is-active' : '';
+      btn.addEventListener('click', function () {
+        selectMp4Quality(option);
+        setQualityMenuOpen(false);
+      });
+      qualityMenu.appendChild(btn);
+    });
+    qualityBtn.textContent = active ? (active + 'p') : 'Quality';
+    qualityBtn.hidden = false;
+  }
+
+  function discoverMp4Qualities(baseUrl, query, generation) {
+    var candidates = MP4_QUALITY_HEIGHTS.map(function (h) {
+      return { height: h, url: baseUrl + '/play_' + h + 'p.mp4' + (query || '') };
+    });
+    Promise.all(candidates.map(function (c) { return probeMp4QualityExists(c.url); })).then(function (results) {
+      if (generation !== directMp4Generation) return;
+      renderMp4QualityMenu(candidates.filter(function (_, i) { return results[i]; }));
+    });
+  }
+
+  // Swap in a different fixed-resolution rendition of the VOD currently
+  // playing, restoring the playhead and play state once the new file's
+  // metadata loads (mirrors the same recovery pattern used after a scrub).
+  function selectMp4Quality(option) {
+    if (backend !== 'video' || !watchingVodId) return;
+    var wasPlaying = !videoEl.paused;
+    var resumeAt = videoEl.currentTime;
+    var generation = ++directMp4Generation;
+    videoEl.addEventListener('loadedmetadata', function restoreAfterQualitySwitch() {
+      if (generation !== directMp4Generation) return;
+      var duration = videoEl.duration;
+      videoEl.currentTime = isFinite(duration) ? Math.min(resumeAt, Math.max(0, duration - 0.05)) : resumeAt;
+      if (wasPlaying) videoEl.play().catch(function () {});
+    }, { once: true });
+    videoEl.src = option.url;
+    videoEl.load();
+    qualityBtn.textContent = option.height + 'p';
+    Array.prototype.forEach.call(qualityMenu.children, function (btn) {
+      btn.classList.toggle('is-active', btn.textContent === option.height + 'p');
+    });
+  }
+
   function loadDirectVideo(url) {
     // Safari's native HLS path can lose the requested segment after a seek.
     // Bunny also publishes a finished MP4 rendition once a VOD is done
     // encoding, whose byte-range seeking is reliable on iOS — but a live
     // stream has no finished MP4 yet, so only substitute it for a VOD.
+    var mp4QualityBase = null;
+    var mp4QualityQuery = '';
     if (isIOS && watchingVodId) {
       var bunnyVod = url.match(/^(https:\/\/[^/]+\/[0-9a-f-]+)\/playlist\.m3u8(\?.*)?$/i);
       if (bunnyVod && /\.b-cdn\.net$/i.test(new URL(url).hostname)) {
-        url = bunnyVod[1] + '/play_720p.mp4' + (bunnyVod[2] || '');
+        mp4QualityBase = bunnyVod[1];
+        mp4QualityQuery = bunnyVod[2] || '';
+        url = mp4QualityBase + '/play_720p.mp4' + mp4QualityQuery;
       }
     }
     backend = 'video';
@@ -2652,6 +2728,10 @@
     }
     videoEl.muted = true;
     videoEl.play().catch(function () {});
+    if (mp4QualityBase) {
+      var generation = ++directMp4Generation;
+      discoverMp4Qualities(mp4QualityBase, mp4QualityQuery, generation);
+    }
   }
 
   videoEl.addEventListener('loadedmetadata', function () {
