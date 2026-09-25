@@ -1925,6 +1925,10 @@
       display: block;
       width: min(100cqw, calc(100cqh * 9 / 16));
       height: min(100cqh, calc(100cqw * 16 / 9));
+      /* Shrinking to the 9:16 box's own width leaves it a block sitting in
+         a wider (landscape) viewport — without this it hugs the left edge
+         instead of sitting in the middle. */
+      margin: 0 auto;
     }
     body.is-chat-hidden .layout.mode-portrait.chat-hidden .video-pane,
     .layout.mode-portrait.fullscreen-active .video-pane {
