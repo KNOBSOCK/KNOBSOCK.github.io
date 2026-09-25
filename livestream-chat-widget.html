@@ -2957,9 +2957,15 @@
         var vCurrent = videoEl.currentTime || 0;
         if (vDuration > 0 && isFinite(vDuration)) {
           scrubRange.max = vDuration;
-          scrubRange.value = vCurrent;
+          // The live HLS window's duration keeps growing as new segments
+          // land, which made the bar look like it was constantly chasing a
+          // receding finish line. Once at the edge, just pin the thumb
+          // there instead of tracking the exact (near-identical) position.
+          var atLiveEdge = !watchingVodId && isEffectivelyLive() &&
+            directVideoSecondsBehindEdge() <= LIVE_EDGE_THRESHOLD_SEC;
+          scrubRange.value = atLiveEdge ? vDuration : vCurrent;
           updateRangeFill();
-          timeLabel.textContent = formatTime(vCurrent) + ' / ' + formatTime(vDuration);
+          timeLabel.textContent = atLiveEdge ? 'LIVE' : (formatTime(vCurrent) + ' / ' + formatTime(vDuration));
         }
       }
       updateLiveButtonState();
@@ -2970,9 +2976,10 @@
     var current = ytPlayer.getCurrentTime();
     if (duration > 0) {
       scrubRange.max = duration;
-      scrubRange.value = current;
+      var ytAtLiveEdge = !watchingVodId && configuredIsLive && (duration - current) <= LIVE_EDGE_THRESHOLD_SEC;
+      scrubRange.value = ytAtLiveEdge ? duration : current;
       updateRangeFill();
-      timeLabel.textContent = formatTime(current) + ' / ' + formatTime(duration);
+      timeLabel.textContent = ytAtLiveEdge ? 'LIVE' : (formatTime(current) + ' / ' + formatTime(duration));
     }
     updateLiveButtonState();
   }
@@ -3173,6 +3180,18 @@
 
   var LIVE_EDGE_THRESHOLD_SEC = 8;
 
+  // A direct/Bunny live stream's HLS window keeps growing as new segments
+  // land, so duration and currentTime both drift upward together in real
+  // time — "behind edge" here just means the gap between them, same idea
+  // as the YouTube case below.
+  function directVideoSecondsBehindEdge() {
+    if (!videoReady) return 0;
+    var vDuration = videoEl.duration || 0;
+    var vCurrent = videoEl.currentTime || 0;
+    if (!(vDuration > 0) || !isFinite(vDuration)) return 0;
+    return Math.max(0, vDuration - vCurrent);
+  }
+
   function updateLiveButtonState() {
     if (!liveBtn) return;
     var onLiveSlot = !watchingVodId;
@@ -3181,6 +3200,8 @@
       var duration = ytPlayer.getDuration();
       var current = ytPlayer.getCurrentTime();
       behindEdge = duration > 0 && (duration - current) > LIVE_EDGE_THRESHOLD_SEC;
+    } else if (onLiveSlot && backend === 'video' && isEffectivelyLive()) {
+      behindEdge = directVideoSecondsBehindEdge() > LIVE_EDGE_THRESHOLD_SEC;
     }
     var atLive = onLiveSlot && !behindEdge;
     liveBtn.classList.toggle('at-live', atLive);
