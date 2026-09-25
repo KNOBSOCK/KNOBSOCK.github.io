@@ -477,7 +477,19 @@
     .layout .video-pane { flex: 1 1 100%; padding-bottom: 0; }
     .layout .stream-stats { display: none; }
 
-    .layout { padding-bottom: 0; }
+    .layout {
+      padding-bottom: 0;
+      /* At >=601px .layout is a grid (62/38 or two equal columns depending
+         on aspect), and hiding .chat-pane above doesn't collapse those grid
+         tracks on its own — the video sat in column 1 while column 2 stayed
+         reserved as empty space, off-center instead of filling the row. */
+      grid-template-columns: 1fr;
+      /* The video-pane's own width is aspect-ratio-derived from the row's
+         height, so it can end up narrower than this now-full-width column —
+         center it in that column instead of leaving it at the grid default
+         start edge. */
+      justify-items: center;
+    }
 
     .bg-glow { bottom: 0; }
 
