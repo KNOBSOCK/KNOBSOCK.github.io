@@ -1381,10 +1381,15 @@
   // page, then silently rewrite any later-pasted "Direct URL Link" into the working
   // .m3u8 form the instant it's pasted — no network request needed.
   const BUNNY_HOST_STORAGE_KEY = 'knobsock-admin-bunny-host';
-  // /play/ and /embed/ are Bunny's VOD "Direct URL Link" forms; /live/ is the
-  // equivalent for a Bunny Stream live stream (e.g. player.mediadelivery.net/live/762310/<guid>).
-  const BUNNY_PLAY_URL_RE = /^https?:\/\/(?:player|iframe)\.mediadelivery\.net\/(?:play|embed|live)\/(\d+)\/([0-9a-fA-F-]{10,})\/?(?:\?.*)?$/i;
-  const BUNNY_CDN_URL_RE = /^https?:\/\/([a-z0-9.-]+\.b-cdn\.net)\/([0-9a-fA-F-]{10,})\/playlist\.m3u8(?:\?.*)?$/i;
+  // /play/ and /embed/ are Bunny's VOD "Direct URL Link" forms, whose HLS
+  // lives at <host>/<guid>/playlist.m3u8. /live/ is the equivalent for a
+  // Bunny Stream live stream (e.g. player.mediadelivery.net/live/762310/<guid>)
+  // — but a live broadcast's manifest is at a completely different path,
+  // <host>/live/<guid>/live.m3u8, confirmed by watching Bunny's own embed
+  // player's network requests while actually live. Reusing the VOD path for
+  // a live guid 404s even though the stream is really up.
+  const BUNNY_PLAY_URL_RE = /^https?:\/\/(?:player|iframe)\.mediadelivery\.net\/(play|embed|live)\/(\d+)\/([0-9a-fA-F-]{10,})\/?(?:\?.*)?$/i;
+  const BUNNY_CDN_URL_RE = /^https?:\/\/([a-z0-9.-]+\.b-cdn\.net)\/(?:live\/[0-9a-fA-F-]{10,}\/live\.m3u8|[0-9a-fA-F-]{10,}\/playlist\.m3u8)(?:\?.*)?$/i;
 
   // The "KNOBSOCK LIVE" Bunny Stream library is dedicated to the Live tab and
   // isn't going to change day to day, so its CDN pull zone hostname is known
@@ -1423,9 +1428,13 @@
     rememberBunnyHost(val);
     const m = val.match(BUNNY_PLAY_URL_RE);
     if (!m) return false;
-    const host = findKnownBunnyHost(m[1]);
+    const kind = m[1].toLowerCase();
+    const host = findKnownBunnyHost(m[2]);
     if (!host) return false;
-    const converted = 'https://' + host + '/' + m[2] + '/playlist.m3u8';
+    const guid = m[3];
+    const converted = kind === 'live'
+      ? 'https://' + host + '/live/' + guid + '/live.m3u8'
+      : 'https://' + host + '/' + guid + '/playlist.m3u8';
     if (converted === val) return false;
     inputEl.value = converted;
     return true;
