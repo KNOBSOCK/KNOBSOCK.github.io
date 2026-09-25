@@ -69,6 +69,17 @@ function redact(item) {
   return safe;
 }
 
+// A live stream's /live/<guid>/live.m3u8 manifest stops working once the
+// broadcast ends — Bunny's finished recording is only reachable at the
+// ordinary VOD path, <host>/<guid>/playlist.m3u8, instead. Translate before
+// archiving, or the "Past Stream" entry just won't play.
+function toPastStreamVodUrl(url) {
+  const m = String(url || "").match(
+    /^https:\/\/([a-z0-9.-]+\.b-cdn\.net)\/live\/([0-9a-fA-F-]{10,})\/live\.m3u8(?:\?.*)?$/i
+  );
+  return m ? `https://${m[1]}/${m[2]}/playlist.m3u8` : url;
+}
+
 async function fetchActiveLiveStream() {
   const res = await fetch(
     `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/live?page=1&itemsPerPage=100`,
@@ -118,16 +129,17 @@ async function main() {
   if (DRY_RUN) return;
 
   if (previousUrl) {
+    const archiveUrl = toPastStreamVodUrl(previousUrl);
     const vodsRef = db.collection("chat_config").doc("vods");
     const vodsSnap = await vodsRef.get();
     const items = vodsSnap.exists && Array.isArray(vodsSnap.data().items)
       ? vodsSnap.data().items
       : [];
-    const alreadyArchived = items.some((v) => v.url === previousUrl);
+    const alreadyArchived = items.some((v) => v.url === archiveUrl);
     if (!alreadyArchived) {
       const aspect = liveData && liveData.aspect === "9:16" ? "9:16" : "16:9";
       const archived = {
-        url: previousUrl,
+        url: archiveUrl,
         title: `Past Live Stream — ${new Date().toLocaleDateString("en-US")}`,
         thumb: "",
         aspect,
