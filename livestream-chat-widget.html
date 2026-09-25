@@ -3115,7 +3115,10 @@
       return;
     }
 
-    if (liveBtn.parentNode !== controls) controls.insertBefore(liveBtn, fullscreenBtn);
+    // Restore to its original spot (before the quality control, not just
+    // before fullscreen) — otherwise a stint in the composer stack and back
+    // leaves Live and the resolution picker swapped from their normal order.
+    if (liveBtn.parentNode !== controls) controls.insertBefore(liveBtn, qualityControl);
     if (stack) {
       var stackedSend = stack.querySelector('.send-btn');
       var stackComposer = stack.closest('.composer');
