@@ -2944,9 +2944,12 @@
   var directLiveConfirmed = true;
 
   function isEffectivelyLive() {
-    if (!configuredIsLive || !configuredLiveSource) return false;
+    if (!configuredLiveSource) return false;
+    /* A direct/Bunny source's visibility is driven entirely by the probe —
+       not by the admin's manual isLive flag, which is only ever meaningful
+       for a YouTube source (there's no way to probe that client-side). */
     if (configuredLiveSource.type === 'direct') return directLiveConfirmed;
-    return true;
+    return configuredIsLive;
   }
 
   function setDirectLiveConfirmed(confirmed) {
@@ -3128,9 +3131,15 @@
 
   window.applyLiveVideoState = function (source, isLive, aspect) {
     pendingUnmute = false;
-    configuredLiveSource = isLive ? source : null;
     configuredIsLive = !!isLive;
     configuredLiveAspect = aspect === '9:16' ? '9:16' : '16:9';
+    /* A direct/Bunny source stays configured (so its probe can run) even
+       while the stored manual isLive flag is false — that flag is a leftover
+       manual on/off switch that predates auto-detection and must not be able
+       to permanently suppress it. A YouTube source has no probe, so it still
+       needs the flag to decide whether it's configured at all. */
+    var isDirectSource = source && source.type === 'direct';
+    configuredLiveSource = (isDirectSource || isLive) ? source : null;
 
     if (configuredLiveSource && configuredLiveSource.type === 'direct') {
       startDirectLiveProbe(configuredLiveSource.url);

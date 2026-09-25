@@ -3152,13 +3152,15 @@
       const btn = document.getElementById('liveStatusToggleBtn');
       const hint = document.getElementById('liveStatusHint');
       if (!label || !btn) return;
-      label.textContent = currentLiveStatus ? 'Status: Live' : 'Status: Offline';
-      label.style.color = currentLiveStatus ? 'var(--accent)' : 'var(--text-dim)';
+      label.textContent = currentLiveIsDirect ? 'Status: auto-detected from Bunny' : (currentLiveStatus ? 'Status: Live' : 'Status: Offline');
+      label.style.color = currentLiveIsDirect ? 'var(--text-dim)' : (currentLiveStatus ? 'var(--accent)' : 'var(--text-dim)');
       btn.textContent = currentLiveStatus ? 'Go Offline' : 'Go Live';
       btn.classList.toggle('btn-primary', !currentLiveStatus);
+      btn.disabled = currentLiveIsDirect;
+      btn.title = currentLiveIsDirect ? 'Not used for a Bunny stream — see note below' : '';
       if (hint) {
         hint.textContent = currentLiveIsDirect
-          ? 'Bunny stream: the site auto-detects whether you\'re actually broadcasting — this switch only forces the page offline early.'
+          ? 'Bunny stream: this page reflects whatever Bunny is actually broadcasting on its own — the switch above has no effect while a Bunny link is saved.'
           : '';
       }
     }
