@@ -640,6 +640,56 @@
     flex: none;
   }
 
+  .quality-control {
+    position: relative;
+    flex: none;
+  }
+  .quality-btn {
+    width: auto;
+    min-width: clamp(26px, 7.5cqw, 34px);
+    padding: 0 6px;
+    font-size: clamp(9px, 2.6cqw, 11px);
+    color: #ffffff;
+  }
+  .quality-btn:hover:not(:disabled),
+  .quality-btn:active:not(:disabled) { color: var(--interactive-hover-text); }
+  .quality-btn[hidden] { display: none; }
+
+  .quality-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    min-width: 88px;
+    background: rgba(var(--ink-rgb), 0.94);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 7;
+  }
+  .quality-menu[hidden] { display: none; }
+  .quality-menu button {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: clamp(11px, 3cqw, 13px);
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .quality-menu button:hover,
+  .quality-menu button.is-active {
+    background: var(--interactive-hover);
+    color: var(--interactive-hover-text);
+  }
+
   .video-pane.pseudo-fullscreen {
     position: fixed;
     top: 0;
@@ -2266,6 +2316,10 @@
           <span class="live-dot" id="liveDot" aria-hidden="true"></span>
           Live
         </button>
+        <div class="quality-control" id="qualityControl">
+          <button type="button" class="round-btn quality-btn" id="qualityBtn" title="Video quality" hidden>Auto</button>
+          <div class="quality-menu" id="qualityMenu" hidden></div>
+        </div>
         <button class="round-btn fullscreen-btn" id="fullscreenBtn" title="Fullscreen">&#9974;</button>
       </div>
     </div>
@@ -2392,6 +2446,9 @@
   var scrubRange = document.getElementById('scrubRange');
   var timeLabel = document.getElementById('timeLabel');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
+  var qualityControl = document.getElementById('qualityControl');
+  var qualityBtn = document.getElementById('qualityBtn');
+  var qualityMenu = document.getElementById('qualityMenu');
   var videoPane = document.getElementById('videoPane');
   var videoLoading = document.getElementById('videoLoading');
   var layoutEl = document.getElementById('layout');
@@ -2486,19 +2543,86 @@
     videoEl.style.display = kind === 'video' ? '' : 'none';
   }
 
+  function levelLabel(level) {
+    if (!level) return '';
+    return level.height ? (level.height + 'p') : (Math.round((level.bitrate || 0) / 1000) + 'kbps');
+  }
+
+  function setQualityMenuOpen(open) {
+    if (!qualityMenu) return;
+    qualityMenu.hidden = !open;
+  }
+
+  function hideQualityControl() {
+    if (qualityBtn) qualityBtn.hidden = true;
+    setQualityMenuOpen(false);
+  }
+
+  // hls.js's own autoLevelEnabled flag lags a tick behind a manual
+  // currentLevel assignment, so the menu would still read back "Auto"
+  // immediately after picking a resolution. Track the viewer's choice
+  // ourselves instead of trusting that property.
+  var qualityAutoMode = true;
+
+  function selectQualityLevel(idx) {
+    if (!hlsInstance) return;
+    qualityAutoMode = idx === -1;
+    hlsInstance.currentLevel = idx;
+    renderQualityMenu(hlsInstance.levels, idx, qualityAutoMode);
+  }
+
+  function renderQualityMenu(levels, activeIndex, isAuto) {
+    if (!qualityMenu || !qualityBtn) return;
+    if (!levels || levels.length < 2) { hideQualityControl(); return; }
+    qualityMenu.innerHTML = '';
+    var autoBtn = document.createElement('button');
+    autoBtn.type = 'button';
+    autoBtn.textContent = 'Auto';
+    autoBtn.className = isAuto ? 'is-active' : '';
+    autoBtn.addEventListener('click', function () {
+      selectQualityLevel(-1);
+      setQualityMenuOpen(false);
+    });
+    qualityMenu.appendChild(autoBtn);
+    levels.forEach(function (level, idx) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = levelLabel(level);
+      btn.className = (!isAuto && idx === activeIndex) ? 'is-active' : '';
+      btn.addEventListener('click', function () {
+        selectQualityLevel(idx);
+        setQualityMenuOpen(false);
+      });
+      qualityMenu.appendChild(btn);
+    });
+    qualityBtn.textContent = isAuto ? 'Auto' : levelLabel(levels[activeIndex]);
+    qualityBtn.hidden = false;
+  }
+
+  if (qualityBtn) {
+    qualityBtn.addEventListener('click', function () {
+      setQualityMenuOpen(!!qualityMenu && qualityMenu.hidden);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    if (qualityControl && !qualityControl.contains(e.target)) setQualityMenuOpen(false);
+  });
+
   function stopDirectVideo() {
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     videoEl.pause();
     videoEl.removeAttribute('src');
     videoEl.load();
     videoReady = false;
+    hideQualityControl();
   }
 
   function loadDirectVideo(url) {
     // Safari's native HLS path can lose the requested segment after a seek.
-    // Bunny also publishes an MP4 rendition, whose byte-range seeking is
-    // reliable on iOS; leave every other source untouched.
-    if (isIOS) {
+    // Bunny also publishes a finished MP4 rendition once a VOD is done
+    // encoding, whose byte-range seeking is reliable on iOS — but a live
+    // stream has no finished MP4 yet, so only substitute it for a VOD.
+    if (isIOS && watchingVodId) {
       var bunnyVod = url.match(/^(https:\/\/[^/]+\/[0-9a-f-]+)\/playlist\.m3u8(\?.*)?$/i);
       if (bunnyVod && /\.b-cdn\.net$/i.test(new URL(url).hostname)) {
         url = bunnyVod[1] + '/play_720p.mp4' + (bunnyVod[2] || '');
@@ -2509,8 +2633,18 @@
     showVideoLoading();
     videoReady = false;
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    hideQualityControl();
     if (/\.m3u8($|\?)/i.test(url) && window.Hls && Hls.isSupported()) {
+      qualityAutoMode = true;
       hlsInstance = new Hls();
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
+        if (!hlsInstance) return;
+        renderQualityMenu(hlsInstance.levels, hlsInstance.currentLevel, qualityAutoMode);
+      });
+      hlsInstance.on(Hls.Events.LEVEL_SWITCHED, function (event, data) {
+        if (!hlsInstance) return;
+        renderQualityMenu(hlsInstance.levels, data.level, qualityAutoMode);
+      });
       hlsInstance.loadSource(url);
       hlsInstance.attachMedia(videoEl);
     } else {
@@ -2796,6 +2930,60 @@
   var loadedVideoId = null;
   var watchingVodId = null;
   var watchingVodAspect = '16:9';
+
+  // A Bunny direct stream's on-air state can't be trusted to the admin's
+  // manual isLive flag alone — the whole point is that no one has to
+  // remember to flip it. Instead, periodically probe the stream's own HLS
+  // manifest: a 200 means Bunny is actively receiving and serving it, any
+  // failure means it isn't. YouTube sources have no such probe and just
+  // follow the manual flag, since a quota-free live-status check isn't
+  // available for them client-side.
+  var DIRECT_LIVE_PROBE_MS = 8000;
+  var directLiveProbeUrl = null;
+  var directLiveProbeTimer = null;
+  var directLiveConfirmed = true;
+
+  function isEffectivelyLive() {
+    if (!configuredIsLive || !configuredLiveSource) return false;
+    if (configuredLiveSource.type === 'direct') return directLiveConfirmed;
+    return true;
+  }
+
+  function setDirectLiveConfirmed(confirmed) {
+    if (directLiveConfirmed === confirmed) return;
+    directLiveConfirmed = confirmed;
+    if (configuredLiveSource && configuredLiveSource.type === 'direct') {
+      window.applyLiveVideoState(configuredLiveSource, configuredIsLive, configuredLiveAspect);
+    }
+  }
+
+  function probeDirectLiveOnce(url) {
+    fetch(url, { method: 'GET', cache: 'no-store', mode: 'cors' }).then(function (res) {
+      if (directLiveProbeUrl !== url) return;
+      setDirectLiveConfirmed(!!res && res.ok);
+    }).catch(function () {
+      if (directLiveProbeUrl !== url) return;
+      setDirectLiveConfirmed(false);
+    });
+  }
+
+  function stopDirectLiveProbe() {
+    clearInterval(directLiveProbeTimer);
+    directLiveProbeTimer = null;
+    directLiveProbeUrl = null;
+  }
+
+  function startDirectLiveProbe(url) {
+    if (directLiveProbeUrl === url) return;
+    stopDirectLiveProbe();
+    directLiveProbeUrl = url;
+    /* Assume live optimistically so an already-broadcasting stream plays
+       immediately; a failed probe corrects this to the offline card a
+       moment later instead of stalling on a manifest that isn't there. */
+    directLiveConfirmed = true;
+    probeDirectLiveOnce(url);
+    directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
+  }
   var ytApiRequested = false;
   var ytApiRetryCount = 0;
   var youtubeRevealTimer = null;
@@ -2917,7 +3105,7 @@
   }
 
   function updateOfflineCardState() {
-    var showOfflineCard = !watchingVodId && !configuredIsLive;
+    var showOfflineCard = !watchingVodId && !isEffectivelyLive();
     videoPane.classList.toggle('offline-card', showOfflineCard);
     var offlineVideo = document.getElementById('offlineVideo');
     if (!offlineVideo) return;
@@ -2932,8 +3120,9 @@
   updateOfflineCardState();
 
   function updateOfflineTheme() {
-    document.documentElement.classList.toggle('is-offline', !configuredIsLive);
-    try { window.parent.postMessage({ type: 'knobsock-live-state', isLive: configuredIsLive }, '*'); } catch (e) {}
+    var live = isEffectivelyLive();
+    document.documentElement.classList.toggle('is-offline', !live);
+    try { window.parent.postMessage({ type: 'knobsock-live-state', isLive: live }, '*'); } catch (e) {}
   }
   updateOfflineTheme();
 
@@ -2942,15 +3131,25 @@
     configuredLiveSource = isLive ? source : null;
     configuredIsLive = !!isLive;
     configuredLiveAspect = aspect === '9:16' ? '9:16' : '16:9';
+
+    if (configuredLiveSource && configuredLiveSource.type === 'direct') {
+      startDirectLiveProbe(configuredLiveSource.url);
+    } else {
+      stopDirectLiveProbe();
+      directLiveConfirmed = true;
+    }
+
+    var effectiveLive = isEffectivelyLive();
+
     /* Leave an active VOD in its saved presentation; otherwise follow the
        configured live stream's aspect. */
-    if (!watchingVodId) window.setLiveAspectMode(isLive ? configuredLiveAspect : '16:9');
+    if (!watchingVodId) window.setLiveAspectMode(effectiveLive ? configuredLiveAspect : '16:9');
     updateLiveButtonState();
     updateOfflineCardState();
     updateOfflineTheme();
     if (watchingVodId) return;
 
-    if (!isLive || !source) {
+    if (!effectiveLive || !source) {
       loadedVideoId = null;
       stopDirectVideo();
       if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
@@ -3032,7 +3231,7 @@
         window.returnToLive();
         return;
       }
-      if (!configuredIsLive) {
+      if (!isEffectivelyLive()) {
 
         window.applyLiveVideoState(configuredLiveSource, false);
         return;
@@ -3235,8 +3434,17 @@
       else exitFs();
       return;
     }
-    // Keep Bunny HLS in this document on iOS. The native video fullscreen
-    // player has its own seek pipeline and can stall after a scrub.
+    // A live Bunny stream has no scrub pipeline to break, so let iOS use its
+    // real native fullscreen video player there (system controls, AirPlay,
+    // OS-level quality switching). VOD still forces the in-page pseudo
+    // fullscreen below, since iOS's native player's own seek pipeline can
+    // stall after a scrub.
+    if (isIOS && backend === 'video' && !watchingVodId && typeof videoEl.webkitEnterFullscreen === 'function') {
+      try {
+        videoEl.webkitEnterFullscreen();
+        return;
+      } catch (e) {}
+    }
     if (isIOS && backend === 'video') {
       enterPseudoFullscreen();
       return;

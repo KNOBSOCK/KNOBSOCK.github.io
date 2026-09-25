@@ -970,6 +970,7 @@
               <div id="liveStatusLabel" style="flex:1 1 auto;font-weight:700;"></div>
               <button type="button" class="btn" id="liveStatusToggleBtn">…</button>
             </div>
+            <div id="liveStatusHint" style="font-size:11px;min-height:14px;color:var(--text-dim);"></div>
             <div class="add-row" style="align-items:center;">
               <label for="liveAspectMode" style="margin:0;flex:1 1 auto;">Stream layout</label>
               <select class="search-input" id="liveAspectMode" style="max-width:180px;">
@@ -978,7 +979,7 @@
               </select>
             </div>
             <div class="add-row">
-              <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste a YouTube or Bunny .m3u8 link">
+              <input type="text" class="search-input" id="liveVideoUrlInput" placeholder="Paste a YouTube or Bunny .m3u8 / direct play link">
               <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
             </div>
             <div id="liveVideoStatus" style="font-size:12px;min-height:16px;color:var(--text-dim);"></div>
@@ -1380,8 +1381,19 @@
   // page, then silently rewrite any later-pasted "Direct URL Link" into the working
   // .m3u8 form the instant it's pasted — no network request needed.
   const BUNNY_HOST_STORAGE_KEY = 'knobsock-admin-bunny-host';
-  const BUNNY_PLAY_URL_RE = /^https?:\/\/(?:player|iframe)\.mediadelivery\.net\/(?:play|embed)\/\d+\/([0-9a-fA-F-]{10,})\/?(?:\?.*)?$/i;
+  // /play/ and /embed/ are Bunny's VOD "Direct URL Link" forms; /live/ is the
+  // equivalent for a Bunny Stream live stream (e.g. player.mediadelivery.net/live/762310/<guid>).
+  const BUNNY_PLAY_URL_RE = /^https?:\/\/(?:player|iframe)\.mediadelivery\.net\/(?:play|embed|live)\/(\d+)\/([0-9a-fA-F-]{10,})\/?(?:\?.*)?$/i;
   const BUNNY_CDN_URL_RE = /^https?:\/\/([a-z0-9.-]+\.b-cdn\.net)\/([0-9a-fA-F-]{10,})\/playlist\.m3u8(?:\?.*)?$/i;
+
+  // The "KNOBSOCK LIVE" Bunny Stream library is dedicated to the Live tab and
+  // isn't going to change day to day, so its CDN pull zone hostname is known
+  // up front (looked up once via the Bunny API) instead of relying on the
+  // generic "remember the last pasted CDN host" trick below, which is keyed
+  // to whichever single library's VOD links happen to have been pasted here.
+  const BUNNY_LIBRARY_HOSTS = {
+    '762310': 'vz-168e0ecf-c9d.b-cdn.net'
+  };
 
   function rememberBunnyHost(url) {
     const m = String(url || '').trim().match(BUNNY_CDN_URL_RE);
@@ -1389,7 +1401,8 @@
     try { localStorage.setItem(BUNNY_HOST_STORAGE_KEY, m[1]); } catch (e) {}
   }
 
-  function findKnownBunnyHost() {
+  function findKnownBunnyHost(libraryId) {
+    if (libraryId && BUNNY_LIBRARY_HOSTS[libraryId]) return BUNNY_LIBRARY_HOSTS[libraryId];
     try {
       const stored = localStorage.getItem(BUNNY_HOST_STORAGE_KEY);
       if (stored) return stored;
@@ -1410,9 +1423,9 @@
     rememberBunnyHost(val);
     const m = val.match(BUNNY_PLAY_URL_RE);
     if (!m) return false;
-    const host = findKnownBunnyHost();
+    const host = findKnownBunnyHost(m[1]);
     if (!host) return false;
-    const converted = 'https://' + host + '/' + m[1] + '/playlist.m3u8';
+    const converted = 'https://' + host + '/' + m[2] + '/playlist.m3u8';
     if (converted === val) return false;
     inputEl.value = converted;
     return true;
@@ -3132,21 +3145,29 @@
     let liveVideoUrlPrefilled = false;
     let currentLiveStatus = true;
     let currentLiveAspect = '16:9';
+    let currentLiveIsDirect = false;
 
     function renderLiveStatusToggle() {
       const label = document.getElementById('liveStatusLabel');
       const btn = document.getElementById('liveStatusToggleBtn');
+      const hint = document.getElementById('liveStatusHint');
       if (!label || !btn) return;
       label.textContent = currentLiveStatus ? 'Status: Live' : 'Status: Offline';
       label.style.color = currentLiveStatus ? 'var(--accent)' : 'var(--text-dim)';
       btn.textContent = currentLiveStatus ? 'Go Offline' : 'Go Live';
       btn.classList.toggle('btn-primary', !currentLiveStatus);
+      if (hint) {
+        hint.textContent = currentLiveIsDirect
+          ? 'Bunny stream: the site auto-detects whether you\'re actually broadcasting — this switch only forces the page offline early.'
+          : '';
+      }
     }
 
     CHAT_LIVE_VIDEO_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
       currentLiveStatus = !(data && data.isLive === false);
       currentLiveAspect = data && data.aspect === '9:16' ? '9:16' : '16:9';
+      currentLiveIsDirect = !!(data && data.directUrl);
       renderLiveStatusToggle();
       const aspectSelect = document.getElementById('liveAspectMode');
       if (aspectSelect) aspectSelect.value = currentLiveAspect;
