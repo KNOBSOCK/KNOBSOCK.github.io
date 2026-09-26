@@ -4196,6 +4196,8 @@
   // the result event. The known winner total is used as a display fallback.
   const FIGHT_RESULT_SCORE_SAVE_GRACE_MS = 1500;
   const FIGHT_RESULT_LEADER_GRACE_MS = 1500;
+  const FIGHT_MISSING_SCORE_GRACE_MS = 5000;
+  const FIGHT_STALE_CLEAR_MS = 20 * 1000;
   const FIGHT_COOLDOWN_MS = 10 * 60 * 1000;
   const FIGHT_REJECT_COOLDOWN_MS = 5 * 60 * 1000;
   const FIGHT_TARGET_ACTIVE_MS = 150 * 1000;
@@ -4746,6 +4748,13 @@
       fight.status = 'playing';
       refreshFightPanel();
     }
+    if (fight.status === 'playing' && now >= fight.endsAt + FIGHT_STALE_CLEAR_MS) {
+      clearCurrentFight(fight.id);
+      return;
+    }
+    if (fight.status === 'playing' && now >= fight.endsAt + FIGHT_MISSING_SCORE_GRACE_MS) {
+      fillMissingFightScore(fight);
+    }
     if (fight.status === 'playing' && now >= fight.endsAt && isFightParticipant(fight) && !fight.scoreSubmitted && (!fight.nextScoreRetryAt || now >= fight.nextScoreRetryAt)) {
       submitFightScore();
     } else if (fight.status === 'playing' && now < fight.endsAt) {
@@ -5001,24 +5010,37 @@
     }, FIGHT_RESULT_FAILOVER_MS);
   }
 
+  function fillMissingFightScore(fight) {
+    if (!fight || !session || fight.filledMissingScore || !isFightParticipant(fight)) return;
+    if (fight.scores[session.username] == null) return;
+    const other = session.username === fight.challenger ? fight.opponent : fight.challenger;
+    if (fight.scores[other] != null) return;
+    const lastLive = Number(fight.liveScores && fight.liveScores[other]);
+    fight.scores[other] = Number.isFinite(lastLive) && lastLive >= 0 ? Math.floor(lastLive) : 0;
+    fight.filledMissingScore = true;
+    resolveFightScores();
+    refreshFightPanel();
+  }
+
   function resolveFightScores() {
     const fight = currentFight;
-    if (!fight || !fight.scores || fight.scores[fight.challenger] == null || fight.scores[fight.opponent] == null) return;
+    if (!fight || fight.status === 'result' || !fight.scores || fight.scores[fight.challenger] == null || fight.scores[fight.opponent] == null) return;
     const challengerScore = fight.scores[fight.challenger];
     const opponentScore = fight.scores[fight.opponent];
     if (challengerScore === opponentScore) {
-      if (session && session.username === fight.challenger) publishFightDraw(fight);
+      if (fight.filledMissingScore || (session && session.username === fight.challenger)) publishFightDraw(fight);
       else scheduleFightDrawFailover(fight);
       return;
     }
     const winner = challengerScore > opponentScore ? fight.challenger : fight.opponent;
     const loser = winner === fight.challenger ? fight.opponent : fight.challenger;
     if (session && session.username === winner) publishFightResult(fight, winner, loser);
+    else if (fight.filledMissingScore) publishFightResult(fight, winner, loser, { failover: true });
     else scheduleFightResultFailover(fight, winner, loser);
   }
 
   function applyFightScore(message) {
-    if (!currentFight || currentFight.id !== message.fightId || !message.player) return;
+    if (!currentFight || currentFight.id !== message.fightId || !message.player || currentFight.status === 'result') return;
     if (message.player !== currentFight.challenger && message.player !== currentFight.opponent) return;
     const score = Number(message.score);
     if (!Number.isFinite(score) || score < 0) return;
