@@ -3119,7 +3119,7 @@
   var loadedVideoId = null;
   var watchingVodId = null;
   var watchingVodTitle = '';
-  var nowPlayingArtwork = [{ src: location.origin + '/knobsock-live-artwork.png', sizes: '512x512', type: 'image/png' }];
+  var nowPlayingArtwork = [{ src: location.origin + '/knobsock-now-playing.jpg', sizes: '512x512', type: 'image/jpeg' }];
 
   function updateNowPlaying() {
     if (!('mediaSession' in navigator) || typeof MediaMetadata !== 'function') return;
