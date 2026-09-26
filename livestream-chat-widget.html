@@ -5522,7 +5522,7 @@
     $('chatHandle').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleAuthSubmit();
     });
-    $('chatHandle').focus();
+    if (canAutoFocusInput()) $('chatHandle').focus();
   }
 
   async function handleAuthSubmit() {
@@ -5735,6 +5735,10 @@
 
   let lastRenderedMsgs = null;
 
+  function canAutoFocusInput() {
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  }
+
   function renderEmojiPicker() {
     const popover = $('emojiPickerPopover');
     if (!popover) return;
@@ -5751,12 +5755,15 @@
         const input = $('msgInput');
         if (!input || input.disabled) return;
         const code = button.getAttribute('data-emoji-code');
-        const start = input.selectionStart || 0;
-        const end = input.selectionEnd || 0;
+        const hadFocus = document.activeElement === input;
+        const start = hadFocus ? (input.selectionStart || 0) : input.value.length;
+        const end = hadFocus ? (input.selectionEnd || 0) : input.value.length;
         input.value = input.value.slice(0, start) + code + input.value.slice(end);
         const cursor = start + code.length;
-        input.focus();
-        input.setSelectionRange(cursor, cursor);
+        if (hadFocus || canAutoFocusInput()) {
+          input.focus();
+          input.setSelectionRange(cursor, cursor);
+        }
         updateCharCounter();
         popover.classList.remove('is-open');
         const toggle = $('emojiPickerToggle');
@@ -5895,6 +5902,7 @@
     }
     const text = censorText(input.value.trim());
     if (!text) return;
+    const refocus = document.activeElement === input || canAutoFocusInput();
     input.value = '';
     input.disabled = true;
     updateCharCounter();
@@ -5910,7 +5918,7 @@
       updateCharCounter();
     } finally {
       input.disabled = false;
-      input.focus();
+      if (refocus) input.focus();
     }
   }
 
@@ -6000,7 +6008,7 @@
     startMessageSession(session.username);
     renderChatShell();
     subscribeToMessages();
-    $('msgInput').focus();
+    if (canAutoFocusInput()) $('msgInput').focus();
   }
 
   function isBanActive(ban) {
