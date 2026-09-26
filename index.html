@@ -964,8 +964,6 @@
     if (directLiveProbeUrl === url) return;
     stopDirectLiveProbe();
     directLiveProbeUrl = url;
-    /* Stay offline until the probe actually confirms a live manifest, so a
-       cold load never flashes the "online" UI before correcting itself. */
     directLiveConfirmed = false;
     probeDirectLiveOnce(url);
     directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);

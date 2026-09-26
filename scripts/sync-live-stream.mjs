@@ -72,8 +72,7 @@ function redact(item) {
 // A live stream's /live/<guid>/live.m3u8 manifest stops working once the
 // broadcast ends — Bunny's finished recording is only reachable at the
 // ordinary VOD path, <host>/<guid>/playlist.m3u8, instead. Translate before
-// archiving, or the "Past Stream" entry just won't play. Bunny's
-// auto-generated thumbnail for that same recording lives right alongside it.
+// archiving, or the "Past Stream" entry just won't play.
 function parseLiveManifestUrl(url) {
   const m = String(url || "").match(
     /^https:\/\/([a-z0-9.-]+\.b-cdn\.net)\/live\/([0-9a-fA-F-]{10,})\/live\.m3u8(?:\?.*)?$/i

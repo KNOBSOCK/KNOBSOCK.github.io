@@ -463,9 +463,6 @@
       max-height: min(88cqh, 560px);
     }
 
-    /* The pane is pulled up under the Past Streams bar (see margin-top
-       above), so start its content below that bar, and put the drawer in
-       flow so opening it pushes the chat down instead of covering it. */
     .layout:not(.mode-portrait) .chat-pane {
       flex-direction: column;
       padding-top: var(--stats-h);
@@ -500,13 +497,6 @@
     .layout .video-pane {
       flex: 1 1 100%;
       padding-bottom: 0;
-      /* The >=861px breakpoint's width:100%/aspect-ratio:16:9 rule derives
-         .video-pane's height FROM that width, assuming a generously tall
-         column. Letting it span the full row on a short landscape phone
-         computed a height far past the actual viewport, overflowing and
-         reading as "zoomed in". Fill the grid cell instead — the existing
-         min()-based sizing on .video-frame-wrap already letterboxes the
-         16:9 video correctly inside whatever box .video-pane provides. */
       width: 100%;
       height: 100%;
     }
@@ -514,15 +504,7 @@
 
     .layout {
       padding-bottom: 0;
-      /* At >=601px .layout is a grid (62/38 or two equal columns depending
-         on aspect), and hiding .chat-pane above doesn't collapse those grid
-         tracks on its own — the video sat in column 1 while column 2 stayed
-         reserved as empty space instead of filling the row. */
       grid-template-columns: 1fr;
-      /* align-content:start (from the >=861px rule) sizes the grid row to
-         fit its content instead of the container's full height, leaving
-         .video-pane's height:100% above with nothing definite to resolve
-         against. */
       align-content: stretch;
     }
 
@@ -603,6 +585,7 @@
     color: var(--interactive-hover-text);
   }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
+  .pill-btn[hidden] { display: none; }
 
   .video-pane-actions {
     position: absolute;
@@ -697,10 +680,6 @@
     padding: 0 6px;
     font-size: clamp(9px, 2.6cqw, 11px);
   }
-  /* .round-btn's own color rule is declared after this in the cascade, so a
-     plain .quality-btn selector loses to it at equal specificity — pair it
-     with .round-btn here (same fix already used for play-pause/fullscreen)
-     so this button's color actually sticks. */
   .round-btn.quality-btn {
     color: var(--interactive-hover);
     font-family: 'Gratis Neue', var(--font-body);
@@ -1979,9 +1958,6 @@
       display: block;
       width: min(100cqw, calc(100cqh * 9 / 16));
       height: min(100cqh, calc(100cqw * 16 / 9));
-      /* Shrinking to the 9:16 box's own width leaves it a block sitting in
-         a wider (landscape) viewport — without this it hugs the left edge
-         instead of sitting in the middle. */
       margin: 0 auto;
     }
     body.is-chat-hidden .layout.mode-portrait.chat-hidden .video-pane,
@@ -2353,6 +2329,7 @@
       <div class="video-pane-actions">
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
+        <button class="pill-btn pip-btn" id="pipBtn" title="Pop out video" hidden>PiP</button>
         <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
           <span id="activeViewersCount">0</span>
@@ -2611,7 +2588,59 @@
     }
     ytFrame.style.display = kind === 'youtube' ? '' : 'none';
     videoEl.style.display = kind === 'video' ? '' : 'none';
+    updatePipButton();
   }
+
+  var pipBtn = document.getElementById('pipBtn');
+
+  function pipSupported() {
+    return !!(document.pictureInPictureEnabled && videoEl.requestPictureInPicture) ||
+      typeof videoEl.webkitSetPresentationMode === 'function';
+  }
+
+  function isInPip() {
+    return document.pictureInPictureElement === videoEl ||
+      videoEl.webkitPresentationMode === 'picture-in-picture';
+  }
+
+  function updatePipButton() {
+    if (!pipBtn) return;
+    pipBtn.hidden = backend !== 'video' || !pipSupported();
+    var inPip = isInPip();
+    pipBtn.textContent = inPip ? 'Exit PiP' : 'PiP';
+    pipBtn.title = inPip ? 'Return video to page' : 'Pop out video';
+  }
+
+  function relockPip() {
+    videoEl.disablePictureInPicture = true;
+    updatePipButton();
+  }
+
+  if (pipBtn) {
+    pipBtn.addEventListener('click', function () {
+      if (backend !== 'video') return;
+      if (isInPip()) {
+        if (document.pictureInPictureElement === videoEl) {
+          document.exitPictureInPicture().catch(function () {});
+        } else {
+          videoEl.webkitSetPresentationMode('inline');
+        }
+        return;
+      }
+      videoEl.disablePictureInPicture = false;
+      if (document.pictureInPictureEnabled && videoEl.requestPictureInPicture) {
+        videoEl.requestPictureInPicture().catch(relockPip);
+      } else {
+        videoEl.webkitSetPresentationMode('picture-in-picture');
+      }
+    });
+  }
+  videoEl.addEventListener('enterpictureinpicture', updatePipButton);
+  videoEl.addEventListener('leavepictureinpicture', relockPip);
+  videoEl.addEventListener('webkitpresentationmodechanged', function () {
+    if (videoEl.webkitPresentationMode === 'picture-in-picture') updatePipButton();
+    else relockPip();
+  });
 
   function levelLabel(level) {
     if (!level) return '';
@@ -2687,11 +2716,6 @@
     hideQualityControl();
   }
 
-  // Bunny renders a family of fixed-resolution MP4s alongside every finished
-  // VOD's HLS ladder (play_240p.mp4 up through whatever the source supports).
-  // The iOS MP4 substitution below can only ever pick one by name, so probe
-  // this fixed set with a 2-byte range request — cheap, and a 404 for a
-  // resolution the source didn't reach just drops it from the menu.
   var MP4_QUALITY_HEIGHTS = [1440, 1080, 720, 480, 360, 240];
 
   function probeMp4QualityExists(url) {
@@ -2736,9 +2760,6 @@
     });
   }
 
-  // Swap in a different fixed-resolution rendition of the VOD currently
-  // playing, restoring the playhead and play state once the new file's
-  // metadata loads (mirrors the same recovery pattern used after a scrub).
   function selectMp4Quality(option) {
     if (backend !== 'video' || !watchingVodId) return;
     var wasPlaying = !videoEl.paused;
@@ -3026,10 +3047,6 @@
         var vCurrent = videoEl.currentTime || 0;
         if (vDuration > 0 && isFinite(vDuration)) {
           scrubRange.max = vDuration;
-          // The live HLS window's duration keeps growing as new segments
-          // land, which made the bar look like it was constantly chasing a
-          // receding finish line. Once at the edge, just pin the thumb
-          // there instead of tracking the exact (near-identical) position.
           var atLiveEdge = !watchingVodId && isEffectivelyLive() &&
             directVideoSecondsBehindEdge() <= LIVE_EDGE_THRESHOLD_SEC;
           scrubRange.value = atLiveEdge ? vDuration : vCurrent;
@@ -3136,9 +3153,6 @@
     if (directLiveProbeUrl === url) return;
     stopDirectLiveProbe();
     directLiveProbeUrl = url;
-    /* Stay on the offline card until the probe actually confirms a live
-       manifest, so a cold load never flashes the "online" UI before
-       correcting itself. */
     directLiveConfirmed = false;
     probeDirectLiveOnce(url);
     directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
@@ -3173,9 +3187,6 @@
       return;
     }
 
-    // Restore to its original spot (before the quality control, not just
-    // before fullscreen) — otherwise a stint in the composer stack and back
-    // leaves Live and the resolution picker swapped from their normal order.
     if (liveBtn.parentNode !== controls) controls.insertBefore(liveBtn, qualityControl);
     if (stack) {
       var stackedSend = stack.querySelector('.send-btn');
@@ -3252,10 +3263,6 @@
 
   var LIVE_EDGE_THRESHOLD_SEC = 8;
 
-  // A direct/Bunny live stream's HLS window keeps growing as new segments
-  // land, so duration and currentTime both drift upward together in real
-  // time — "behind edge" here just means the gap between them, same idea
-  // as the YouTube case below.
   function directVideoSecondsBehindEdge() {
     if (!videoReady) return 0;
     var vDuration = videoEl.duration || 0;
@@ -3616,15 +3623,6 @@
       else exitFs();
       return;
     }
-    // A live Bunny stream has no scrub pipeline to break, so let iOS use its
-    // real native fullscreen video player there (system controls, AirPlay,
-    // OS-level quality switching). Archived VODs are also Bunny-hosted now,
-    // and loadDirectVideo() already swaps their manifest for a finished MP4
-    // on iOS specifically because that format seeks reliably there — so the
-    // same native fullscreen is safe once that swap actually happened.
-    // Anything still playing as HLS (the swap didn't match, or hls.js/MSE is
-    // in use) keeps the in-page pseudo fullscreen, since that's the seek
-    // pipeline that used to stall.
     var directPlaybackIsReliable = !watchingVodId || /\.mp4($|\?)/i.test(videoEl.currentSrc || '');
     if (isIOS && backend === 'video' && directPlaybackIsReliable && typeof videoEl.webkitEnterFullscreen === 'function') {
       try {

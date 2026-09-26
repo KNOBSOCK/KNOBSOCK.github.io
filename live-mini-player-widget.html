@@ -221,8 +221,6 @@
       if (directLiveProbeUrl === url) return;
       stopDirectLiveProbe();
       directLiveProbeUrl = url;
-      /* Stay offline until the probe actually confirms a live manifest, so
-         this player never flashes "online" before correcting itself. */
       directLiveConfirmed = false;
       probeDirectLiveOnce(url, onChange);
       directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url, onChange); }, DIRECT_LIVE_PROBE_MS);
