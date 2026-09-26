@@ -495,11 +495,23 @@
       updateMuteBtnLabel();
     });
 
+    function updateNowPlaying(isLive) {
+      if (!('mediaSession' in navigator) || typeof MediaMetadata !== 'function') return;
+      try {
+        navigator.mediaSession.metadata = isLive ? new MediaMetadata({
+          title: 'KNOBSOCK Live!',
+          artist: 'KNOBSOCK',
+          artwork: [{ src: location.origin + '/knobsock-live-artwork.png', sizes: '512x512', type: 'image/png' }]
+        }) : null;
+      } catch (e) {}
+    }
+
     function applyLiveDoc(data) {
       const manualIsLive = !(data && data.isLive === false);
       const directUrl = data && data.directUrl ? String(data.directUrl).trim() : null;
       const isDirect = !!(directUrl && isDirectVideoUrl(directUrl));
       const isLive = isDirect ? directLiveConfirmed : manualIsLive;
+      updateNowPlaying(isLive);
 
       portraitLiveSource = !!(isLive && data && data.aspect === '9:16');
       sizePlayerToCover();
