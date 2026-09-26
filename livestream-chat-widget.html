@@ -2582,10 +2582,24 @@
   }
 
   var pipBtn = document.getElementById('pipBtn');
+  var pipBlocked = false;
+  var pipCheckTimer = null;
+
+  function isInAppBrowser() {
+    var ua = navigator.userAgent || '';
+    if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|musical_ly|BytedanceWebview|TikTok|Snapchat|LinkedInApp|Pinterest|Twitter|Line\/|; wv\)/i.test(ua)) return true;
+    return !!isIOS && !navigator.standalone && !/Safari\//.test(ua);
+  }
 
   function pipSupported() {
+    if (pipBlocked || isInAppBrowser()) return false;
     return !!(document.pictureInPictureEnabled && videoEl.requestPictureInPicture) ||
       typeof videoEl.webkitSetPresentationMode === 'function';
+  }
+
+  function blockPip() {
+    pipBlocked = true;
+    relockPip();
   }
 
   function isInPip() {
@@ -2619,9 +2633,21 @@
       }
       videoEl.disablePictureInPicture = false;
       if (document.pictureInPictureEnabled && videoEl.requestPictureInPicture) {
-        videoEl.requestPictureInPicture().catch(relockPip);
+        videoEl.requestPictureInPicture().catch(function (err) {
+          if (err && err.name === 'InvalidStateError') relockPip();
+          else blockPip();
+        });
       } else {
-        videoEl.webkitSetPresentationMode('picture-in-picture');
+        try {
+          videoEl.webkitSetPresentationMode('picture-in-picture');
+        } catch (e) {
+          blockPip();
+          return;
+        }
+        clearTimeout(pipCheckTimer);
+        pipCheckTimer = setTimeout(function () {
+          if (!isInPip()) blockPip();
+        }, 1200);
       }
     });
   }
