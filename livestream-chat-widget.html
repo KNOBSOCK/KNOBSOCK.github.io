@@ -462,6 +462,29 @@
     .vods-panel.open .vods-drawer {
       max-height: min(88cqh, 560px);
     }
+
+    /* The pane is pulled up under the Past Streams bar (see margin-top
+       above), so start its content below that bar, and put the drawer in
+       flow so opening it pushes the chat down instead of covering it. */
+    .layout:not(.mode-portrait) .chat-pane {
+      flex-direction: column;
+      padding-top: var(--stats-h);
+    }
+    .layout:not(.mode-portrait) .chat-card {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+    }
+    .layout:not(.mode-portrait) .vods-panel {
+      position: relative;
+      inset: auto;
+      order: -1;
+      flex: none;
+      width: 100%;
+    }
+    .layout:not(.mode-portrait) .vods-panel.open .vods-drawer {
+      max-height: min(50cqh, 340px);
+    }
   }
 
   .layout.chat-hidden .chat-pane {
@@ -1541,6 +1564,13 @@
     border-color: var(--accent);
     color: #ffffff;
   }
+  .msg .msg-bubble.emoji-only {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: clamp(26px, 6cqw, 32px);
+    line-height: 1.2;
+  }
 
   .empty-state {
     margin: auto;
@@ -2059,6 +2089,10 @@
       border: 0;
       border-radius: 13px;
       padding: 9px 14px;
+    }
+    .layout.mode-portrait .msg .msg-bubble.emoji-only {
+      background: transparent;
+      padding: 0;
     }
     .layout.mode-portrait .composer-bar {
       position: static;
@@ -5272,6 +5306,20 @@
     });
   }
 
+  const EMOJI_ONLY_RE = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|[0-9#*]️?⃣|️|‍|\s)+$/u;
+  const HAS_EMOJI_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}|⃣/u;
+
+  function isEmojiOnlyMessage(text) {
+    let sawCustomEmoji = false;
+    const rest = String(text || '').replace(/:([a-z0-9_-]{1,32}):/gi, function (match, name) {
+      if (!chatEmojiByName[String(name).toLowerCase()]) return match;
+      sawCustomEmoji = true;
+      return ' ';
+    });
+    if (!rest.trim()) return sawCustomEmoji;
+    return EMOJI_ONLY_RE.test(rest) && HAS_EMOJI_RE.test(rest);
+  }
+
   const DEFAULT_CENSORED_WORDS = [
     'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
     'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
@@ -5794,7 +5842,7 @@
       return `
         <div class="msg ${mine ? 'mine' : ''}">
           <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
-          <div class="msg-bubble">${renderMessageText(m.text)}</div>
+          <div class="msg-bubble${isEmojiOnlyMessage(m.text) ? ' emoji-only' : ''}">${renderMessageText(m.text)}</div>
         </div>
       `;
     }).join('');
