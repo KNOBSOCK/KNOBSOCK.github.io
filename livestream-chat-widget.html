@@ -169,6 +169,20 @@
     animation: center-toggle-flash 550ms ease-out;
   }
 
+  /* Mobile: the icon is a real button you must deliberately tap, shown
+     alongside the rest of the controls instead of flashing once and fading. */
+  .video-pane.controls-visible .center-toggle-icon.is-tappable {
+    opacity: 0.85;
+    pointer-events: auto;
+    cursor: pointer;
+    transform: translate(-50%, -50%) scale(1);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+  .center-toggle-icon.is-tappable:active {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.94);
+  }
+
   @keyframes center-toggle-flash {
     0%   { opacity: 0;   transform: translate(-50%, -50%) scale(0.7); }
     20%  { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
@@ -2523,6 +2537,7 @@
   var layoutEl = document.getElementById('layout');
   var ytFrame = document.getElementById('ytFrame');
   var videoEl = document.getElementById('videoEl');
+  var centerToggleIcon = document.getElementById('centerToggleIcon');
   var ytPlayer = null;
   var isDragging = false;
   var pollTimer = null;
@@ -2612,6 +2627,7 @@
     ytFrame.style.display = kind === 'youtube' ? '' : 'none';
     videoEl.style.display = kind === 'video' ? '' : 'none';
     updatePipButton();
+    updateCenterToggleTappable();
   }
 
   var pipBtn = document.getElementById('pipBtn');
@@ -2958,7 +2974,7 @@
          the controls before the browser can follow that link. */
       if (e.target.closest('.portrait-video-logo')) return;
       if (e.target.closest('.stream-stats')) return;
-      if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls')) {
+      if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls, .center-toggle-icon')) {
         showControls(true);
         return;
       }
@@ -3088,6 +3104,9 @@
     } else {
       playPauseBtn.innerHTML = '&#9658;';
       playPauseBtn.title = 'Play';
+    }
+    if (backend === 'video' && centerToggleIcon && centerToggleIcon.classList.contains('is-tappable')) {
+      centerToggleIcon.innerHTML = playPauseGlyph(isPlaying);
     }
   }
 
@@ -3593,25 +3612,52 @@
     }
   });
 
-  var centerToggleIcon = document.getElementById('centerToggleIcon');
   if (centerToggleIcon) {
     centerToggleIcon.addEventListener('animationend', function () {
       centerToggleIcon.classList.remove('is-flashing');
     });
   }
+  function playPauseGlyph(isPlaying) {
+    return isPlaying ? '&#10074;&#10074;' : '&#9658;';
+  }
   function flashCenterToggle(isPlaying) {
     if (!centerToggleIcon) return;
-    centerToggleIcon.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9658;';
+    centerToggleIcon.innerHTML = playPauseGlyph(isPlaying);
     centerToggleIcon.classList.remove('is-flashing');
     void centerToggleIcon.offsetWidth; /* restart the animation on repeat clicks */
     centerToggleIcon.classList.add('is-flashing');
   }
+  /* On a touch device the center icon is a real button the viewer must
+     deliberately tap (same as YouTube's mobile player), instead of the
+     desktop flash-and-fade shown on a plain click anywhere on the video. */
+  function updateCenterToggleTappable() {
+    if (!centerToggleIcon) return;
+    var tappable = !supportsHover && backend === 'video';
+    centerToggleIcon.classList.toggle('is-tappable', tappable);
+    if (tappable) centerToggleIcon.innerHTML = playPauseGlyph(!videoEl.paused && !videoEl.ended);
+  }
+  updateCenterToggleTappable();
+  if (centerToggleIcon) {
+    centerToggleIcon.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (backend !== 'video' || !videoReady) return;
+      if (!videoEl.paused && !videoEl.ended) {
+        videoEl.pause();
+        centerToggleIcon.innerHTML = playPauseGlyph(false);
+      } else {
+        videoEl.play().catch(function () {});
+        centerToggleIcon.innerHTML = playPauseGlyph(true);
+      }
+    });
+  }
 
-  /* Click the video itself to toggle play/pause, same as YouTube's player.
-     Only wired for the direct video backend: the YouTube backend renders
-     into a cross-origin iframe that handles its own clicks. */
+  /* Click the video itself to toggle play/pause, same as YouTube's desktop
+     player. On touch devices this is skipped in favor of the deliberate-tap
+     center button above; only wired for the direct video backend, since the
+     YouTube backend renders into a cross-origin iframe that handles its own
+     clicks either way. */
   videoEl.addEventListener('click', function () {
-    if (backend !== 'video' || !videoReady) return;
+    if (!supportsHover || backend !== 'video' || !videoReady) return;
     if (!videoEl.paused && !videoEl.ended) {
       videoEl.pause();
       flashCenterToggle(false);
