@@ -88,7 +88,11 @@
     margin: 0;
     gap: 14px;
     padding: var(--inset-top) var(--inset-side) var(--inset-bottom);
-    background: transparent;
+    /* Fills the flex gap between the video and chat panes on desktop, so it
+       doesn't fall through to live.html's admin-configurable page
+       background. Portrait mode resets this back to transparent below,
+       since it has no side-by-side gap to fill. */
+    background: rgba(var(--chat-tint-rgb, var(--ink-rgb)), 0.82);
   }
 
   .video-pane {
@@ -231,8 +235,9 @@
     /* Unlike the video pane (always filled with video or offline art), the
        chat pane has nothing of its own behind the messages — without this,
        it falls straight through to live.html's admin-configurable page
-       background instead of the widget's own branded look. */
-    background: var(--ink);
+       background instead of a readable, on-brand glass panel. Tint is
+       admin-configurable (see --chat-tint-rgb below); ink is the default. */
+    background: rgba(var(--chat-tint-rgb, var(--ink-rgb)), 0.82);
   }
 
   /* On desktop, make the shared row as tall as the 16:9 player. This lets the
@@ -1927,6 +1932,8 @@
     min-width: 0;
     min-height: 0;
     margin: 0;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
   }
   .layout.mode-portrait .chat-card {
     flex: 1;
@@ -3864,6 +3871,21 @@
   const devicesRef = db.collection('chat_devices');
 
   const ipLogRef = db.collection('chat_ip_log');
+
+  /* Admin-configurable chat panel tint (set in admin.html's Live Page
+     Background card). Falls back to the widget's own --ink-rgb when unset. */
+  function hexToRgbString(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+  }
+  configRef.doc('liveBackground').onSnapshot(function (doc) {
+    var data = doc.exists ? doc.data() : null;
+    var rgb = data && data.chatTintColor ? hexToRgbString(data.chatTintColor) : null;
+    if (rgb) document.documentElement.style.setProperty('--chat-tint-rgb', rgb);
+    else document.documentElement.style.removeProperty('--chat-tint-rgb');
+  }, function () {});
 
   const IP_LOG_SALT = 'knobsock-chat-ip-v1';
 

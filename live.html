@@ -255,7 +255,7 @@
   </a>
 
   <div class="player-wrap">
-    <iframe src="/livestream-chat-widget.html?v=chat-pane-opaque-1"
+    <iframe src="/livestream-chat-widget.html?v=chat-tint-preview-1"
             title="KNOBSOCK Live"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>
@@ -270,6 +270,18 @@
 </div>
 <audio id="tapinAudio" preload="auto" src="/beer%20can%20sound2.mp3"></audio>
 
+<script>
+(function () {
+  /* Admin preview mode: /live?previewBg=live or ?previewBg=offline forces the
+     live/offline look for admin.html's Preview links, without touching the
+     real broadcast state or anyone else's view of the page. */
+  var previewBg = new URLSearchParams(window.location.search).get('previewBg');
+  window.__previewBg = (previewBg === 'live' || previewBg === 'offline') ? previewBg : null;
+  if (window.__previewBg) {
+    document.body.classList.toggle('is-live', window.__previewBg === 'live');
+  }
+})();
+</script>
 <script>
 (function () {
   var overlay = document.getElementById('tapinOverlay');
@@ -325,7 +337,7 @@
 
   window.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect(e.data.username);
-    if (e.data && e.data.type === 'knobsock-live-state') {
+    if (e.data && e.data.type === 'knobsock-live-state' && !window.__previewBg) {
       document.body.classList.toggle('is-live', !!e.data.isLive);
       if (window.__applyLiveBg) window.__applyLiveBg();
     }

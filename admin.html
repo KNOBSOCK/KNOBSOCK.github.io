@@ -1010,7 +1010,15 @@
               </div>
               <input type="file" accept="image/*" id="liveBgOfflineImageInput" hidden>
             </div>
+            <div class="add-row" style="align-items:center;">
+              <label for="liveBgChatTintInput" style="margin:0;flex:1 1 auto;">Chat widget tint color</label>
+              <input type="color" id="liveBgChatTintInput" value="#3a0a0a" style="width:44px;height:32px;padding:0;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:none;">
+            </div>
             <div class="save-status" id="liveBgStatus"></div>
+            <div class="add-row" style="align-items:center;margin-top:6px;">
+              <a class="btn-link" href="/live?previewBg=live" target="_blank" rel="noopener">Preview live look</a>
+              <a class="btn-link" href="/live?previewBg=offline" target="_blank" rel="noopener">Preview offline look</a>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -3317,6 +3325,7 @@
 
     const liveBgLiveColorInput = document.getElementById('liveBgLiveColorInput');
     const liveBgOfflineColorInput = document.getElementById('liveBgOfflineColorInput');
+    const liveBgChatTintInput = document.getElementById('liveBgChatTintInput');
     let liveBgColorPrefilled = false;
 
     liveBgLiveColorInput.addEventListener('change', function () {
@@ -3326,6 +3335,11 @@
     });
     liveBgOfflineColorInput.addEventListener('change', function () {
       CHAT_LIVE_BACKGROUND_REF.set({ offlineColor: liveBgOfflineColorInput.value }, { merge: true })
+        .then(function () { showLiveBgStatus('Saved.'); })
+        .catch(function (err) { showLiveBgStatus('Save failed: ' + err.message, true); });
+    });
+    liveBgChatTintInput.addEventListener('change', function () {
+      CHAT_LIVE_BACKGROUND_REF.set({ chatTintColor: liveBgChatTintInput.value }, { merge: true })
         .then(function () { showLiveBgStatus('Saved.'); })
         .catch(function (err) { showLiveBgStatus('Save failed: ' + err.message, true); });
     });
@@ -3389,6 +3403,7 @@
         liveBgColorPrefilled = true;
         if (data && data.liveColor) liveBgLiveColorInput.value = data.liveColor;
         if (data && data.offlineColor) liveBgOfflineColorInput.value = data.offlineColor;
+        if (data && data.chatTintColor) liveBgChatTintInput.value = data.chatTintColor;
       }
       renderLiveBgImageTile(liveBgLiveImageTile, currentLiveBgLiveImageUrl);
       renderLiveBgImageTile(liveBgOfflineImageTile, currentLiveBgOfflineImageUrl);
