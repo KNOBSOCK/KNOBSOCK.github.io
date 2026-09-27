@@ -72,7 +72,11 @@
     left: var(--inset-side);
     right: var(--inset-side);
     border-radius: clamp(10px, 2.5vw, 28px);
-    background: rgba(var(--accent-rgb), 0.45);
+    /* This rounded shape is the widget's real edge — an admin-chosen tint
+       replaces the color here directly, so it stays bounded by this same
+       rounded corner instead of spilling into the outer padding as a
+       sharp-cornered rectangle. */
+    background: var(--chat-tint-bg, rgba(var(--accent-rgb), 0.45));
     backdrop-filter: blur(10px) saturate(150%);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
     z-index: -1;
@@ -88,7 +92,7 @@
     margin: 0;
     gap: 14px;
     padding: var(--inset-top) var(--inset-side) var(--inset-bottom);
-    background: var(--chat-tint-bg, transparent);
+    background: transparent;
   }
 
   .video-pane {
