@@ -164,6 +164,7 @@
     z-index: 4;
     transform: translate(-50%, -50%) scale(0.7);
   }
+  .center-toggle-icon img { width: 42%; height: auto; display: block; }
 
   .center-toggle-icon.is-flashing {
     animation: center-toggle-flash 550ms ease-out;
@@ -699,6 +700,7 @@
     flex: none;
   }
   .play-pause-btn:disabled { opacity: 0.5; cursor: default; }
+  .play-pause-btn img { width: 62%; height: auto; display: block; }
 
   .fullscreen-btn {
     width: clamp(26px, 7.5cqw, 34px);
@@ -2391,7 +2393,7 @@
       </div>
       <div class="portrait-control-reveal" id="portraitControlReveal" aria-hidden="true"></div>
       <div class="video-controls" id="videoControls">
-        <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled>&#10074;&#10074;</button>
+        <button class="round-btn play-pause-btn" id="playPauseBtn" title="Pause" disabled><img src="/pause-icon.png" alt="Pause"></button>
         <input type="range" class="scrub-range" id="scrubRange" min="0" max="100" step="0.1" value="0" disabled />
         <span class="time-label" id="timeLabel">0:00 / 0:00</span>
 
@@ -3098,13 +3100,8 @@
   }
 
   function updatePlayPauseIcon(isPlaying) {
-    if (isPlaying) {
-      playPauseBtn.innerHTML = '&#10074;&#10074;';
-      playPauseBtn.title = 'Pause';
-    } else {
-      playPauseBtn.innerHTML = '&#9658;';
-      playPauseBtn.title = 'Play';
-    }
+    playPauseBtn.innerHTML = playPauseGlyph(isPlaying);
+    playPauseBtn.title = isPlaying ? 'Pause' : 'Play';
     if (backend === 'video' && centerToggleIcon && centerToggleIcon.classList.contains('is-tappable')) {
       centerToggleIcon.innerHTML = playPauseGlyph(isPlaying);
     }
@@ -3618,7 +3615,9 @@
     });
   }
   function playPauseGlyph(isPlaying) {
-    return isPlaying ? '&#10074;&#10074;' : '&#9658;';
+    return isPlaying
+      ? '<img src="/pause-icon.png" alt="Pause">'
+      : '<img src="/play-icon.png" alt="Play">';
   }
   function flashCenterToggle(isPlaying) {
     if (!centerToggleIcon) return;
