@@ -51,7 +51,7 @@
   * { box-sizing: border-box; }
 
   html, body {
-    background: var(--ink);
+    background: transparent;
     width: 100%;
     height: 100%;
     margin: 0;
@@ -228,6 +228,11 @@
     display: flex;
     container-type: size;
     container-name: chatbox;
+    /* Unlike the video pane (always filled with video or offline art), the
+       chat pane has nothing of its own behind the messages — without this,
+       it falls straight through to live.html's admin-configurable page
+       background instead of the widget's own branded look. */
+    background: var(--ink);
   }
 
   /* On desktop, make the shared row as tall as the 16:9 player. This lets the
