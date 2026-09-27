@@ -118,6 +118,10 @@ params.set('shell-version', '20260913-11');
     return routeKey(value).split(/[?#]/, 1)[0] === '/music.html';
   }
 
+  function isLiveRoute(value) {
+    return routeKey(value).split(/[?#]/, 1)[0] === '/live.html';
+  }
+
   function setShellTitle(frame) {
     try {
       const title = frame.contentDocument && frame.contentDocument.title;
@@ -558,7 +562,12 @@ params.set('shell-version', '20260913-11');
       { left: bounds.minLeft, top: bounds.maxTop },
       { left: bounds.maxLeft, top: bounds.maxTop }
     ];
-    const nearestCorner = corners.reduce((nearest, corner) => {
+    /* live.html's own PiP button sits top-left of the video pane; never let the
+       mini-player rest there or a tap meant for PiP lands on it instead. */
+    const allowedCorners = isLiveRoute(activeRoute)
+      ? corners.filter((corner) => !(corner.left === bounds.minLeft && corner.top === bounds.minTop))
+      : corners;
+    const nearestCorner = allowedCorners.reduce((nearest, corner) => {
       const nearestDistance = Math.hypot(
         centerX - (nearest.left + rect.width / 2),
         centerY - (nearest.top + rect.height / 2)
