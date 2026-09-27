@@ -158,6 +158,7 @@
     object-fit: contain;
     background: #000;
   }
+  #videoEl { cursor: pointer; }
   .video-frame-wrap video::-webkit-media-controls { display: none !important; }
 
   .chat-pane {
@@ -3558,6 +3559,15 @@
     } else {
       ytPlayer.playVideo();
     }
+  });
+
+  /* Click the video itself to toggle play/pause, same as YouTube's player.
+     Only wired for the direct video backend: the YouTube backend renders
+     into a cross-origin iframe that handles its own clicks. */
+  videoEl.addEventListener('click', function () {
+    if (backend !== 'video' || !videoReady) return;
+    if (!videoEl.paused && !videoEl.ended) videoEl.pause();
+    else videoEl.play().catch(function () {});
   });
 
   scrubRange.addEventListener('input', function () {
