@@ -562,8 +562,6 @@ params.set('shell-version', '20260913-11');
       { left: bounds.minLeft, top: bounds.maxTop },
       { left: bounds.maxLeft, top: bounds.maxTop }
     ];
-    /* live.html's own PiP button sits top-left of the video pane; never let the
-       mini-player rest there or a tap meant for PiP lands on it instead. */
     const allowedCorners = isLiveRoute(activeRoute)
       ? corners.filter((corner) => !(corner.left === bounds.minLeft && corner.top === bounds.minTop))
       : corners;

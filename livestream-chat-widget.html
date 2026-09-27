@@ -27,6 +27,8 @@
     --error: #ffb3b3;
 
     --vods-bg: #200606;
+    --portrait-meta: #d99aff;
+    --portrait-input-bg: rgba(25, 3, 3, 0.5);
     --font-display: Tahoma, Arial, sans-serif;
     --font-body: Tahoma, Arial, sans-serif;
     --stats-h: 38px;
@@ -72,10 +74,6 @@
     left: var(--inset-side);
     right: var(--inset-side);
     border-radius: clamp(10px, 2.5vw, 28px);
-    /* This rounded shape is the widget's real edge — an admin-chosen tint
-       replaces the color here directly, so it stays bounded by this same
-       rounded corner instead of spilling into the outer padding as a
-       sharp-cornered rectangle. */
     background: var(--chat-tint-bg, rgba(var(--accent-rgb), 0.45));
     backdrop-filter: blur(10px) saturate(150%);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
@@ -172,8 +170,6 @@
     animation: center-toggle-flash 550ms ease-out;
   }
 
-  /* Mobile: the icon is a real button you must deliberately tap, shown
-     alongside the rest of the controls instead of flashing once and fading. */
   .video-pane.controls-visible .center-toggle-icon.is-tappable {
     opacity: 0.85;
     pointer-events: auto;
@@ -194,8 +190,6 @@
     70%  { transform: translate(-50%, -50%) scale(0.92); }
     100% { transform: translate(-50%, -50%) scale(1); }
   }
-  /* Nothing to toggle while offline or buffering — never let the tappable
-     button linger on top of the offline card or loading spinner. */
   .video-pane.offline-card .center-toggle-icon,
   .video-pane.is-loading .center-toggle-icon {
     display: none;
@@ -2108,7 +2102,7 @@
     }
     .layout.mode-portrait .msg-meta,
     .layout.mode-portrait .msg.mine .msg-meta {
-      color: #d99aff;
+      color: var(--portrait-meta);
       text-shadow: 0 1px 2px #000;
     }
     .layout.mode-portrait .msg-bubble,
@@ -2157,7 +2151,7 @@
     }
     .layout.mode-portrait .chat-lock-timer { text-align: left; padding: 2px 10px; }
     .layout.mode-portrait .composer { padding: 6px 10px 10px; align-items: center; }
-    .layout.mode-portrait .composer input { background: rgba(25,3,3,.5); }
+    .layout.mode-portrait .composer input { background: var(--portrait-input-bg); }
     /* A signed-out portrait viewer should see the video cleanly behind a
        centered gate, not a second dark panel over the stream. */
     .layout.mode-portrait .chat-screen.auth-screen { padding-top: 0; }
@@ -2764,7 +2758,6 @@
       setQualityMenuOpen(false);
     });
     qualityMenu.appendChild(autoBtn);
-    /* hls.js lists levels lowest-to-highest bitrate; show highest quality first. */
     var order = levels.map(function (_, idx) { return idx; }).reverse();
     order.forEach(function (idx) {
       var level = levels[idx];
@@ -3631,7 +3624,7 @@
   function popCenterToggle() {
     if (!centerToggleIcon) return;
     centerToggleIcon.classList.remove('is-popping');
-    void centerToggleIcon.offsetWidth; /* restart the animation on repeat taps */
+    void centerToggleIcon.offsetWidth;
     centerToggleIcon.classList.add('is-popping');
   }
   function playPauseGlyph(isPlaying) {
@@ -3643,12 +3636,9 @@
     if (!centerToggleIcon) return;
     centerToggleIcon.innerHTML = playPauseGlyph(isPlaying);
     centerToggleIcon.classList.remove('is-flashing');
-    void centerToggleIcon.offsetWidth; /* restart the animation on repeat clicks */
+    void centerToggleIcon.offsetWidth;
     centerToggleIcon.classList.add('is-flashing');
   }
-  /* On a touch device the center icon is a real button the viewer must
-     deliberately tap (same as YouTube's mobile player), instead of the
-     desktop flash-and-fade shown on a plain click anywhere on the video. */
   function updateCenterToggleTappable() {
     if (!centerToggleIcon) return;
     var tappable = !supportsHover && backend === 'video';
@@ -3671,11 +3661,6 @@
     });
   }
 
-  /* Click the video itself to toggle play/pause, same as YouTube's desktop
-     player. On touch devices this is skipped in favor of the deliberate-tap
-     center button above; only wired for the direct video backend, since the
-     YouTube backend renders into a cross-origin iframe that handles its own
-     clicks either way. */
   videoEl.addEventListener('click', function () {
     if (!supportsHover || backend !== 'video' || !videoReady) return;
     if (!videoEl.paused && !videoEl.ended) {
@@ -3864,21 +3849,72 @@
 
   const ipLogRef = db.collection('chat_ip_log');
 
-  /* Admin-configurable chat panel tint (set in admin.html's Live Page
-     Background card). Untouched, chat-pane stays exactly as originally
-     built (fully transparent) — this only ever adds a tint, never removes
-     the original transparent look on its own. */
   function hexToRgbString(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
     if (!m) return null;
     var n = parseInt(m[1], 16);
     return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
   }
+  function hexToHsl(hex) {
+    var n = parseInt(String(hex).replace('#', ''), 16);
+    var r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    var l = (max + min) / 2, h = 0, s = 0;
+    if (d) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = (h * 60 + 360) % 360;
+    }
+    return { h: h, s: s, l: l };
+  }
+  function hslRgb(h, s, l) {
+    var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+    var p = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return p.map(function (v) { return Math.round((v + m) * 255); }).join(', ');
+  }
+  function tintPaletteCss(hex) {
+    var t = hexToHsl(hex);
+    var base = hexToRgbString(hex).replace(/,/g, ', ');
+    var dark = hslRgb(t.h, t.s, t.l * 0.6);
+    var live = {
+      '--accent-rgb': base,
+      '--accent': 'rgb(' + base + ')',
+      '--accent-dim': 'rgb(' + dark + ')',
+      '--ink-rgb': dark,
+      '--ink': 'rgb(' + dark + ')',
+      '--vods-bg': 'rgb(' + dark + ')',
+      '--line': 'rgba(' + base + ', 0.6)',
+      '--text-dim': '#dcdcdc',
+      '--portrait-meta': 'rgb(' + base + ')',
+      '--portrait-input-bg': 'rgba(' + dark + ', 0.5)'
+    };
+    var offline = {
+      '--accent-rgb': dark,
+      '--accent': 'rgb(' + dark + ')'
+    };
+    function block(sel, vars) {
+      return sel + '{' + Object.keys(vars).map(function (k) { return k + ':' + vars[k]; }).join(';') + '}';
+    }
+    return block(':root', live) + block('html.is-offline', offline);
+  }
   configRef.doc('liveBackground').onSnapshot(function (doc) {
     var data = doc.exists ? doc.data() : null;
     var rgb = data && data.chatTintColor ? hexToRgbString(data.chatTintColor) : null;
-    if (rgb) document.documentElement.style.setProperty('--chat-tint-bg', 'rgba(' + rgb + ', 0.55)');
-    else document.documentElement.style.removeProperty('--chat-tint-bg');
+    var paletteEl = document.getElementById('chatTintPalette');
+    if (rgb) {
+      document.documentElement.style.setProperty('--chat-tint-bg', 'rgba(' + rgb + ', 0.55)');
+      if (!paletteEl) {
+        paletteEl = document.createElement('style');
+        paletteEl.id = 'chatTintPalette';
+        document.head.appendChild(paletteEl);
+      }
+      paletteEl.textContent = tintPaletteCss(data.chatTintColor);
+    } else {
+      document.documentElement.style.removeProperty('--chat-tint-bg');
+      if (paletteEl) paletteEl.remove();
+    }
   }, function () {});
 
   const IP_LOG_SALT = 'knobsock-chat-ip-v1';

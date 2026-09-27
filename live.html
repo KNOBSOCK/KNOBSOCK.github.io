@@ -255,7 +255,7 @@
   </a>
 
   <div class="player-wrap">
-    <iframe src="/livestream-chat-widget.html?v=tint-on-glow-1"
+    <iframe src="/livestream-chat-widget.html?v=tint-palette-2"
             title="KNOBSOCK Live"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>
@@ -272,9 +272,6 @@
 
 <script>
 (function () {
-  /* Admin preview mode: /live?previewBg=live or ?previewBg=offline forces the
-     live/offline look for admin.html's Preview links, without touching the
-     real broadcast state or anyone else's view of the page. */
   var previewBg = new URLSearchParams(window.location.search).get('previewBg');
   window.__previewBg = (previewBg === 'live' || previewBg === 'offline') ? previewBg : null;
   if (window.__previewBg) {
@@ -421,9 +418,6 @@
     }
   }).catch(function () {});
 
-  /* Admin-configurable page background (color + optional tiling image, set
-     separately for live vs. offline in admin.html's Live Page Background
-     card). Left unset, the static CSS defaults keep working untouched. */
   var liveBgConfig = null;
   function applyLiveBackground() {
     if (!liveBgConfig) return;
