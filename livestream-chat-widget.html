@@ -3876,27 +3876,23 @@
   }
   function tintPaletteCss(hex) {
     var t = hexToHsl(hex);
-    var base = hexToRgbString(hex).replace(/,/g, ', ');
     var dark = hslRgb(t.h, t.s, t.l * 0.6);
-    var live = {
-      '--accent-rgb': base,
-      '--accent': 'rgb(' + base + ')',
-      '--accent-dim': 'rgb(' + dark + ')',
-      '--ink-rgb': dark,
-      '--ink': 'rgb(' + dark + ')',
-      '--vods-bg': 'rgb(' + dark + ')',
-      '--line': 'rgba(' + base + ', 0.6)',
-      '--text-dim': '#dcdcdc',
-      '--portrait-input-bg': 'rgba(' + dark + ', 0.5)'
-    };
-    var offline = {
+    var vars = {
+      '--ink': '#0d0d0d',
+      '--ink-rgb': '13, 13, 13',
+      '--line': 'rgba(120, 120, 120, 0.6)',
       '--accent-rgb': dark,
-      '--accent': 'rgb(' + dark + ')'
+      '--accent': 'rgb(' + dark + ')',
+      '--accent-dim': '#333333',
+      '--text-dim': '#aaaaaa',
+      '--error': '#aaaaaa',
+      '--vods-bg': '#080808',
+      '--portrait-input-bg': 'rgba(' + dark + ', 0.5)'
     };
     function block(sel, vars) {
       return sel + '{' + Object.keys(vars).map(function (k) { return k + ':' + vars[k]; }).join(';') + '}';
     }
-    return block(':root', live) + block('html.is-offline', offline) +
+    return block(':root,html.is-offline', vars) +
       '.msg-meta,.msg.mine .msg-meta,.layout.mode-portrait .msg-meta,.layout.mode-portrait .msg.mine .msg-meta{color:#ffffff}';
   }
   configRef.doc('liveBackground').onSnapshot(function (doc) {
