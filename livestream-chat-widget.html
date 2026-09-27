@@ -817,7 +817,7 @@
   .scrub-range::-moz-range-progress {
     height: 4px;
     border-radius: 2px;
-    background: var(--accent);
+    background: var(--interactive-hover);
   }
   .scrub-range::-moz-range-thumb {
     width: 13px;
@@ -3096,7 +3096,7 @@
     var val = parseFloat(scrubRange.value) || 0;
     var pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
     scrubRange.style.background =
-      'linear-gradient(to right, var(--accent) 0%, var(--accent) ' + pct +
+      'linear-gradient(to right, var(--interactive-hover) 0%, var(--interactive-hover) ' + pct +
       '%, var(--accent-dim) ' + pct + '%, var(--accent-dim) 100%)';
   }
 
