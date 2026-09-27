@@ -986,6 +986,34 @@
           </div>
         </div>
         <div class="card">
+          <div class="card-head"><h2>Live Page Background</h2></div>
+          <div class="live-card-body" style="max-height:none;">
+            <div class="add-row" style="align-items:center;">
+              <label for="liveBgLiveColorInput" style="margin:0;flex:1 1 auto;">Background color while live</label>
+              <input type="color" id="liveBgLiveColorInput" value="#3a0a0a" style="width:44px;height:32px;padding:0;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:none;">
+            </div>
+            <div class="add-row" style="align-items:center;">
+              <span style="flex:1 1 auto;font-size:12px;color:var(--text-dim);">Tiled image while live (optional, overlays the color above)</span>
+              <div class="photo-upload-tile" id="liveBgLiveImageTile" style="cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                <span class="photo-plus" style="font-size:18px;color:var(--text-dim);">+</span>
+              </div>
+              <input type="file" accept="image/*" id="liveBgLiveImageInput" hidden>
+            </div>
+            <div class="add-row" style="align-items:center;">
+              <label for="liveBgOfflineColorInput" style="margin:0;flex:1 1 auto;">Background color while offline</label>
+              <input type="color" id="liveBgOfflineColorInput" value="#130303" style="width:44px;height:32px;padding:0;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:none;">
+            </div>
+            <div class="add-row" style="align-items:center;">
+              <span style="flex:1 1 auto;font-size:12px;color:var(--text-dim);">Tiled image while offline (optional, overlays the color above)</span>
+              <div class="photo-upload-tile" id="liveBgOfflineImageTile" style="cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                <span class="photo-plus" style="font-size:18px;color:var(--text-dim);">+</span>
+              </div>
+              <input type="file" accept="image/*" id="liveBgOfflineImageInput" hidden>
+            </div>
+            <div class="save-status" id="liveBgStatus"></div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head">
             <h2>VODs</h2>
             <button type="button" class="btn btn-primary" id="vodsSaveBtn">Save Changes</button>
@@ -1198,6 +1226,7 @@
   const CHAT_IP_LOG_REF = db.collection('chat_ip_log');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
   const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
+  const CHAT_LIVE_BACKGROUND_REF = db.collection('chat_config').doc('liveBackground');
   const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
 
   const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
@@ -3279,6 +3308,91 @@
         statusEl.style.color = 'var(--danger)';
       });
     });
+
+    const liveBgStatus = document.getElementById('liveBgStatus');
+    function showLiveBgStatus(message, isError) {
+      liveBgStatus.textContent = message;
+      liveBgStatus.style.color = isError ? 'var(--danger)' : 'var(--accent)';
+    }
+
+    const liveBgLiveColorInput = document.getElementById('liveBgLiveColorInput');
+    const liveBgOfflineColorInput = document.getElementById('liveBgOfflineColorInput');
+    let liveBgColorPrefilled = false;
+
+    liveBgLiveColorInput.addEventListener('change', function () {
+      CHAT_LIVE_BACKGROUND_REF.set({ liveColor: liveBgLiveColorInput.value }, { merge: true })
+        .then(function () { showLiveBgStatus('Saved.'); })
+        .catch(function (err) { showLiveBgStatus('Save failed: ' + err.message, true); });
+    });
+    liveBgOfflineColorInput.addEventListener('change', function () {
+      CHAT_LIVE_BACKGROUND_REF.set({ offlineColor: liveBgOfflineColorInput.value }, { merge: true })
+        .then(function () { showLiveBgStatus('Saved.'); })
+        .catch(function (err) { showLiveBgStatus('Save failed: ' + err.message, true); });
+    });
+
+    function renderLiveBgImageTile(tileEl, url) {
+      tileEl.classList.remove('is-uploading');
+      if (url) {
+        tileEl.innerHTML = '<img src="' + url + '" alt=""><button type="button" class="remove-photo-btn">&times;</button>';
+      } else {
+        tileEl.innerHTML = '<span class="photo-plus">+</span>';
+      }
+    }
+
+    function wireLiveBgImageTile(tileEl, inputEl, fieldName, getCurrentUrl) {
+      tileEl.addEventListener('click', function (e) {
+        if (tileEl.classList.contains('is-uploading')) return;
+        if (e.target.closest('.remove-photo-btn')) {
+          e.stopPropagation();
+          showLiveBgStatus('Removing…');
+          var setPayload = {};
+          setPayload[fieldName] = null;
+          CHAT_LIVE_BACKGROUND_REF.set(setPayload, { merge: true })
+            .then(function () { showLiveBgStatus('Saved.'); })
+            .catch(function (err) { showLiveBgStatus('Save failed: ' + err.message, true); });
+          return;
+        }
+        inputEl.click();
+      });
+      inputEl.addEventListener('change', function () {
+        var file = (inputEl.files || [])[0];
+        inputEl.value = '';
+        if (!file) return;
+        tileEl.classList.add('is-uploading');
+        tileEl.innerHTML = '<span class="upload-spinner"></span>';
+        showLiveBgStatus('Uploading…');
+        resizeImageFile(file, MAX_PHOTO_DIM, PHOTO_QUALITY, 'image/webp').then(githubUploadImage).then(function (url) {
+          var setPayload = {};
+          setPayload[fieldName] = url;
+          return CHAT_LIVE_BACKGROUND_REF.set(setPayload, { merge: true });
+        }).then(function () {
+          showLiveBgStatus('Saved.');
+        }).catch(function (err) {
+          renderLiveBgImageTile(tileEl, getCurrentUrl());
+          showLiveBgStatus('Upload failed: ' + (err && err.message ? err.message : 'could not read file'), true);
+        });
+      });
+    }
+
+    let currentLiveBgLiveImageUrl = null;
+    let currentLiveBgOfflineImageUrl = null;
+    const liveBgLiveImageTile = document.getElementById('liveBgLiveImageTile');
+    const liveBgOfflineImageTile = document.getElementById('liveBgOfflineImageTile');
+    wireLiveBgImageTile(liveBgLiveImageTile, document.getElementById('liveBgLiveImageInput'), 'liveImageUrl', function () { return currentLiveBgLiveImageUrl; });
+    wireLiveBgImageTile(liveBgOfflineImageTile, document.getElementById('liveBgOfflineImageInput'), 'offlineImageUrl', function () { return currentLiveBgOfflineImageUrl; });
+
+    CHAT_LIVE_BACKGROUND_REF.onSnapshot(function (doc) {
+      const data = doc.exists ? doc.data() : null;
+      currentLiveBgLiveImageUrl = (data && data.liveImageUrl) || null;
+      currentLiveBgOfflineImageUrl = (data && data.offlineImageUrl) || null;
+      if (!liveBgColorPrefilled) {
+        liveBgColorPrefilled = true;
+        if (data && data.liveColor) liveBgLiveColorInput.value = data.liveColor;
+        if (data && data.offlineColor) liveBgOfflineColorInput.value = data.offlineColor;
+      }
+      renderLiveBgImageTile(liveBgLiveImageTile, currentLiveBgLiveImageUrl);
+      renderLiveBgImageTile(liveBgOfflineImageTile, currentLiveBgOfflineImageUrl);
+    }, function () {});
 
     let vodDraftList = [];
 

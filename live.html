@@ -327,6 +327,7 @@
     if (e.data && e.data.type === 'knobsock-tapin') playTapInEffect(e.data.username);
     if (e.data && e.data.type === 'knobsock-live-state') {
       document.body.classList.toggle('is-live', !!e.data.isLive);
+      if (window.__applyLiveBg) window.__applyLiveBg();
     }
     if (e.data && e.data.type === 'knobsock-layout-mode') {
       var page = document.querySelector('.page');
@@ -407,6 +408,31 @@
       setMeta('meta[property="og:description"]', page.description);
     }
   }).catch(function () {});
+
+  /* Admin-configurable page background (color + optional tiling image, set
+     separately for live vs. offline in admin.html's Live Page Background
+     card). Left unset, the static CSS defaults keep working untouched. */
+  var liveBgConfig = null;
+  function applyLiveBackground() {
+    if (!liveBgConfig) return;
+    var isLive = document.body.classList.contains('is-live');
+    var color = isLive ? liveBgConfig.liveColor : liveBgConfig.offlineColor;
+    var imageUrl = isLive ? liveBgConfig.liveImageUrl : liveBgConfig.offlineImageUrl;
+    document.body.style.backgroundColor = color || '';
+    if (imageUrl) {
+      document.body.style.backgroundImage =
+        'url("' + String(imageUrl).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")';
+      document.body.style.backgroundRepeat = 'repeat';
+    } else {
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundRepeat = '';
+    }
+  }
+  window.__applyLiveBg = applyLiveBackground;
+  db.collection('chat_config').doc('liveBackground').onSnapshot(function (doc) {
+    liveBgConfig = doc.exists ? doc.data() : null;
+    applyLiveBackground();
+  }, function () {});
 })();
 </script>
 </body>
