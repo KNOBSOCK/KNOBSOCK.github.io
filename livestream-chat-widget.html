@@ -2699,7 +2699,10 @@
       setQualityMenuOpen(false);
     });
     qualityMenu.appendChild(autoBtn);
-    levels.forEach(function (level, idx) {
+    /* hls.js lists levels lowest-to-highest bitrate; show highest quality first. */
+    var order = levels.map(function (_, idx) { return idx; }).reverse();
+    order.forEach(function (idx) {
+      var level = levels[idx];
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = levelLabel(level);
