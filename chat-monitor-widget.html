@@ -318,6 +318,13 @@
     .moderation-history-list { max-height: 28dvh; }
     .moderation-controls { grid-template-columns: 1fr; }
   }
+  .chat-emoji {
+    display: inline-block;
+    width: 1.35em;
+    height: 1.35em;
+    object-fit: contain;
+    vertical-align: -0.28em;
+  }
 </style>
 </head>
 <body>
@@ -533,6 +540,28 @@
     const MODERATION_HISTORY_PAGE_SIZE = 20;
 
     let lastMsgs = [];
+    let chatEmojiByName = {};
+    function renderMessageText(text) {
+      return escapeHtml(censorText(String(text || ''))).replace(/:([a-z0-9_-]{1,32}):/gi, function (match, name) {
+        const emoji = chatEmojiByName[String(name).toLowerCase()];
+        if (!emoji) return match;
+        return '<img class="chat-emoji" src="' + escapeHtml(emoji.url) + '" alt="' + escapeHtml(match) + '">';
+      });
+    }
+    fetch('/chat-emojis.json', { cache: 'no-cache' })
+      .then(function (res) { return res.ok ? res.json() : { emojis: [] }; })
+      .then(function (data) {
+        const byName = {};
+        (data && Array.isArray(data.emojis) ? data.emojis : []).forEach(function (item) {
+          const name = String(item && item.name || '').toLowerCase();
+          const url = String(item && item.url || '');
+          if (!/^[a-z0-9_-]{1,32}$/.test(name) || (!/^https?:\/\//i.test(url) && url.charAt(0) !== '/')) return;
+          if (!byName[name]) byName[name] = { name: name, url: url };
+        });
+        chatEmojiByName = byName;
+        if (lastMsgs.length) render(lastMsgs);
+      })
+      .catch(function () {});
     let messagesById = new Map();
     let moderationTarget = null;
     let moderationPageIndex = 0;
@@ -581,7 +610,7 @@
           : String(message.text || '');
       return '<div class="moderation-log">' +
         '<span class="moderation-log-time">' + escapeHtml(historyTimeLabel(message.ts)) + '</span>' +
-        '<strong>' + escapeHtml(username) + ':</strong> ' + escapeHtml(censorText(text)) +
+        '<strong>' + escapeHtml(username) + ':</strong> ' + renderMessageText(text) +
         '</div>';
     }
 
@@ -797,7 +826,7 @@
         const color = m.color || defaultColorFor(username);
         return '<div class="msg">' +
           '<button type="button" class="msg-name" data-message-id="' + escapeHtml(m.id) + '" style="color:' + color + '">' + escapeHtml(username) + ':</button> ' +
-          '<span class="msg-text">' + escapeHtml(censorText(String(m.text || ''))) + '</span>' +
+          '<span class="msg-text">' + renderMessageText(m.text) + '</span>' +
           '</div>';
       }).join('');
       container.querySelectorAll('.msg-name').forEach(function (button) {
