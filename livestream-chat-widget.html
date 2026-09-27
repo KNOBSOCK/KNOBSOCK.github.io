@@ -1674,7 +1674,11 @@
   .composer-bar {
     flex: 0 0 auto;
     border-top: 1px solid var(--line);
-    background: transparent;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 0 0 clamp(10px, 2.5vw, 28px) 0;
+  }
+  @media (max-width: 860px) {
+    .composer-bar { border-radius: 0 0 clamp(10px, 2.5vw, 28px) clamp(10px, 2.5vw, 28px); }
   }
 
   .composer-status {
@@ -2122,6 +2126,7 @@
       flex: none;
       pointer-events: auto;
       border: 0;
+      border-radius: 0;
       padding: 4px 0 0;
       background: linear-gradient(to top, rgba(0,0,0,.65), transparent);
     }
