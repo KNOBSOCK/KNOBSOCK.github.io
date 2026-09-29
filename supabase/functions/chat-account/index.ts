@@ -113,6 +113,58 @@ async function writeDevice(clientId: string, fields: Record<string, unknown>) {
   });
 }
 
+class InvalidProfile extends Error {}
+
+function cleanText(value: unknown, max: number) {
+  return String(value ?? '').trim().slice(0, max);
+}
+
+function cleanHex(value: unknown, fallback: string) {
+  const hex = String(value ?? '');
+  return /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : fallback;
+}
+
+function cleanPhoto(value: unknown) {
+  const photo = String(value ?? '');
+  if (!photo) return '';
+  if (photo.length > 60000 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo)) {
+    throw new InvalidProfile('That photo is too large or is not an image.');
+  }
+  return photo;
+}
+
+function cleanSong(value: unknown) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new InvalidProfile('That doesn’t look like a SoundCloud link.');
+  }
+  const host = url.hostname.toLowerCase();
+  if (host === 'm.soundcloud.com' || host === 'www.soundcloud.com') url.hostname = 'soundcloud.com';
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') ||
+      (url.hostname !== 'soundcloud.com' && url.hostname !== 'on.soundcloud.com') ||
+      !url.pathname.split('/').filter(Boolean).length) {
+    throw new InvalidProfile('That doesn’t look like a SoundCloud link.');
+  }
+  url.protocol = 'https:';
+  url.hash = '';
+  if (url.hostname === 'soundcloud.com') url.search = '';
+  return url.toString().slice(0, 300);
+}
+
+async function writeProfile(usernameKey: string, profile: Record<string, string | number>) {
+  const fields: Record<string, unknown> = {};
+  Object.entries(profile).forEach(([key, value]) => {
+    fields[key] = typeof value === 'number' ? { integerValue: String(value) } : { stringValue: value };
+  });
+  await firestore(`chat_usernames/${encodeURIComponent(usernameKey)}?updateMask.fieldPaths=profile&currentDocument.exists=true`, {
+    method: 'PATCH', body: JSON.stringify({ fields: { profile: { mapValue: { fields } } } })
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return response({ error: 'Method not allowed.' }, 405);
@@ -168,6 +220,34 @@ Deno.serve(async (request) => {
         claimedAt: new Date().toISOString()
       });
       return response({ username: mapping.username, usernameKey: mapping.usernameKey });
+    }
+
+    if (body.action === 'saveProfile') {
+      const mapping = user.app_metadata?.knobsock_chat as { username?: string; usernameKey?: string } | undefined;
+      if (!mapping?.username || !mapping.usernameKey) {
+        return response({ error: 'Link your email to your username before editing your profile.', code: 'not-linked' }, 403);
+      }
+      if (String(body.username || '').trim().toLowerCase() !== mapping.usernameKey) {
+        return response({ error: 'This email is linked to a different username.', code: 'forbidden' }, 403);
+      }
+      const input = (body.profile || {}) as Record<string, unknown>;
+      let profile: Record<string, string | number>;
+      try {
+        profile = {
+          photo: cleanPhoto(input.photo),
+          favoriteColor: cleanText(input.favoriteColor, 30),
+          song: cleanSong(input.song),
+          about: cleanText(input.about, 300),
+          cardColor: cleanHex(input.cardColor, '#2a0a4a'),
+          borderColor: cleanHex(input.borderColor, '#ffff00'),
+          updatedAt: Date.now()
+        };
+      } catch (error) {
+        if (error instanceof InvalidProfile) return response({ error: error.message, code: 'invalid' }, 400);
+        throw error;
+      }
+      await writeProfile(mapping.usernameKey, profile);
+      return response({ username: mapping.username, profile });
     }
 
     return response({ error: 'Unknown account action.' }, 400);

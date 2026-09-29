@@ -1640,6 +1640,168 @@
     color: var(--interactive-hover-text);
   }
   .account-menu-item:disabled { opacity: 0.6; cursor: default; }
+
+  .msg-name[data-username] { cursor: pointer; }
+  .msg-name[data-username]:hover { text-decoration: underline; }
+
+  .profile-panel {
+    display: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: clamp(10px, 3.2cqh, 16px) clamp(10px, 3.4cqw, 18px);
+  }
+  .chat-screen.profile-open .messages { display: none; }
+  .chat-screen.profile-open .profile-panel { display: flex; }
+  .profile-card {
+    position: relative;
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: clamp(14px, 4cqmin, 22px);
+    border: 3px solid var(--card-border, #ffff00);
+    border-radius: clamp(14px, 4cqmin, 28px);
+    background: var(--card-bg, #2a0a4a);
+    color: var(--card-ink, #fff);
+    font-family: 'Gratis Neue', var(--font-body);
+  }
+  .profile-card::-webkit-scrollbar { display: none; }
+  .profile-close {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    top: clamp(8px, 2.4cqmin, 12px);
+    right: clamp(8px, 2.4cqmin, 12px);
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .profile-close:hover { background: var(--interactive-hover); border-color: var(--interactive-hover); color: #000; }
+  .profile-head {
+    display: flex;
+    gap: clamp(10px, 3cqmin, 16px);
+    align-items: flex-start;
+    padding-right: 34px;
+  }
+  .profile-photo {
+    flex: none;
+    width: clamp(72px, 24cqmin, 120px);
+    aspect-ratio: 1;
+    overflow: hidden;
+    border: 2px solid var(--card-border, #ffff00);
+    border-radius: clamp(8px, 2.4cqmin, 14px);
+    background: rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(28px, 9cqmin, 44px);
+  }
+  .profile-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .profile-info { min-width: 0; }
+  .profile-name {
+    font-size: clamp(18px, 5.4cqmin, 26px);
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+  .profile-line {
+    margin-top: 6px;
+    font-size: clamp(11px, 3cqmin, 14px);
+    overflow-wrap: anywhere;
+  }
+  .profile-line span { opacity: 0.75; }
+  .profile-section { margin-top: clamp(12px, 3.6cqmin, 18px); }
+  .profile-label {
+    margin-bottom: 6px;
+    font-size: clamp(14px, 4cqmin, 18px);
+  }
+  .profile-about {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: clamp(12px, 3.2cqmin, 15px);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .profile-empty { opacity: 0.6; font-size: clamp(11px, 3cqmin, 14px); }
+  .profile-song iframe {
+    display: block;
+    width: 100%;
+    height: 166px;
+    border: 0;
+    border-radius: clamp(8px, 2.4cqmin, 14px);
+  }
+  .profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: clamp(14px, 4cqmin, 20px);
+  }
+  .profile-actions .pill-btn,
+  .profile-photo-row .pill-btn { border-radius: clamp(10px, 2.5vw, 28px); }
+  .profile-card .profile-btn-secondary {
+    background: transparent;
+    border-color: currentColor;
+    color: inherit;
+  }
+  .profile-field { display: block; margin-top: 12px; }
+  .profile-field > span {
+    display: block;
+    margin-bottom: 5px;
+    font-size: clamp(12px, 3.2cqmin, 15px);
+  }
+  .profile-card input[type="text"],
+  .profile-card textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    outline: none;
+  }
+  .profile-card textarea { min-height: 90px; resize: vertical; border-radius: clamp(10px, 2.5vw, 18px); }
+  .profile-card input[type="text"]:focus,
+  .profile-card textarea:focus { border-color: var(--interactive-hover); }
+  .profile-colors { display: flex; flex-wrap: wrap; gap: 16px; }
+  .profile-colors label { display: flex; align-items: center; gap: 8px; }
+  .profile-colors input[type="color"] {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+  }
+  .profile-photo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .profile-hint { margin-top: 4px; font-size: 11px; opacity: 0.7; }
+  .profile-msg { min-height: 16px; margin-top: 8px; font-size: 13px; }
+  .profile-inline-link {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+  }
   @media (prefers-reduced-motion: reduce) {
     .account-menu.is-open { animation: none; }
   }
@@ -4495,6 +4657,7 @@
     const device = deviceTapIn && deviceTapIn.usernameKey === key ? deviceTapIn : null;
     applyTapInStats(device || tapInStatsFrom(null));
     usernamesRef.doc(key).get().then((doc) => {
+      cacheProfileDoc(key, doc.exists ? doc.data() : {});
       if (accountTapInKey !== key) return;
       const account = tapInStatsFrom(doc.exists ? doc.data() : null);
       if (device && device.lastTapInAt > account.lastTapInAt) {
@@ -5132,6 +5295,347 @@
     }
     menu.classList.toggle('is-open', open);
     button.setAttribute('aria-expanded', String(open));
+  }
+
+  const PROFILE_DEFAULT_BG = '#2a0a4a';
+  const PROFILE_DEFAULT_BORDER = '#ffff00';
+  const PROFILE_CACHE_MS = 60 * 1000;
+  const LAST_SEEN_WRITE_MS = 30 * 60 * 1000;
+  const profileCache = {};
+  let profileViewing = null;
+  let profileEditing = false;
+
+  function cacheProfileDoc(key, data) {
+    profileCache[key] = { data: data || {}, at: Date.now() };
+  }
+
+  function fetchProfileDoc(username) {
+    const key = String(username).toLowerCase();
+    const mine = session && key === session.username.toLowerCase();
+    const hit = profileCache[key];
+    if (hit && (mine || Date.now() - hit.at < PROFILE_CACHE_MS)) return Promise.resolve(hit.data);
+    return usernamesRef.doc(key).get().then((doc) => {
+      const data = doc.exists ? doc.data() : {};
+      cacheProfileDoc(key, data);
+      return data;
+    });
+  }
+
+  function markSeen() {
+    if (!session) return;
+    const key = session.username.toLowerCase();
+    const storeKey = 'knobsock_last_seen_' + key;
+    let last = 0;
+    try { last = Number(localStorage.getItem(storeKey)) || 0; } catch (e) {}
+    if (Date.now() - last < LAST_SEEN_WRITE_MS) return;
+    try { localStorage.setItem(storeKey, String(Date.now())); } catch (e) {}
+    usernamesRef.doc(key).set({ lastSeenAt: Date.now() }, { merge: true }).catch(() => {});
+  }
+
+  function safeHex(value, fallback) {
+    return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : fallback;
+  }
+
+  function inkFor(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const channel = (v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    const lum = 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
+    return lum > 0.4 ? '#000000' : '#ffffff';
+  }
+
+  function profileCardStyle(profile) {
+    const bg = safeHex(profile.cardColor, PROFILE_DEFAULT_BG);
+    const border = safeHex(profile.borderColor, PROFILE_DEFAULT_BORDER);
+    return '--card-bg:' + bg + ';--card-border:' + border + ';--card-ink:' + inkFor(bg);
+  }
+
+  function safePhoto(value) {
+    return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(value || '')) ? value : '';
+  }
+
+  function normalizeSoundCloudUrl(raw) {
+    let url;
+    try { url = new URL(String(raw || '').trim()); } catch (e) { return ''; }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    const host = url.hostname.toLowerCase();
+    if (host === 'm.soundcloud.com' || host === 'www.soundcloud.com') url.hostname = 'soundcloud.com';
+    if (url.hostname !== 'soundcloud.com' && url.hostname !== 'on.soundcloud.com') return '';
+    if (!url.pathname.split('/').filter(Boolean).length) return '';
+    url.protocol = 'https:';
+    url.hash = '';
+    if (url.hostname === 'soundcloud.com') url.search = '';
+    return url.toString();
+  }
+
+  function soundCloudEmbedSrc(songUrl) {
+    return 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(songUrl) +
+      '&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false';
+  }
+
+  function lastOnlineLabel(data, username) {
+    if (session && String(username).toLowerCase() === session.username.toLowerCase()) return 'Online now';
+    const ts = Math.max(Number(data && data.lastSeenAt) || 0, Number(data && data.lastTapInAt) || 0);
+    if (!ts) return 'A while ago';
+    const diff = Date.now() - ts;
+    if (diff < 5 * 60 * 1000) return 'Online now';
+    if (diff < 60 * 60 * 1000) return Math.round(diff / 60000) + ' min ago';
+    if (diff < 24 * 60 * 60 * 1000) {
+      const hours = Math.round(diff / 3600000);
+      return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+    }
+    if (diff < 7 * 24 * 60 * 60 * 1000) {
+      const days = Math.round(diff / 86400000);
+      return days + (days === 1 ? ' day ago' : ' days ago');
+    }
+    return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function profilePhotoHtml(photo, name) {
+    return photo ? '<img src="' + photo + '" alt="">' : escapeHtml(String(name || '?').charAt(0).toUpperCase());
+  }
+
+  function profileChrome(profile, inner) {
+    return '<div class="profile-card" id="profileCard" style="' + profileCardStyle(profile || {}) + '">' +
+      '<button class="profile-close" id="profileClose" type="button" aria-label="Close profile">✕</button>' +
+      inner + '</div>';
+  }
+
+  function wireProfileClose() {
+    const close = $('profileClose');
+    if (close) close.addEventListener('click', closeProfile);
+  }
+
+  function renderProfileView(username, data) {
+    const panel = $('profilePanel');
+    if (!panel) return;
+    profileEditing = false;
+    const profile = (data && data.profile) || {};
+    const name = (data && data.username) || username;
+    const mine = session && String(username).toLowerCase() === session.username.toLowerCase();
+    const song = normalizeSoundCloudUrl(profile.song);
+    panel.innerHTML = profileChrome(profile,
+      '<div class="profile-head">' +
+        '<div class="profile-photo">' + profilePhotoHtml(safePhoto(profile.photo), name) + '</div>' +
+        '<div class="profile-info">' +
+          '<div class="profile-name">' + escapeHtml(name) + '</div>' +
+          '<div class="profile-line"><span>Favorite color:</span> ' + (profile.favoriteColor ? escapeHtml(censorText(profile.favoriteColor)) : '—') + '</div>' +
+          '<div class="profile-line"><span>Last online:</span> ' + escapeHtml(lastOnlineLabel(data, username)) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="profile-section"><div class="profile-label">Song</div>' +
+        (song
+          ? '<div class="profile-song"><iframe title="' + escapeHtml(name) + '’s song" allow="autoplay" loading="lazy" src="' + escapeHtml(soundCloudEmbedSrc(song)) + '"></iframe></div>'
+          : '<div class="profile-empty">No song yet.</div>') +
+      '</div>' +
+      '<div class="profile-section"><div class="profile-label">About me</div>' +
+        (profile.about
+          ? '<p class="profile-about">' + escapeHtml(censorText(profile.about)) + '</p>'
+          : '<div class="profile-empty">Nothing here yet.</div>') +
+      '</div>' +
+      (mine
+        ? '<div class="profile-actions">' + (session.accountLinked
+          ? '<button class="pill-btn" id="profileEditBtn" type="button">Edit profile</button>'
+          : '<button class="pill-btn" id="profileLinkBtn" type="button">Link email to edit profile</button>') +
+          '</div><div class="profile-msg" id="profileMsg"></div>'
+        : '')
+    );
+    wireProfileClose();
+    const linkBtn = $('profileLinkBtn');
+    if (linkBtn) linkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
+    const editBtn = $('profileEditBtn');
+    if (editBtn) editBtn.addEventListener('click', async function () {
+      editBtn.disabled = true;
+      const accountSession = await currentAccountSession().catch(() => null);
+      if (accountSession) {
+        renderProfileEdit(data);
+        return;
+      }
+      editBtn.disabled = false;
+      $('profileMsg').innerHTML = 'Sign in with your email on this browser to edit your profile. <button class="profile-inline-link" id="profileSignInBtn" type="button">Sign in with email</button>';
+      $('profileSignInBtn').addEventListener('click', function () { renderAccountAccess('restore'); });
+    });
+  }
+
+  function shrinkPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const size = 192;
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        let quality = 0.82;
+        let out = canvas.toDataURL('image/jpeg', quality);
+        while (out.length > 40000 && quality > 0.4) {
+          quality -= 0.1;
+          out = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(out);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('That image could not be opened.'));
+      };
+      img.src = url;
+    });
+  }
+
+  function renderProfileEdit(data) {
+    const panel = $('profilePanel');
+    if (!panel || !session) return;
+    profileEditing = true;
+    const profile = Object.assign({}, (data && data.profile) || {});
+    let draftPhoto = safePhoto(profile.photo);
+    const cardColor = safeHex(profile.cardColor, PROFILE_DEFAULT_BG);
+    const borderColor = safeHex(profile.borderColor, PROFILE_DEFAULT_BORDER);
+    panel.innerHTML = profileChrome(profile,
+      '<div class="profile-label">Edit profile</div>' +
+      '<div class="profile-field"><span>Photo</span><div class="profile-photo-row">' +
+        '<div class="profile-photo" id="profilePhotoPreview">' + profilePhotoHtml(draftPhoto, session.username) + '</div>' +
+        '<label class="pill-btn profile-btn-secondary">Choose photo<input type="file" id="profilePhotoInput" accept="image/*" hidden></label>' +
+        '<button class="pill-btn profile-btn-secondary" id="profilePhotoRemove" type="button">Remove</button>' +
+      '</div></div>' +
+      '<label class="profile-field"><span>Favorite color</span><input type="text" id="profileFavColor" maxlength="30" autocomplete="off" value="' + escapeHtml(profile.favoriteColor || '') + '"></label>' +
+      '<label class="profile-field"><span>Song</span><input type="text" id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + escapeHtml(profile.song || '') + '"><div class="profile-hint">Paste a link to a track on SoundCloud.</div></label>' +
+      '<label class="profile-field"><span>About me</span><textarea id="profileAbout" maxlength="300">' + escapeHtml(profile.about || '') + '</textarea></label>' +
+      '<div class="profile-field"><span>Card colors</span><div class="profile-colors">' +
+        '<label><input type="color" id="profileCardColor" value="' + cardColor + '"> Card</label>' +
+        '<label><input type="color" id="profileBorderColor" value="' + borderColor + '"> Border</label>' +
+      '</div></div>' +
+      '<div class="profile-msg" id="profileMsg"></div>' +
+      '<div class="profile-actions">' +
+        '<button class="pill-btn" id="profileSave" type="button">Save</button>' +
+        '<button class="pill-btn profile-btn-secondary" id="profileCancel" type="button">Cancel</button>' +
+      '</div>'
+    );
+    wireProfileClose();
+    const card = $('profileCard');
+    const msg = $('profileMsg');
+    const preview = $('profilePhotoPreview');
+    const recolor = () => {
+      card.setAttribute('style', profileCardStyle({ cardColor: $('profileCardColor').value, borderColor: $('profileBorderColor').value }));
+    };
+    $('profileCardColor').addEventListener('input', recolor);
+    $('profileBorderColor').addEventListener('input', recolor);
+    $('profilePhotoInput').addEventListener('change', async function () {
+      const file = this.files && this.files[0];
+      if (!file) return;
+      msg.textContent = 'Loading photo…';
+      try {
+        draftPhoto = await shrinkPhoto(file);
+        preview.innerHTML = profilePhotoHtml(draftPhoto, session.username);
+        msg.textContent = '';
+      } catch (error) {
+        msg.textContent = error.message;
+      }
+      this.value = '';
+    });
+    $('profilePhotoRemove').addEventListener('click', function () {
+      draftPhoto = '';
+      preview.innerHTML = profilePhotoHtml('', session.username);
+    });
+    $('profileCancel').addEventListener('click', function () { renderProfileView(session.username, data); });
+    $('profileSave').addEventListener('click', async function () {
+      const button = this;
+      const rawSong = $('profileSong').value.trim();
+      const song = rawSong ? normalizeSoundCloudUrl(rawSong) : '';
+      if (rawSong && !song) {
+        msg.textContent = 'That doesn’t look like a SoundCloud link.';
+        return;
+      }
+      const next = {
+        photo: draftPhoto,
+        favoriteColor: $('profileFavColor').value.trim().slice(0, 30),
+        song: song,
+        about: $('profileAbout').value.trim().slice(0, 300),
+        cardColor: safeHex($('profileCardColor').value, PROFILE_DEFAULT_BG),
+        borderColor: safeHex($('profileBorderColor').value, PROFILE_DEFAULT_BORDER),
+        updatedAt: Date.now()
+      };
+      button.disabled = true;
+      button.textContent = 'Saving…';
+      msg.textContent = '';
+      const key = session.username.toLowerCase();
+      try {
+        const result = await callAccountFunction('saveProfile', {
+          clientId: CLIENT_ID,
+          username: session.username,
+          profile: next
+        });
+        const saved = Object.assign({}, data || {}, { profile: (result && result.profile) || next });
+        cacheProfileDoc(key, saved);
+        renderProfileView(session.username, saved);
+      } catch (error) {
+        console.error('Could not save profile:', error);
+        msg.textContent = error && error.code === 'unauthenticated'
+          ? 'Your email sign-in expired. Sign in with email again to save.'
+          : (error && error.message) || 'Could not save your profile. Try again.';
+        button.disabled = false;
+        button.textContent = 'Save';
+      }
+    });
+  }
+
+  function openProfile(username) {
+    const screen = app.querySelector('.chat-screen');
+    const panel = $('profilePanel');
+    if (!username || !screen || !panel) return;
+    closeAccountMenu();
+    closeFightMenu();
+    profileViewing = username;
+    profileEditing = false;
+    screen.classList.add('profile-open');
+    const hit = profileCache[String(username).toLowerCase()];
+    if (hit) renderProfileView(username, hit.data);
+    else {
+      panel.innerHTML = profileChrome({}, '<div class="profile-empty">Loading profile…</div>');
+      wireProfileClose();
+    }
+    fetchProfileDoc(username).then((data) => {
+      if (profileViewing !== username || profileEditing || !screen.classList.contains('profile-open')) return;
+      renderProfileView(username, data);
+    }).catch(() => {
+      if (profileViewing !== username || profileEditing) return;
+      panel.innerHTML = profileChrome({}, '<div class="profile-empty">Could not load this profile.</div>');
+      wireProfileClose();
+    });
+  }
+
+  function profileNameFrom(event) {
+    const el = event.target && event.target.closest && event.target.closest('.msg-name[data-username]');
+    return el ? el.getAttribute('data-username') : null;
+  }
+  app.addEventListener('click', (event) => {
+    const name = profileNameFrom(event);
+    if (name) openProfile(name);
+  });
+  app.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const name = profileNameFrom(event);
+    if (!name) return;
+    event.preventDefault();
+    openProfile(name);
+  });
+
+  function closeProfile() {
+    const screen = app.querySelector('.chat-screen');
+    const panel = $('profilePanel');
+    profileViewing = null;
+    profileEditing = false;
+    if (screen) screen.classList.remove('profile-open');
+    if (panel) panel.innerHTML = '';
+    const list = $('messages');
+    if (list) list.scrollTop = list.scrollHeight;
   }
 
   function toggleFightMenu() {
@@ -6345,6 +6849,7 @@
         <div class="messages" id="messages">
           <div class="empty-state">Loading messages…</div>
         </div>
+        <div class="profile-panel" id="profilePanel"></div>
         <div class="composer-bar">
           <div class="fight-panel-wrap" id="fightPanelWrap" aria-live="polite">
             <div class="fight-panel" id="fightPanel"></div>
@@ -6375,7 +6880,7 @@
           <div class="who">Signed in as <button class="account-name-btn" id="accountNameBtn" type="button" aria-haspopup="true" aria-expanded="false"><b>${escapeHtml(session.username)}</b></button></div>
           <div class="account-menu" id="accountMenu">
             <div class="fight-menu-heading">${escapeHtml(session.username)}</div>
-            <div class="account-menu-list">${session.accountLinked
+            <div class="account-menu-list"><button class="account-menu-item" id="accountProfileBtn" type="button">Profile</button>${session.accountLinked
               ? '<button class="account-menu-item" id="accountSignOutBtn" type="button">Sign out</button>'
               : '<button class="account-menu-item" id="accountLinkBtn" type="button">Link email to account</button>'}</div>
           </div>
@@ -6404,6 +6909,7 @@
     });
 
     $('accountNameBtn').addEventListener('click', toggleAccountMenu);
+    $('accountProfileBtn').addEventListener('click', function () { openProfile(session.username); });
 
     const accountLinkBtn = $('accountLinkBtn');
     if (accountLinkBtn) accountLinkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
@@ -6644,7 +7150,7 @@
       const mine = m.username === session.username;
 
       const nameColor = m.color || colorForUsername(m.username, () => renderMessages(lastRenderedMsgs));
-      const nameHtml = `<span class="msg-name" style="color:${nameColor}">${escapeHtml(m.username)}</span>`;
+      const nameHtml = `<span class="msg-name" role="button" tabindex="0" data-username="${escapeHtml(m.username)}" style="color:${nameColor}">${escapeHtml(m.username)}</span>`;
       return `
         <div class="msg ${mine ? 'mine' : ''}">
           <div class="msg-meta">${nameHtml} · ${timeLabel(m.ts)}</div>
@@ -6669,6 +7175,7 @@
     }
     const text = censorText(input.value.trim());
     if (!text) return;
+    markSeen();
     const refocus = document.activeElement === input || canAutoFocusInput();
     input.value = '';
     input.disabled = true;
@@ -6774,6 +7281,7 @@
     try { window.dispatchEvent(new Event('knobsock-chat-identity')); } catch (e) {}
     startMessageSession(session.username);
     loadAccountTapIn(session.username);
+    markSeen();
     renderChatShell();
     subscribeToMessages();
     if (canAutoFocusInput()) $('msgInput').focus();
