@@ -5268,8 +5268,8 @@
 #knobsockProfile .profile-song { padding: 8px 14px; border-radius: clamp(10px, 2.5vw, 28px); background: #ffffff; }
 #knobsockProfile .profile-song iframe { display: block; width: 100%; height: 20px; border: 0; }
 #knobsockProfile .profile-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: clamp(12px, 2.4vmin, 22px); }
-#knobsockProfile .profile-social { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 2px solid var(--card-border, #ffff00); border-radius: 999px; color: inherit; font-size: clamp(13px, 1.9vmin, 16px); text-decoration: none; }
-#knobsockProfile .profile-social:hover { background: var(--card-border, #ffff00); color: #000000; }
+#knobsockProfile .profile-social { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 0; border-radius: 999px; background: var(--card-border, #ffff00); color: var(--border-ink, #000000); font-size: clamp(13px, 1.9vmin, 16px); font-weight: 700; text-decoration: none; transition: transform 0.15s ease, filter 0.15s ease; }
+#knobsockProfile .profile-social:hover { filter: brightness(0.9); transform: translateY(-1px); }
 #knobsockProfile .profile-social-field { display: grid; grid-template-columns: 5.6em minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 8px; font-size: clamp(13px, 2vmin, 16px); }
 #knobsockProfile .profile-social-field input[type="text"] { width: 100%; min-width: 0; }
 #knobsockProfile .profile-social-field { white-space: nowrap; }
@@ -5438,7 +5438,7 @@
   function profileCardStyle(profile) {
     const bg = safeHex(profile.cardColor, PROFILE_DEFAULT_BG);
     const border = safeHex(profile.borderColor, PROFILE_DEFAULT_BORDER);
-    return '--card-bg:' + bg + ';--card-border:' + border + ';--card-ink:' + inkFor(bg);
+    return '--card-bg:' + bg + ';--card-border:' + border + ';--card-ink:' + inkFor(bg) + ';--border-ink:' + inkFor(border);
   }
 
   function safePhoto(value) {
