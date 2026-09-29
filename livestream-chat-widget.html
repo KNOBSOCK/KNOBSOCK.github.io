@@ -1799,6 +1799,30 @@
   .profile-hint { margin-top: 4px; font-size: 11px; opacity: 0.7; }
   .profile-msg { min-height: 16px; margin-top: 8px; font-size: 13px; }
   .profile-msg:empty { display: none; }
+  .profile-report-row {
+    margin-top: clamp(10px, 3cqmin, 16px);
+    font-size: 12px;
+  }
+  .profile-report-row .profile-inline-link { opacity: 0.75; }
+  .profile-report-label {
+    display: block;
+    margin: 0 0 6px;
+    color: inherit;
+    font-family: 'Gratis Neue', var(--font-body);
+    font-size: 13px;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .profile-report-row select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+  }
   .profile-inline-link {
     -webkit-appearance: none;
     appearance: none;
@@ -5450,9 +5474,10 @@
           ? '<button class="pill-btn" id="profileEditBtn" type="button">Edit profile</button>'
           : '<button class="pill-btn" id="profileLinkBtn" type="button">Link email to edit profile</button>') +
           '</div><div class="profile-msg" id="profileMsg"></div>'
-        : '')
+        : (session ? '<div class="profile-report-row" id="profileReportRow"></div>' : ''))
     );
     wireProfileClose();
+    if (!mine && session) renderReportRow(username, name);
     const linkBtn = $('profileLinkBtn');
     if (linkBtn) linkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
     const editBtn = $('profileEditBtn');
@@ -5466,6 +5491,64 @@
       editBtn.disabled = false;
       $('profileMsg').innerHTML = 'Sign in with your email on this browser to edit your profile. <button class="profile-inline-link" id="profileSignInBtn" type="button">Sign in with email</button>';
       $('profileSignInBtn').addEventListener('click', function () { renderAccountAccess('restore'); });
+    });
+  }
+
+  const PROFILE_REPORT_REASONS = ['Inappropriate photo', 'Harassment or hate', 'Spam', 'Something else'];
+
+  function reportedKey(key) {
+    return 'knobsock_reported_' + key + '_' + CLIENT_ID;
+  }
+
+  function hasReported(key) {
+    try { return localStorage.getItem(reportedKey(key)) === '1'; } catch (e) { return false; }
+  }
+
+  function renderReportRow(username, name) {
+    const row = $('profileReportRow');
+    if (!row) return;
+    const key = String(username).toLowerCase();
+    if (hasReported(key)) {
+      row.innerHTML = '<span class="profile-empty">Reported. Thanks for letting us know.</span>';
+      return;
+    }
+    row.innerHTML = '<button class="profile-inline-link" id="profileReportBtn" type="button">Report profile</button>';
+    $('profileReportBtn').addEventListener('click', function () {
+      row.innerHTML =
+        '<label class="profile-report-label" for="profileReportReason">Why are you reporting ' + escapeHtml(name) + '?</label>' +
+        '<select id="profileReportReason">' + PROFILE_REPORT_REASONS.map(function (r) {
+          return '<option>' + escapeHtml(r) + '</option>';
+        }).join('') + '</select>' +
+        '<div class="profile-actions">' +
+          '<button class="pill-btn" id="profileReportSend" type="button">Send report</button>' +
+          '<button class="pill-btn profile-btn-secondary" id="profileReportCancel" type="button">Cancel</button>' +
+        '</div><div class="profile-msg" id="profileReportMsg"></div>';
+      $('profileReportCancel').addEventListener('click', function () { renderReportRow(username, name); });
+      $('profileReportSend').addEventListener('click', async function () {
+        const button = this;
+        button.disabled = true;
+        button.textContent = 'Sending…';
+        const markReported = function () {
+          try { localStorage.setItem(reportedKey(key), '1'); } catch (e) {}
+          renderReportRow(username, name);
+        };
+        try {
+          await db.collection('chat_profile_reports').doc(key + '__' + CLIENT_ID).set({
+            username: String(name).slice(0, 24),
+            usernameKey: key,
+            reporterDevice: CLIENT_ID,
+            reporterUsername: session.username,
+            reason: $('profileReportReason').value.slice(0, 200),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          markReported();
+        } catch (error) {
+          console.error('Could not send profile report:', error);
+          $('profileReportMsg').textContent = 'Could not send the report. Try again.';
+          button.disabled = false;
+          button.textContent = 'Send report';
+        }
+      });
     });
   }
 

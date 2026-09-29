@@ -1036,6 +1036,16 @@
           </div>
         </div>
         <div class="card">
+          <div class="card-head">
+            <h2>Profile Reports</h2>
+            <button type="button" class="btn" id="profileReportsRefreshBtn">Refresh</button>
+          </div>
+          <div class="live-card-body" style="max-height:420px;">
+            <div class="save-status" id="profileReportsStatus"></div>
+            <div id="profileReportsList"></div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Banned</h2></div>
           <div class="live-card-body" style="max-height:260px;"></div>
         </div>
@@ -1230,6 +1240,7 @@
   const CHAT_USERNAME_COUNTERS_REF = db.collection('chat_username_counters');
   const CHAT_DEVICES_REF = db.collection('chat_devices');
   const CHAT_BANS_REF = db.collection('chat_bans');
+  const CHAT_PROFILE_REPORTS_REF = db.collection('chat_profile_reports');
 
   const CHAT_IP_LOG_REF = db.collection('chat_ip_log');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
@@ -3132,6 +3143,108 @@
       });
   }
 
+  let profileReportGroups = {};
+
+  function loadProfileReports() {
+    const root = document.getElementById('profileReportsList');
+    const status = document.getElementById('profileReportsStatus');
+    status.textContent = '';
+    root.innerHTML = '<div class="empty-state">Loading…</div>';
+    CHAT_PROFILE_REPORTS_REF.orderBy('createdAt', 'desc').limit(100).get().then(function (snap) {
+      const groups = {};
+      snap.docs.forEach(function (doc) {
+        const report = Object.assign({ id: doc.id }, doc.data());
+        const key = report.usernameKey;
+        if (!key) return;
+        if (!groups[key]) groups[key] = { key: key, username: report.username || key, reports: [], user: null };
+        groups[key].reports.push(report);
+      });
+      profileReportGroups = groups;
+      const list = Object.keys(groups).map(function (k) { return groups[k]; });
+      if (!list.length) {
+        root.innerHTML = '<div class="empty-state">No open profile reports.</div>';
+        return;
+      }
+      return Promise.all(list.map(function (group) {
+        return CHAT_USERNAMES_REF.doc(group.key).get().then(function (doc) {
+          group.user = doc.exists ? doc.data() : null;
+        }).catch(function () {});
+      })).then(function () { renderProfileReports(list); });
+    }).catch(function (err) {
+      root.innerHTML = '<div class="empty-state">Could not load reports: ' + escapeAttr(err.message) + '</div>';
+    });
+  }
+
+  function renderProfileReports(list) {
+    const root = document.getElementById('profileReportsList');
+    root.innerHTML = list.map(function (group) {
+      const profile = (group.user && group.user.profile) || {};
+      const photo = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(profile.photo || '')
+        ? '<img src="' + escapeAttr(profile.photo) + '" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex:none;">'
+        : '<div style="width:72px;height:72px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);font-size:11px;color:var(--text-dim);">No photo</div>';
+      const reasons = group.reports.map(function (r) {
+        return escapeAttr(r.reason || 'No reason') + ' <span style="color:var(--text-dim);">(' + escapeAttr(r.reporterUsername || 'unknown') + ')</span>';
+      }).join('<br>');
+      return '<div class="profile-report" data-key="' + escapeAttr(group.key) + '" style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);">' +
+        photo +
+        '<div style="min-width:0;flex:1 1 auto;">' +
+          '<div><b>' + escapeAttr(group.username) + '</b> <span style="color:var(--text-dim);">· ' + group.reports.length + (group.reports.length === 1 ? ' report' : ' reports') + '</span></div>' +
+          (profile.about ? '<div style="font-size:12px;margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;">' + escapeAttr(profile.about) + '</div>' : '') +
+          (profile.favoriteColor ? '<div style="font-size:12px;margin-top:4px;color:var(--text-dim);">Favorite color: ' + escapeAttr(profile.favoriteColor) + '</div>' : '') +
+          '<div style="font-size:12px;margin-top:6px;">' + reasons + '</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center;">' +
+            '<button type="button" class="btn" data-act="photo">Remove photo</button>' +
+            '<button type="button" class="btn" data-act="reset">Reset profile</button>' +
+            '<button type="button" class="btn" data-act="dismiss">Dismiss</button>' +
+            '<button type="button" class="btn-link" data-act="open">Open user</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function clearProfileReports(group) {
+    return commitDeletesInBatches(group.reports.map(function (r) { return CHAT_PROFILE_REPORTS_REF.doc(r.id); }));
+  }
+
+  function handleProfileReportAction(event) {
+    const button = event.target.closest('[data-act]');
+    const row = event.target.closest('.profile-report');
+    if (!button || !row) return;
+    const group = profileReportGroups[row.getAttribute('data-key')];
+    if (!group) return;
+    const act = button.getAttribute('data-act');
+    const status = document.getElementById('profileReportsStatus');
+
+    if (act === 'open') {
+      document.getElementById('userLookupInput').value = group.username;
+      document.getElementById('loadUserHistoryBtn').click();
+      document.getElementById('userLookupInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    let work;
+    if (act === 'photo') {
+      work = CHAT_USERNAMES_REF.doc(group.key).update({ 'profile.photo': '' });
+    } else if (act === 'reset') {
+      if (!confirm('Reset ' + group.username + '’s whole profile (photo, song, bio, colors)?')) return;
+      work = CHAT_USERNAMES_REF.doc(group.key).update({ profile: firebase.firestore.FieldValue.delete() });
+    } else {
+      work = Promise.resolve();
+    }
+    row.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    status.style.color = 'var(--text-dim)';
+    status.textContent = 'Working…';
+    work.then(function () { return clearProfileReports(group); }).then(function () {
+      status.textContent = act === 'photo' ? 'Photo removed.' : act === 'reset' ? 'Profile reset.' : 'Reports dismissed.';
+      loadProfileReports();
+    }).catch(function (err) {
+      status.style.color = 'var(--danger)';
+      status.textContent = 'Could not update: ' + err.message;
+      row.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+    });
+  }
+
   function startLiveModerationIfNeeded() {
     if (liveModerationStarted) return;
     liveModerationStarted = true;
@@ -3173,6 +3286,10 @@
         status.style.color = 'var(--danger)';
       });
     }
+
+    document.getElementById('profileReportsRefreshBtn').addEventListener('click', loadProfileReports);
+    document.getElementById('profileReportsList').addEventListener('click', handleProfileReportAction);
+    loadProfileReports();
 
     document.getElementById('loadUserHistoryBtn').addEventListener('click', loadUserHistoryOnDemand);
     document.getElementById('userLookupInput').addEventListener('keydown', function (e) {
