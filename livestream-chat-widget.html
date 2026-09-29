@@ -4264,7 +4264,6 @@
     });
     setPendingAccountLink(false);
     session.accountLinked = true;
-    session.accountSignedIn = true;
     return result;
   }
 
@@ -4273,7 +4272,12 @@
   async function signOutLinkedAccount() {
     accountSigningOut = true;
     try {
-      await callAccountFunction('signout', { clientId: CLIENT_ID });
+      await devicesRef.doc(CLIENT_ID).update({
+        username: firebase.firestore.FieldValue.delete(),
+        accountId: firebase.firestore.FieldValue.delete(),
+        accountLinkedAt: firebase.firestore.FieldValue.delete(),
+        restoredAt: firebase.firestore.FieldValue.delete()
+      });
     } catch (error) {
       accountSigningOut = false;
       throw error;
@@ -4379,6 +4383,12 @@
     const savedFightCooldown = Number(data && data.fightCooldownUntil);
     myFightCooldownUntil = Number.isFinite(savedFightCooldown) ? savedFightCooldown : 0;
     refreshFightPanel();
+
+    if (!currentlyBanned && !accountSigningOut && session && lockedName && lockedName !== session.username) {
+      session = { username: lockedName, accountLinked: deviceAccountLinked };
+      rememberUsername(lockedName);
+      startChat();
+    }
 
     if (!currentlyBanned && !accountSigningOut && hadLock && !lockedName && session) {
       session = null;
@@ -6101,9 +6111,7 @@
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
           <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
-            ? ' <span aria-label="Account linked">account linked</span>' + (session.accountSignedIn
-              ? ' <button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
-              : ' <button class="account-link-btn" id="accountSignInBtn" type="button">sign in</button>')
+            ? ' <span aria-label="Account linked">account linked</span> <button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
             : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link account</button>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
@@ -6131,9 +6139,6 @@
 
     const accountLinkBtn = $('accountLinkBtn');
     if (accountLinkBtn) accountLinkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
-
-    const accountSignInBtn = $('accountSignInBtn');
-    if (accountSignInBtn) accountSignInBtn.addEventListener('click', function () { renderAccountAccess('restore'); });
 
     const accountSignOutBtn = $('accountSignOutBtn');
     if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async function () {
@@ -6537,11 +6542,10 @@
     }
 
     const activeAccountSession = await currentAccountSession().catch(() => null);
-    const accountSignedIn = Boolean(activeAccountSession);
 
     if (deviceLockedUsername) {
 
-      session = { username: deviceLockedUsername, accountLinked: deviceAccountLinked, accountSignedIn: accountSignedIn };
+      session = { username: deviceLockedUsername, accountLinked: deviceAccountLinked };
       rememberUsername(deviceLockedUsername);
       startChat();
       handleAccountLinkCallback();
@@ -6550,7 +6554,7 @@
 
     const saved = getRememberedUsername();
     if (saved) {
-      session = { username: saved, accountLinked: deviceAccountLinked, accountSignedIn: accountSignedIn };
+      session = { username: saved, accountLinked: deviceAccountLinked };
 
       deviceLockedUsername = saved;
       devicesRef.doc(CLIENT_ID).set({
@@ -6565,7 +6569,7 @@
     try {
       const restored = await restoreAccountToThisBrowser();
       if (restored && restored.username) {
-        session = { username: restored.username, accountLinked: true, accountSignedIn: true };
+        session = { username: restored.username, accountLinked: true };
         deviceLockedUsername = restored.username;
         rememberUsername(restored.username);
         if (isStandaloneAccountCallback()) {
