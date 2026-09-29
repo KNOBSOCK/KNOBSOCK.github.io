@@ -1792,6 +1792,9 @@
     background: none;
     cursor: pointer;
   }
+  .profile-colors input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+  .profile-colors input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+  .profile-colors input[type="color"]::-moz-color-swatch { border: none; border-radius: 50%; }
   .profile-photo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .profile-hint { margin-top: 4px; font-size: 11px; opacity: 0.7; }
   .profile-msg { min-height: 16px; margin-top: 8px; font-size: 13px; }
@@ -1831,6 +1834,8 @@
     max-width: 82%;
     display: flex;
     flex-direction: column;
+    align-self: flex-start;
+    align-items: flex-start;
     gap: 2px;
   }
   .msg.mine { align-self: flex-end; align-items: flex-end; }
@@ -5514,7 +5519,7 @@
       '<label class="profile-field"><span>Song</span><input type="text" id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + escapeHtml(profile.song || '') + '"><div class="profile-hint">Paste a link to a track on SoundCloud.</div></label>' +
       '<label class="profile-field"><span>About me</span><textarea id="profileAbout" maxlength="300">' + escapeHtml(profile.about || '') + '</textarea></label>' +
       '<div class="profile-field"><span>Card colors</span><div class="profile-colors">' +
-        '<label><input type="color" id="profileCardColor" value="' + cardColor + '"> Card</label>' +
+        '<label><input type="color" id="profileCardColor" value="' + cardColor + '"> Background color</label>' +
         '<label><input type="color" id="profileBorderColor" value="' + borderColor + '"> Border</label>' +
       '</div></div>' +
       '<div class="profile-msg" id="profileMsg"></div>' +
