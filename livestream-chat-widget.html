@@ -5148,7 +5148,8 @@
 #knobsockProfile .kp-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.65); animation: kpFade 0.2s ease both; }
 #knobsockProfile .kp-frame { position: relative; display: flex; width: 75vw; height: 75vh; height: 75dvh; animation: kpPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @media (orientation: portrait) {
-  #knobsockProfile .kp-frame { width: 92vw; }
+  #knobsockProfile .kp-frame { width: 92vw; height: auto; }
+  #knobsockProfile .profile-card { height: auto; max-height: 75vh; max-height: 75dvh; }
   #knobsockProfile .profile-head { flex-direction: column; padding-right: 0; }
   #knobsockProfile .profile-photo { width: clamp(110px, 34vmin, 200px); }
 }
