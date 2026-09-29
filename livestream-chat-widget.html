@@ -1083,6 +1083,17 @@
   }
 
 
+  .tapin-btn { position: relative; }
+  .tapin-btn .tapin-count {
+    color: #ffffff;
+    font-family: 'Gratis Neue', var(--font-body);
+    font-size: clamp(9px, 2.8cqmin, 11px);
+    font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 0 3px #000, 0 0 3px #000;
+  }
+  .chat-lock-timer { display: none; }
+
   .tapin-btn-icon {
     width: clamp(18px, 5.7cqmin, 23px);
     height: clamp(18px, 5.7cqmin, 23px);
@@ -4737,6 +4748,13 @@
 
   const pendingOwnTapinTimestamps = new Set();
 
+  function formatTapInCount(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    if (totalSeconds >= 3600) return Math.ceil(totalSeconds / 3600) + 'h';
+    if (totalSeconds >= 60) return Math.ceil(totalSeconds / 60) + 'm';
+    return totalSeconds + 's';
+  }
+
   function formatHms(ms) {
     const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
     const h = Math.floor(totalSeconds / 3600);
@@ -4770,7 +4788,7 @@
     if (unlocked) {
       status.textContent = '';
       status.classList.remove('is-locked');
-      lockTimer.textContent = 'Chat locks again in ' + formatHms(remaining);
+      lockTimer.textContent = '';
       chatGateTimer = setTimeout(refreshChatGateState, 1000);
     } else {
       status.textContent = 'Tap in to chat';
@@ -6697,13 +6715,15 @@
       btn.disabled = true;
       btn.classList.add('on-cooldown');
       btn.style.setProperty('--tapin-frac', String(Math.max(0, remaining / CHAT_UNLOCK_MS)));
-      if (label) label.innerHTML = TAPIN_ICON_HTML;
+      if (label) label.innerHTML = '<span class="tapin-count">' + escapeHtml(formatTapInCount(remaining)) + '</span>';
+      btn.title = 'Chat locks again in ' + formatHms(remaining);
 
-      tapinCooldownTimer = setTimeout(refreshTapInButtonState, Math.min(remaining, 30000));
+      tapinCooldownTimer = setTimeout(refreshTapInButtonState, remaining < 3600000 ? 1000 : 30000);
     } else {
       btn.disabled = false;
       btn.classList.remove('on-cooldown');
       btn.style.removeProperty('--tapin-frac');
+      btn.title = 'Tap in!';
       if (label) label.innerHTML = TAPIN_ICON_HTML;
     }
   }
