@@ -1795,7 +1795,11 @@
   .layout:not(.mode-portrait) .composer-bar > .streak-bar-wrap { grid-area: streak; }
   .layout:not(.mode-portrait) .composer-bar > .composer-status { grid-area: status; }
   .layout:not(.mode-portrait) .composer-bar > .chat-lock-timer { grid-area: timer; }
-  .layout:not(.mode-portrait) .composer-bar > .who { grid-area: who; align-self: end; }
+  .layout:not(.mode-portrait) .composer-bar > .who {
+    grid-area: who;
+    align-self: start;
+    padding-top: clamp(5px, 1.6cqmin, 8px);
+  }
   .layout:not(.mode-portrait) .composer-bar > .composer { grid-area: composer; }
   .layout:not(.mode-portrait) .composer-bar > .composer-limit-msg { grid-area: limit; }
 
@@ -6294,9 +6298,9 @@
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
-          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b><div class="who-account">${session.accountLinked
+          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
             ? '<button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
-            : '<button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button>'}</div></div>
+            : '<div class="who-account"><button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button></div>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
