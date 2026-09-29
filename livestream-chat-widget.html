@@ -1554,6 +1554,10 @@
     font-size: clamp(10px, 2.8cqw, 13px);
     line-height: 1.4;
   }
+  #app .account-screen,
+  #app .account-screen * {
+    font-family: 'Gratis Neue', var(--font-body);
+  }
   .account-link-btn {
     appearance: none;
     margin-left: 7px;
@@ -4287,7 +4291,10 @@
         username: firebase.firestore.FieldValue.delete(),
         accountId: firebase.firestore.FieldValue.delete(),
         accountLinkedAt: firebase.firestore.FieldValue.delete(),
-        restoredAt: firebase.firestore.FieldValue.delete()
+        restoredAt: firebase.firestore.FieldValue.delete(),
+        lastTapInAt: firebase.firestore.FieldValue.delete(),
+        streak: firebase.firestore.FieldValue.delete(),
+        streakDay: firebase.firestore.FieldValue.delete()
       });
     } catch (error) {
       accountSigningOut = false;
@@ -4299,6 +4306,8 @@
     deviceAccountLinked = false;
     forgetRememberedUsername();
     setPendingAccountLink(false);
+    loadAccountTapIn(null);
+    applyTapInStats(tapInStatsFrom(null));
     if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
     window.KNOBSOCK_CHAT_USERNAME = '';
     try { window.dispatchEvent(new Event('knobsock-chat-identity')); } catch (e) {}
@@ -4366,6 +4375,46 @@
 
   let deviceLockedUsername = null;
   let deviceAccountLinked = false;
+  let deviceTapIn = null;
+  let accountTapInKey = null;
+
+  function tapInStatsFrom(data) {
+    return {
+      lastTapInAt: Number(data && data.lastTapInAt) || 0,
+      streak: Number(data && data.streak) || 0,
+      streakDay: (data && data.streakDay) || null
+    };
+  }
+
+  function applyTapInStats(stats) {
+    lastTapInAt = stats.lastTapInAt;
+    myStreak = stats.streak;
+    myStreakDay = stats.streakDay;
+    refreshTapInButtonState();
+    refreshChatGateState();
+  }
+
+  function loadAccountTapIn(username) {
+    const key = username ? String(username).toLowerCase() : null;
+    if (key === accountTapInKey) return;
+    accountTapInKey = key;
+    if (!key) return;
+    usernamesRef.doc(key).get().then((doc) => {
+      if (accountTapInKey !== key) return;
+      const account = tapInStatsFrom(doc.exists ? doc.data() : null);
+      const device = deviceTapIn && deviceTapIn.usernameKey === key ? deviceTapIn : null;
+      if (device && device.lastTapInAt > account.lastTapInAt) {
+        usernamesRef.doc(key).set({
+          lastTapInAt: device.lastTapInAt,
+          streak: device.streak,
+          streakDay: device.streakDay
+        }, { merge: true }).catch((e) => console.error('Could not save tap-in to account:', e));
+        applyTapInStats(device);
+        return;
+      }
+      if (account.lastTapInAt > lastTapInAt) applyTapInStats(account);
+    }).catch(() => {});
+  }
   let resolveDeviceLockReady;
   const deviceLockPromise = new Promise((resolve) => { resolveDeviceLockReady = resolve; });
   let deviceLockReady = false;
@@ -4384,12 +4433,9 @@
     deviceAccountLinked = Boolean(data && data.accountId);
     markDeviceLockReady();
 
-    lastTapInAt = (data && data.lastTapInAt) || 0;
-    refreshTapInButtonState();
-    refreshChatGateState();
+    deviceTapIn = Object.assign(tapInStatsFrom(data), { usernameKey: lockedName ? lockedName.toLowerCase() : null });
+    if (!accountTapInKey) applyTapInStats(deviceTapIn);
 
-    myStreak = (data && data.streak) || 0;
-    myStreakDay = (data && data.streakDay) || null;
     myFightWins = (data && data.fightWins) || 0;
     const savedFightCooldown = Number(data && data.fightCooldownUntil);
     myFightCooldownUntil = Number.isFinite(savedFightCooldown) ? savedFightCooldown : 0;
@@ -5711,12 +5757,12 @@
     myStreakDay = next.day;
     showStreakBar(myStreak);
 
+    const tapInStats = { lastTapInAt: lastTapInAt, streak: myStreak, streakDay: myStreakDay };
+    usernamesRef.doc(session.username.toLowerCase()).set(tapInStats, { merge: true })
+      .catch((e) => console.error('Could not save tap-in to account:', e));
+
     try {
-      await devicesRef.doc(CLIENT_ID).set({
-        lastTapInAt: lastTapInAt,
-        streak: myStreak,
-        streakDay: myStreakDay
-      }, { merge: true });
+      await devicesRef.doc(CLIENT_ID).set(tapInStats, { merge: true });
       await messagesRef.add({
         type: 'tapin',
         username: session.username,
@@ -5968,12 +6014,12 @@
   function renderAccountAccess(mode, message) {
     const linking = mode === 'link';
     app.innerHTML = `
-      <div class="chat-screen auth-screen">
+      <div class="chat-screen auth-screen account-screen">
         <div class="auth">
           <div class="auth-inner">
-            <label for="accountEmail">${linking ? 'link your username to email' : 'sign in to your linked username'}</label>
+            <label for="accountEmail">${linking ? 'Link your email to your username' : 'sign in to your linked username'}</label>
             <p class="auth-note">${linking
-              ? 'We’ll email you a one-time sign-in link. Your current chat username stays the same.'
+              ? 'Link your email so you don’t lose access to your account. You’ll get a one-time sign-in link. You can log in at anytime using your email.'
               : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link.'}</p>
             <input type="text" id="accountEmail" name="accountEmail" autocomplete="email" inputmode="email" placeholder="you@example.com" />
             <div class="auth-actions">
@@ -6123,7 +6169,7 @@
           <div class="chat-lock-timer" id="chatLockTimer"></div>
           <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
             ? ' <span aria-label="Account linked">account linked</span> <button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
-            : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link account</button>'}</div>
+            : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
@@ -6515,6 +6561,7 @@
     window.KNOBSOCK_CHAT_USERNAME = session.username;
     try { window.dispatchEvent(new Event('knobsock-chat-identity')); } catch (e) {}
     startMessageSession(session.username);
+    loadAccountTapIn(session.username);
     renderChatShell();
     subscribeToMessages();
     if (canAutoFocusInput()) $('msgInput').focus();
