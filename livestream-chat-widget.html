@@ -1677,6 +1677,21 @@
     background: rgba(0, 0, 0, 0.25);
     border-radius: 0 0 clamp(10px, 2.5vw, 28px) 0;
   }
+  /* On desktop, carry the composer shade through the grid gutter so it meets
+     the video edge. The chat controls remain aligned with the chat column. */
+  @media (min-width: 861px) {
+    .composer-bar { position: relative; }
+    .composer-bar::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      right: 100%;
+      bottom: 0;
+      width: 14px;
+      border-top: 1px solid var(--line);
+      background: inherit;
+    }
+  }
   @media (max-width: 860px) {
     .composer-bar { border-radius: 0 0 clamp(10px, 2.5vw, 28px) clamp(10px, 2.5vw, 28px); }
   }
