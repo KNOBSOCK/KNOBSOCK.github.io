@@ -435,9 +435,9 @@
           (accountMenuOpen ? " is-open" : "") +
           '" id="accountMenu"><div class="account-menu-heading">' +
           esc(username) +
-          '</div><a href="#member/' +
-          encodeURIComponent(device) +
-          '">My threads</a>' +
+          '</div><a href="#profile/' +
+          encodeURIComponent(username.toLowerCase()) +
+          '">My profile</a>' +
           (accountLinked
             ? '<button type="button" id="accountSignOut">Sign out</button>'
             : '<a href="#account/link">Link email to account</a>') +
@@ -594,6 +594,375 @@
     if (location.hash && location.hash !== "#") location.hash = "";
     else renderRoute();
   }
+  const PROFILE_BG = "#000000",
+    PROFILE_BORDER = "#00c600",
+    PROFILE_CACHE_MS = 60000,
+    RANK_CACHE_MS = 300000,
+    COUNT_URL =
+      "https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    REPORT_REASONS = ["Inappropriate photo", "Harassment or hate", "Spam", "Something else"],
+    profileCache = {},
+    rankCache = {};
+  const dayKey = (t) => new Date(t).toISOString().slice(0, 10);
+  const safeHex = (v, fallback) => (/^#[0-9a-f]{6}$/i.test(String(v || "")) ? v : fallback);
+  const safePhoto = (v) =>
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(v || "")) ? v : "";
+  function inkFor(hex) {
+    const n = parseInt(hex.slice(1), 16),
+      ch = (v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      };
+    return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255) > 0.4
+      ? "#000000"
+      : "#ffffff";
+  }
+  function profileStyle(p) {
+    const bg = safeHex(p.cardColor, PROFILE_BG),
+      border = safeHex(p.borderColor, PROFILE_BORDER);
+    return (
+      "--card-bg:" + bg + ";--card-border:" + border + ";--card-ink:" + inkFor(bg) +
+      ";--border-ink:" + inkFor(border)
+    );
+  }
+  function normalizeSong(raw) {
+    let url;
+    try {
+      url = new URL(String(raw || "").trim());
+    } catch {
+      return "";
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    const host = url.hostname.toLowerCase();
+    if (host === "m.soundcloud.com" || host === "www.soundcloud.com") url.hostname = "soundcloud.com";
+    if (url.hostname !== "soundcloud.com" && url.hostname !== "on.soundcloud.com") return "";
+    if (!url.pathname.split("/").filter(Boolean).length) return "";
+    url.protocol = "https:";
+    url.hash = "";
+    if (url.hostname === "soundcloud.com") url.search = "";
+    return url.toString();
+  }
+  function songEmbed(song) {
+    return (
+      "https://w.soundcloud.com/player/?url=" + encodeURIComponent(song) +
+      "&color=%2300c600&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false&show_artwork=false"
+    );
+  }
+  function lastOnline(data, key) {
+    if (username && key === username.toLowerCase()) return "Online now";
+    const ts = Math.max(Number(data.lastSeenAt) || 0, Number(data.lastTapInAt) || 0);
+    if (!ts) return "A while ago";
+    const diff = Date.now() - ts;
+    if (diff < 300000) return "Online now";
+    if (diff < 3600000) return Math.round(diff / 60000) + " min ago";
+    if (diff < 86400000) {
+      const h = Math.round(diff / 3600000);
+      return h + (h === 1 ? " hour ago" : " hours ago");
+    }
+    if (diff < 604800000) {
+      const d = Math.round(diff / 86400000);
+      return d + (d === 1 ? " day ago" : " days ago");
+    }
+    return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  }
+  function profileStats(data) {
+    const now = Date.now(),
+      fresh = data.streakDay === dayKey(now) || data.streakDay === dayKey(now - 86400000);
+    return {
+      streak: fresh ? Math.max(0, Number(data.streak) || 0) : 0,
+      wins: Math.max(0, Number(data.fightWins) || 0),
+    };
+  }
+  async function loadProfile(key, fresh) {
+    const hit = profileCache[key],
+      mine = username && key === username.toLowerCase();
+    if (!fresh && hit && (mine || Date.now() - hit.at < PROFILE_CACHE_MS)) return hit.data;
+    const snap = await db.collection("chat_usernames").doc(key).get(),
+      data = snap.exists ? snap.data() : null;
+    profileCache[key] = { data, at: Date.now() };
+    return data;
+  }
+  function countUsernames(where) {
+    return fetch(COUNT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        structuredAggregationQuery: {
+          structuredQuery: { from: [{ collectionId: "chat_usernames" }], where },
+          aggregations: [{ alias: "n", count: {} }],
+        },
+      }),
+    })
+      .then((r) => r.json())
+      .then((rows) => {
+        const row = Array.isArray(rows) && rows.find((r) => r && r.result),
+          field = row && row.result.aggregateFields && row.result.aggregateFields.n;
+        if (!field || field.integerValue == null) throw Error("count unavailable");
+        return parseInt(field.integerValue, 10) || 0;
+      });
+  }
+  async function loadRanks(key, stats) {
+    const hit = rankCache[key];
+    if (hit && Date.now() - hit.at < RANK_CACHE_MS && hit.streak === stats.streak && hit.wins === stats.wins)
+      return hit;
+    const now = Date.now();
+    const [a, b] = await Promise.all([
+      stats.streak > 0
+        ? countUsernames({
+            compositeFilter: {
+              op: "AND",
+              filters: [
+                { fieldFilter: { field: { fieldPath: "streak" }, op: "GREATER_THAN", value: { integerValue: String(stats.streak) } } },
+                { fieldFilter: { field: { fieldPath: "streakDay" }, op: "IN", value: { arrayValue: { values: [{ stringValue: dayKey(now) }, { stringValue: dayKey(now - 86400000) }] } } } },
+              ],
+            },
+          }).catch(() => null)
+        : null,
+      stats.wins > 0
+        ? countUsernames({
+            fieldFilter: { field: { fieldPath: "fightWins" }, op: "GREATER_THAN", value: { integerValue: String(stats.wins) } },
+          }).catch(() => null)
+        : null,
+    ]);
+    const ranks = {
+      streak: stats.streak,
+      wins: stats.wins,
+      streakRank: a == null ? null : a + 1,
+      winsRank: b == null ? null : b + 1,
+      at: Date.now(),
+    };
+    rankCache[key] = ranks;
+    return ranks;
+  }
+  function markSeen() {
+    if (!username) return;
+    const key = username.toLowerCase(),
+      storeKey = "knobsock_last_seen_" + key;
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(storeKey)) || 0;
+    } catch {}
+    if (Date.now() - last < 1800000) return;
+    try {
+      localStorage.setItem(storeKey, String(Date.now()));
+    } catch {}
+    db.collection("chat_usernames").doc(key).set({ lastSeenAt: Date.now() }, { merge: true }).catch(() => {});
+  }
+  function shrinkPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file),
+        img = new Image();
+      img.onload = () => {
+        const size = 192,
+          side = Math.min(img.naturalWidth, img.naturalHeight),
+          canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        let q = 0.82,
+          out = canvas.toDataURL("image/jpeg", q);
+        while (out.length > 40000 && q > 0.4) {
+          q -= 0.1;
+          out = canvas.toDataURL("image/jpeg", q);
+        }
+        resolve(out);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(Error("That image could not be opened."));
+      };
+      img.src = url;
+    });
+  }
+  const photoHtml = (photo, name) =>
+    photo ? '<img src="' + photo + '" alt="">' : esc(String(name || "?").charAt(0).toUpperCase());
+  const reportedKey = (key) => "knobsock_reported_" + key + "_" + device;
+  function hasReported(key) {
+    try {
+      return localStorage.getItem(reportedKey(key)) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function renderReport(key, name) {
+    const box = $("profileReport");
+    if (!box) return;
+    if (hasReported(key)) {
+      box.innerHTML = '<p class="profile-empty">Reported. Thanks for letting us know.</p>';
+      return;
+    }
+    box.innerHTML = '<button type="button" id="profileReportBtn">Report profile</button>';
+    $("profileReportBtn").onclick = () => {
+      box.innerHTML =
+        '<label>Why are you reporting ' + esc(name) + '?<select id="profileReportReason">' +
+        REPORT_REASONS.map((r) => "<option>" + esc(r) + "</option>").join("") +
+        '</select></label><div class="profile-actions"><button type="button" id="profileReportSend">Send report</button><button type="button" id="profileReportCancel">Cancel</button></div>';
+      $("profileReportCancel").onclick = () => renderReport(key, name);
+      $("profileReportSend").onclick = () =>
+        act($("profileReportSend"), async () => {
+          try {
+            await db.collection("chat_profile_reports").doc(key + "__" + device).set({
+              username: String(name).slice(0, 24),
+              usernameKey: key,
+              reporterDevice: device,
+              reporterUsername: username,
+              reason: $("profileReportReason").value.slice(0, 200),
+              createdAt: stamp(),
+            });
+          } catch {
+            throw Error("Could not send the report. Try again.");
+          }
+          try {
+            localStorage.setItem(reportedKey(key), "1");
+          } catch {}
+          renderReport(key, name);
+        });
+    };
+  }
+  async function profilePage(view, key, editing, token) {
+    view.innerHTML = "Loading profile…";
+    const data = await loadProfile(key);
+    if (token !== version) return;
+    if (!data) {
+      view.innerHTML = '<div class="breadcrumbs"><a href="#">Boards</a></div><h1>Member not found</h1>';
+      return;
+    }
+    const name = data.username || key,
+      mine = username && key === username.toLowerCase();
+    if (editing && mine) return profileEdit(view, key, name, data);
+    const p = data.profile || {},
+      song = normalizeSong(p.song),
+      stats = profileStats(data),
+      photo = safePhoto(p.photo),
+      mineThreads = ordered(visibleThreads().filter((t) => String(t.username || "").toLowerCase() === key));
+    view.innerHTML =
+      '<div class="breadcrumbs"><a href="#">Boards</a></div><div class="profile-page" style="' + profileStyle(p) + '">' +
+      '<div class="profile-banner"><h1>' + esc(name) + '</h1><span>' + esc(lastOnline(data, key)) + "</span></div>" +
+      '<div class="profile-grid"><aside class="profile-side">' +
+      '<div class="profile-photo">' + photoHtml(photo, name) + "</div>" +
+      '<table class="profile-facts"><tr><th>Favorite color</th><td>' + (p.favoriteColor ? esc(censorText(p.favoriteColor)) : "—") +
+      "</td></tr><tr><th>Last online</th><td>" + esc(lastOnline(data, key)) +
+      "</td></tr><tr><th>Tap-in streak</th><td>" + stats.streak + (stats.streak === 1 ? " day" : " days") +
+      ' <span class="profile-rank" id="profileStreakRank"></span></td></tr><tr><th>Knockouts</th><td>' + stats.wins +
+      ' <span class="profile-rank" id="profileKoRank"></span></td></tr></table>' +
+      (mine
+        ? '<div class="profile-actions">' +
+          (accountLinked
+            ? '<a class="profile-btn" href="#profile/' + encodeURIComponent(key) + '/edit">[ Edit profile ]</a>'
+            : '<a class="profile-btn" href="#account/link">[ Link email to edit profile ]</a>') +
+          "</div>"
+        : username
+          ? '<div class="profile-actions" id="profileReport"></div>'
+          : "") +
+      '</aside><div class="profile-main">' +
+      '<section class="profile-box"><h2>About me</h2><div class="profile-box-body">' +
+      (p.about ? '<p class="profile-about">' + esc(censorText(p.about)) + "</p>" : '<p class="profile-empty">Nothing here yet.</p>') +
+      '</div></section><section class="profile-box"><h2>Song</h2><div class="profile-box-body">' +
+      (song
+        ? '<div class="profile-song"><iframe title="' + esc(name) + '’s song" allow="autoplay" loading="lazy" src="' + esc(songEmbed(song)) + '"></iframe></div>'
+        : '<p class="profile-empty">No song yet.</p>') +
+      '</div></section><section class="profile-box"><h2>' + esc(name) + "’s threads (" + mineThreads.length + ')</h2><div class="profile-box-body">' +
+      threadTable(mineThreads) +
+      "</div></section></div></div></div>";
+    if (!mine && username) renderReport(key, name);
+    if (stats.streak || stats.wins)
+      loadRanks(key, stats).then((r) => {
+        if (token !== version) return;
+        if (r.streakRank && $("profileStreakRank")) $("profileStreakRank").textContent = "#" + r.streakRank;
+        if (r.winsRank && $("profileKoRank")) $("profileKoRank").textContent = "#" + r.winsRank;
+      });
+  }
+  async function profileEdit(view, key, name, data) {
+    const signedIn = supa ? (await supa.auth.getSession()).data.session : null;
+    if (!accountLinked || !signedIn) {
+      view.innerHTML =
+        '<div class="breadcrumbs"><a href="#profile/' + encodeURIComponent(key) + '">Back to profile</a></div>' +
+        "<h1>Edit profile</h1><p>" +
+        (accountLinked
+          ? 'Sign in with your email on this browser to edit your profile. <a href="#account/signin">Sign in with email →</a>'
+          : 'Link your email to your username to edit your profile. <a href="#account/link">Link email →</a>') +
+        "</p>";
+      return;
+    }
+    const p = Object.assign({}, data.profile || {});
+    let photo = safePhoto(p.photo);
+    const bg = safeHex(p.cardColor, PROFILE_BG),
+      border = safeHex(p.borderColor, PROFILE_BORDER);
+    view.innerHTML =
+      '<div class="breadcrumbs"><a href="#profile/' + encodeURIComponent(key) + '">Back to profile</a></div>' +
+      '<div class="profile-page" id="profilePreview" style="' + profileStyle(p) + '">' +
+      '<div class="profile-banner"><h1>Edit profile</h1><span>' + esc(name) + "</span></div>" +
+      '<form class="profile-edit" id="profileForm">' +
+      '<label>Photo</label><div class="profile-photo-row"><div class="profile-photo" id="profilePhotoPreview">' + photoHtml(photo, name) +
+      '</div><label class="profile-btn">[ Choose photo ]<input type="file" id="profilePhotoInput" accept="image/*" hidden></label>' +
+      '<button type="button" id="profilePhotoRemove">Remove</button></div>' +
+      '<label>Favorite color<input id="profileFavColor" maxlength="30" autocomplete="off" value="' + esc(p.favoriteColor || "") + '"></label>' +
+      '<label>Song<input id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + esc(p.song || "") + '"><small>Paste a link to a track on SoundCloud.</small></label>' +
+      '<label>About me<textarea id="profileAbout" maxlength="300">' + esc(p.about || "") + "</textarea></label>" +
+      '<div class="profile-colors"><label><input type="color" id="profileBg" value="' + bg + '"> Background color</label>' +
+      '<label><input type="color" id="profileBorder" value="' + border + '"> Border color</label></div>' +
+      '<div class="profile-actions"><button>Save</button><a class="profile-btn" href="#profile/' + encodeURIComponent(key) + '">[ Cancel ]</a></div>' +
+      "</form></div>";
+    const preview = $("profilePreview"),
+      recolor = () =>
+        preview.setAttribute("style", profileStyle({ cardColor: $("profileBg").value, borderColor: $("profileBorder").value }));
+    $("profileBg").oninput = recolor;
+    $("profileBorder").oninput = recolor;
+    $("profilePhotoInput").onchange = async function () {
+      const file = this.files && this.files[0];
+      if (!file) return;
+      status("Loading photo…");
+      try {
+        photo = await shrinkPhoto(file);
+        $("profilePhotoPreview").innerHTML = photoHtml(photo, name);
+        status("");
+      } catch (e) {
+        status(e.message, true);
+      }
+      this.value = "";
+    };
+    $("profilePhotoRemove").onclick = () => {
+      photo = "";
+      $("profilePhotoPreview").innerHTML = photoHtml("", name);
+    };
+    $("profileForm").onsubmit = (e) => {
+      e.preventDefault();
+      act($("profileForm").querySelector("button:not([type])"), async () => {
+        const rawSong = $("profileSong").value.trim(),
+          song = rawSong ? normalizeSong(rawSong) : "";
+        if (rawSong && !song) throw Error("That doesn’t look like a SoundCloud link.");
+        const next = {
+          photo,
+          favoriteColor: $("profileFavColor").value.trim().slice(0, 30),
+          song,
+          about: $("profileAbout").value.trim().slice(0, 300),
+          cardColor: safeHex($("profileBg").value, PROFILE_BG),
+          borderColor: safeHex($("profileBorder").value, PROFILE_BORDER),
+          updatedAt: Date.now(),
+        };
+        let result;
+        try {
+          result = await accountCall("saveProfile", { clientId: device, username, profile: next });
+        } catch (err) {
+          throw Error(
+            err && err.code === "unauthenticated"
+              ? "Your email sign-in expired. Sign in with email again to save."
+              : (err && err.message) || "Could not save your profile.",
+          );
+        }
+        profileCache[key] = {
+          data: Object.assign({}, data, { profile: (result && result.profile) || next }),
+          at: Date.now(),
+        };
+        notice("Profile saved.");
+        location.hash = "profile/" + encodeURIComponent(key);
+      });
+    };
+  }
   function accountView(view, mode) {
     const linking = mode === "link" && !!username;
     if (!accountFlow || accountFlow.mode !== (linking ? "link" : "signin"))
@@ -726,8 +1095,11 @@
               : "") +
             (t.locked ? "[LOCKED] " : "") +
             esc(t.title) +
-            "</a><small>" +
+            '</a><small><a href="#profile/' +
+            encodeURIComponent(String(t.username || "").toLowerCase()) +
+            '">' +
             esc(t.username) +
+            "</a>" +
             officialBadge(t.isOfficial) +
             "</small></td><td>" +
             Math.max(0, (t.postCount || 1) - 1) +
@@ -988,8 +1360,8 @@
               (p) =>
                 '<article class="post" id="post-' +
                 p.id +
-                '"><div class="post-head"><a href="#member/' +
-                encodeURIComponent(p.authorId) +
+                '"><div class="post-head"><a href="#profile/' +
+                encodeURIComponent(String(p.username || "").toLowerCase()) +
                 '">' +
                 esc(p.username) +
                 officialBadge(p.isOfficial) +
@@ -1170,17 +1542,18 @@
               "Be kind. No harassment, hate, threats, spam, impersonation, or sharing private information. Keep posts in the right board. Do not post illegal content. Report problems instead of escalating them. Moderators may remove content, lock discussions, and suspend access to both forums and live chat.",
           ) +
           "</p><p>■ means unread activity. The pin icon means pinned. Drafts stay in this browser. Posts are public. Reports are visible only to moderators.</p><p>For help with your name or moderation, contact the site administrator through the site’s published contact options.</p>";
+      } else if (kind === "profile" && id) {
+        let key = "";
+        try {
+          key = decodeURIComponent(id).toLowerCase();
+        } catch {}
+        await profilePage(view, key, parts[2] === "edit", token);
       } else if (kind === "member" && id) {
         const s = await db.collection("chat_devices").doc(id).get();
         if (token !== version) return;
-        view.innerHTML =
-          "<h1>" +
-          esc(s.exists ? s.data().username || "Member" : "Member") +
-          '</h1><h2>Threads</h2><div class="forum-category">' +
-          threadTable(
-            ordered(visibleThreads().filter((t) => t.authorId === id)),
-          ) +
-          "</div>";
+        const memberName = s.exists ? s.data().username || "" : "";
+        if (memberName) await profilePage(view, memberName.toLowerCase(), false, token);
+        else view.innerHTML = '<div class="breadcrumbs"><a href="#">Boards</a></div><h1>Member not found</h1>';
       } else if (["board", "recent", "search"].includes(kind)) {
         const b = board(id);
         let query = "";
@@ -1249,6 +1622,7 @@
             !location.hash.startsWith("#thread/") &&
             !location.hash.startsWith("#new/") &&
             !location.hash.startsWith("#account") &&
+            !location.hash.startsWith("#profile/") &&
             location.hash !== "#signup"
           )
             renderRoute();
@@ -1295,7 +1669,10 @@
           deviceData = d.exists ? d.data() : null;
           username = (deviceData && deviceData.username) || "";
           accountLinked = !!(deviceData && deviceData.accountId);
-          if (username) localStorage.setItem("chat_last_username", username);
+          if (username) {
+            localStorage.setItem("chat_last_username", username);
+            markSeen();
+          }
           renderIdentity();
           if (!!wasUsername !== !!username && !location.hash.startsWith("#account"))
             renderRoute();
