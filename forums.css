@@ -145,8 +145,74 @@
   padding: 4px 0 9px;
 }
 #identity {
+  position: relative;
+  z-index: 2;
   padding: 9px 0;
   font-size: 0.86em;
+}
+#terminal .identity-name {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+#terminal .identity-name:hover,
+#terminal .identity-name:focus-visible,
+#terminal .identity-name[aria-expanded="true"] {
+  background: transparent;
+  color: var(--green);
+}
+.account-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% - 4px);
+  left: 0;
+  min-width: 230px;
+  border: var(--line);
+  background: #000;
+}
+.account-menu.is-open {
+  display: block;
+}
+.account-menu-heading {
+  padding: 6px 10px;
+  border-bottom: var(--line);
+  color: var(--green);
+  text-transform: uppercase;
+}
+#terminal .account-menu a,
+#terminal .account-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+#terminal .account-menu a:hover,
+#terminal .account-menu a:focus-visible,
+#terminal .account-menu button:hover,
+#terminal .account-menu button:focus-visible {
+  background: var(--green);
+  color: #000;
+  text-decoration: none;
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 12px;
+}
+.account-form p {
+  line-height: 1.4;
+}
+.account-form h1 {
+  text-align: center;
+}
+#terminal .gate-signin {
+  font-size: 0.85em;
+  text-decoration: underline;
 }
 .search {
   display: flex;

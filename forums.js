@@ -413,7 +413,12 @@
   });
   layout();
   showRail();
+  let deviceData = null,
+    accountLinked = false,
+    accountMenuOpen = false,
+    accountFlow = null;
   function renderIdentity() {
+    if (!activeBan() && !username) accountMenuOpen = false;
     $("identity").innerHTML = activeBan()
       ? '<span class="error">Banned from live chat and forums. ' +
         esc(ban.reason || "") +
@@ -422,12 +427,242 @@
           : "") +
         "</span>"
       : username
-        ? 'Logged in as <a href="#member/' +
-          encodeURIComponent(device) +
+        ? 'Logged in as <button type="button" class="identity-name" id="identityName" aria-haspopup="true" aria-expanded="' +
+          accountMenuOpen +
           '">' +
           esc(username) +
-          "</a>"
+          ' ▾</button><div class="account-menu' +
+          (accountMenuOpen ? " is-open" : "") +
+          '" id="accountMenu"><div class="account-menu-heading">' +
+          esc(username) +
+          '</div><a href="#member/' +
+          encodeURIComponent(device) +
+          '">My threads</a>' +
+          (accountLinked
+            ? '<button type="button" id="accountSignOut">Sign out</button>'
+            : '<a href="#account/link">Link email to account</a>') +
+          "</div>"
         : '<a href="#signup">What are you gonna call yourself? Sign up →</a>';
+    const nameBtn = $("identityName");
+    if (nameBtn)
+      nameBtn.onclick = (e) => {
+        e.stopPropagation();
+        accountMenuOpen = !accountMenuOpen;
+        renderIdentity();
+      };
+    const signOutBtn = $("accountSignOut");
+    if (signOutBtn)
+      signOutBtn.onclick = (e) => {
+        e.stopPropagation();
+        act(signOutBtn, async () => {
+          signOutBtn.textContent = "Signing out…";
+          await signOutAccount();
+        });
+      };
+  }
+  document.addEventListener("click", (e) => {
+    if (!accountMenuOpen) return;
+    if (e.target.closest && e.target.closest("#accountMenu")) return;
+    accountMenuOpen = false;
+    renderIdentity();
+  });
+  const supa = window.supabase
+    ? window.supabase.createClient(
+        "https://ypofuhazhxtzvtywguew.supabase.co",
+        "sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO",
+        { auth: { flowType: "implicit" } },
+      )
+    : null;
+  const PENDING_ACCOUNT_LINK_KEY = "chat_pending_account_link";
+  function accountErrorMessage(e, fallback) {
+    const code = e && e.code;
+    if (code === "not-found") return "No KNOBSOCK username is linked to this email yet.";
+    if (code === "already-exists") return e.message || "That account is already linked.";
+    if (code === "unauthenticated") return "That sign-in link has expired. Please request another one.";
+    return (e && e.message) || fallback;
+  }
+  async function accountCall(action, payload) {
+    if (!supa) throw Error("Email sign-in is unavailable right now.");
+    const result = await supa.functions.invoke("chat-account", {
+      body: Object.assign({ action }, payload),
+    });
+    if (!result.error) return result.data;
+    let details = null;
+    try {
+      details = await result.error.context.json();
+    } catch {}
+    const e = Error(
+      (details && details.error) || result.error.message || "Account service unavailable.",
+    );
+    e.code = details && details.code;
+    throw e;
+  }
+  async function sendAccountEmail(raw, linking) {
+    if (!supa) throw Error("Email sign-in is unavailable right now.");
+    const email = String(raw || "").trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw Error("Enter a valid email address.");
+    if (linking) localStorage.setItem(PENDING_ACCOUNT_LINK_KEY, "1");
+    const result = await supa.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo:
+          location.origin +
+          "/livestream-chat-widget.html?" +
+          (linking ? "account-link-callback=1" : "account-restore-callback=1") +
+          "&return=forums",
+        shouldCreateUser: true,
+      },
+    });
+    if (result.error) {
+      if (linking) localStorage.removeItem(PENDING_ACCOUNT_LINK_KEY);
+      throw result.error;
+    }
+    return email;
+  }
+  async function saveDeviceTapInToAccount() {
+    const d = deviceData || {};
+    if (!d.lastTapInAt || !username) return;
+    const account = db.collection("chat_usernames").doc(username.toLowerCase());
+    const snap = await account.get();
+    const saved = snap.exists ? snap.data() : {};
+    if ((Number(saved.lastTapInAt) || 0) >= Number(d.lastTapInAt)) return;
+    await account.set(
+      { lastTapInAt: d.lastTapInAt, streak: d.streak || 0, streakDay: d.streakDay || null },
+      { merge: true },
+    );
+  }
+  function clearDeviceFields(names) {
+    const del = firebase.firestore.FieldValue.delete(),
+      update = {};
+    names.forEach((n) => (update[n] = del));
+    return db.collection("chat_devices").doc(device).update(update);
+  }
+  const TAP_IN_FIELDS = ["lastTapInAt", "streak", "streakDay"];
+  async function signOutAccount() {
+    await saveDeviceTapInToAccount();
+    await clearDeviceFields(
+      ["username", "accountId", "accountLinkedAt", "restoredAt"].concat(TAP_IN_FIELDS),
+    );
+    if (supa) await supa.auth.signOut().catch(() => {});
+    localStorage.removeItem("chat_last_username");
+    localStorage.removeItem(PENDING_ACCOUNT_LINK_KEY);
+    accountMenuOpen = false;
+    goHome();
+    notice("Signed out. Sign in with email to switch accounts.");
+  }
+  let accountNotice = null;
+  function notice(text) {
+    accountNotice = { text, at: Date.now() };
+    status(text);
+  }
+  async function finishAccountCode(linking, email, raw) {
+    const code = String(raw || "").replace(/\s/g, "");
+    if (!/^\d{6,10}$/.test(code)) throw Error("Enter the code from the email.");
+    const result = await supa.auth.verifyOtp({ email, token: code, type: "email" });
+    if (result.error) throw Error("That code is wrong or has expired.");
+    if (linking) {
+      await accountCall("link", { username, clientId: device });
+      localStorage.removeItem(PENDING_ACCOUNT_LINK_KEY);
+      accountFlow = null;
+      goHome();
+      notice("Email linked. You can sign in with it anytime.");
+      return;
+    }
+    if (username && deviceData && deviceData.lastTapInAt) {
+      await saveDeviceTapInToAccount();
+      await clearDeviceFields(TAP_IN_FIELDS);
+    }
+    let restored;
+    try {
+      restored = await accountCall("restore", { clientId: device });
+    } catch (e) {
+      if (e && e.code === "not-found") {
+        await supa.auth.signOut().catch(() => {});
+        accountFlow = null;
+      }
+      throw e;
+    }
+    if (!restored || !restored.username) throw Error("Could not restore your linked account.");
+    localStorage.setItem("chat_last_username", restored.username);
+    accountFlow = null;
+    goHome();
+  }
+  function goHome() {
+    if (location.hash && location.hash !== "#") location.hash = "";
+    else renderRoute();
+  }
+  function accountView(view, mode) {
+    const linking = mode === "link" && !!username;
+    if (!accountFlow || accountFlow.mode !== (linking ? "link" : "signin"))
+      accountFlow = { mode: linking ? "link" : "signin", email: "" };
+    const heading = linking
+      ? "Link your email to your username"
+      : "Sign in to your linked username";
+    if (accountFlow.email) {
+      view.innerHTML =
+        '<div class="login-gate"><form class="compose account-form" id="accountForm"><h1>' +
+        heading +
+        "</h1><p>We sent an email to " +
+        esc(accountFlow.email) +
+        '. Enter the code from it here, or tap the link in the email.</p><label>Code<span class="prompt-row"><input name="code" maxlength="10" required autocomplete="one-time-code" inputmode="numeric"><span class="cursor-blink" aria-hidden="true">█</span></span></label><div class="account-actions"><button>' +
+        (linking ? "Link email" : "Sign in") +
+        '</button><button type="button" id="accountBack">Back</button></div></form></div>';
+      $("accountForm").onsubmit = (e) => {
+        e.preventDefault();
+        const button = $("accountForm").querySelector("button");
+        act(button, () =>
+          finishAccountCode(linking, accountFlow.email, $("accountForm").code.value).catch(
+            (err) => {
+              if (!accountFlow) renderRoute();
+              throw Error(accountErrorMessage(err, "Could not sign in with that code."));
+            },
+          ),
+        );
+      };
+    } else {
+      view.innerHTML =
+        '<div class="login-gate"><form class="compose account-form" id="accountForm"><h1>' +
+        heading +
+        "</h1><p>" +
+        (linking
+          ? "Link your email so you don’t lose access to your account. You’ll get a one-time sign-in link. You can log in at anytime using your email."
+          : "Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link and code." +
+            (username && !accountLinked
+              ? " <b>" +
+                esc(username) +
+                "</b> isn’t linked to an email, so you won’t be able to get back to it."
+              : "")) +
+        '</p><label>Email<span class="prompt-row"><input name="email" type="email" maxlength="254" required autocomplete="email" inputmode="email"><span class="cursor-blink" aria-hidden="true">█</span></span></label><div class="account-actions"><button>Email me a sign-in link</button>' +
+        (linking ? '<button type="button" id="accountSwitch">Sign in to another account</button>' : "") +
+        '<button type="button" id="accountBack">Back</button></div></form></div>';
+      $("accountForm").onsubmit = (e) => {
+        e.preventDefault();
+        const button = $("accountForm").querySelector("button");
+        act(button, async () => {
+          try {
+            accountFlow.email = await sendAccountEmail($("accountForm").email.value, linking);
+          } catch (err) {
+            throw Error(accountErrorMessage(err, "Could not send a sign-in link."));
+          }
+          renderRoute();
+        });
+      };
+      const switchBtn = $("accountSwitch");
+      if (switchBtn)
+        switchBtn.onclick = () => {
+          accountFlow = null;
+          location.hash = "account/signin";
+        };
+    }
+    $("accountBack").onclick = () => {
+      accountFlow = null;
+      goHome();
+    };
+    const input = $("accountForm").querySelector(".prompt-row input"),
+      cursor = $("accountForm").querySelector(".cursor-blink");
+    input.oninput = () => {
+      cursor.style.display = input.value ? "none" : "";
+    };
   }
   async function signup(raw) {
     const name = raw.trim();
@@ -889,13 +1124,17 @@
       id = parts[1];
     scroll.scrollTop = 0;
     status("");
+    if (accountNotice && Date.now() - accountNotice.at < 8000) status(accountNotice.text);
+    if (kind !== "account") accountFlow = null;
     const view = $("forumView");
     try {
-      const gated = !username && kind !== "rules";
-      $("terminal").classList.toggle("is-gated", gated);
-      if (gated) {
+      const gated = !username && kind !== "rules" && kind !== "account";
+      $("terminal").classList.toggle("is-gated", gated || kind === "account");
+      if (kind === "account") {
+        accountView(view, id);
+      } else if (gated) {
         view.innerHTML =
-          '<div class="login-gate"><form class="compose" id="signup"><h1>What are you gonna call yourself?</h1><label>Username<span class="prompt-row"><input name="username" maxlength="24" required autocomplete="nickname"><span class="cursor-blink" aria-hidden="true">█</span></span></label><p class="login-gate-note">This name is shared with live chat and stays signed in on this browser. No password or email is required. Clearing browser storage loses this session.</p><label><input type="checkbox" required style="width:auto"> I agree to the <a href="#rules">forum rules</a> and <a href="/privacy">Privacy &amp; User Agreement</a>.</label><button>Join the forums</button></form></div>';
+          '<div class="login-gate"><form class="compose" id="signup"><h1>What are you gonna call yourself?</h1><label>Username<span class="prompt-row"><input name="username" maxlength="24" required autocomplete="nickname"><span class="cursor-blink" aria-hidden="true">█</span></span></label><p class="login-gate-note">This name is shared with live chat and stays signed in on this browser. No password or email is required. Clearing browser storage loses this session.</p><label><input type="checkbox" required style="width:auto"> I agree to the <a href="#rules">forum rules</a> and <a href="/privacy">Privacy &amp; User Agreement</a>.</label><div class="account-actions"><button>Join the forums</button><a class="gate-signin" href="#account/signin">Already have an account? Sign in with email</a></div></form></div>';
         $("signup").onsubmit = (e) => {
           e.preventDefault();
           act($("signup").querySelector("button"), () =>
@@ -1006,6 +1245,7 @@
           if (
             !location.hash.startsWith("#thread/") &&
             !location.hash.startsWith("#new/") &&
+            !location.hash.startsWith("#account") &&
             location.hash !== "#signup"
           )
             renderRoute();
@@ -1049,10 +1289,13 @@
       .onSnapshot(
         (d) => {
           const wasUsername = username;
-          username = d.exists ? d.data().username || "" : "";
+          deviceData = d.exists ? d.data() : null;
+          username = (deviceData && deviceData.username) || "";
+          accountLinked = !!(deviceData && deviceData.accountId);
           if (username) localStorage.setItem("chat_last_username", username);
           renderIdentity();
-          if (!!wasUsername !== !!username) renderRoute();
+          if (!!wasUsername !== !!username && !location.hash.startsWith("#account"))
+            renderRoute();
         },
         (e) =>
           status(

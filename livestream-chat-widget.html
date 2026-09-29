@@ -4319,7 +4319,8 @@
   }
 
   function returnToLivePage() {
-    window.location.replace(window.location.origin + '/live.html');
+    const target = new URLSearchParams(window.location.search).get('return') === 'forums' ? '/forums' : '/live.html';
+    window.location.replace(window.location.origin + target);
   }
 
   function hasPendingAccountLink() {
