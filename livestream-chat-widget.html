@@ -920,6 +920,11 @@
     font-weight: 600;
     font-family: 'Gratis Neue', var(--font-body);
   }
+  .who-account {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .who-account .account-link-btn:first-child { margin-left: 0; }
 
   .round-btn {
     -webkit-appearance: none;
@@ -1557,6 +1562,22 @@
   #app .account-screen,
   #app .account-screen * {
     font-family: 'Gratis Neue', var(--font-body);
+  }
+  #app .account-screen label,
+  #app .account-screen .auth-note {
+    text-align: center;
+  }
+  #app .account-screen .auth-note {
+    margin-bottom: clamp(12px, 3.5cqh, 18px);
+  }
+  #app .auth-screen input[type="text"],
+  #app .auth-screen .pill-btn {
+    border-radius: clamp(10px, 2.5vw, 28px);
+  }
+  @media (max-width: 860px) {
+    #app .auth-screen .pill-btn {
+      min-height: 44px;
+    }
   }
   .account-link-btn {
     appearance: none;
@@ -6255,9 +6276,9 @@
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
-          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
-            ? ' <span aria-label="Account linked">account linked</span> <button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
-            : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button>'}</div>
+          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b><div class="who-account">${session.accountLinked
+            ? '<span aria-label="Account linked">account linked</span> <button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
+            : '<button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button>'}</div></div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
