@@ -521,15 +521,18 @@
   }
   async function saveDeviceTapInToAccount() {
     const d = deviceData || {};
-    if (!d.lastTapInAt || !username) return;
+    if ((!d.lastTapInAt && !d.fightWins) || !username) return;
     const account = db.collection("chat_usernames").doc(username.toLowerCase());
     const snap = await account.get();
     const saved = snap.exists ? snap.data() : {};
-    if ((Number(saved.lastTapInAt) || 0) >= Number(d.lastTapInAt)) return;
-    await account.set(
-      { lastTapInAt: d.lastTapInAt, streak: d.streak || 0, streakDay: d.streakDay || null },
-      { merge: true },
-    );
+    const update = {};
+    if (d.lastTapInAt && (Number(saved.lastTapInAt) || 0) < Number(d.lastTapInAt)) {
+      update.lastTapInAt = d.lastTapInAt;
+      update.streak = d.streak || 0;
+      update.streakDay = d.streakDay || null;
+    }
+    if ((Number(d.fightWins) || 0) > (Number(saved.fightWins) || 0)) update.fightWins = Number(d.fightWins);
+    if (Object.keys(update).length) await account.set(update, { merge: true });
   }
   function clearDeviceFields(names) {
     const del = firebase.firestore.FieldValue.delete(),
@@ -537,7 +540,7 @@
     names.forEach((n) => (update[n] = del));
     return db.collection("chat_devices").doc(device).update(update);
   }
-  const TAP_IN_FIELDS = ["lastTapInAt", "streak", "streakDay"];
+  const TAP_IN_FIELDS = ["lastTapInAt", "streak", "streakDay", "fightWins"];
   async function signOutAccount() {
     await saveDeviceTapInToAccount();
     await clearDeviceFields(
@@ -568,7 +571,7 @@
       notice("Email linked. You can sign in with it anytime.");
       return;
     }
-    if (username && deviceData && deviceData.lastTapInAt) {
+    if (username && deviceData && (deviceData.lastTapInAt || deviceData.fightWins)) {
       await saveDeviceTapInToAccount();
       await clearDeviceFields(TAP_IN_FIELDS);
     }

@@ -4392,7 +4392,8 @@
         restoredAt: firebase.firestore.FieldValue.delete(),
         lastTapInAt: firebase.firestore.FieldValue.delete(),
         streak: firebase.firestore.FieldValue.delete(),
-        streakDay: firebase.firestore.FieldValue.delete()
+        streakDay: firebase.firestore.FieldValue.delete(),
+        fightWins: firebase.firestore.FieldValue.delete()
       });
     } catch (error) {
       accountSigningOut = false;
@@ -4481,7 +4482,8 @@
     return {
       lastTapInAt: Number(data && data.lastTapInAt) || 0,
       streak: Number(data && data.streak) || 0,
-      streakDay: (data && data.streakDay) || null
+      streakDay: (data && data.streakDay) || null,
+      fightWins: Math.max(0, Number(data && data.fightWins) || 0)
     };
   }
 
@@ -4500,10 +4502,17 @@
     if (!key) return;
     const device = deviceTapIn && deviceTapIn.usernameKey === key ? deviceTapIn : null;
     applyTapInStats(device || tapInStatsFrom(null));
+    myFightWins = device ? device.fightWins : 0;
     usernamesRef.doc(key).get().then((doc) => {
       cacheProfileDoc(key, doc.exists ? doc.data() : {});
       if (accountTapInKey !== key) return;
       const account = tapInStatsFrom(doc.exists ? doc.data() : null);
+      if (device && device.fightWins > account.fightWins) {
+        usernamesRef.doc(key).set({ fightWins: device.fightWins }, { merge: true })
+          .catch((e) => console.error('Could not save knockouts to account:', e));
+      }
+      myFightWins = Math.max(myFightWins, account.fightWins);
+      refreshFightPanel();
       if (device && device.lastTapInAt > account.lastTapInAt) {
         usernamesRef.doc(key).set({
           lastTapInAt: device.lastTapInAt,
@@ -4518,12 +4527,13 @@
   }
 
   function clearDeviceTapIn() {
-    if (!deviceTapIn || !deviceTapIn.lastTapInAt) return Promise.resolve();
+    if (!deviceTapIn || (!deviceTapIn.lastTapInAt && !deviceTapIn.fightWins)) return Promise.resolve();
     deviceTapIn = Object.assign(tapInStatsFrom(null), { usernameKey: null });
     return devicesRef.doc(CLIENT_ID).update({
       lastTapInAt: firebase.firestore.FieldValue.delete(),
       streak: firebase.firestore.FieldValue.delete(),
-      streakDay: firebase.firestore.FieldValue.delete()
+      streakDay: firebase.firestore.FieldValue.delete(),
+      fightWins: firebase.firestore.FieldValue.delete()
     }).catch((e) => console.error('Could not clear browser tap-in:', e));
   }
   let resolveDeviceLockReady;
@@ -4547,7 +4557,8 @@
     deviceTapIn = Object.assign(tapInStatsFrom(data), { usernameKey: lockedName ? lockedName.toLowerCase() : null });
     if (!accountTapInKey) applyTapInStats(deviceTapIn);
 
-    myFightWins = (data && data.fightWins) || 0;
+    const deviceWins = Math.max(0, Number(data && data.fightWins) || 0);
+    myFightWins = accountTapInKey ? Math.max(myFightWins || 0, deviceWins) : deviceWins;
     const savedFightCooldown = Number(data && data.fightCooldownUntil);
     myFightCooldownUntil = Number.isFinite(savedFightCooldown) ? savedFightCooldown : 0;
     refreshFightPanel();
@@ -5147,12 +5158,6 @@
 #knobsockProfile *, #knobsockProfile *::before, #knobsockProfile *::after { box-sizing: border-box; }
 #knobsockProfile .kp-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.65); animation: kpFade 0.2s ease both; }
 #knobsockProfile .kp-frame { position: relative; display: flex; width: 75vw; height: 75vh; height: 75dvh; animation: kpPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@media (orientation: portrait) {
-  #knobsockProfile .kp-frame { width: 92vw; height: auto; }
-  #knobsockProfile .profile-card { height: auto; max-height: 75vh; max-height: 75dvh; }
-  #knobsockProfile .profile-head { flex-direction: column; padding-right: 0; }
-  #knobsockProfile .profile-photo { width: clamp(110px, 34vmin, 200px); }
-}
 @keyframes kpFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes kpPop { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #knobsockProfile .kp-backdrop, #knobsockProfile .kp-frame { animation: none; } }
@@ -5167,6 +5172,7 @@
 #knobsockProfile .profile-name { font-size: clamp(24px, 5.6vmin, 58px); line-height: 1.1; overflow-wrap: anywhere; }
 #knobsockProfile .profile-line { margin-top: clamp(6px, 1.2vmin, 12px); font-size: clamp(14px, 2.4vmin, 22px); overflow-wrap: anywhere; }
 #knobsockProfile .profile-line span { opacity: 0.75; }
+#knobsockProfile .profile-line .profile-rank { opacity: 1; color: var(--card-border, #ffff00); }
 #knobsockProfile .profile-section { margin-top: clamp(16px, 3.2vmin, 34px); }
 #knobsockProfile .profile-label { margin-bottom: clamp(6px, 1.2vmin, 12px); font-size: clamp(18px, 3.2vmin, 30px); }
 #knobsockProfile .profile-about { margin: 0; font-family: var(--font-body); font-size: clamp(15px, 2.4vmin, 22px); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -5197,6 +5203,37 @@
 #knobsockProfile .profile-report-row { margin-top: 0; }
 #knobsockProfile .profile-report-label { margin: clamp(14px, 2.8vmin, 28px) 0 8px; font-size: clamp(14px, 2.2vmin, 20px); }
 #knobsockProfile .profile-inline-link { -webkit-appearance: none; appearance: none; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; text-decoration: underline; }
+@media (orientation: landscape) {
+  #knobsockProfile .kp-frame { width: clamp(520px, 50vw, 960px); max-width: 92vw; height: auto; max-height: 75vh; max-height: 75dvh; aspect-ratio: 16 / 9; }
+  #knobsockProfile .profile-card { height: 100%; padding: clamp(18px, 2vw, 38px); border-width: 3px; border-radius: clamp(14px, 1.6vw, 30px); }
+  #knobsockProfile .profile-close { top: clamp(10px, 1.2vw, 22px); right: clamp(10px, 1.2vw, 22px); width: clamp(32px, 2.6vw, 50px); height: clamp(32px, 2.6vw, 50px); font-size: clamp(14px, 1.2vw, 22px); }
+  #knobsockProfile .profile-head { gap: clamp(14px, 1.6vw, 30px); padding-right: clamp(44px, 3.6vw, 68px); }
+  #knobsockProfile .profile-photo { width: clamp(96px, 9.5vw, 182px); border-width: 3px; border-radius: clamp(10px, 1vw, 18px); font-size: clamp(40px, 4vw, 76px); }
+  #knobsockProfile .profile-name { font-size: clamp(24px, 2.3vw, 44px); }
+  #knobsockProfile .profile-line { margin-top: clamp(4px, 0.45vw, 9px); font-size: clamp(13px, 1.15vw, 22px); }
+  #knobsockProfile .profile-section { margin-top: clamp(12px, 1.3vw, 25px); }
+  #knobsockProfile .profile-label { margin-bottom: clamp(5px, 0.5vw, 10px); font-size: clamp(16px, 1.45vw, 28px); }
+  #knobsockProfile .profile-about { font-size: clamp(14px, 1.15vw, 22px); }
+  #knobsockProfile .profile-empty { font-size: clamp(13px, 1.05vw, 20px); }
+  #knobsockProfile .profile-song { padding: clamp(6px, 0.5vw, 10px) clamp(12px, 1vw, 18px); }
+  #knobsockProfile .profile-actions { gap: 10px; margin-top: clamp(12px, 1.3vw, 25px); }
+  #knobsockProfile .pill-btn { min-height: 38px; padding: clamp(9px, 0.7vw, 14px) clamp(16px, 1.4vw, 26px); font-size: clamp(13px, 1vw, 19px); }
+  #knobsockProfile .profile-field { margin-top: clamp(10px, 1vw, 20px); }
+  #knobsockProfile .profile-field > span,
+  #knobsockProfile .profile-colors label,
+  #knobsockProfile .profile-report-label { font-size: clamp(14px, 1.1vw, 21px); }
+  #knobsockProfile input[type="text"], #knobsockProfile textarea, #knobsockProfile select { padding: 8px 12px; }
+  #knobsockProfile textarea { min-height: 90px; }
+  #knobsockProfile .profile-colors input[type="color"] { width: clamp(36px, 2.6vw, 50px); height: clamp(36px, 2.6vw, 50px); }
+  #knobsockProfile .profile-msg { font-size: clamp(12px, 1vw, 18px); }
+}
+@media (orientation: portrait) {
+  #knobsockProfile .kp-frame { width: 92vw; height: auto; }
+  #knobsockProfile .profile-card { height: auto; max-height: 75vh; max-height: 75dvh; }
+  #knobsockProfile .profile-head { flex-direction: column; padding-right: 0; }
+  #knobsockProfile .profile-photo { width: clamp(110px, 34vmin, 200px); }
+}
+#knobsockProfile .profile-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
 `;
   const PROFILE_VARS = ['--ink', '--line', '--text', '--text-dim', '--accent', '--accent-dim', '--interactive-hover', '--interactive-hover-text', '--font-body'];
   let profileScrollLock = '';
@@ -5340,6 +5377,86 @@
     return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
+  const PROFILE_COUNT_URL = 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM';
+  const RANK_CACHE_MS = 5 * 60 * 1000;
+  const rankCache = {};
+
+  function profileStats(data) {
+    const now = Date.now();
+    const fresh = data && (data.streakDay === utcDayKey(now) || data.streakDay === utcDayKey(now - 24 * 60 * 60 * 1000));
+    return {
+      streak: fresh ? Math.max(0, Number(data.streak) || 0) : 0,
+      wins: Math.max(0, Number(data && data.fightWins) || 0)
+    };
+  }
+
+  function streakLabel(streak) {
+    return streak === 1 ? '1 day' : streak + ' days';
+  }
+
+  function countUsernames(where) {
+    return fetch(PROFILE_COUNT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        structuredAggregationQuery: {
+          structuredQuery: { from: [{ collectionId: 'chat_usernames' }], where: where },
+          aggregations: [{ alias: 'n', count: {} }]
+        }
+      })
+    }).then((res) => res.json()).then((rows) => {
+      const row = Array.isArray(rows) && rows.find((r) => r && r.result);
+      const field = row && row.result.aggregateFields && row.result.aggregateFields.n;
+      if (!field || field.integerValue == null) throw new Error('count unavailable');
+      return parseInt(field.integerValue, 10) || 0;
+    });
+  }
+
+  function fetchProfileRanks(key, stats) {
+    const hit = rankCache[key];
+    if (hit && Date.now() - hit.at < RANK_CACHE_MS && hit.streak === stats.streak && hit.wins === stats.wins) {
+      return Promise.resolve(hit);
+    }
+    const now = Date.now();
+    const streakCount = stats.streak > 0 ? countUsernames({
+      compositeFilter: {
+        op: 'AND',
+        filters: [
+          { fieldFilter: { field: { fieldPath: 'streak' }, op: 'GREATER_THAN', value: { integerValue: String(stats.streak) } } },
+          { fieldFilter: { field: { fieldPath: 'streakDay' }, op: 'IN', value: { arrayValue: { values: [
+            { stringValue: utcDayKey(now) },
+            { stringValue: utcDayKey(now - 24 * 60 * 60 * 1000) }
+          ] } } } }
+        ]
+      }
+    }).catch(() => null) : Promise.resolve(null);
+    const winsCount = stats.wins > 0 ? countUsernames({
+      fieldFilter: { field: { fieldPath: 'fightWins' }, op: 'GREATER_THAN', value: { integerValue: String(stats.wins) } }
+    }).catch(() => null) : Promise.resolve(null);
+    return Promise.all([streakCount, winsCount]).then((counts) => {
+      const ranks = {
+        streak: stats.streak,
+        wins: stats.wins,
+        streakRank: counts[0] == null ? null : counts[0] + 1,
+        winsRank: counts[1] == null ? null : counts[1] + 1,
+        at: Date.now()
+      };
+      rankCache[key] = ranks;
+      return ranks;
+    });
+  }
+
+  function fillProfileRanks(username, stats) {
+    if (!stats.streak && !stats.wins) return;
+    fetchProfileRanks(String(username).toLowerCase(), stats).then((ranks) => {
+      if (profileViewing !== username || profileEditing) return;
+      const streakEl = pq('profileStreakRank');
+      const koEl = pq('profileKoRank');
+      if (streakEl && ranks.streakRank) streakEl.textContent = '#' + ranks.streakRank;
+      if (koEl && ranks.winsRank) koEl.textContent = '#' + ranks.winsRank;
+    });
+  }
+
   function profilePhotoHtml(photo, name) {
     return photo ? '<img src="' + photo + '" alt="">' : escapeHtml(String(name || '?').charAt(0).toUpperCase());
   }
@@ -5363,6 +5480,7 @@
     const name = (data && data.username) || username;
     const mine = session && String(username).toLowerCase() === session.username.toLowerCase();
     const song = normalizeSoundCloudUrl(profile.song);
+    const stats = profileStats(data);
     panel.innerHTML = profileChrome(profile,
       '<div class="profile-head">' +
         '<div class="profile-photo">' + profilePhotoHtml(safePhoto(profile.photo), name) + '</div>' +
@@ -5370,6 +5488,8 @@
           '<div class="profile-name">' + escapeHtml(name) + '</div>' +
           '<div class="profile-line"><span>Favorite color:</span> ' + (profile.favoriteColor ? escapeHtml(censorText(profile.favoriteColor)) : '—') + '</div>' +
           '<div class="profile-line"><span>Last online:</span> ' + escapeHtml(lastOnlineLabel(data, username)) + '</div>' +
+          '<div class="profile-line"><span>Tap-in streak:</span> ' + escapeHtml(streakLabel(stats.streak)) + ' <span class="profile-rank" id="profileStreakRank"></span></div>' +
+          '<div class="profile-line"><span>Knockouts:</span> ' + stats.wins + ' <span class="profile-rank" id="profileKoRank"></span></div>' +
         '</div>' +
       '</div>' +
       '<div class="profile-section"><div class="profile-label">Song</div>' +
@@ -5390,6 +5510,7 @@
         : (session ? '<div class="profile-report-row" id="profileReportRow"></div>' : ''))
     );
     wireProfileClose();
+    fillProfileRanks(username, stats);
     if (!mine && session) renderReportRow(username, name);
     const linkBtn = pq('profileLinkBtn');
     if (linkBtn) linkBtn.addEventListener('click', function () { closeProfile(); renderAccountAccess('link'); });
@@ -6033,6 +6154,10 @@
     const winnerWins = isFailover ? null : Math.max(0, myFightWins || 0) + 1;
     if (!isFailover) {
       const saveHighScore = devicesRef.doc(CLIENT_ID).set({ fightWins: winnerWins }, { merge: true });
+      if (session) {
+        usernamesRef.doc(session.username.toLowerCase()).set({ fightWins: winnerWins }, { merge: true })
+          .catch((e) => console.error('Could not save knockouts to account:', e));
+      }
       saveHighScore.then(() => {
         myFightWins = winnerWins;
       }).catch((e) => {
