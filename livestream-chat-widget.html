@@ -5230,10 +5230,13 @@
 @media (prefers-reduced-motion: reduce) { #knobsockProfile .kp-backdrop, #knobsockProfile .kp-frame { animation: none; } }
 #knobsockProfile .profile-card { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; scrollbar-width: none; padding: clamp(16px, 3.6vmin, 44px); border: clamp(3px, 0.5vmin, 5px) solid var(--card-border, #ffff00); border-radius: clamp(16px, 3vmin, 36px); background: var(--card-bg, #2a0a4a); color: var(--card-ink, #fff); }
 #knobsockProfile .profile-card::-webkit-scrollbar { display: none; }
-#knobsockProfile .profile-close { -webkit-appearance: none; appearance: none; position: absolute; top: clamp(12px, 2.4vmin, 26px); right: clamp(12px, 2.4vmin, 26px); width: clamp(34px, 5.4vmin, 52px); height: clamp(34px, 5.4vmin, 52px); padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.15s ease; }
+#knobsockProfile .profile-close { -webkit-appearance: none; appearance: none; position: absolute; top: clamp(12px, 2.4vmin, 26px); right: clamp(12px, 2.4vmin, 26px); width: clamp(34px, 5.4vmin, 52px); height: clamp(34px, 5.4vmin, 52px); padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
 #knobsockProfile .profile-close img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-#knobsockProfile .profile-close:hover { transform: scale(1.1) rotate(-6deg); }
-#knobsockProfile .profile-close:active { transform: scale(0.94); }
+#knobsockProfile .profile-close:hover { transform: scale(1.12); }
+#knobsockProfile .profile-close:active { transform: scale(0.9); }
+@media (prefers-reduced-motion: reduce) {
+  #knobsockProfile .profile-close { transition: none; }
+}
 #knobsockProfile .profile-head { display: flex; align-items: flex-start; gap: clamp(14px, 3vmin, 34px); padding-right: clamp(44px, 7vmin, 70px); }
 #knobsockProfile .profile-photo { flex: none; display: flex; align-items: center; justify-content: center; width: clamp(96px, 24vmin, 240px); aspect-ratio: 1; overflow: hidden; border: clamp(2px, 0.4vmin, 4px) solid var(--card-border, #ffff00); border-radius: clamp(10px, 2vmin, 22px); background: rgba(0, 0, 0, 0.25); font-size: clamp(40px, 10vmin, 100px); }
 #knobsockProfile .profile-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -5549,7 +5552,23 @@
 
   function wireProfileClose() {
     const close = pq('profileClose');
-    if (close) close.addEventListener('click', closeProfile);
+    if (!close) return;
+    close.addEventListener('touchstart', function () {}, { passive: true });
+    close.addEventListener('click', function () {
+      const view = close.ownerDocument.defaultView || window;
+      const reduced = view.matchMedia && view.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced || !close.animate) {
+        closeProfile();
+        return;
+      }
+      close.disabled = true;
+      close.animate([
+        { transform: 'scale(1)' },
+        { transform: 'scale(1.28)' },
+        { transform: 'scale(1)' }
+      ], { duration: 240, easing: 'ease-out' });
+      setTimeout(closeProfile, 140);
+    });
   }
 
   function renderProfileView(username, data) {
