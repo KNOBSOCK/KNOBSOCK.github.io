@@ -1780,6 +1780,24 @@
     text-align: left;
   }
   .layout:not(.mode-portrait) .composer { padding-top: clamp(3px, 1cqmin, 5px); }
+  .layout:not(.mode-portrait) .composer-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "fight fight"
+      "streak streak"
+      "who status"
+      "who timer"
+      "composer composer"
+      "limit limit";
+  }
+  .layout:not(.mode-portrait) .composer-bar > .fight-panel-wrap { grid-area: fight; }
+  .layout:not(.mode-portrait) .composer-bar > .streak-bar-wrap { grid-area: streak; }
+  .layout:not(.mode-portrait) .composer-bar > .composer-status { grid-area: status; }
+  .layout:not(.mode-portrait) .composer-bar > .chat-lock-timer { grid-area: timer; }
+  .layout:not(.mode-portrait) .composer-bar > .who { grid-area: who; align-self: end; }
+  .layout:not(.mode-portrait) .composer-bar > .composer { grid-area: composer; }
+  .layout:not(.mode-portrait) .composer-bar > .composer-limit-msg { grid-area: limit; }
 
   .composer {
     display: flex;
