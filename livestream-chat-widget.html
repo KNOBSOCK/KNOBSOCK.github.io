@@ -1682,7 +1682,8 @@
   @media (min-width: 861px) {
     /* The chat screen still clips its own contents; the card must allow the
        composer extension to paint into the column gutter. */
-    .chat-card { overflow: visible; }
+    .chat-card,
+    .chat-screen { overflow: visible; }
     .composer-bar { position: relative; }
     .composer-bar::before {
       content: '';
