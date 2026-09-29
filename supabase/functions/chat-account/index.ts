@@ -61,29 +61,36 @@ function pemToBytes(pem: string) {
   return Uint8Array.from(raw, (char) => char.charCodeAt(0));
 }
 
-async function firebaseAccessToken() {
+function serviceAccount() {
   const rawAccount = Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
   if (!rawAccount) throw new Error('The Firebase service credential is not configured.');
   const account = JSON.parse(rawAccount) as { client_email: string; private_key: string };
   if (!account.client_email || !account.private_key) throw new Error('The Firebase service credential is invalid.');
+  return account;
+}
 
-  const now = Math.floor(Date.now() / 1000);
+async function signServiceJwt(payload: Record<string, unknown>) {
+  const account = serviceAccount();
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claims = base64url(JSON.stringify({
-    iss: account.client_email,
-    scope: 'https://www.googleapis.com/auth/datastore',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600
-  }));
+  const claims = base64url(JSON.stringify({ iss: account.client_email, ...payload }));
   const unsigned = `${header}.${claims}`;
   const key = await crypto.subtle.importKey(
     'pkcs8', pemToBytes(account.private_key), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']
   );
   const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
+  return `${unsigned}.${base64url(new Uint8Array(signature))}`;
+}
+
+async function firebaseAccessToken() {
+  const now = Math.floor(Date.now() / 1000);
   const grant = new URLSearchParams({
     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    assertion: `${unsigned}.${base64url(new Uint8Array(signature))}`
+    assertion: await signServiceJwt({
+      scope: 'https://www.googleapis.com/auth/datastore',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600
+    })
   });
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', body: grant });
   if (!tokenResponse.ok) throw new Error('Could not authenticate with Firestore.');
@@ -111,6 +118,45 @@ async function writeDevice(clientId: string, fields: Record<string, unknown>) {
   await firestore(`chat_devices/${encodeURIComponent(clientId)}?${mask}`, {
     method: 'PATCH', body: JSON.stringify({ fields: firestoreFields })
   });
+}
+
+const ADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
+
+function adminUidFor(email: string | undefined) {
+  const raw = Deno.env.get('KNOBSOCK_ADMINS');
+  if (!raw || !email) return null;
+  try {
+    const admins = JSON.parse(raw) as Record<string, string>;
+    const uid = admins[email.trim().toLowerCase()];
+    return typeof uid === 'string' && uid ? uid : null;
+  } catch {
+    return null;
+  }
+}
+
+function jwtPayload(authHeader: string) {
+  try {
+    const part = authHeader.replace(/^Bearer\s+/i, '').split('.')[1] || '';
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((part.length + 3) % 4));
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+async function firebaseAdminToken(uid: string) {
+  const now = Math.floor(Date.now() / 1000);
+  const until = Date.now() + ADMIN_SESSION_MS;
+  const account = serviceAccount();
+  const token = await signServiceJwt({
+    sub: account.client_email,
+    aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
+    iat: now,
+    exp: now + 3600,
+    uid,
+    claims: { admin2faUntil: until }
+  });
+  return { token, until };
 }
 
 class InvalidProfile extends Error {}
@@ -181,6 +227,16 @@ Deno.serve(async (request) => {
     if (!serviceRoleKey) throw new Error('Supabase service role is not configured.');
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const body = await request.json();
+
+    if (body.action === 'adminToken') {
+      const uid = adminUidFor(user.email);
+      if (!uid) return response({ error: 'This email is not an admin.', code: 'forbidden' }, 403);
+      if (jwtPayload(authHeader).aal !== 'aal2') {
+        return response({ error: 'Finish the authenticator code step first.', code: 'mfa-required' }, 403);
+      }
+      return response(await firebaseAdminToken(uid));
+    }
+
     const clientId = validClientId(body.clientId);
 
     if (body.action === 'link') {

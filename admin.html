@@ -816,14 +816,7 @@
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
     <h1>KNOBSOCK Admin</h1>
-    <p class="sub">Sign in with the same admin account used across the site.</p>
-    <label class="field-label" for="loginEmail">Email</label>
-    <input type="email" id="loginEmail" autocomplete="username">
-    <label class="field-label" for="loginPass">Password</label>
-    <input type="password" id="loginPass" autocomplete="current-password">
-    <div class="login-actions">
-      <button type="button" class="btn btn-primary" id="loginSubmit">Sign In</button>
-    </div>
+    <div id="admin2faRoot"></div>
     <div class="error-text" id="loginError"></div>
   </div>
 </div>
@@ -1046,6 +1039,21 @@
           </div>
         </div>
         <div class="card">
+          <div class="card-head">
+            <h2>Recent Accounts</h2>
+            <button type="button" class="btn" id="recentAccountsRefreshBtn">Refresh</button>
+          </div>
+          <div class="live-card-body" style="max-height:none;">
+            <div class="save-status" id="recentAccountsStatus"></div>
+            <div id="recentAccountsList"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;">
+              <button type="button" class="btn" id="recentAccountsPrevBtn">← Newer</button>
+              <span id="recentAccountsPage" style="font-size:12px;color:var(--text-dim);"></span>
+              <button type="button" class="btn" id="recentAccountsNextBtn">Older →</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Banned</h2></div>
           <div class="live-card-body" style="max-height:260px;"></div>
         </div>
@@ -1214,6 +1222,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/admin-2fa.js?v=2"></script>
 <script src="/forums-admin.js?v=7"></script>
 <script>
   const firebaseConfig = {
@@ -1509,55 +1519,53 @@
 
   const loginWrap = document.getElementById('loginWrap');
   const appEl = document.getElementById('app');
-  const loginEmail = document.getElementById('loginEmail');
-  const loginPass = document.getElementById('loginPass');
-  const loginSubmit = document.getElementById('loginSubmit');
   const loginError = document.getElementById('loginError');
   const whoamiEl = document.getElementById('whoami');
+  const admin2faRoot = document.getElementById('admin2faRoot');
+  let adminExpiryTimer = null;
 
-  async function handleLogin() {
-    const email = loginEmail.value.trim();
-    const pass = loginPass.value;
-    if (!email || !pass) {
-      loginError.textContent = 'Enter an email and password.';
-      return;
-    }
-    loginSubmit.disabled = true;
-    loginSubmit.textContent = 'Checking…';
-    try {
-      await auth.signInWithEmailAndPassword(email, pass);
-    } catch (err) {
-      loginError.textContent = 'Sign-in failed: ' + (err && err.message ? err.message : 'unknown error');
-    } finally {
-      loginSubmit.disabled = false;
-      loginSubmit.textContent = 'Sign In';
-    }
+  function showAdminSignIn(message) {
+    loginWrap.hidden = false;
+    appEl.hidden = true;
+    loginError.textContent = message || '';
+    window.KnobsockAdmin2FA.mount(admin2faRoot, auth, {
+      buttonClass: 'btn btn-primary',
+      inputStyle: 'display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;'
+    });
   }
-  loginSubmit.addEventListener('click', handleLogin);
-  loginPass.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleLogin(); });
 
   document.getElementById('signOutBtn').addEventListener('click', function () {
-    auth.signOut();
+    window.KnobsockAdmin2FA.signOut(auth);
   });
 
   let editorsStarted = false;
   auth.onAuthStateChanged(function (user) {
-    if (user) {
+    clearTimeout(adminExpiryTimer);
+    if (!user) {
+      window.KnobsockForumsAdmin.stop();
+      showAdminSignIn();
+      return;
+    }
+    window.KnobsockAdmin2FA.twoFactorUntil(user).then(function (until) {
+      if (until <= Date.now()) {
+        auth.signOut();
+        return;
+      }
+      adminExpiryTimer = setTimeout(function () {
+        window.KnobsockAdmin2FA.signOut(auth).then(function () {
+          loginError.textContent = 'Your admin session expired. Sign in again.';
+        });
+      }, Math.min(until - Date.now(), 2147483000));
       loginWrap.hidden = true;
       appEl.hidden = false;
       whoamiEl.textContent = user.email || '';
       window.KnobsockForumsAdmin.init(db, auth);
       loginError.textContent = '';
-      loginPass.value = '';
       if (!editorsStarted) {
         editorsStarted = true;
         startEditors();
       }
-    } else {
-      loginWrap.hidden = false;
-      appEl.hidden = true;
-      window.KnobsockForumsAdmin.stop();
-    }
+    });
   });
 
   const navTabs = document.querySelectorAll('.nav-tab');
@@ -3143,6 +3151,168 @@
       });
   }
 
+  const RECENT_ACCOUNTS_PAGE_SIZE = 10;
+  let recentAccountsPage = 0;
+  let recentAccountsCursors = [null];
+  let recentAccountsDocs = {};
+
+  function recentAccountTime(value) {
+    if (!value) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    return Number(value) || 0;
+  }
+
+  function recentAccountAgo(ms) {
+    if (!ms) return 'never';
+    const diff = Date.now() - ms;
+    if (diff < 5 * 60 * 1000) return 'online now';
+    if (diff < 60 * 60 * 1000) return Math.round(diff / 60000) + ' min ago';
+    if (diff < 24 * 60 * 60 * 1000) return Math.round(diff / 3600000) + ' hr ago';
+    return Math.round(diff / 86400000) + ' days ago';
+  }
+
+  function recentAccountInk(hex) {
+    const n = parseInt(String(hex).slice(1), 16);
+    const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    return lum > 0.6 ? '#000' : '#fff';
+  }
+
+  function loadRecentAccounts(page) {
+    if (page < 0 || page >= recentAccountsCursors.length) return;
+    const root = document.getElementById('recentAccountsList');
+    const status = document.getElementById('recentAccountsStatus');
+    const prevBtn = document.getElementById('recentAccountsPrevBtn');
+    const nextBtn = document.getElementById('recentAccountsNextBtn');
+    status.textContent = '';
+    root.innerHTML = '<div class="empty-state">Loading…</div>';
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    let query = CHAT_USERNAMES_REF.orderBy('createdAt', 'desc').limit(RECENT_ACCOUNTS_PAGE_SIZE);
+    const cursor = recentAccountsCursors[page];
+    if (cursor) query = query.startAfter(cursor);
+    query.get().then(function (snap) {
+      recentAccountsPage = page;
+      recentAccountsCursors = recentAccountsCursors.slice(0, page + 1);
+      if (snap.docs.length === RECENT_ACCOUNTS_PAGE_SIZE) recentAccountsCursors.push(snap.docs[snap.docs.length - 1]);
+      recentAccountsDocs = {};
+      snap.docs.forEach(function (doc) { recentAccountsDocs[doc.id] = doc.data(); });
+      prevBtn.disabled = page === 0;
+      nextBtn.disabled = recentAccountsCursors.length <= page + 1;
+      document.getElementById('recentAccountsPage').textContent = 'Page ' + (page + 1);
+      if (!snap.docs.length) {
+        root.innerHTML = '<div class="empty-state">No accounts on this page.</div>';
+        return;
+      }
+      root.innerHTML = snap.docs.map(function (doc) { return recentAccountRow(doc.id, doc.data()); }).join('');
+    }).catch(function (err) {
+      root.innerHTML = '<div class="empty-state">Could not load accounts: ' + escapeAttr(err.message) + '</div>';
+      prevBtn.disabled = page === 0;
+    });
+  }
+
+  function recentAccountCard(key, data) {
+    const profile = data.profile || {};
+    const bg = /^#[0-9a-f]{6}$/i.test(profile.cardColor || '') ? profile.cardColor : '#2a0a4a';
+    const border = /^#[0-9a-f]{6}$/i.test(profile.borderColor || '') ? profile.borderColor : '#ffff00';
+    const ink = recentAccountInk(bg);
+    const name = data.username || key;
+    const photo = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(profile.photo || '')
+      ? '<img src="' + escapeAttr(profile.photo) + '" alt="" style="width:64px;height:64px;object-fit:cover;display:block;">'
+      : '<span style="font-size:28px;font-weight:800;">' + escapeAttr(name.charAt(0).toUpperCase()) + '</span>';
+    const created = recentAccountTime(data.createdAt);
+    const lastSeen = Math.max(Number(data.lastSeenAt) || 0, Number(data.lastTapInAt) || 0);
+    const hasProfile = !!(data.profile && Object.keys(data.profile).length);
+    return '<div class="recent-account" data-key="' + escapeAttr(key) + '" style="margin-bottom:10px;padding:12px;border:3px solid ' + border + ';border-radius:14px;background:' + bg + ';color:' + ink + ';">' +
+      '<div style="display:flex;gap:12px;align-items:flex-start;">' +
+        '<div style="width:64px;height:64px;flex:none;border:2px solid ' + border + ';border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);">' + photo + '</div>' +
+        '<div style="min-width:0;flex:1 1 auto;font-size:12px;line-height:1.5;">' +
+          '<div style="font-size:16px;font-weight:800;overflow-wrap:anywhere;">' + escapeAttr(name) + '</div>' +
+          '<div>Joined ' + (created ? escapeAttr(new Date(created).toLocaleString()) : 'unknown') + '</div>' +
+          '<div>Last online: ' + escapeAttr(recentAccountAgo(lastSeen)) + '</div>' +
+          '<div>Streak: ' + (Number(data.streak) || 0) + ' · Knockouts: ' + (Number(data.fightWins) || 0) + '</div>' +
+          (profile.favoriteColor ? '<div>Favorite color: ' + escapeAttr(profile.favoriteColor) + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      (profile.about ? '<div style="margin-top:8px;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;">' + escapeAttr(profile.about) + '</div>' : '') +
+      (profile.song ? '<div style="margin-top:6px;font-size:12px;overflow-wrap:anywhere;">Song: <a href="' + escapeAttr(profile.song) + '" target="_blank" rel="noopener" style="color:inherit;">' + escapeAttr(profile.song) + '</a></div>' : '') +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;">' +
+        (profile.photo ? '<button type="button" class="btn" data-act="photo">Remove photo</button>' : '') +
+        (hasProfile ? '<button type="button" class="btn" data-act="reset">Reset profile</button>' : '') +
+        '<button type="button" class="btn" data-act="open">Open user</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function recentAccountRow(key, data) {
+    const profile = data.profile || {};
+    const name = data.username || key;
+    const created = recentAccountTime(data.createdAt);
+    const photo = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(profile.photo || '')
+      ? '<img src="' + escapeAttr(profile.photo) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">'
+      : '<span style="font-weight:800;">' + escapeAttr(name.charAt(0).toUpperCase()) + '</span>';
+    return '<div class="recent-account-row" data-key="' + escapeAttr(key) + '" style="border-bottom:1px solid var(--line);">' +
+      '<button type="button" data-toggle="1" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 2px;border:0;background:none;color:inherit;cursor:pointer;text-align:left;font:inherit;">' +
+        '<span style="width:36px;height:36px;flex:none;border-radius:8px;overflow:hidden;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--panel-2);">' + photo + '</span>' +
+        '<span style="min-width:0;flex:1 1 auto;"><b style="overflow-wrap:anywhere;">' + escapeAttr(name) + '</b>' +
+        '<span style="display:block;font-size:11px;color:var(--text-dim);">Joined ' + (created ? escapeAttr(new Date(created).toLocaleDateString()) : 'unknown') + '</span></span>' +
+        '<span aria-hidden="true" style="color:var(--text-dim);">▸</span>' +
+      '</button>' +
+      '<div class="recent-account-detail"></div>' +
+    '</div>';
+  }
+
+  function handleRecentAccountAction(event) {
+    const toggle = event.target.closest('[data-toggle]');
+    if (toggle) {
+      const rowEl = toggle.closest('.recent-account-row');
+      const detail = rowEl.querySelector('.recent-account-detail');
+      const arrow = toggle.lastElementChild;
+      if (detail.innerHTML) {
+        detail.innerHTML = '';
+        arrow.textContent = '▸';
+      } else {
+        const key = rowEl.getAttribute('data-key');
+        detail.innerHTML = recentAccountCard(key, recentAccountsDocs[key] || {});
+        arrow.textContent = '▾';
+      }
+      return;
+    }
+    const button = event.target.closest('[data-act]');
+    const row = event.target.closest('.recent-account');
+    if (!button || !row) return;
+    const key = row.getAttribute('data-key');
+    const data = recentAccountsDocs[key] || {};
+    const name = data.username || key;
+    const act = button.getAttribute('data-act');
+    const status = document.getElementById('recentAccountsStatus');
+    if (act === 'open') {
+      document.getElementById('userLookupInput').value = name;
+      document.getElementById('loadUserHistoryBtn').click();
+      document.getElementById('userLookupInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    let work;
+    if (act === 'photo') {
+      work = CHAT_USERNAMES_REF.doc(key).update({ 'profile.photo': '' });
+    } else if (act === 'reset') {
+      if (!confirm('Reset ' + name + '’s whole profile (photo, song, bio, colors)?')) return;
+      work = CHAT_USERNAMES_REF.doc(key).update({ profile: firebase.firestore.FieldValue.delete() });
+    } else {
+      return;
+    }
+    row.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    status.style.color = 'var(--text-dim)';
+    status.textContent = 'Working…';
+    work.then(function () {
+      status.textContent = act === 'photo' ? 'Photo removed.' : 'Profile reset.';
+      loadRecentAccounts(recentAccountsPage);
+    }).catch(function (err) {
+      status.style.color = 'var(--danger)';
+      status.textContent = 'Could not update: ' + err.message;
+      row.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+    });
+  }
+
   let profileReportGroups = {};
 
   function loadProfileReports() {
@@ -3286,6 +3456,12 @@
         status.style.color = 'var(--danger)';
       });
     }
+
+    document.getElementById('recentAccountsRefreshBtn').addEventListener('click', function () { loadRecentAccounts(0); });
+    document.getElementById('recentAccountsPrevBtn').addEventListener('click', function () { loadRecentAccounts(recentAccountsPage - 1); });
+    document.getElementById('recentAccountsNextBtn').addEventListener('click', function () { loadRecentAccounts(recentAccountsPage + 1); });
+    document.getElementById('recentAccountsList').addEventListener('click', handleRecentAccountAction);
+    loadRecentAccounts(0);
 
     document.getElementById('profileReportsRefreshBtn').addEventListener('click', loadProfileReports);
     document.getElementById('profileReportsList').addEventListener('click', handleProfileReportAction);

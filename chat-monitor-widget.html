@@ -332,14 +332,7 @@
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
     <h1>KNOBSOCK Chat Monitor</h1>
-    <p class="sub">Sign in with the same admin account used across the site.</p>
-    <label class="field-label" for="loginEmail">Email</label>
-    <input type="email" id="loginEmail" autocomplete="username">
-    <label class="field-label" for="loginPass">Password</label>
-    <input type="password" id="loginPass" autocomplete="current-password">
-    <div class="login-actions">
-      <button type="button" class="btn btn-primary" id="loginSubmit">Sign In</button>
-    </div>
+    <div id="admin2faRoot"></div>
     <div class="error-text" id="loginError"></div>
   </div>
 </div>
@@ -394,6 +387,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/admin-2fa.js?v=2"></script>
 
 <script>
 (function () {
@@ -418,51 +413,44 @@
 
   const loginWrap = document.getElementById('loginWrap');
   const appEl = document.getElementById('app');
-  const loginEmail = document.getElementById('loginEmail');
-  const loginPass = document.getElementById('loginPass');
-  const loginSubmit = document.getElementById('loginSubmit');
   const loginError = document.getElementById('loginError');
-
-  async function handleLogin() {
-    const email = loginEmail.value.trim();
-    const pass = loginPass.value;
-    if (!email || !pass) {
-      loginError.textContent = 'Enter an email and password.';
-      return;
-    }
-    loginSubmit.disabled = true;
-    loginSubmit.textContent = 'Checking…';
-    try {
-      await auth.signInWithEmailAndPassword(email, pass);
-    } catch (err) {
-      loginError.textContent = 'Sign-in failed: ' + (err && err.message ? err.message : 'unknown error');
-    } finally {
-      loginSubmit.disabled = false;
-      loginSubmit.textContent = 'Sign In';
-    }
-  }
-  loginSubmit.addEventListener('click', handleLogin);
-  loginPass.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleLogin(); });
+  const admin2faRoot = document.getElementById('admin2faRoot');
+  let adminExpiryTimer = null;
 
   document.getElementById('signOutBtn').addEventListener('click', function () {
-    auth.signOut();
+    window.KnobsockAdmin2FA.signOut(auth);
   });
 
   let monitorStarted = false;
   auth.onAuthStateChanged(function (user) {
-    if (user) {
+    clearTimeout(adminExpiryTimer);
+    if (!user) {
+      loginWrap.hidden = false;
+      appEl.hidden = true;
+      window.KnobsockAdmin2FA.mount(admin2faRoot, auth, {
+        buttonClass: 'btn btn-primary',
+        inputStyle: 'display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;'
+      });
+      return;
+    }
+    window.KnobsockAdmin2FA.twoFactorUntil(user).then(function (until) {
+      if (until <= Date.now()) {
+        auth.signOut();
+        return;
+      }
+      adminExpiryTimer = setTimeout(function () {
+        window.KnobsockAdmin2FA.signOut(auth).then(function () {
+          loginError.textContent = 'Your admin session expired. Sign in again.';
+        });
+      }, Math.min(until - Date.now(), 2147483000));
       loginWrap.hidden = true;
       appEl.hidden = false;
       loginError.textContent = '';
-      loginPass.value = '';
       if (!monitorStarted) {
         monitorStarted = true;
         startMonitor();
       }
-    } else {
-      loginWrap.hidden = false;
-      appEl.hidden = true;
-    }
+    });
   });
 
   function startMonitor() {
