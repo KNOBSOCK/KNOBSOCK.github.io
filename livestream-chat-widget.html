@@ -328,15 +328,18 @@
     background: var(--interactive-hover);
     color: var(--interactive-hover-text);
   }
-  @media (hover: none) {
-    .vods-tab:hover { background: var(--vods-bg); color: var(--text); }
-    .vods-tab:hover .vods-tab-label,
-    .vods-tab:hover .vods-tab-chevron { color: var(--text); }
-  }
   .vods-tab:hover .vods-tab-label,
   .vods-tab:hover .vods-tab-chevron,
   .vods-tab:active .vods-tab-label,
   .vods-tab:active .vods-tab-chevron { color: var(--interactive-hover-text); }
+  @media (hover: none) {
+    .vods-tab:hover,
+    .vods-tab:active { background: var(--vods-bg); color: var(--text); }
+    .vods-tab:hover .vods-tab-label,
+    .vods-tab:hover .vods-tab-chevron,
+    .vods-tab:active .vods-tab-label,
+    .vods-tab:active .vods-tab-chevron { color: var(--text); }
+  }
 
   .vods-tab-label,
   .vods-tab-chevron {
@@ -543,6 +546,16 @@
     }
     .layout.vods-expanded:not(.mode-portrait) .vods-tab-label { display: inline; }
     .layout.vods-expanded:not(.mode-portrait) .vods-tab-chevron { font-size: 9px; }
+
+    .layout:not(.mode-portrait) .chat-screen:not(.account-screen) .auth {
+      overflow: hidden;
+      align-items: safe center;
+      padding: clamp(6px, 2cqh, 14px) 14px;
+    }
+    .layout:not(.mode-portrait) .chat-screen:not(.account-screen) .auth-inner > label:first-child { margin-top: 0; }
+    .layout:not(.mode-portrait) .chat-screen:not(.account-screen) .auth-terms { margin-top: 8px; }
+    .layout:not(.mode-portrait) .chat-screen:not(.account-screen) .auth-actions { margin-top: 10px; gap: 6px; }
+    .layout:not(.mode-portrait) .chat-screen:not(.account-screen) .auth-msg { margin-top: 4px; min-height: 0; }
 
     .layout:not(.mode-portrait) .chat-pane {
       flex-direction: column;
@@ -1663,6 +1676,17 @@
     color: var(--interactive-hover-text);
   }
   .account-menu-item:disabled { opacity: 0.6; cursor: default; }
+  @media (pointer: coarse) {
+    .account-menu-item,
+    .fight-target {
+      min-height: 48px;
+      padding: 12px 14px;
+      font-size: 16px;
+    }
+    .account-menu-list,
+    .fight-target-list { padding: 6px; }
+    .account-menu { width: min(260px, 84cqw); }
+  }
 
   .msg-name[data-username] { cursor: pointer; }
   .msg-name[data-username]:hover { text-decoration: underline; }
@@ -5206,8 +5230,10 @@
 @media (prefers-reduced-motion: reduce) { #knobsockProfile .kp-backdrop, #knobsockProfile .kp-frame { animation: none; } }
 #knobsockProfile .profile-card { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; scrollbar-width: none; padding: clamp(16px, 3.6vmin, 44px); border: clamp(3px, 0.5vmin, 5px) solid var(--card-border, #ffff00); border-radius: clamp(16px, 3vmin, 36px); background: var(--card-bg, #2a0a4a); color: var(--card-ink, #fff); }
 #knobsockProfile .profile-card::-webkit-scrollbar { display: none; }
-#knobsockProfile .profile-close { -webkit-appearance: none; appearance: none; position: absolute; top: clamp(12px, 2.4vmin, 26px); right: clamp(12px, 2.4vmin, 26px); width: clamp(34px, 5.4vmin, 52px); height: clamp(34px, 5.4vmin, 52px); padding: 0; border: 2px solid currentColor; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; font: inherit; font-size: clamp(16px, 2.6vmin, 24px); line-height: 1; }
-#knobsockProfile .profile-close:hover { background: var(--interactive-hover); border-color: var(--interactive-hover); color: #000; }
+#knobsockProfile .profile-close { -webkit-appearance: none; appearance: none; position: absolute; top: clamp(12px, 2.4vmin, 26px); right: clamp(12px, 2.4vmin, 26px); width: clamp(34px, 5.4vmin, 52px); height: clamp(34px, 5.4vmin, 52px); padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.15s ease; }
+#knobsockProfile .profile-close img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+#knobsockProfile .profile-close:hover { transform: scale(1.1) rotate(-6deg); }
+#knobsockProfile .profile-close:active { transform: scale(0.94); }
 #knobsockProfile .profile-head { display: flex; align-items: flex-start; gap: clamp(14px, 3vmin, 34px); padding-right: clamp(44px, 7vmin, 70px); }
 #knobsockProfile .profile-photo { flex: none; display: flex; align-items: center; justify-content: center; width: clamp(96px, 24vmin, 240px); aspect-ratio: 1; overflow: hidden; border: clamp(2px, 0.4vmin, 4px) solid var(--card-border, #ffff00); border-radius: clamp(10px, 2vmin, 22px); background: rgba(0, 0, 0, 0.25); font-size: clamp(40px, 10vmin, 100px); }
 #knobsockProfile .profile-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -5273,8 +5299,10 @@
 @media (orientation: portrait) {
   #knobsockProfile .kp-frame { width: 92vw; height: auto; }
   #knobsockProfile .profile-card { height: auto; max-height: 75vh; max-height: 75dvh; }
-  #knobsockProfile .profile-head { flex-direction: column; padding-right: 0; }
-  #knobsockProfile .profile-photo { width: clamp(110px, 34vmin, 200px); }
+  #knobsockProfile .profile-head { gap: 12px; padding-right: clamp(40px, 11vmin, 56px); }
+  #knobsockProfile .profile-photo { width: clamp(84px, 27vmin, 140px); font-size: clamp(32px, 10vmin, 56px); }
+  #knobsockProfile .profile-name { font-size: clamp(20px, 5.6vmin, 30px); }
+  #knobsockProfile .profile-line { margin-top: 4px; font-size: clamp(12px, 3.4vmin, 16px); }
 }
 #knobsockProfile .profile-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
 `;
@@ -5515,7 +5543,7 @@
 
   function profileChrome(profile, inner) {
     return '<div class="profile-card" id="profileCard" style="' + profileCardStyle(profile || {}) + '">' +
-      '<button class="profile-close" id="profileClose" type="button" aria-label="Close profile">✕</button>' +
+      '<button class="profile-close" id="profileClose" type="button" aria-label="Close profile"><img src="/profile-close-x.png?v=1" alt=""></button>' +
       inner + '</div>';
   }
 
