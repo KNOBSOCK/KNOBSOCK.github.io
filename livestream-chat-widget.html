@@ -1585,7 +1585,7 @@
     font: inherit;
   }
   .account-name-btn::after {
-    content: '\25BE';
+    content: '\25B4';
     margin-left: 3px;
     color: var(--text-dim);
     font-size: 0.85em;
@@ -5118,7 +5118,15 @@
     const button = $('accountNameBtn');
     if (!menu || !button) return;
     const open = !menu.classList.contains('is-open');
-    if (open) closeFightMenu();
+    if (open) {
+      closeFightMenu();
+      const bar = menu.parentElement;
+      if (bar) {
+        const gap = 6;
+        const nameTop = button.getBoundingClientRect().top - bar.getBoundingClientRect().top;
+        menu.style.bottom = (bar.clientHeight - nameTop + gap) + 'px';
+      }
+    }
     menu.classList.toggle('is-open', open);
     button.setAttribute('aria-expanded', String(open));
   }
