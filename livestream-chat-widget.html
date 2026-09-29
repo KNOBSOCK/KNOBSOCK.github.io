@@ -4226,9 +4226,13 @@
     if (!window.matchMedia('(max-width: 860px)').matches) return null;
     if (vodsLayoutEl && vodsLayoutEl.classList.contains('mode-portrait')) return null;
     const rows = vodsListEl ? vodsListEl.querySelectorAll('.vod-row') : [];
-    if (rows.length < 3) return null;
+    if (rows.length < 5) return null;
     const padTop = parseFloat(getComputedStyle(vodsListEl).paddingTop) || 0;
-    return padTop + (rows[2].offsetTop - rows[0].offsetTop) + rows[2].offsetHeight / 2;
+    const peek = padTop + (rows[4].offsetTop - rows[0].offsetTop) + rows[4].offsetHeight / 2;
+    const pane = document.getElementById('chatPane');
+    const tabH = vodsTab ? vodsTab.offsetHeight || 38 : 38;
+    const room = pane ? pane.clientHeight - tabH : peek;
+    return Math.max(0, Math.min(peek, room));
   }
 
   function setVodsOpen(open) {
