@@ -1735,12 +1735,16 @@
     overflow-wrap: anywhere;
   }
   .profile-empty { opacity: 0.6; font-size: clamp(11px, 3cqmin, 14px); }
+  .profile-song {
+    padding: 6px 12px;
+    border-radius: clamp(10px, 2.5vw, 28px);
+    background: #ffffff;
+  }
   .profile-song iframe {
     display: block;
     width: 100%;
-    height: 166px;
+    height: 20px;
     border: 0;
-    border-radius: clamp(8px, 2.4cqmin, 14px);
   }
   .profile-actions {
     display: flex;
@@ -5373,7 +5377,7 @@
 
   function soundCloudEmbedSrc(songUrl) {
     return 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(songUrl) +
-      '&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false';
+      '&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false&show_artwork=false';
   }
 
   function lastOnlineLabel(data, username) {
