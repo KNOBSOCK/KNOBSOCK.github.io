@@ -6011,16 +6011,63 @@
     if (canAutoFocusInput()) $('chatHandle').focus();
   }
 
-  function renderAccountAccess(mode, message) {
+  async function finishAccountCode(linking, email, code) {
+    const cleanedCode = String(code || '').replace(/\s/g, '');
+    if (!/^\d{6,10}$/.test(cleanedCode)) throw new Error('Enter the code from the email.');
+    const result = await supabaseClient.auth.verifyOtp({ email: email, token: cleanedCode, type: 'email' });
+    if (result.error) {
+      const error = new Error('That code is wrong or has expired.');
+      error.code = 'bad-code';
+      throw error;
+    }
+
+    if (linking) {
+      await linkCurrentBrowserToAccount();
+      renderChatShell();
+      renderMessages(messageCache);
+      return;
+    }
+
+    let restored;
+    try {
+      restored = await restoreAccountToThisBrowser();
+    } catch (error) {
+      if (error && error.code === 'not-found') await supabaseClient.auth.signOut().catch(() => {});
+      throw error;
+    }
+    if (!restored || !restored.username) throw new Error('Could not restore your linked account.');
+    session = { username: restored.username, accountLinked: true };
+    deviceLockedUsername = restored.username;
+    rememberUsername(restored.username);
+    startChat();
+  }
+
+  function renderAccountAccess(mode, message, sentEmail) {
     const linking = mode === 'link';
-    app.innerHTML = `
+    const heading = linking ? 'Link your email to your username' : 'sign in to your linked username';
+    app.innerHTML = sentEmail ? `
       <div class="chat-screen auth-screen account-screen">
         <div class="auth">
           <div class="auth-inner">
-            <label for="accountEmail">${linking ? 'Link your email to your username' : 'sign in to your linked username'}</label>
+            <label for="accountCode">${heading}</label>
+            <p class="auth-note">We sent an email to ${escapeHtml(sentEmail)}. Enter the code from it here, or tap the link in the email.</p>
+            <input type="text" id="accountCode" name="accountCode" autocomplete="one-time-code" inputmode="numeric" maxlength="10" placeholder="123456" />
+            <div class="auth-actions">
+              <button class="pill-btn auth-submit-btn" id="accountCodeSubmit" type="button">${linking ? 'Link email' : 'Sign in'}</button>
+              <button class="pill-btn auth-secondary-btn" id="accountBack" type="button">${session ? 'Back to chat' : 'Back'}</button>
+            </div>
+            <div class="auth-msg">${message ? escapeHtml(message) : ''}</div>
+          </div>
+        </div>
+      </div>
+    ` : `
+      <div class="chat-screen auth-screen account-screen">
+        <div class="auth">
+          <div class="auth-inner">
+            <label for="accountEmail">${heading}</label>
             <p class="auth-note">${linking
               ? 'Link your email so you don’t lose access to your account. You’ll get a one-time sign-in link. You can log in at anytime using your email.'
-              : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link.'}</p>
+              : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link and code.'}</p>
             <input type="text" id="accountEmail" name="accountEmail" autocomplete="email" inputmode="email" placeholder="you@example.com" />
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="accountEmailSubmit" type="button">Email me a sign-in link</button>
@@ -6043,13 +6090,35 @@
       }
     };
     $('accountBack').addEventListener('click', back);
+
+    if (sentEmail) {
+      const submitCode = async function () {
+        const button = $('accountCodeSubmit');
+        button.disabled = true;
+        button.textContent = linking ? 'Linking…' : 'Signing in…';
+        try {
+          await finishAccountCode(linking, sentEmail, $('accountCode').value);
+        } catch (error) {
+          console.error('Could not finish email code sign-in:', error);
+          renderAccountAccess(mode, accountErrorMessage(error, 'Could not sign in with that code.'), error && error.code === 'not-found' ? '' : sentEmail);
+        }
+      };
+      $('accountCodeSubmit').addEventListener('click', submitCode);
+      $('accountCode').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') submitCode();
+      });
+      if (canAutoFocusInput()) $('accountCode').focus();
+      return;
+    }
+
     const submit = async function () {
       const button = $('accountEmailSubmit');
       button.disabled = true;
       button.textContent = 'Sending…';
       try {
-        await sendAccountMagicLink($('accountEmail').value, linking);
-        renderAccountAccess(mode, 'Check your email and open the sign-in link to continue.');
+        const email = String($('accountEmail').value || '').trim();
+        await sendAccountMagicLink(email, linking);
+        renderAccountAccess(mode, '', email);
       } catch (error) {
         renderAccountAccess(mode, accountErrorMessage(error, 'Could not send a sign-in link.'));
       }
@@ -6640,6 +6709,7 @@
     } catch (error) {
       if (error && error.code !== 'functions/not-found') console.error('Could not restore linked chat account:', error);
       if (activeAccountSession) {
+        if (error && error.code === 'not-found') supabaseClient.auth.signOut().catch(() => {});
         renderAuth(isStandaloneAccountCallback() && error && error.code === 'not-found'
           ? WRONG_BROWSER_LINK_MESSAGE
           : accountErrorMessage(error, 'Could not restore your linked account.'));
