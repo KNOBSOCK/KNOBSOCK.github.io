@@ -3026,10 +3026,10 @@
     var mp4QualityBase = null;
     var mp4QualityQuery = '';
     if (isIOS && watchingVodId) {
-      var bunnyVod = url.match(/^(https:\/\/[^/]+\/[0-9a-f-]+)\/playlist\.m3u8(\?.*)?$/i);
+      var bunnyVod = url.match(/^(https:\/\/[^/]+)\/(?:live\/)?([0-9a-f-]+)\/playlist\.m3u8(\?.*)?$/i);
       if (bunnyVod && /\.b-cdn\.net$/i.test(new URL(url).hostname)) {
-        mp4QualityBase = bunnyVod[1];
-        mp4QualityQuery = bunnyVod[2] || '';
+        mp4QualityBase = bunnyVod[1] + '/' + bunnyVod[2];
+        mp4QualityQuery = bunnyVod[3] || '';
         url = mp4QualityBase + '/play_720p.mp4' + mp4QualityQuery;
       }
     }
