@@ -1716,6 +1716,10 @@
        composer extension to paint into the column gutter. */
     .chat-card,
     .chat-screen { overflow: visible; }
+    .layout:not(.mode-portrait) .chat-card {
+      box-sizing: border-box;
+      padding-top: var(--vods-tab-h, 25px);
+    }
     .composer-bar { position: relative; }
     .composer-bar::before {
       content: '';
@@ -4088,6 +4092,13 @@
   }
 
   if (vodsTab) vodsTab.addEventListener('click', toggleVods);
+
+  const chatPaneEl = document.getElementById('chatPane');
+  if (vodsTab && chatPaneEl && window.ResizeObserver) {
+    new ResizeObserver(() => {
+      chatPaneEl.style.setProperty('--vods-tab-h', vodsTab.offsetHeight + 'px');
+    }).observe(vodsTab);
+  }
 
   const vodsBarQuery = window.matchMedia('(max-width: 860px)');
   const streamStatsEl = document.getElementById('streamStats');
