@@ -7,5 +7,7 @@ scripts/node_modules/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+supabase/functions/.env
+supabase/functions/.env.*
 .DS_Store
 ._.DS_Store

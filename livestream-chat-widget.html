@@ -666,6 +666,18 @@
   .auth-submit-btn {
     width: 100%;
   }
+  .auth-secondary-btn {
+    width: 100%;
+    background: transparent;
+    border-color: var(--line);
+    color: var(--text);
+  }
+  .auth-secondary-btn:hover:not(:disabled),
+  .auth-secondary-btn:active:not(:disabled) {
+    background: var(--panel-2);
+    border-color: var(--interactive-hover);
+    color: var(--interactive-hover);
+  }
 
   .video-pane .video-pane-actions,
   .video-pane .viewer-badge,
@@ -1535,6 +1547,26 @@
     font-size: clamp(10px, 2.8cqw, 13px);
     color: var(--error);
     min-height: 16px;
+  }
+  .auth-note {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: clamp(10px, 2.8cqw, 13px);
+    line-height: 1.4;
+  }
+  .account-link-btn {
+    appearance: none;
+    margin-left: 7px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--interactive-hover);
+    cursor: pointer;
+    font-family: 'Gratis Neue', var(--font-body);
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    text-decoration: underline;
   }
 
   .messages {
@@ -3845,6 +3877,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.6.15/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 (function () {
@@ -3873,6 +3906,11 @@
   const devicesRef = db.collection('chat_devices');
 
   const ipLogRef = db.collection('chat_ip_log');
+  const supabaseClient = window.supabase.createClient(
+    'https://ypofuhazhxtzvtywguew.supabase.co',
+    'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO',
+    { auth: { flowType: 'implicit' } }
+  );
 
   function hexToRgbString(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
@@ -4160,7 +4198,107 @@
     try { localStorage.removeItem(LAST_USERNAME_KEY); } catch (e) {}
   }
 
+  const PENDING_ACCOUNT_LINK_KEY = 'chat_pending_account_link';
+
+  function accountRedirectUrl() {
+    // The magic-link hash must be handled by this document: the chat widget
+    // owns the Supabase client, while live.html only embeds it in an iframe.
+    return window.location.origin + '/livestream-chat-widget.html?account-link-callback=1';
+  }
+
+  function isStandaloneAccountCallback() {
+    return window.top === window.self && new URLSearchParams(window.location.search).get('account-link-callback') === '1';
+  }
+
+  function hasPendingAccountLink() {
+    try { return localStorage.getItem(PENDING_ACCOUNT_LINK_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function setPendingAccountLink(pending) {
+    try {
+      if (pending) localStorage.setItem(PENDING_ACCOUNT_LINK_KEY, '1');
+      else localStorage.removeItem(PENDING_ACCOUNT_LINK_KEY);
+    } catch (e) {}
+  }
+
+  async function currentAccountSession() {
+    const result = await supabaseClient.auth.getSession();
+    return result && result.data ? result.data.session : null;
+  }
+
+  function accountErrorMessage(error, fallback) {
+    const code = error && error.code;
+    if (code === 'not-found') return 'No KNOBSOCK username is linked to this email yet.';
+    if (code === 'already-exists') return error.message || 'That account is already linked.';
+    if (code === 'unauthenticated') return 'That sign-in link has expired. Please request another one.';
+    return (error && error.message) || fallback;
+  }
+
+  async function callAccountFunction(action, payload) {
+    const result = await supabaseClient.functions.invoke('chat-account', {
+      body: Object.assign({ action: action }, payload)
+    });
+    if (!result.error) return result.data;
+
+    let details = null;
+    try { details = await result.error.context.json(); } catch (e) {}
+    const error = new Error((details && details.error) || result.error.message || 'Account service unavailable.');
+    error.code = details && details.code;
+    throw error;
+  }
+
+  async function linkCurrentBrowserToAccount() {
+    if (!session) throw new Error('Choose a username before linking an account.');
+    const accountSession = await currentAccountSession();
+    if (!accountSession) throw new Error('Open the sign-in link from your email first.');
+    const result = await callAccountFunction('link', {
+      username: session.username,
+      clientId: CLIENT_ID
+    });
+    setPendingAccountLink(false);
+    session.accountLinked = true;
+    return result.data;
+  }
+
+  function finishPendingAccountLink() {
+    return linkCurrentBrowserToAccount().then(() => {
+      if (!session) return;
+      renderChatShell();
+      renderMessages(messageCache);
+      if (isStandaloneAccountCallback()) {
+        window.location.replace(window.location.origin + '/live.html');
+      }
+    }).catch((error) => {
+      console.error('Could not link chat account:', error);
+      renderAccountAccess('link', accountErrorMessage(error, 'Could not finish linking your account.'));
+    });
+  }
+
+  async function restoreAccountToThisBrowser() {
+    const accountSession = await currentAccountSession();
+    if (!accountSession) return null;
+    const result = await callAccountFunction('restore', {
+      clientId: CLIENT_ID
+    });
+    return result.data;
+  }
+
+  async function sendAccountMagicLink(email, linkingCurrentBrowser) {
+    const cleanedEmail = String(email || '').trim();
+    if (!/^\S+@\S+\.\S+$/.test(cleanedEmail)) throw new Error('Enter a valid email address.');
+    if (linkingCurrentBrowser) setPendingAccountLink(true);
+    const result = await supabaseClient.auth.signInWithOtp({
+      email: cleanedEmail,
+      options: { emailRedirectTo: accountRedirectUrl(), shouldCreateUser: true }
+    });
+    if (result.error) {
+      if (linkingCurrentBrowser) setPendingAccountLink(false);
+      throw result.error;
+    }
+  }
+
   let deviceLockedUsername = null;
+  let deviceAccountLinked = false;
   let resolveDeviceLockReady;
   const deviceLockPromise = new Promise((resolve) => { resolveDeviceLockReady = resolve; });
   let deviceLockReady = false;
@@ -4176,6 +4314,7 @@
     const lockedName = (data && data.username) || null;
     const hadLock = deviceLockedUsername;
     deviceLockedUsername = lockedName;
+    deviceAccountLinked = Boolean(data && data.accountId);
     markDeviceLockReady();
 
     lastTapInAt = (data && data.lastTapInAt) || 0;
@@ -5737,6 +5876,7 @@
             <label class="auth-terms"><input type="checkbox" id="authTerms"${termsChecked ? ' checked' : ''}> I agree to the <a href="/privacy">Privacy Policy &amp; User Agreement</a>.</label>
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="authSubmit" title="Join Chat">Join Chat</button>
+              <button class="pill-btn auth-secondary-btn" id="authRestore" type="button">Restore a linked account</button>
             </div>
             <div class="auth-msg">${errorMsg ? escapeHtml(errorMsg) : ''}</div>
           </div>
@@ -5745,10 +5885,59 @@
     `;
 
     $('authSubmit').addEventListener('click', handleAuthSubmit);
+    $('authRestore').addEventListener('click', function () { renderAccountAccess('restore'); });
     $('chatHandle').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleAuthSubmit();
     });
     if (canAutoFocusInput()) $('chatHandle').focus();
+  }
+
+  function renderAccountAccess(mode, message) {
+    const linking = mode === 'link';
+    app.innerHTML = `
+      <div class="chat-screen auth-screen">
+        <div class="auth">
+          <div class="auth-inner">
+            <label for="accountEmail">${linking ? 'link your username to email' : 'restore your linked username'}</label>
+            <p class="auth-note">${linking
+              ? 'We’ll email you a one-time sign-in link. Your current chat username stays the same.'
+              : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link.'}</p>
+            <input type="text" id="accountEmail" name="accountEmail" autocomplete="email" inputmode="email" placeholder="you@example.com" />
+            <div class="auth-actions">
+              <button class="pill-btn auth-submit-btn" id="accountEmailSubmit" type="button">Email me a sign-in link</button>
+              <button class="pill-btn auth-secondary-btn" id="accountBack" type="button">${linking ? 'Back to chat' : 'Back'}</button>
+            </div>
+            <div class="auth-msg">${message ? escapeHtml(message) : ''}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const back = function () {
+      if (linking && session) {
+        renderChatShell();
+        subscribeToMessages();
+      } else {
+        renderAuth();
+      }
+    };
+    $('accountBack').addEventListener('click', back);
+    const submit = async function () {
+      const button = $('accountEmailSubmit');
+      button.disabled = true;
+      button.textContent = 'Sending…';
+      try {
+        await sendAccountMagicLink($('accountEmail').value, linking);
+        renderAccountAccess(mode, 'Check your email and open the sign-in link to continue.');
+      } catch (error) {
+        renderAccountAccess(mode, accountErrorMessage(error, 'Could not send a sign-in link.'));
+      }
+    };
+    $('accountEmailSubmit').addEventListener('click', submit);
+    $('accountEmail').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') submit();
+    });
+    if (canAutoFocusInput()) $('accountEmail').focus();
   }
 
   async function handleAuthSubmit() {
@@ -5857,7 +6046,7 @@
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
-          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b></div>
+          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked ? ' <span aria-label="Account linked">account linked</span>' : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link account</button>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
@@ -5881,6 +6070,9 @@
       usernamesRef.doc(key).set({ color: color }, { merge: true }).catch((err) => console.error(err));
       if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
     });
+
+    const accountLinkBtn = $('accountLinkBtn');
+    if (accountLinkBtn) accountLinkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
 
     $('sendBtn').addEventListener('click', sendMessage);
     $('msgInput').addEventListener('keydown', (e) => {
@@ -6266,9 +6458,12 @@
 
     if (deviceLockedUsername) {
 
-      session = { username: deviceLockedUsername };
+      session = { username: deviceLockedUsername, accountLinked: deviceAccountLinked };
       rememberUsername(deviceLockedUsername);
       startChat();
+      if (hasPendingAccountLink()) {
+        finishPendingAccountLink();
+      }
       return;
     }
 
@@ -6282,7 +6477,28 @@
         claimedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch((e) => console.error('Could not persist device lock:', e));
       startChat();
+      if (hasPendingAccountLink()) {
+        finishPendingAccountLink();
+      }
       return;
+    }
+
+    try {
+      const restored = await restoreAccountToThisBrowser();
+      if (restored && restored.username) {
+        session = { username: restored.username, accountLinked: true };
+        deviceLockedUsername = restored.username;
+        rememberUsername(restored.username);
+        startChat();
+        return;
+      }
+    } catch (error) {
+      if (error && error.code !== 'functions/not-found') console.error('Could not restore linked chat account:', error);
+      const accountSession = await currentAccountSession().catch(() => null);
+      if (accountSession) {
+        renderAuth(accountErrorMessage(error, 'Could not restore your linked account.'));
+        return;
+      }
     }
 
     renderAuth();
