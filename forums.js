@@ -625,6 +625,53 @@
       ";--border-ink:" + inkFor(border)
     );
   }
+  const SOCIALS = [
+    { key: "instagram", label: "Instagram", placeholder: "@username" },
+    { key: "youtube", label: "YouTube", placeholder: "@channel" },
+    { key: "tiktok", label: "TikTok", placeholder: "@username" },
+  ];
+  function normalizeSocial(kind, raw) {
+    let value = String(raw || '').trim();
+    if (!value) return '';
+    value = value.replace(/^https?:\/\//i, '').replace(/^(www\.|m\.)/i, '');
+    if (kind === 'instagram') {
+      value = value.replace(/\/+$/, '');
+      if (value.includes('/') && !/^instagram\.com\//i.test(value)) return null;
+      value = value.replace(/^instagram\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+      return /^[A-Za-z0-9._]{1,30}$/.test(value) ? value : null;
+    }
+    if (kind === 'tiktok') {
+      value = value.replace(/\/+$/, '');
+      if (value.includes('/') && !/^tiktok\.com\//i.test(value)) return null;
+      value = value.replace(/^tiktok\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+      return /^[A-Za-z0-9._]{2,24}$/.test(value) ? value : null;
+    }
+    if (kind === 'youtube') {
+      if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(value) && !/^youtube\.com\//i.test(value)) return null;
+      value = value.replace(/^youtube\.com\//i, '').split(/[?#]/)[0].replace(/\/+$/, '');
+      if (/^@[A-Za-z0-9._-]{3,30}$/.test(value)) return value;
+      if (/^[A-Za-z0-9._-]{3,30}$/.test(value)) return '@' + value;
+      const match = value.match(/^(channel\/UC[A-Za-z0-9_-]{22}|c\/[A-Za-z0-9._-]{1,100}|user\/[A-Za-z0-9._-]{1,100})$/);
+      return match ? match[1] : null;
+    }
+    return null;
+  }
+
+  function socialUrl(kind, value) {
+    if (kind === 'instagram') return 'https://www.instagram.com/' + value + '/';
+    if (kind === 'tiktok') return 'https://www.tiktok.com/@' + value;
+    return 'https://www.youtube.com/' + value;
+  }
+
+  function socialsHtml(p) {
+    const links = SOCIALS.map((social) => {
+      const value = normalizeSocial(social.key, p[social.key]);
+      return value
+        ? '<a class="profile-btn" href="' + esc(socialUrl(social.key, value)) + '" target="_blank" rel="noopener noreferrer">[ ' + social.label + " ]</a>"
+        : "";
+    }).join("");
+    return links ? '<div class="profile-actions profile-socials">' + links + "</div>" : "";
+  }
   function normalizeSong(raw) {
     let url;
     try {
@@ -853,6 +900,7 @@
       "</td></tr><tr><th>Tap-in streak</th><td>" + stats.streak + (stats.streak === 1 ? " day" : " days") +
       ' <span class="profile-rank" id="profileStreakRank"></span></td></tr><tr><th>Knockouts</th><td>' + stats.wins +
       ' <span class="profile-rank" id="profileKoRank"></span></td></tr></table>' +
+      socialsHtml(p) +
       (mine
         ? '<div class="profile-actions">' +
           (accountLinked
@@ -907,6 +955,12 @@
       '<label>Favorite color<input id="profileFavColor" maxlength="30" autocomplete="off" value="' + esc(p.favoriteColor || "") + '"></label>' +
       '<label>Song<input id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + esc(p.song || "") + '"><small>Paste a link to a track on SoundCloud.</small></label>' +
       '<label>About me<textarea id="profileAbout" maxlength="300">' + esc(p.about || "") + "</textarea></label>" +
+      SOCIALS.map((social) =>
+        "<label>" + social.label +
+        '<input id="profileSocial_' + social.key + '" maxlength="120" autocomplete="off" autocapitalize="off" placeholder="' + social.placeholder + '" value="' +
+        esc(p[social.key] ? (social.key === "youtube" ? p[social.key] : "@" + p[social.key]) : "") + '"></label>',
+      ).join("") +
+      "<small>Paste a username or link. Only Instagram, YouTube and TikTok for now.</small>" +
       '<div class="profile-colors"><label><input type="color" id="profileBg" value="' + bg + '"> Background color</label>' +
       '<label><input type="color" id="profileBorder" value="' + border + '"> Border color</label></div>' +
       '<div class="profile-actions"><button>Save</button><a class="profile-btn" href="#profile/' + encodeURIComponent(key) + '">[ Cancel ]</a></div>' +
@@ -939,11 +993,20 @@
         const rawSong = $("profileSong").value.trim(),
           song = rawSong ? normalizeSong(rawSong) : "";
         if (rawSong && !song) throw Error("That doesn’t look like a SoundCloud link.");
+        const socialValues = {};
+        for (const social of SOCIALS) {
+          const value = normalizeSocial(social.key, $("profileSocial_" + social.key).value);
+          if (value === null) throw Error("That " + social.label + " username or link doesn’t look right.");
+          socialValues[social.key] = value;
+        }
         const next = {
           photo,
           favoriteColor: $("profileFavColor").value.trim().slice(0, 30),
           song,
           about: $("profileAbout").value.trim().slice(0, 300),
+          instagram: socialValues.instagram,
+          youtube: socialValues.youtube,
+          tiktok: socialValues.tiktok,
           cardColor: safeHex($("profileBg").value, PROFILE_BG),
           borderColor: safeHex($("profileBorder").value, PROFILE_BORDER),
           updatedAt: Date.now(),

@@ -201,6 +201,37 @@ function cleanSong(value: unknown) {
   return url.toString().slice(0, 300);
 }
 
+const SOCIAL_LABELS: Record<string, string> = { instagram: 'Instagram', youtube: 'YouTube', tiktok: 'TikTok' };
+
+function cleanSocial(kind: string, value: unknown) {
+  let text = String(value ?? '').trim();
+  if (!text) return '';
+  text = text.replace(/^https?:\/\//i, '').replace(/^(www\.|m\.)/i, '');
+  let cleaned: string | null = null;
+  if (kind === 'instagram') {
+    text = text.replace(/\/+$/, '');
+    if (text.includes('/') && !/^instagram\.com\//i.test(text)) throw new InvalidProfile('That Instagram username or link doesn’t look right.');
+    text = text.replace(/^instagram\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+    cleaned = /^[A-Za-z0-9._]{1,30}$/.test(text) ? text : null;
+  } else if (kind === 'tiktok') {
+    text = text.replace(/\/+$/, '');
+    if (text.includes('/') && !/^tiktok\.com\//i.test(text)) throw new InvalidProfile('That TikTok username or link doesn’t look right.');
+    text = text.replace(/^tiktok\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+    cleaned = /^[A-Za-z0-9._]{2,24}$/.test(text) ? text : null;
+  } else if (kind === 'youtube') {
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(text) && !/^youtube\.com\//i.test(text)) throw new InvalidProfile('That YouTube username or link doesn’t look right.');
+    text = text.replace(/^youtube\.com\//i, '').split(/[?#]/)[0].replace(/\/+$/, '');
+    if (/^@[A-Za-z0-9._-]{3,30}$/.test(text)) cleaned = text;
+    else if (/^[A-Za-z0-9._-]{3,30}$/.test(text)) cleaned = '@' + text;
+    else {
+      const match = text.match(/^(channel\/UC[A-Za-z0-9_-]{22}|c\/[A-Za-z0-9._-]{1,100}|user\/[A-Za-z0-9._-]{1,100})$/);
+      cleaned = match ? match[1] : null;
+    }
+  }
+  if (cleaned === null) throw new InvalidProfile(`That ${SOCIAL_LABELS[kind] || 'social'} username or link doesn’t look right.`);
+  return cleaned;
+}
+
 async function writeProfile(usernameKey: string, profile: Record<string, string | number>) {
   const fields: Record<string, unknown> = {};
   Object.entries(profile).forEach(([key, value]) => {
@@ -296,6 +327,9 @@ Deno.serve(async (request) => {
           about: cleanText(input.about, 300),
           cardColor: cleanHex(input.cardColor, '#2a0a4a'),
           borderColor: cleanHex(input.borderColor, '#ffff00'),
+          instagram: cleanSocial('instagram', input.instagram),
+          youtube: cleanSocial('youtube', input.youtube),
+          tiktok: cleanSocial('tiktok', input.tiktok),
           updatedAt: Date.now()
         };
       } catch (error) {

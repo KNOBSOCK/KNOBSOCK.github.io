@@ -5256,7 +5256,7 @@
 #knobsockProfile .profile-name { font-size: clamp(24px, 5.6vmin, 58px); line-height: 1.1; overflow-wrap: anywhere; }
 #knobsockProfile .profile-line { margin-top: clamp(6px, 1.2vmin, 12px); font-size: clamp(14px, 2.4vmin, 22px); overflow-wrap: anywhere; }
 #knobsockProfile .profile-line span { opacity: 0.75; }
-#knobsockProfile .profile-line .online-now { opacity: 1; white-space: nowrap; }
+#knobsockProfile .profile-line .online-now { opacity: 1; white-space: nowrap; color: #33e046; }
 #knobsockProfile .profile-line .online-now-icon { opacity: 1; }
 #knobsockProfile .online-now-icon { display: inline-block; width: 1.45em; height: 1.45em; margin-left: 4px; overflow: hidden; vertical-align: -0.38em; }
 #knobsockProfile .online-now-icon img { display: block; width: 140%; height: 140%; margin: -15% 0 0 -20%; }
@@ -5267,6 +5267,12 @@
 #knobsockProfile .profile-empty { opacity: 0.6; font-size: clamp(14px, 2.2vmin, 20px); }
 #knobsockProfile .profile-song { padding: 8px 14px; border-radius: clamp(10px, 2.5vw, 28px); background: #ffffff; }
 #knobsockProfile .profile-song iframe { display: block; width: 100%; height: 20px; border: 0; }
+#knobsockProfile .profile-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: clamp(12px, 2.4vmin, 22px); }
+#knobsockProfile .profile-social { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 2px solid var(--card-border, #ffff00); border-radius: 999px; color: inherit; font-size: clamp(13px, 1.9vmin, 16px); text-decoration: none; }
+#knobsockProfile .profile-social:hover { background: var(--card-border, #ffff00); color: #000000; }
+#knobsockProfile .profile-social-field { display: grid; grid-template-columns: 5.6em minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 8px; font-size: clamp(13px, 2vmin, 16px); }
+#knobsockProfile .profile-social-field input[type="text"] { width: 100%; min-width: 0; }
+#knobsockProfile .profile-social-field { white-space: nowrap; }
 #knobsockProfile .profile-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(14px, 2.8vmin, 28px); }
 #knobsockProfile .pill-btn { -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: clamp(10px, 1.6vmin, 14px) clamp(18px, 2.8vmin, 28px); border: 1px solid var(--accent-dim); border-radius: clamp(10px, 2.5vw, 28px); background: var(--accent); color: #ffffff; cursor: pointer; font-family: 'Gratis Neue', var(--font-body); font-size: clamp(14px, 2vmin, 18px); font-weight: 700; line-height: 1; white-space: nowrap; }
 #knobsockProfile .pill-btn:hover:not(:disabled), #knobsockProfile .pill-btn:active:not(:disabled) { background: var(--interactive-hover); border-color: var(--interactive-hover); color: var(--interactive-hover-text); }
@@ -5437,6 +5443,54 @@
 
   function safePhoto(value) {
     return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(value || '')) ? value : '';
+  }
+
+  const SOCIALS = [
+    { key: 'instagram', label: 'Instagram', placeholder: '@username' },
+    { key: 'youtube', label: 'YouTube', placeholder: '@channel' },
+    { key: 'tiktok', label: 'TikTok', placeholder: '@username' }
+  ];
+
+  function normalizeSocial(kind, raw) {
+    let value = String(raw || '').trim();
+    if (!value) return '';
+    value = value.replace(/^https?:\/\//i, '').replace(/^(www\.|m\.)/i, '');
+    if (kind === 'instagram') {
+      value = value.replace(/\/+$/, '');
+      if (value.includes('/') && !/^instagram\.com\//i.test(value)) return null;
+      value = value.replace(/^instagram\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+      return /^[A-Za-z0-9._]{1,30}$/.test(value) ? value : null;
+    }
+    if (kind === 'tiktok') {
+      value = value.replace(/\/+$/, '');
+      if (value.includes('/') && !/^tiktok\.com\//i.test(value)) return null;
+      value = value.replace(/^tiktok\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+      return /^[A-Za-z0-9._]{2,24}$/.test(value) ? value : null;
+    }
+    if (kind === 'youtube') {
+      if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(value) && !/^youtube\.com\//i.test(value)) return null;
+      value = value.replace(/^youtube\.com\//i, '').split(/[?#]/)[0].replace(/\/+$/, '');
+      if (/^@[A-Za-z0-9._-]{3,30}$/.test(value)) return value;
+      if (/^[A-Za-z0-9._-]{3,30}$/.test(value)) return '@' + value;
+      const match = value.match(/^(channel\/UC[A-Za-z0-9_-]{22}|c\/[A-Za-z0-9._-]{1,100}|user\/[A-Za-z0-9._-]{1,100})$/);
+      return match ? match[1] : null;
+    }
+    return null;
+  }
+
+  function socialUrl(kind, value) {
+    if (kind === 'instagram') return 'https://www.instagram.com/' + value + '/';
+    if (kind === 'tiktok') return 'https://www.tiktok.com/@' + value;
+    return 'https://www.youtube.com/' + value;
+  }
+
+  function socialsHtml(profile) {
+    const links = SOCIALS.map((social) => {
+      const value = normalizeSocial(social.key, profile[social.key]);
+      if (!value) return '';
+      return '<a class="profile-social" href="' + escapeHtml(socialUrl(social.key, value)) + '" target="_blank" rel="noopener noreferrer">' + social.label + '</a>';
+    }).join('');
+    return links ? '<div class="profile-socials">' + links + '</div>' : '';
   }
 
   function normalizeSoundCloudUrl(raw) {
@@ -5614,6 +5668,7 @@
           '<div class="profile-line"><span>Knockouts:</span> ' + stats.wins + ' <span class="profile-rank" id="profileKoRank"></span></div>' +
         '</div>' +
       '</div>' +
+      socialsHtml(profile) +
       '<div class="profile-section"><div class="profile-label">Song</div>' +
         (song
           ? '<div class="profile-song"><iframe title="' + escapeHtml(name) + '’s song" allow="autoplay" loading="lazy" src="' + escapeHtml(soundCloudEmbedSrc(song)) + '"></iframe></div>'
@@ -5757,6 +5812,10 @@
       '<label class="profile-field"><span>Favorite color</span><input type="text" id="profileFavColor" maxlength="30" autocomplete="off" value="' + escapeHtml(profile.favoriteColor || '') + '"></label>' +
       '<label class="profile-field"><span>Song</span><input type="text" id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + escapeHtml(profile.song || '') + '"><div class="profile-hint">Paste a link to a track on SoundCloud.</div></label>' +
       '<label class="profile-field"><span>About me</span><textarea id="profileAbout" maxlength="300">' + escapeHtml(profile.about || '') + '</textarea></label>' +
+      '<div class="profile-field"><span>Socials</span>' + SOCIALS.map((social) =>
+        '<label class="profile-social-field">' + social.label +
+        '<input type="text" id="profileSocial_' + social.key + '" maxlength="120" autocomplete="off" autocapitalize="off" placeholder="' + social.placeholder + '" value="' + escapeHtml(profile[social.key] ? (social.key === 'youtube' ? profile[social.key] : '@' + profile[social.key]) : '') + '"></label>'
+      ).join('') + '<div class="profile-hint">Paste a username or link. Only Instagram, YouTube and TikTok for now.</div></div>' +
       '<div class="profile-field"><span>Card colors</span><div class="profile-colors">' +
         '<label><input type="color" id="profileCardColor" value="' + cardColor + '"> Background color</label>' +
         '<label><input type="color" id="profileBorderColor" value="' + borderColor + '"> Border</label>' +
@@ -5802,11 +5861,23 @@
         msg.textContent = 'That doesn’t look like a SoundCloud link.';
         return;
       }
+      const socialValues = {};
+      for (const social of SOCIALS) {
+        const value = normalizeSocial(social.key, pq('profileSocial_' + social.key).value);
+        if (value === null) {
+          msg.textContent = 'That ' + social.label + ' username or link doesn’t look right.';
+          return;
+        }
+        socialValues[social.key] = value;
+      }
       const next = {
         photo: draftPhoto,
         favoriteColor: pq('profileFavColor').value.trim().slice(0, 30),
         song: song,
         about: pq('profileAbout').value.trim().slice(0, 300),
+        instagram: socialValues.instagram,
+        youtube: socialValues.youtube,
+        tiktok: socialValues.tiktok,
         cardColor: safeHex(pq('profileCardColor').value, PROFILE_DEFAULT_BG),
         borderColor: safeHex(pq('profileBorderColor').value, PROFILE_DEFAULT_BORDER),
         updatedAt: Date.now()

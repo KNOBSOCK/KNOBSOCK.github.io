@@ -862,6 +862,7 @@
 }
 .online-now {
   white-space: nowrap;
+  color: #33e046;
 }
 .online-now-icon {
   display: inline-block;
