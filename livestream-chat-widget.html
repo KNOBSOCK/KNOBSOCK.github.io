@@ -1574,19 +1574,74 @@
       min-height: 44px;
     }
   }
-  .account-link-btn {
+  .account-name-btn {
+    -webkit-appearance: none;
     appearance: none;
-    margin-left: 7px;
     padding: 0;
     border: 0;
     background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+  }
+  .account-name-btn::after {
+    content: '\25BE';
+    margin-left: 3px;
+    color: var(--text-dim);
+    font-size: 0.85em;
+  }
+  .account-name-btn:hover b,
+  .account-name-btn:focus-visible b,
+  .account-name-btn[aria-expanded="true"] b {
     color: var(--interactive-hover);
+  }
+  .composer-bar { position: relative; }
+  .account-menu {
+    position: absolute;
+    z-index: 45;
+    left: clamp(8px, 2.8cqmin, 14px);
+    bottom: calc(100% + clamp(6px, 1.8cqmin, 10px));
+    display: none;
+    width: min(220px, 78cqw);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: clamp(8px, 2.5cqw, 12px);
+    background: var(--ink);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    transform-origin: bottom left;
+  }
+  .account-menu.is-open {
+    display: flex;
+    flex-direction: column;
+    animation: fightMenuUnroll 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .account-menu-list {
+    padding: clamp(5px, 1.5cqmin, 7px);
+  }
+  .account-menu-item {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: clamp(7px, 2cqmin, 9px) clamp(8px, 2.4cqmin, 11px);
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text);
     cursor: pointer;
     font-family: 'Gratis Neue', var(--font-body);
-    font-size: inherit;
-    font-weight: inherit;
-    line-height: inherit;
-    text-decoration: underline;
+    font-size: clamp(11px, 2.8cqmin, 13px);
+    text-align: left;
+  }
+  .account-menu-item:hover:not(:disabled),
+  .account-menu-item:focus-visible {
+    outline: none;
+    background: var(--interactive-hover);
+    color: var(--interactive-hover-text);
+  }
+  .account-menu-item:disabled { opacity: 0.6; cursor: default; }
+  @media (prefers-reduced-motion: reduce) {
+    .account-menu.is-open { animation: none; }
   }
 
   .messages {
@@ -5051,6 +5106,23 @@
     if (button) button.setAttribute('aria-expanded', 'false');
   }
 
+  function closeAccountMenu() {
+    const menu = $('accountMenu');
+    const button = $('accountNameBtn');
+    if (menu) menu.classList.remove('is-open');
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleAccountMenu() {
+    const menu = $('accountMenu');
+    const button = $('accountNameBtn');
+    if (!menu || !button) return;
+    const open = !menu.classList.contains('is-open');
+    if (open) closeFightMenu();
+    menu.classList.toggle('is-open', open);
+    button.setAttribute('aria-expanded', String(open));
+  }
+
   function toggleFightMenu() {
     if (!isChatUnlocked()) return;
     if (currentFight) {
@@ -6289,9 +6361,13 @@
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
-          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
-            ? '<button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
-            : '<button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button>'}</div>
+          <div class="who">Signed in as <button class="account-name-btn" id="accountNameBtn" type="button" aria-haspopup="true" aria-expanded="false"><b>${escapeHtml(session.username)}</b></button></div>
+          <div class="account-menu" id="accountMenu">
+            <div class="fight-menu-heading">${escapeHtml(session.username)}</div>
+            <div class="account-menu-list">${session.accountLinked
+              ? '<button class="account-menu-item" id="accountSignOutBtn" type="button">Sign out</button>'
+              : '<button class="account-menu-item" id="accountLinkBtn" type="button">Link email to account</button>'}</div>
+          </div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
@@ -6316,20 +6392,22 @@
       if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
     });
 
+    $('accountNameBtn').addEventListener('click', toggleAccountMenu);
+
     const accountLinkBtn = $('accountLinkBtn');
     if (accountLinkBtn) accountLinkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
 
     const accountSignOutBtn = $('accountSignOutBtn');
     if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async function () {
       accountSignOutBtn.disabled = true;
-      accountSignOutBtn.textContent = 'signing out…';
+      accountSignOutBtn.textContent = 'Signing out…';
       try {
         await signOutLinkedAccount();
         renderAuth('Signed out. Sign in with email to switch accounts.');
       } catch (error) {
         console.error('Could not sign out of linked account:', error);
         accountSignOutBtn.disabled = false;
-        accountSignOutBtn.textContent = 'sign out';
+        accountSignOutBtn.textContent = 'Sign out';
       }
     });
 
@@ -6395,6 +6473,7 @@
     app.addEventListener('click', (event) => {
       const menuWrap = event.target && event.target.closest('.fight-menu-wrap');
       if (!menuWrap) closeFightMenu();
+      if (!(event.target && event.target.closest('#accountNameBtn, #accountMenu'))) closeAccountMenu();
       const emojiWrap = event.target && event.target.closest('.emoji-picker-wrap');
       if (!emojiWrap) {
         const popover = $('emojiPickerPopover');
