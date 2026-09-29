@@ -324,7 +324,7 @@ Deno.serve(async (request) => {
           photo: cleanPhoto(input.photo),
           favoriteColor: cleanText(input.favoriteColor, 30),
           song: cleanSong(input.song),
-          about: cleanText(input.about, 300),
+          about: cleanText(input.about, 4000),
           cardColor: cleanHex(input.cardColor, '#2a0a4a'),
           borderColor: cleanHex(input.borderColor, '#ffff00'),
           instagram: cleanSocial('instagram', input.instagram),

@@ -954,7 +954,7 @@
       '<button type="button" id="profilePhotoRemove">Remove</button></div>' +
       '<label>Favorite color<input id="profileFavColor" maxlength="30" autocomplete="off" value="' + esc(p.favoriteColor || "") + '"></label>' +
       '<label>Song<input id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + esc(p.song || "") + '"><small>Paste a link to a track on SoundCloud.</small></label>' +
-      '<label>About me<textarea id="profileAbout" maxlength="300">' + esc(p.about || "") + "</textarea></label>" +
+      '<label>About me<textarea id="profileAbout" maxlength="4000">' + esc(p.about || "") + "</textarea></label>" +
       SOCIALS.map((social) =>
         "<label>" + social.label +
         '<input id="profileSocial_' + social.key + '" maxlength="120" autocomplete="off" autocapitalize="off" placeholder="' + social.placeholder + '" value="' +
@@ -1003,7 +1003,7 @@
           photo,
           favoriteColor: $("profileFavColor").value.trim().slice(0, 30),
           song,
-          about: $("profileAbout").value.trim().slice(0, 300),
+          about: $("profileAbout").value.trim().slice(0, 4000),
           instagram: socialValues.instagram,
           youtube: socialValues.youtube,
           tiktok: socialValues.tiktok,

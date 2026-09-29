@@ -6036,7 +6036,7 @@
       '</div></div>' +
       '<label class="profile-field"><span>Favorite color</span><input type="text" id="profileFavColor" maxlength="30" autocomplete="off" value="' + escapeHtml(profile.favoriteColor || '') + '"></label>' +
       '<label class="profile-field"><span>Song</span><input type="text" id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + escapeHtml(profile.song || '') + '"><div class="profile-hint">Paste a link to a track on SoundCloud.</div></label>' +
-      '<label class="profile-field"><span>About me</span><textarea id="profileAbout" maxlength="300">' + escapeHtml(profile.about || '') + '</textarea></label>' +
+      '<label class="profile-field"><span>About me</span><textarea id="profileAbout" maxlength="4000">' + escapeHtml(profile.about || '') + '</textarea></label>' +
       '<div class="profile-field"><span>Socials</span>' + SOCIALS.map((social) =>
         '<label class="profile-social-field">' + social.label +
         '<input type="text" id="profileSocial_' + social.key + '" maxlength="120" autocomplete="off" autocapitalize="off" placeholder="' + social.placeholder + '" value="' + escapeHtml(profile[social.key] ? (social.key === 'youtube' ? profile[social.key] : '@' + profile[social.key]) : '') + '"></label>'
@@ -6099,7 +6099,7 @@
         photo: draftPhoto,
         favoriteColor: pq('profileFavColor').value.trim().slice(0, 30),
         song: song,
-        about: pq('profileAbout').value.trim().slice(0, 300),
+        about: pq('profileAbout').value.trim().slice(0, 4000),
         instagram: socialValues.instagram,
         youtube: socialValues.youtube,
         tiktok: socialValues.tiktok,
