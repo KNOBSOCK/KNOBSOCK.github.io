@@ -5157,9 +5157,14 @@
 #knobsockProfile { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; font-family: 'Gratis Neue', var(--font-body); -webkit-text-size-adjust: 100%; }
 #knobsockProfile *, #knobsockProfile *::before, #knobsockProfile *::after { box-sizing: border-box; }
 #knobsockProfile .kp-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.65); animation: kpFade 0.2s ease both; }
-#knobsockProfile .kp-frame { position: relative; display: flex; width: 75vw; height: 75vh; height: 75dvh; animation: kpPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+#knobsockProfile .kp-frame { position: relative; display: flex; width: 75vw; height: 75vh; height: 75dvh; animation: kpPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes kpFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes kpPop { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes kpPop { from { transform: translateY(calc(-50vh - 60%)); } to { transform: none; } }
+@keyframes kpOut { from { transform: none; } to { transform: translateY(calc(-50vh - 60%)); } }
+@keyframes kpFadeOut { from { opacity: 1; } to { opacity: 0; } }
+#knobsockProfile.is-closing { pointer-events: none; }
+#knobsockProfile.is-closing .kp-backdrop { animation: kpFadeOut 0.3s ease both; }
+#knobsockProfile.is-closing .kp-frame { animation: kpOut 0.35s cubic-bezier(0.7, 0, 0.84, 0) both; }
 @media (prefers-reduced-motion: reduce) { #knobsockProfile .kp-backdrop, #knobsockProfile .kp-frame { animation: none; } }
 #knobsockProfile .profile-card { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; scrollbar-width: none; padding: clamp(16px, 3.6vmin, 44px); border: clamp(3px, 0.5vmin, 5px) solid var(--card-border, #ffff00); border-radius: clamp(16px, 3vmin, 36px); background: var(--card-bg, #2a0a4a); color: var(--card-ink, #fff); }
 #knobsockProfile .profile-card::-webkit-scrollbar { display: none; }
@@ -5253,8 +5258,17 @@
     if (event.key === 'Escape') closeProfile();
   }
 
+  const PROFILE_CLOSE_MS = 380;
+
+  function removeProfileRoot(doc, root) {
+    if (root && root.parentNode) root.remove();
+    if (!doc.getElementById('knobsockProfile')) doc.documentElement.style.overflow = profileScrollLock;
+  }
+
   function ensureProfilePopup() {
     const doc = profileDoc();
+    const closing = doc.getElementById('knobsockProfile');
+    if (closing && closing.classList.contains('is-closing')) removeProfileRoot(doc, closing);
     if (!doc.getElementById('knobsockProfileStyle')) {
       const style = doc.createElement('style');
       style.id = 'knobsockProfileStyle';
@@ -5761,9 +5775,14 @@
     profileEditing = false;
     doc.removeEventListener('keydown', profileKeydown);
     document.removeEventListener('keydown', profileKeydown);
-    if (!root) return;
-    root.remove();
-    doc.documentElement.style.overflow = profileScrollLock;
+    if (!root || root.classList.contains('is-closing')) return;
+    const view = doc.defaultView || window;
+    if (view.matchMedia && view.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      removeProfileRoot(doc, root);
+      return;
+    }
+    root.classList.add('is-closing');
+    setTimeout(() => removeProfileRoot(doc, root), PROFILE_CLOSE_MS);
   }
   window.addEventListener('pagehide', closeProfile);
 
