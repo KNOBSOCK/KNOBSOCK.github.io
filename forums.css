@@ -860,3 +860,20 @@
     margin: 0 auto;
   }
 }
+.online-now {
+  white-space: nowrap;
+}
+.online-now-icon {
+  display: inline-block;
+  width: 1.45em;
+  height: 1.45em;
+  margin-left: 4px;
+  overflow: hidden;
+  vertical-align: -0.38em;
+}
+.online-now-icon img {
+  display: block;
+  width: 140%;
+  height: 140%;
+  margin: -15% 0 0 -20%;
+}

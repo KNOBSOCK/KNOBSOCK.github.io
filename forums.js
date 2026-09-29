@@ -778,6 +778,10 @@
       img.src = url;
     });
   }
+  const onlineHtml = (label) =>
+    label === "Online now"
+      ? '<span class="online-now">Online now<span class="online-now-icon"><img src="/IMG_2156.gif?v=1" alt=""></span></span>'
+      : esc(label);
   const photoHtml = (photo, name) =>
     photo ? '<img src="' + photo + '" alt="">' : esc(String(name || "?").charAt(0).toUpperCase());
   const reportedKey = (key) => "knobsock_reported_" + key + "_" + device;
@@ -841,11 +845,11 @@
       mineThreads = ordered(visibleThreads().filter((t) => String(t.username || "").toLowerCase() === key));
     view.innerHTML =
       '<div class="breadcrumbs"><a href="#">Boards</a></div><div class="profile-page" style="' + profileStyle(p) + '">' +
-      '<div class="profile-banner"><h1>' + esc(name) + '</h1><span>' + esc(lastOnline(data, key)) + "</span></div>" +
+      '<div class="profile-banner"><h1>' + esc(name) + '</h1><span>' + onlineHtml(lastOnline(data, key)) + "</span></div>" +
       '<div class="profile-grid"><aside class="profile-side">' +
       '<div class="profile-photo">' + photoHtml(photo, name) + "</div>" +
       '<table class="profile-facts"><tr><th>Favorite color</th><td>' + (p.favoriteColor ? esc(censorText(p.favoriteColor)) : "—") +
-      "</td></tr><tr><th>Last online</th><td>" + esc(lastOnline(data, key)) +
+      "</td></tr><tr><th>Last online</th><td>" + onlineHtml(lastOnline(data, key)) +
       "</td></tr><tr><th>Tap-in streak</th><td>" + stats.streak + (stats.streak === 1 ? " day" : " days") +
       ' <span class="profile-rank" id="profileStreakRank"></span></td></tr><tr><th>Knockouts</th><td>' + stats.wins +
       ' <span class="profile-rank" id="profileKoRank"></span></td></tr></table>' +

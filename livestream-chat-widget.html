@@ -5256,6 +5256,10 @@
 #knobsockProfile .profile-name { font-size: clamp(24px, 5.6vmin, 58px); line-height: 1.1; overflow-wrap: anywhere; }
 #knobsockProfile .profile-line { margin-top: clamp(6px, 1.2vmin, 12px); font-size: clamp(14px, 2.4vmin, 22px); overflow-wrap: anywhere; }
 #knobsockProfile .profile-line span { opacity: 0.75; }
+#knobsockProfile .profile-line .online-now { opacity: 1; white-space: nowrap; }
+#knobsockProfile .profile-line .online-now-icon { opacity: 1; }
+#knobsockProfile .online-now-icon { display: inline-block; width: 1.45em; height: 1.45em; margin-left: 4px; overflow: hidden; vertical-align: -0.38em; }
+#knobsockProfile .online-now-icon img { display: block; width: 140%; height: 140%; margin: -15% 0 0 -20%; }
 #knobsockProfile .profile-line .profile-rank { opacity: 1; color: var(--card-border, #ffff00); }
 #knobsockProfile .profile-section { margin-top: clamp(16px, 3.2vmin, 34px); }
 #knobsockProfile .profile-label { margin-bottom: clamp(6px, 1.2vmin, 12px); font-size: clamp(18px, 3.2vmin, 30px); }
@@ -5552,6 +5556,11 @@
     });
   }
 
+  function onlineLabelHtml(label) {
+    if (label !== 'Online now') return escapeHtml(label);
+    return '<span class="online-now">Online now<span class="online-now-icon"><img src="/IMG_2156.gif?v=1" alt=""></span></span>';
+  }
+
   function profilePhotoHtml(photo, name) {
     return photo ? '<img src="' + photo + '" alt="">' : escapeHtml(String(name || '?').charAt(0).toUpperCase());
   }
@@ -5598,7 +5607,9 @@
         '<div class="profile-info">' +
           '<div class="profile-name">' + escapeHtml(name) + '</div>' +
           '<div class="profile-line"><span>Favorite color:</span> ' + (profile.favoriteColor ? escapeHtml(censorText(profile.favoriteColor)) : '—') + '</div>' +
-          '<div class="profile-line"><span>Last online:</span> ' + escapeHtml(lastOnlineLabel(data, username)) + '</div>' +
+          (lastOnlineLabel(data, username) === 'Online now'
+            ? '<div class="profile-line">' + onlineLabelHtml('Online now') + '</div>'
+            : '<div class="profile-line"><span>Last online:</span> ' + escapeHtml(lastOnlineLabel(data, username)) + '</div>') +
           '<div class="profile-line"><span>Tap-in streak:</span> ' + escapeHtml(streakLabel(stats.streak)) + ' <span class="profile-rank" id="profileStreakRank"></span></div>' +
           '<div class="profile-line"><span>Knockouts:</span> ' + stats.wins + ' <span class="profile-rank" id="profileKoRank"></span></div>' +
         '</div>' +
