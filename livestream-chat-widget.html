@@ -328,6 +328,11 @@
     background: var(--interactive-hover);
     color: var(--interactive-hover-text);
   }
+  @media (hover: none) {
+    .vods-tab:hover { background: var(--vods-bg); color: var(--text); }
+    .vods-tab:hover .vods-tab-label,
+    .vods-tab:hover .vods-tab-chevron { color: var(--text); }
+  }
   .vods-tab:hover .vods-tab-label,
   .vods-tab:hover .vods-tab-chevron,
   .vods-tab:active .vods-tab-label,
@@ -520,6 +525,24 @@
     .vods-panel.open .vods-drawer {
       max-height: min(60cqh, 380px);
     }
+
+    .layout.vods-expanded:not(.mode-portrait) .stream-stats .stream-stats-vods { visibility: hidden; }
+    .layout.vods-open:not(.mode-portrait) .vods-drawer { border-radius: 0; border-top: 1px solid var(--line); }
+    .layout.vods-open:not(.mode-portrait) .chat-pane { z-index: 3; }
+    .layout.vods-open:not(.mode-portrait) .vods-panel { top: 0; }
+    .layout.vods-expanded:not(.mode-portrait) .vods-tab {
+      display: flex;
+      align-self: stretch;
+      width: 100%;
+      height: var(--stats-h);
+      padding: 0 14px;
+      border: 0;
+      border-radius: 0 0 10px 10px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+    }
+    .layout.vods-expanded:not(.mode-portrait) .vods-tab-label { display: inline; }
+    .layout.vods-expanded:not(.mode-portrait) .vods-tab-chevron { font-size: 9px; }
 
     .layout:not(.mode-portrait) .chat-pane {
       flex-direction: column;
@@ -4175,9 +4198,24 @@
 
   const VODS_ANIM_MS = 400;
   let vodsCornerTimer = null;
+  function peekVodsHeight() {
+    if (!window.matchMedia('(max-width: 860px)').matches) return null;
+    if (vodsLayoutEl && vodsLayoutEl.classList.contains('mode-portrait')) return null;
+    const rows = vodsListEl ? vodsListEl.querySelectorAll('.vod-row') : [];
+    if (rows.length < 3) return null;
+    const padTop = parseFloat(getComputedStyle(vodsListEl).paddingTop) || 0;
+    return padTop + (rows[2].offsetTop - rows[0].offsetTop) + rows[2].offsetHeight / 2;
+  }
+
   function setVodsOpen(open) {
     if (vodsPanel) vodsPanel.classList.toggle('open', open);
+    const drawer = document.getElementById('vodsDrawer');
+    if (drawer) {
+      const peek = open ? peekVodsHeight() : null;
+      drawer.style.maxHeight = peek ? Math.round(peek) + 'px' : '';
+    }
     if (!vodsLayoutEl) return;
+    vodsLayoutEl.classList.toggle('vods-expanded', open);
     clearTimeout(vodsCornerTimer);
     if (open) {
       vodsLayoutEl.classList.add('vods-open');
