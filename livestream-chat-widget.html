@@ -4200,14 +4200,21 @@
 
   const PENDING_ACCOUNT_LINK_KEY = 'chat_pending_account_link';
 
-  function accountRedirectUrl() {
-    // The magic-link hash must be handled by this document: the chat widget
-    // owns the Supabase client, while live.html only embeds it in an iframe.
-    return window.location.origin + '/livestream-chat-widget.html?account-link-callback=1';
+  function accountRedirectUrl(linkingCurrentBrowser) {
+    return window.location.origin + '/livestream-chat-widget.html?' +
+      (linkingCurrentBrowser ? 'account-link-callback=1' : 'account-restore-callback=1');
   }
 
   function isStandaloneAccountCallback() {
     return window.top === window.self && new URLSearchParams(window.location.search).get('account-link-callback') === '1';
+  }
+
+  function isStandaloneAccountRestoreCallback() {
+    return window.top === window.self && new URLSearchParams(window.location.search).get('account-restore-callback') === '1';
+  }
+
+  function returnToLivePage() {
+    window.location.replace(window.location.origin + '/live.html');
   }
 
   function hasPendingAccountLink() {
@@ -4257,7 +4264,14 @@
     });
     setPendingAccountLink(false);
     session.accountLinked = true;
-    return result.data;
+    session.accountSignedIn = true;
+    return result;
+  }
+
+  async function signOutLinkedAccount() {
+    const result = await supabaseClient.auth.signOut();
+    if (result.error) throw result.error;
+    if (session) session.accountSignedIn = false;
   }
 
   function finishPendingAccountLink() {
@@ -4265,22 +4279,44 @@
       if (!session) return;
       renderChatShell();
       renderMessages(messageCache);
-      if (isStandaloneAccountCallback()) {
-        window.location.replace(window.location.origin + '/live.html');
-      }
+      if (isStandaloneAccountCallback()) returnToLivePage();
     }).catch((error) => {
       console.error('Could not link chat account:', error);
       renderAccountAccess('link', accountErrorMessage(error, 'Could not finish linking your account.'));
     });
   }
 
+  const WRONG_BROWSER_LINK_MESSAGE = 'Open the sign-in link in the same browser you requested it from.';
+
+  function handleAccountLinkCallback() {
+    if (!isStandaloneAccountCallback()) return;
+    if (hasPendingAccountLink()) finishPendingAccountLink();
+    else if (session.accountLinked) returnToLivePage();
+    else renderAccountAccess('link', WRONG_BROWSER_LINK_MESSAGE);
+  }
+
   async function restoreAccountToThisBrowser() {
     const accountSession = await currentAccountSession();
     if (!accountSession) return null;
-    const result = await callAccountFunction('restore', {
+    return callAccountFunction('restore', {
       clientId: CLIENT_ID
     });
-    return result.data;
+  }
+
+  async function finishAccountRestoreCallback() {
+    try {
+      const restored = await restoreAccountToThisBrowser();
+      if (!restored || !restored.username) {
+        renderAccountAccess('restore', 'That sign-in link has expired. Please request another one.');
+        return;
+      }
+      deviceLockedUsername = restored.username;
+      rememberUsername(restored.username);
+      returnToLivePage();
+    } catch (error) {
+      console.error('Could not restore linked chat account:', error);
+      renderAccountAccess('restore', accountErrorMessage(error, 'Could not restore your linked account.'));
+    }
   }
 
   async function sendAccountMagicLink(email, linkingCurrentBrowser) {
@@ -4289,7 +4325,7 @@
     if (linkingCurrentBrowser) setPendingAccountLink(true);
     const result = await supabaseClient.auth.signInWithOtp({
       email: cleanedEmail,
-      options: { emailRedirectTo: accountRedirectUrl(), shouldCreateUser: true }
+      options: { emailRedirectTo: accountRedirectUrl(linkingCurrentBrowser), shouldCreateUser: true }
     });
     if (result.error) {
       if (linkingCurrentBrowser) setPendingAccountLink(false);
@@ -5905,7 +5941,7 @@
             <input type="text" id="accountEmail" name="accountEmail" autocomplete="email" inputmode="email" placeholder="you@example.com" />
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="accountEmailSubmit" type="button">Email me a sign-in link</button>
-              <button class="pill-btn auth-secondary-btn" id="accountBack" type="button">${linking ? 'Back to chat' : 'Back'}</button>
+              <button class="pill-btn auth-secondary-btn" id="accountBack" type="button">${session ? 'Back to chat' : 'Back'}</button>
             </div>
             <div class="auth-msg">${message ? escapeHtml(message) : ''}</div>
           </div>
@@ -5914,7 +5950,9 @@
     `;
 
     const back = function () {
-      if (linking && session) {
+      if (isStandaloneAccountCallback() || isStandaloneAccountRestoreCallback()) {
+        returnToLivePage();
+      } else if (session) {
         renderChatShell();
         subscribeToMessages();
       } else {
@@ -6046,7 +6084,11 @@
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
-          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked ? ' <span aria-label="Account linked">account linked</span>' : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link account</button>'}</div>
+          <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
+            ? ' <span aria-label="Account linked">account linked</span>' + (session.accountSignedIn
+              ? ' <button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
+              : ' <button class="account-link-btn" id="accountSignInBtn" type="button">sign in</button>')
+            : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link account</button>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
@@ -6073,6 +6115,24 @@
 
     const accountLinkBtn = $('accountLinkBtn');
     if (accountLinkBtn) accountLinkBtn.addEventListener('click', function () { renderAccountAccess('link'); });
+
+    const accountSignInBtn = $('accountSignInBtn');
+    if (accountSignInBtn) accountSignInBtn.addEventListener('click', function () { renderAccountAccess('restore'); });
+
+    const accountSignOutBtn = $('accountSignOutBtn');
+    if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async function () {
+      accountSignOutBtn.disabled = true;
+      accountSignOutBtn.textContent = 'signing out…';
+      try {
+        await signOutLinkedAccount();
+        renderChatShell();
+        renderMessages(messageCache);
+      } catch (error) {
+        console.error('Could not sign out of linked account:', error);
+        accountSignOutBtn.disabled = false;
+        accountSignOutBtn.textContent = 'sign out';
+      }
+    });
 
     $('sendBtn').addEventListener('click', sendMessage);
     $('msgInput').addEventListener('keydown', (e) => {
@@ -6456,20 +6516,26 @@
 
     if (currentlyBanned) return;
 
+    if (isStandaloneAccountRestoreCallback()) {
+      await finishAccountRestoreCallback();
+      return;
+    }
+
+    const activeAccountSession = await currentAccountSession().catch(() => null);
+    const accountSignedIn = Boolean(activeAccountSession);
+
     if (deviceLockedUsername) {
 
-      session = { username: deviceLockedUsername, accountLinked: deviceAccountLinked };
+      session = { username: deviceLockedUsername, accountLinked: deviceAccountLinked, accountSignedIn: accountSignedIn };
       rememberUsername(deviceLockedUsername);
       startChat();
-      if (hasPendingAccountLink()) {
-        finishPendingAccountLink();
-      }
+      handleAccountLinkCallback();
       return;
     }
 
     const saved = getRememberedUsername();
     if (saved) {
-      session = { username: saved };
+      session = { username: saved, accountLinked: deviceAccountLinked, accountSignedIn: accountSignedIn };
 
       deviceLockedUsername = saved;
       devicesRef.doc(CLIENT_ID).set({
@@ -6477,26 +6543,29 @@
         claimedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch((e) => console.error('Could not persist device lock:', e));
       startChat();
-      if (hasPendingAccountLink()) {
-        finishPendingAccountLink();
-      }
+      handleAccountLinkCallback();
       return;
     }
 
     try {
       const restored = await restoreAccountToThisBrowser();
       if (restored && restored.username) {
-        session = { username: restored.username, accountLinked: true };
+        session = { username: restored.username, accountLinked: true, accountSignedIn: true };
         deviceLockedUsername = restored.username;
         rememberUsername(restored.username);
+        if (isStandaloneAccountCallback()) {
+          returnToLivePage();
+          return;
+        }
         startChat();
         return;
       }
     } catch (error) {
       if (error && error.code !== 'functions/not-found') console.error('Could not restore linked chat account:', error);
-      const accountSession = await currentAccountSession().catch(() => null);
-      if (accountSession) {
-        renderAuth(accountErrorMessage(error, 'Could not restore your linked account.'));
+      if (activeAccountSession) {
+        renderAuth(isStandaloneAccountCallback() && error && error.code === 'not-found'
+          ? WRONG_BROWSER_LINK_MESSAGE
+          : accountErrorMessage(error, 'Could not restore your linked account.'));
         return;
       }
     }
