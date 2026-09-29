@@ -920,11 +920,6 @@
     font-weight: 600;
     font-family: 'Gratis Neue', var(--font-body);
   }
-  .who-account {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .who-account .account-link-btn:first-child { margin-left: 0; }
 
   .round-btn {
     -webkit-appearance: none;
@@ -6296,7 +6291,7 @@
           <div class="chat-lock-timer" id="chatLockTimer"></div>
           <div class="who">Signed in as <b>${escapeHtml(session.username)}</b>${session.accountLinked
             ? '<button class="account-link-btn" id="accountSignOutBtn" type="button">sign out</button>'
-            : '<div class="who-account"><button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button></div>'}</div>
+            : '<button class="account-link-btn" id="accountLinkBtn" type="button">link email to account</button>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
