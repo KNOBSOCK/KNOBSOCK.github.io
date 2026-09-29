@@ -4273,6 +4273,119 @@
     }
   }
 
+  (function wireVodsSwipe() {
+    const drawer = document.getElementById('vodsDrawer');
+    const bar = document.getElementById('streamStats');
+    if (!vodsPanel || !vodsTab || !drawer) return;
+    const SWIPE_MS = 260;
+    let lastSwipeAt = 0;
+
+    function mobileLayout() {
+      return window.matchMedia('(max-width: 860px)').matches &&
+        !(vodsLayoutEl && vodsLayoutEl.classList.contains('mode-portrait'));
+    }
+
+    function swallowClickAfterSwipe(el) {
+      el.addEventListener('click', (e) => {
+        if (Date.now() - lastSwipeAt < 500) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+    }
+
+    function animateDrawerTo(height, done) {
+      drawer.style.transition = 'max-height ' + SWIPE_MS + 'ms ease-out';
+      void drawer.offsetHeight;
+      drawer.style.maxHeight = Math.max(0, Math.round(height)) + 'px';
+      setTimeout(() => {
+        drawer.style.transition = 'none';
+        if (done) done();
+        void drawer.offsetHeight;
+        drawer.style.transition = '';
+      }, SWIPE_MS + 20);
+    }
+
+    function track(el, onStart, onMove, onEnd) {
+      let y0 = 0, t0 = 0, dy = 0, tracking = false, engaged = false;
+      el.addEventListener('touchstart', (e) => {
+        tracking = false;
+        engaged = false;
+        if (e.touches.length !== 1 || !onStart()) return;
+        tracking = true;
+        y0 = e.touches[0].clientY;
+        t0 = Date.now();
+        dy = 0;
+      }, { passive: true });
+      el.addEventListener('touchmove', (e) => {
+        if (!tracking) return;
+        dy = e.touches[0].clientY - y0;
+        if (!engaged) {
+          if (!onMove(dy, true)) return;
+          engaged = true;
+        } else {
+          onMove(dy, false);
+        }
+        e.preventDefault();
+      }, { passive: false });
+      const end = () => {
+        if (!tracking) return;
+        tracking = false;
+        if (!engaged) return;
+        engaged = false;
+        lastSwipeAt = Date.now();
+        onEnd(dy, Math.abs(dy) / Math.max(1, Date.now() - t0) > 0.5);
+      };
+      el.addEventListener('touchend', end);
+      el.addEventListener('touchcancel', end);
+    }
+
+    let closeStartH = 0;
+    track(vodsTab,
+      () => vodsPanel.classList.contains('open') && mobileLayout(),
+      (dy, first) => {
+        if (first) {
+          if (dy > -6) return false;
+          closeStartH = Math.max(drawer.getBoundingClientRect().height, parseFloat(drawer.style.maxHeight) || 0);
+          drawer.style.transition = 'none';
+        }
+        drawer.style.maxHeight = Math.max(0, closeStartH + Math.min(0, dy)) + 'px';
+        return true;
+      },
+      (dy, fast) => {
+        if ((-dy > 70 || fast) && dy < 0) {
+          animateDrawerTo(0, () => setVodsOpen(false));
+        } else {
+          animateDrawerTo(closeStartH, applyVodsPeek);
+        }
+      });
+    swallowClickAfterSwipe(vodsTab);
+
+    if (!bar) return;
+    let openTarget = 0;
+    track(bar,
+      () => !vodsPanel.classList.contains('open') && mobileLayout(),
+      (dy, first) => {
+        if (first) {
+          if (dy < 6) return false;
+          drawer.style.transition = 'none';
+          setVodsOpen(true);
+          openTarget = parseFloat(drawer.style.maxHeight) || Math.min(drawer.scrollHeight, 380);
+          drawer.style.maxHeight = '0px';
+        }
+        drawer.style.maxHeight = Math.min(openTarget, Math.max(0, dy)) + 'px';
+        return true;
+      },
+      (dy, fast) => {
+        if ((dy > 70 || fast) && dy > 0) {
+          animateDrawerTo(openTarget, applyVodsPeek);
+        } else {
+          animateDrawerTo(0, () => setVodsOpen(false));
+        }
+      });
+    swallowClickAfterSwipe(bar);
+  })();
+
   function toggleVods() {
     setVodsOpen(!vodsPanel.classList.contains('open'));
   }
@@ -5258,7 +5371,7 @@
 #knobsockProfile.is-closing .kp-backdrop { animation: kpFadeOut 0.3s ease both; }
 #knobsockProfile.is-closing .kp-frame { animation: kpOut 0.35s cubic-bezier(0.7, 0, 0.84, 0) both; }
 @media (prefers-reduced-motion: reduce) { #knobsockProfile .kp-backdrop, #knobsockProfile .kp-frame { animation: none; } }
-#knobsockProfile .profile-card { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; scrollbar-width: none; padding: clamp(16px, 3.6vmin, 44px); border: clamp(3px, 0.5vmin, 5px) solid var(--card-border, #ffff00); border-radius: clamp(16px, 3vmin, 36px); background: var(--card-bg, #2a0a4a); color: var(--card-ink, #fff); }
+#knobsockProfile .profile-card { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: clamp(16px, 3.6vmin, 44px); border: clamp(3px, 0.5vmin, 5px) solid var(--card-border, #ffff00); border-radius: clamp(16px, 3vmin, 36px); background: var(--card-bg, #2a0a4a); color: var(--card-ink, #fff); }
 #knobsockProfile .profile-card::-webkit-scrollbar { display: none; }
 #knobsockProfile .profile-close { -webkit-appearance: none; appearance: none; position: absolute; top: clamp(12px, 2.4vmin, 26px); right: clamp(12px, 2.4vmin, 26px); width: clamp(34px, 5.4vmin, 52px); height: clamp(34px, 5.4vmin, 52px); padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
 #knobsockProfile .profile-close img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
@@ -5397,11 +5510,105 @@
     });
     doc.body.appendChild(root);
     doc.getElementById('knobsockProfileBackdrop').addEventListener('click', closeProfile);
+    wireProfileSwipe(doc, root);
     doc.addEventListener('keydown', profileKeydown);
     if (doc !== document) document.addEventListener('keydown', profileKeydown);
     profileScrollLock = doc.documentElement.style.overflow;
     doc.documentElement.style.overflow = 'hidden';
     return root;
+  }
+
+  function wireProfileSwipe(doc, root) {
+    const frame = root.querySelector('.kp-frame');
+    const backdrop = root.querySelector('.kp-backdrop');
+    if (!frame || !backdrop) return;
+    const OUT_MS = 300;
+    let startX = 0;
+    let startY = 0;
+    let startAt = 0;
+    let armed = false;
+    let engaged = false;
+    let dy = 0;
+    let lastSwipeAt = 0;
+
+    function card() {
+      return frame.querySelector('.profile-card');
+    }
+
+    function atBottom(el) {
+      return !el || el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+    }
+
+    function setDrag(offset) {
+      const travel = frame.offsetTop + frame.offsetHeight;
+      frame.style.transform = 'translateY(' + offset + 'px)';
+      backdrop.style.opacity = String(Math.max(0, 1 + offset / Math.max(1, travel)));
+    }
+
+    function settle(offset, ms, done) {
+      frame.style.transition = 'transform ' + ms + 'ms cubic-bezier(0.2, 0.7, 0.3, 1)';
+      backdrop.style.transition = 'opacity ' + ms + 'ms ease';
+      void frame.offsetHeight;
+      setDrag(offset);
+      setTimeout(() => {
+        frame.style.transition = '';
+        backdrop.style.transition = '';
+        if (done) done();
+      }, ms + 20);
+    }
+
+    function dismiss() {
+      root.classList.add('is-closing');
+      releaseProfile(doc);
+      settle(-(frame.offsetTop + frame.offsetHeight + 40), OUT_MS, () => removeProfileRoot(doc, root));
+    }
+
+    frame.addEventListener('touchstart', (e) => {
+      armed = false;
+      engaged = false;
+      dy = 0;
+      if (e.touches.length !== 1 || profileEditing || root.classList.contains('is-closing')) return;
+      if (e.target.closest && e.target.closest('input, textarea, select')) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startAt = Date.now();
+      armed = atBottom(card());
+    }, { passive: true });
+
+    frame.addEventListener('touchmove', (e) => {
+      if (!armed) return;
+      const moveY = e.touches[0].clientY - startY;
+      const moveX = e.touches[0].clientX - startX;
+      if (!engaged) {
+        if (moveY > 0) { armed = false; return; }
+        if (e.cancelable) e.preventDefault();
+        if (moveY > -6 || Math.abs(moveX) > Math.abs(moveY)) return;
+        engaged = true;
+        frame.style.animation = 'none';
+        backdrop.style.animation = 'none';
+        frame.style.transition = 'none';
+        backdrop.style.transition = 'none';
+      }
+      if (e.cancelable) e.preventDefault();
+      dy = Math.min(0, moveY);
+      setDrag(dy);
+    }, { passive: false });
+
+    function end() {
+      if (!engaged) { armed = false; return; }
+      armed = false;
+      engaged = false;
+      lastSwipeAt = Date.now();
+      const fast = -dy / Math.max(1, Date.now() - startAt) > 0.5;
+      if (-dy > 80 || (fast && -dy > 20)) dismiss();
+      else settle(0, 220, () => { frame.style.transform = ''; backdrop.style.opacity = ''; });
+    }
+
+    frame.addEventListener('touchend', end);
+    frame.addEventListener('touchcancel', end);
+    frame.addEventListener('click', (e) => {
+      if (Date.now() - lastSwipeAt < 500) { e.stopImmediatePropagation(); e.preventDefault(); }
+    }, true);
   }
 
   const PROFILE_DEFAULT_BG = '#2a0a4a';
@@ -5965,13 +6172,17 @@
     openProfile(name);
   });
 
-  function closeProfile() {
-    const doc = profileDoc();
-    const root = doc.getElementById('knobsockProfile');
+  function releaseProfile(doc) {
     profileViewing = null;
     profileEditing = false;
     doc.removeEventListener('keydown', profileKeydown);
     document.removeEventListener('keydown', profileKeydown);
+  }
+
+  function closeProfile() {
+    const doc = profileDoc();
+    const root = doc.getElementById('knobsockProfile');
+    releaseProfile(doc);
     if (!root || root.classList.contains('is-closing')) return;
     const view = doc.defaultView || window;
     if (view.matchMedia && view.matchMedia('(prefers-reduced-motion: reduce)').matches) {
