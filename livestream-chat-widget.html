@@ -4345,6 +4345,7 @@
 
   async function finishAccountRestoreCallback() {
     try {
+      if (deviceLockedUsername) await clearDeviceTapIn();
       const restored = await restoreAccountToThisBrowser();
       if (!restored || !restored.username) {
         renderAccountAccess('restore', 'That sign-in link has expired. Please request another one.');
@@ -4399,10 +4400,11 @@
     if (key === accountTapInKey) return;
     accountTapInKey = key;
     if (!key) return;
+    const device = deviceTapIn && deviceTapIn.usernameKey === key ? deviceTapIn : null;
+    applyTapInStats(device || tapInStatsFrom(null));
     usernamesRef.doc(key).get().then((doc) => {
       if (accountTapInKey !== key) return;
       const account = tapInStatsFrom(doc.exists ? doc.data() : null);
-      const device = deviceTapIn && deviceTapIn.usernameKey === key ? deviceTapIn : null;
       if (device && device.lastTapInAt > account.lastTapInAt) {
         usernamesRef.doc(key).set({
           lastTapInAt: device.lastTapInAt,
@@ -4414,6 +4416,16 @@
       }
       if (account.lastTapInAt > lastTapInAt) applyTapInStats(account);
     }).catch(() => {});
+  }
+
+  function clearDeviceTapIn() {
+    if (!deviceTapIn || !deviceTapIn.lastTapInAt) return Promise.resolve();
+    deviceTapIn = Object.assign(tapInStatsFrom(null), { usernameKey: null });
+    return devicesRef.doc(CLIENT_ID).update({
+      lastTapInAt: firebase.firestore.FieldValue.delete(),
+      streak: firebase.firestore.FieldValue.delete(),
+      streakDay: firebase.firestore.FieldValue.delete()
+    }).catch((e) => console.error('Could not clear browser tap-in:', e));
   }
   let resolveDeviceLockReady;
   const deviceLockPromise = new Promise((resolve) => { resolveDeviceLockReady = resolve; });
@@ -6030,6 +6042,7 @@
 
     let restored;
     try {
+      if (session) await clearDeviceTapIn();
       restored = await restoreAccountToThisBrowser();
     } catch (error) {
       if (error && error.code === 'not-found') await supabaseClient.auth.signOut().catch(() => {});
@@ -6067,10 +6080,13 @@
             <label for="accountEmail">${heading}</label>
             <p class="auth-note">${linking
               ? 'Link your email so you don’t lose access to your account. You’ll get a one-time sign-in link. You can log in at anytime using your email.'
-              : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link and code.'}</p>
+              : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link and code.'}${!linking && session && !session.accountLinked
+              ? ' <b>' + escapeHtml(session.username) + '</b> isn’t linked to an email, so you won’t be able to get back to it.'
+              : ''}</p>
             <input type="text" id="accountEmail" name="accountEmail" autocomplete="email" inputmode="email" placeholder="you@example.com" />
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="accountEmailSubmit" type="button">Email me a sign-in link</button>
+              ${linking ? '<button class="pill-btn auth-secondary-btn" id="accountSwitch" type="button">Sign in to another account</button>' : ''}
               <button class="pill-btn auth-secondary-btn" id="accountBack" type="button">${session ? 'Back to chat' : 'Back'}</button>
             </div>
             <div class="auth-msg">${message ? escapeHtml(message) : ''}</div>
@@ -6110,6 +6126,9 @@
       if (canAutoFocusInput()) $('accountCode').focus();
       return;
     }
+
+    const switchBtn = $('accountSwitch');
+    if (switchBtn) switchBtn.addEventListener('click', function () { renderAccountAccess('restore'); });
 
     const submit = async function () {
       const button = $('accountEmailSubmit');
