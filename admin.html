@@ -3388,10 +3388,14 @@
     // API access needed.
     function archivePreviousLiveLinkAsVod(rawUrl) {
       const url = toPastStreamVodUrl(rawUrl);
-      if (vodDraftList.some(function (v) { return v.url === url; })) return;
+      const guidMatch = String(url).match(/\/([0-9a-fA-F-]{10,})\/playlist\.m3u8/);
+      const guid = guidMatch ? guidMatch[1].toLowerCase() : null;
+      if (vodDraftList.some(function (v) {
+        return guid ? String(v.url || '').toLowerCase().indexOf(guid) !== -1 : v.url === url;
+      })) return;
       vodDraftList.unshift({
         url: url,
-        title: 'Past Live Stream — ' + new Date().toLocaleDateString(),
+        title: 'KNOBSOCK Live!',
         thumb: '',
         aspect: currentLiveAspect,
         addedAt: Date.now()
