@@ -4268,10 +4268,26 @@
     return result;
   }
 
+  let accountSigningOut = false;
+
   async function signOutLinkedAccount() {
-    const result = await supabaseClient.auth.signOut();
-    if (result.error) throw result.error;
-    if (session) session.accountSignedIn = false;
+    accountSigningOut = true;
+    try {
+      await callAccountFunction('signout', { clientId: CLIENT_ID });
+    } catch (error) {
+      accountSigningOut = false;
+      throw error;
+    }
+    await supabaseClient.auth.signOut().catch(() => {});
+    session = null;
+    deviceLockedUsername = null;
+    deviceAccountLinked = false;
+    forgetRememberedUsername();
+    setPendingAccountLink(false);
+    if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+    window.KNOBSOCK_CHAT_USERNAME = '';
+    try { window.dispatchEvent(new Event('knobsock-chat-identity')); } catch (e) {}
+    accountSigningOut = false;
   }
 
   function finishPendingAccountLink() {
@@ -4364,7 +4380,7 @@
     myFightCooldownUntil = Number.isFinite(savedFightCooldown) ? savedFightCooldown : 0;
     refreshFightPanel();
 
-    if (!currentlyBanned && hadLock && !lockedName && session) {
+    if (!currentlyBanned && !accountSigningOut && hadLock && !lockedName && session) {
       session = null;
       forgetRememberedUsername();
       if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
@@ -5912,7 +5928,7 @@
             <label class="auth-terms"><input type="checkbox" id="authTerms"${termsChecked ? ' checked' : ''}> I agree to the <a href="/privacy">Privacy Policy &amp; User Agreement</a>.</label>
             <div class="auth-actions">
               <button class="pill-btn auth-submit-btn" id="authSubmit" title="Join Chat">Join Chat</button>
-              <button class="pill-btn auth-secondary-btn" id="authRestore" type="button">Restore a linked account</button>
+              <button class="pill-btn auth-secondary-btn" id="authRestore" type="button">Sign in with email</button>
             </div>
             <div class="auth-msg">${errorMsg ? escapeHtml(errorMsg) : ''}</div>
           </div>
@@ -5934,7 +5950,7 @@
       <div class="chat-screen auth-screen">
         <div class="auth">
           <div class="auth-inner">
-            <label for="accountEmail">${linking ? 'link your username to email' : 'restore your linked username'}</label>
+            <label for="accountEmail">${linking ? 'link your username to email' : 'sign in to your linked username'}</label>
             <p class="auth-note">${linking
               ? 'We’ll email you a one-time sign-in link. Your current chat username stays the same.'
               : 'Enter the email linked to your KNOBSOCK username and we’ll send a one-time sign-in link.'}</p>
@@ -6091,7 +6107,7 @@
             : ' <button class="account-link-btn" id="accountLinkBtn" type="button">link account</button>'}</div>
           <div class="composer">
             <div class="composer-input-wrap">
-              <input type="text" id="msgInput" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
+              <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
               <span class="char-counter" id="charCounter">0/${MAX_MSG_LEN}</span>
             </div>
             <div class="emoji-picker-wrap">
@@ -6125,8 +6141,7 @@
       accountSignOutBtn.textContent = 'signing out…';
       try {
         await signOutLinkedAccount();
-        renderChatShell();
-        renderMessages(messageCache);
+        renderAuth('Signed out. Sign in with email to switch accounts.');
       } catch (error) {
         console.error('Could not sign out of linked account:', error);
         accountSignOutBtn.disabled = false;

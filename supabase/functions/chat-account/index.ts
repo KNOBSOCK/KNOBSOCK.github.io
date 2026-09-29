@@ -113,6 +113,13 @@ async function writeDevice(clientId: string, fields: Record<string, unknown>) {
   });
 }
 
+async function clearDeviceFields(clientId: string, names: string[]) {
+  const mask = names.map((name) => `updateMask.fieldPaths=${encodeURIComponent(name)}`).join('&');
+  await firestore(`chat_devices/${encodeURIComponent(clientId)}?${mask}`, {
+    method: 'PATCH', body: JSON.stringify({ fields: {} })
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return response({ error: 'Method not allowed.' }, 405);
@@ -168,6 +175,15 @@ Deno.serve(async (request) => {
         claimedAt: new Date().toISOString()
       });
       return response({ username: mapping.username, usernameKey: mapping.usernameKey });
+    }
+
+    if (body.action === 'signout') {
+      const device = await firestore(`chat_devices/${encodeURIComponent(clientId)}`);
+      if (field(device, 'accountId') !== user.id) {
+        return response({ error: 'This browser is not signed in to that account.', code: 'forbidden' }, 403);
+      }
+      await clearDeviceFields(clientId, ['username', 'accountId', 'accountLinkedAt', 'restoredAt']);
+      return response({ ok: true });
     }
 
     return response({ error: 'Unknown account action.' }, 400);
