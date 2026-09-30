@@ -614,12 +614,8 @@
   const PROFILE_BG = "#000000",
     PROFILE_BORDER = "#00c600",
     PROFILE_CACHE_MS = 60000,
-    RANK_CACHE_MS = 300000,
-    COUNT_URL =
-      "https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
     REPORT_REASONS = ["Inappropriate photo", "Harassment or hate", "Spam", "Something else"],
-    profileCache = {},
-    rankCache = {};
+    profileCache = {};
   const dayKey = (t) => new Date(t).toISOString().slice(0, 10);
   const safeHex = (v, fallback) => (/^#[0-9a-f]{6}$/i.test(String(v || "")) ? v : fallback);
   const safePhoto = (v) =>
@@ -735,6 +731,7 @@
     return {
       streak: fresh ? Math.max(0, Number(data.streak) || 0) : 0,
       wins: Math.max(0, Number(data.fightWins) || 0),
+      losses: Math.max(0, Number(data.fightLosses) || 0),
     };
   }
   async function loadProfile(key, fresh) {
@@ -745,58 +742,6 @@
       data = snap.exists ? snap.data() : null;
     profileCache[key] = { data, at: Date.now() };
     return data;
-  }
-  function countUsernames(where) {
-    return fetch(COUNT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        structuredAggregationQuery: {
-          structuredQuery: { from: [{ collectionId: "chat_usernames" }], where },
-          aggregations: [{ alias: "n", count: {} }],
-        },
-      }),
-    })
-      .then((r) => r.json())
-      .then((rows) => {
-        const row = Array.isArray(rows) && rows.find((r) => r && r.result),
-          field = row && row.result.aggregateFields && row.result.aggregateFields.n;
-        if (!field || field.integerValue == null) throw Error("count unavailable");
-        return parseInt(field.integerValue, 10) || 0;
-      });
-  }
-  async function loadRanks(key, stats) {
-    const hit = rankCache[key];
-    if (hit && Date.now() - hit.at < RANK_CACHE_MS && hit.streak === stats.streak && hit.wins === stats.wins)
-      return hit;
-    const now = Date.now();
-    const [a, b] = await Promise.all([
-      stats.streak > 0
-        ? countUsernames({
-            compositeFilter: {
-              op: "AND",
-              filters: [
-                { fieldFilter: { field: { fieldPath: "streak" }, op: "GREATER_THAN", value: { integerValue: String(stats.streak) } } },
-                { fieldFilter: { field: { fieldPath: "streakDay" }, op: "IN", value: { arrayValue: { values: [{ stringValue: dayKey(now) }, { stringValue: dayKey(now - 86400000) }] } } } },
-              ],
-            },
-          }).catch(() => null)
-        : null,
-      stats.wins > 0
-        ? countUsernames({
-            fieldFilter: { field: { fieldPath: "fightWins" }, op: "GREATER_THAN", value: { integerValue: String(stats.wins) } },
-          }).catch(() => null)
-        : null,
-    ]);
-    const ranks = {
-      streak: stats.streak,
-      wins: stats.wins,
-      streakRank: a == null ? null : a + 1,
-      winsRank: b == null ? null : b + 1,
-      at: Date.now(),
-    };
-    rankCache[key] = ranks;
-    return ranks;
   }
   function markSeen() {
     if (!username) return;
@@ -915,8 +860,9 @@
       '<table class="profile-facts"><tr><th>Favorite color</th><td>' + (p.favoriteColor ? esc(censorText(p.favoriteColor)) : "—") +
       "</td></tr><tr><th>Last online</th><td>" + onlineHtml(lastOnline(data, key)) +
       "</td></tr><tr><th>Tap-in streak</th><td>" + stats.streak + (stats.streak === 1 ? " day" : " days") +
-      ' <span class="profile-rank" id="profileStreakRank"></span></td></tr><tr><th>Knockouts</th><td>' + stats.wins +
-      ' <span class="profile-rank" id="profileKoRank"></span></td></tr></table>' +
+      "</td></tr><tr><th>Knockouts</th><td>" + stats.wins +
+      "</td></tr><tr><th>Beaten up</th><td>" + stats.losses +
+      "</td></tr></table>" +
       socialsHtml(p) +
       (mine
         ? '<div class="profile-actions">' +
@@ -938,12 +884,6 @@
       threadTable(mineThreads) +
       "</div></section></div></div></div>";
     if (!mine && username) renderReport(key, name);
-    if (stats.streak || stats.wins)
-      loadRanks(key, stats).then((r) => {
-        if (token !== version) return;
-        if (r.streakRank && $("profileStreakRank")) $("profileStreakRank").textContent = "#" + r.streakRank;
-        if (r.winsRank && $("profileKoRank")) $("profileKoRank").textContent = "#" + r.winsRank;
-      });
   }
   async function profileEdit(view, key, name, data) {
     const signedIn = supa ? (await supa.auth.getSession()).data.session : null;

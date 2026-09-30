@@ -5687,7 +5687,7 @@
 @media (prefers-reduced-motion: reduce) {
   #knobsockProfile .profile-close { transition: none; }
 }
-#knobsockProfile .profile-head { display: flex; align-items: flex-start; gap: clamp(14px, 3vmin, 34px); padding-right: clamp(44px, 7vmin, 70px); }
+#knobsockProfile .profile-head { display: flex; align-items: center; gap: clamp(14px, 3vmin, 34px); padding-right: clamp(44px, 7vmin, 70px); }
 #knobsockProfile .profile-photo { flex: none; display: flex; align-items: center; justify-content: center; width: clamp(96px, 24vmin, 240px); aspect-ratio: 1; overflow: hidden; border: clamp(2px, 0.4vmin, 4px) solid var(--card-border, #ffff00); border-radius: clamp(10px, 2vmin, 22px); background: rgba(0, 0, 0, 0.25); font-size: clamp(40px, 10vmin, 100px); }
 #knobsockProfile .profile-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
 #knobsockProfile .profile-info { min-width: 0; }
@@ -5698,7 +5698,6 @@
 #knobsockProfile .profile-line .online-now-icon { opacity: 1; }
 #knobsockProfile .online-now-icon { display: inline-block; width: 1.45em; height: 1.45em; margin-left: 4px; overflow: hidden; vertical-align: -0.38em; }
 #knobsockProfile .online-now-icon img { display: block; width: 140%; height: 140%; margin: -15% 0 0 -20%; }
-#knobsockProfile .profile-line .profile-rank { opacity: 1; color: var(--card-border, #ffff00); }
 #knobsockProfile .profile-section { margin-top: clamp(16px, 3.2vmin, 34px); }
 #knobsockProfile .profile-label { margin-bottom: clamp(6px, 1.2vmin, 12px); font-size: clamp(18px, 3.2vmin, 30px); }
 #knobsockProfile .profile-about { margin: 0; font-family: var(--font-body); font-size: clamp(15px, 2.4vmin, 22px); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -6367,84 +6366,18 @@
     return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
-  const PROFILE_COUNT_URL = 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM';
-  const RANK_CACHE_MS = 5 * 60 * 1000;
-  const rankCache = {};
-
   function profileStats(data) {
     const now = Date.now();
     const fresh = data && (data.streakDay === utcDayKey(now) || data.streakDay === utcDayKey(now - 24 * 60 * 60 * 1000));
     return {
       streak: fresh ? Math.max(0, Number(data.streak) || 0) : 0,
-      wins: Math.max(0, Number(data && data.fightWins) || 0)
+      wins: Math.max(0, Number(data && data.fightWins) || 0),
+      losses: Math.max(0, Number(data && data.fightLosses) || 0)
     };
   }
 
   function streakLabel(streak) {
     return streak === 1 ? '1 day' : streak + ' days';
-  }
-
-  function countUsernames(where) {
-    return fetch(PROFILE_COUNT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        structuredAggregationQuery: {
-          structuredQuery: { from: [{ collectionId: 'chat_usernames' }], where: where },
-          aggregations: [{ alias: 'n', count: {} }]
-        }
-      })
-    }).then((res) => res.json()).then((rows) => {
-      const row = Array.isArray(rows) && rows.find((r) => r && r.result);
-      const field = row && row.result.aggregateFields && row.result.aggregateFields.n;
-      if (!field || field.integerValue == null) throw new Error('count unavailable');
-      return parseInt(field.integerValue, 10) || 0;
-    });
-  }
-
-  function fetchProfileRanks(key, stats) {
-    const hit = rankCache[key];
-    if (hit && Date.now() - hit.at < RANK_CACHE_MS && hit.streak === stats.streak && hit.wins === stats.wins) {
-      return Promise.resolve(hit);
-    }
-    const now = Date.now();
-    const streakCount = stats.streak > 0 ? countUsernames({
-      compositeFilter: {
-        op: 'AND',
-        filters: [
-          { fieldFilter: { field: { fieldPath: 'streak' }, op: 'GREATER_THAN', value: { integerValue: String(stats.streak) } } },
-          { fieldFilter: { field: { fieldPath: 'streakDay' }, op: 'IN', value: { arrayValue: { values: [
-            { stringValue: utcDayKey(now) },
-            { stringValue: utcDayKey(now - 24 * 60 * 60 * 1000) }
-          ] } } } }
-        ]
-      }
-    }).catch(() => null) : Promise.resolve(null);
-    const winsCount = stats.wins > 0 ? countUsernames({
-      fieldFilter: { field: { fieldPath: 'fightWins' }, op: 'GREATER_THAN', value: { integerValue: String(stats.wins) } }
-    }).catch(() => null) : Promise.resolve(null);
-    return Promise.all([streakCount, winsCount]).then((counts) => {
-      const ranks = {
-        streak: stats.streak,
-        wins: stats.wins,
-        streakRank: counts[0] == null ? null : counts[0] + 1,
-        winsRank: counts[1] == null ? null : counts[1] + 1,
-        at: Date.now()
-      };
-      rankCache[key] = ranks;
-      return ranks;
-    });
-  }
-
-  function fillProfileRanks(username, stats) {
-    if (!stats.streak && !stats.wins) return;
-    fetchProfileRanks(String(username).toLowerCase(), stats).then((ranks) => {
-      if (profileViewing !== username || profileEditing) return;
-      const streakEl = pq('profileStreakRank');
-      const koEl = pq('profileKoRank');
-      if (streakEl && ranks.streakRank) streakEl.textContent = '#' + ranks.streakRank;
-      if (koEl && ranks.winsRank) koEl.textContent = '#' + ranks.winsRank;
-    });
   }
 
   function onlineLabelHtml(label) {
@@ -6502,8 +6435,9 @@
           (lastOnlineLabel(data, username) === 'Online now'
             ? '<div class="profile-line">' + onlineLabelHtml('Online now') + '</div>'
             : '<div class="profile-line"><span>Last online:</span> ' + escapeHtml(lastOnlineLabel(data, username)) + '</div>') +
-          '<div class="profile-line"><span>Tap-in streak:</span> ' + escapeHtml(streakLabel(stats.streak)) + ' <span class="profile-rank" id="profileStreakRank"></span></div>' +
-          '<div class="profile-line"><span>Knockouts:</span> ' + stats.wins + ' <span class="profile-rank" id="profileKoRank"></span></div>' +
+          '<div class="profile-line"><span>Tap-in streak:</span> ' + escapeHtml(streakLabel(stats.streak)) + '</div>' +
+          '<div class="profile-line"><span>Knockouts:</span> ' + stats.wins + '</div>' +
+          '<div class="profile-line"><span>Beaten up:</span> ' + stats.losses + '</div>' +
         '</div>' +
       '</div>' +
       socialsHtml(profile) +
@@ -6525,7 +6459,6 @@
     wireProfileClose();
     if (song) mountProfileSong(song);
     wireAdminBadgeTaps(pq('profileCard'));
-    fillProfileRanks(username, stats);
     if (!mine) renderReportRow(username, name);
     else {
       const forumBtn = pq('profileForumBtn');
@@ -7441,8 +7374,21 @@
     updateFightTug();
   }
 
+  const FIGHT_LOSS_FRESH_MS = 5 * 60 * 1000;
+
+  function recordFightLoss(message) {
+    if (!session || message.type !== 'fight_result' || message.loser !== session.username) return;
+    const sentAt = Number(message.ts) || 0;
+    if (!sentAt || Date.now() - sentAt > FIGHT_LOSS_FRESH_MS) return;
+    if (!claimFightPublication(message.fightId, 'loss')) return;
+    usernamesRef.doc(session.username.toLowerCase())
+      .set({ fightLosses: firebase.firestore.FieldValue.increment(1) }, { merge: true })
+      .catch((e) => console.error('Could not save fight loss:', e));
+  }
+
   function applyFightResult(message) {
     if (!message || !message.fightId) return;
+    if (currentFight && currentFight.id === message.fightId) recordFightLoss(message);
     if (!currentFight || currentFight.id !== message.fightId) {
       currentFight = {
         id: message.fightId,

@@ -3402,7 +3402,7 @@
           '<div style="font-size:16px;font-weight:800;overflow-wrap:anywhere;">' + escapeAttr(name) + '</div>' +
           '<div>Joined ' + (created ? escapeAttr(new Date(created).toLocaleString()) : 'unknown') + '</div>' +
           '<div>Last online: ' + escapeAttr(recentAccountAgo(lastSeen)) + '</div>' +
-          '<div>Streak: ' + (Number(data.streak) || 0) + ' · Knockouts: ' + (Number(data.fightWins) || 0) + '</div>' +
+          '<div>Streak: ' + (Number(data.streak) || 0) + ' · Knockouts: ' + (Number(data.fightWins) || 0) + ' · Beaten up: ' + (Number(data.fightLosses) || 0) + '</div>' +
           (profile.favoriteColor ? '<div>Favorite color: ' + escapeAttr(profile.favoriteColor) + '</div>' : '') +
         '</div>' +
       '</div>' +

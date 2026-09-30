@@ -772,9 +772,6 @@
   font-weight: normal;
   opacity: 0.75;
 }
-.profile-rank {
-  color: var(--card-border);
-}
 .profile-actions {
   display: flex;
   flex-wrap: wrap;
