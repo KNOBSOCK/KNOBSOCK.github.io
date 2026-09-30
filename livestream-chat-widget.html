@@ -6254,7 +6254,7 @@
           : '<div class="profile-empty">Nothing here yet.</div>') +
       '</div>' +
       (mine
-        ? '<div class="profile-actions">' + (session.accountLinked
+        ? '<div class="profile-actions">' + FORUM_PROFILE_BUTTON + (session.accountLinked
           ? '<button class="pill-btn" id="profileEditBtn" type="button">Edit profile</button>'
           : '<button class="pill-btn" id="profileLinkBtn" type="button">Link email to edit profile</button>') +
           '</div><div class="profile-msg" id="profileMsg"></div>'
@@ -6265,6 +6265,10 @@
     wireAdminBadgeTaps(pq('profileCard'));
     fillProfileRanks(username, stats);
     if (!mine) renderReportRow(username, name);
+    else {
+      const forumBtn = pq('profileForumBtn');
+      if (forumBtn) forumBtn.addEventListener('click', function () { openForumProfile(username); });
+    }
     const linkBtn = pq('profileLinkBtn');
     if (linkBtn) linkBtn.addEventListener('click', function () { closeProfile(); renderAccountAccess('link'); });
     const editBtn = pq('profileEditBtn');

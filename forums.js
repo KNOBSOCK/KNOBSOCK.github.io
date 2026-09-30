@@ -928,13 +928,13 @@
           ? '<div class="profile-actions" id="profileReport"></div>'
           : "") +
       '</aside><div class="profile-main">' +
-      '<section class="profile-box"><h2>About me</h2><div class="profile-box-body">' +
+      '<section class="profile-box profile-box-about"><h2>About me</h2><div class="profile-box-body">' +
       (p.about ? '<p class="profile-about">' + esc(censorText(p.about)) + "</p>" : '<p class="profile-empty">Nothing here yet.</p>') +
-      '</div></section><section class="profile-box"><h2>Song</h2><div class="profile-box-body">' +
+      '</div></section><section class="profile-box profile-box-song"><h2>Song</h2><div class="profile-box-body">' +
       (song
         ? '<div class="profile-song"><iframe title="' + esc(name) + '’s song" allow="autoplay" loading="lazy" src="' + esc(songEmbed(song)) + '"></iframe></div>'
         : '<p class="profile-empty">No song yet.</p>') +
-      '</div></section><section class="profile-box"><h2>' + esc(name) + "’s threads (" + mineThreads.length + ')</h2><div class="profile-box-body">' +
+      '</div></section><section class="profile-box profile-box-threads"><h2>' + esc(name) + "’s threads (" + mineThreads.length + ')</h2><div class="profile-box-body">' +
       threadTable(mineThreads) +
       "</div></section></div></div></div>";
     if (!mine && username) renderReport(key, name);

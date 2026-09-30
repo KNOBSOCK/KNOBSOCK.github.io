@@ -274,7 +274,7 @@
   width: 54%;
 }
 .forum-table .count-col {
-  width: 11%;
+  width: max(11%, 4.8em);
   text-align: center;
 }
 .forum-table .last-col {
@@ -678,7 +678,7 @@
     width: 49%;
   }
   .forum-table .count-col {
-    width: 12%;
+    width: max(12%, 4.8em);
   }
   .forum-table .last-col {
     width: 27%;
@@ -895,11 +895,52 @@
 }
 @media (max-width: 860px) {
   .profile-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "side about"
+      "side song"
+      "threads threads";
+    gap: 10px;
+    padding: 10px;
   }
-  .profile-side .profile-photo {
-    width: 60%;
-    margin: 0 auto;
+  .profile-side {
+    grid-area: side;
+    min-width: 0;
+  }
+  .profile-main {
+    display: contents;
+  }
+  .profile-box-about {
+    grid-area: about;
+  }
+  .profile-box-song {
+    grid-area: song;
+    align-self: start;
+  }
+  .profile-box-threads {
+    grid-area: threads;
+  }
+  .profile-grid .profile-box {
+    margin-bottom: 0;
+  }
+  .profile-facts {
+    font-size: 0.8em;
+  }
+  .profile-facts tr {
+    display: block;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .profile-facts th,
+  .profile-facts td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .profile-side .profile-actions {
+    font-size: 0.85em;
   }
 }
 .online-now {
