@@ -227,6 +227,9 @@
     container-type: size;
     container-name: chatbox;
   }
+  .chat-pane:has(.fight-menu.is-open) { z-index: 3; }
+  .chat-pane:has(.fight-menu.is-open) .chat-card,
+  .chat-pane:has(.fight-menu.is-open) .chat-screen { overflow: visible; }
 
   /* On desktop, make the shared row as tall as the 16:9 player. This lets the
      chat sit flush with the player instead of stretching down the page. */
@@ -1152,7 +1155,6 @@
     bottom: calc(100% + clamp(6px, 1.8cqmin, 10px));
     display: none;
     width: min(250px, 78cqw);
-    max-height: min(290px, 56cqh);
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: clamp(8px, 2.5cqw, 12px);
@@ -1813,6 +1815,13 @@
     .account-menu-list,
     .fight-target-list { padding: 6px; }
     .account-menu { width: min(260px, 84cqw); }
+  }
+  @media (pointer: coarse) and (max-height: 450px) {
+    .fight-menu .fight-target {
+      min-height: 42px;
+      padding-top: 9px;
+      padding-bottom: 9px;
+    }
   }
 
   .msg-name[data-username] { cursor: pointer; }
@@ -2515,7 +2524,6 @@
       bottom: calc(100% + 8px);
       left: 10px;
       width: auto;
-      max-height: min(280px, 44dvh);
       transform-origin: bottom center;
     }
     .layout.mode-portrait .composer-bar > .who {
@@ -5401,7 +5409,7 @@
       .sort((a, b) => a.localeCompare(b));
   }
 
-  const FIGHT_PAGE_SIZE = 10;
+  const FIGHT_PAGE_SIZE = 5;
   let fightPage = 0;
 
   function updateFightPager(total) {
@@ -5511,7 +5519,7 @@
     if (button) button.setAttribute('aria-expanded', 'false');
   }
 
-  const VIEWER_PAGE_SIZE = 10;
+  const VIEWER_PAGE_SIZE = 5;
   const VIEWER_ACTIVE_MS = 270000;
   const VIEWER_CACHE_MS = 60000;
   let viewerPaging = null;
