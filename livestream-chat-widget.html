@@ -5396,8 +5396,33 @@
 #knobsockProfile .profile-label { margin-bottom: clamp(6px, 1.2vmin, 12px); font-size: clamp(18px, 3.2vmin, 30px); }
 #knobsockProfile .profile-about { margin: 0; font-family: var(--font-body); font-size: clamp(15px, 2.4vmin, 22px); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 #knobsockProfile .profile-empty { opacity: 0.6; font-size: clamp(14px, 2.2vmin, 20px); }
-#knobsockProfile .profile-song { padding: 8px 14px; border-radius: clamp(10px, 2.5vw, 28px); background: #ffffff; }
-#knobsockProfile .profile-song iframe { display: block; width: 100%; height: 20px; border: 0; }
+#knobsockProfile .profile-song { position: relative; display: flex; align-items: center; gap: clamp(10px, 1.8vmin, 16px); }
+#knobsockProfile .profile-song-engine { position: absolute; top: 0; left: 0; width: 1px; height: 1px; border: 0; opacity: 0; pointer-events: none; }
+#knobsockProfile .profile-song-play { -webkit-appearance: none; appearance: none; flex: none; display: flex; align-items: center; justify-content: center; width: clamp(40px, 6.4vmin, 56px); height: clamp(40px, 6.4vmin, 56px); padding: 0; border: 0; border-radius: 50%; background: var(--card-border, #ffff00); color: var(--border-ink, #000000); font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(14px, 2.2vmin, 19px); line-height: 1; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); cursor: pointer; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+#knobsockProfile .profile-song-play:hover:not(:disabled):not(.bounce-spin) { transform: scale(1.22) rotate(-6deg); }
+#knobsockProfile .profile-song-play:disabled { opacity: 0.5; cursor: default; }
+@keyframes kpSongSpin {
+  0% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.35) rotate(0deg); }
+  55% { transform: scale(0.88) rotate(180deg); }
+  80% { transform: scale(1.15) rotate(360deg); }
+  100% { transform: scale(1) rotate(360deg); }
+}
+#knobsockProfile .profile-song-play.bounce-spin { animation: kpSongSpin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+#knobsockProfile .profile-song-info { flex: 1 1 auto; min-width: 0; }
+#knobsockProfile .profile-song-title-wrap { overflow: hidden; white-space: nowrap; }
+#knobsockProfile .profile-song-title { display: inline-flex; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(13px, 2.1vmin, 17px); font-weight: 600; }
+#knobsockProfile .profile-song-copy { white-space: nowrap; padding-right: 40px; }
+#knobsockProfile .profile-song-artist { font-size: 0.8em; font-weight: 500; opacity: 0.75; }
+#knobsockProfile .profile-song-title.scrolling { animation-name: kpSongMarquee; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes kpSongMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+#knobsockProfile .profile-song-progress { display: flex; align-items: center; width: 100%; height: 18px; margin-top: 6px; cursor: pointer; touch-action: none; }
+#knobsockProfile .profile-song-progress-bg { width: 100%; height: 4px; overflow: hidden; border-radius: 2px; background: rgba(255, 255, 255, 0.2); background: color-mix(in srgb, var(--card-border, #ffff00) 25%, transparent); }
+#knobsockProfile .profile-song-fill { width: 0%; height: 100%; background: var(--card-border, #ffff00); }
+@media (prefers-reduced-motion: reduce) {
+  #knobsockProfile .profile-song-play { transition: none; }
+  #knobsockProfile .profile-song-play.bounce-spin, #knobsockProfile .profile-song-title.scrolling { animation: none; }
+}
 #knobsockProfile .profile-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: clamp(12px, 2.4vmin, 22px); }
 #knobsockProfile .profile-social { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 0; border-radius: 999px; background: var(--card-border, #ffff00); color: var(--border-ink, #000000); font-size: clamp(13px, 1.9vmin, 16px); font-weight: 700; text-decoration: none; transition: transform 0.15s ease, filter 0.15s ease; }
 #knobsockProfile .profile-social:hover { filter: brightness(0.9); transform: translateY(-1px); }
@@ -5440,7 +5465,6 @@
   #knobsockProfile .profile-label { margin-bottom: clamp(5px, 0.5vw, 10px); font-size: clamp(16px, 1.45vw, 28px); }
   #knobsockProfile .profile-about { font-size: clamp(14px, 1.15vw, 22px); }
   #knobsockProfile .profile-empty { font-size: clamp(13px, 1.05vw, 20px); }
-  #knobsockProfile .profile-song { padding: clamp(6px, 0.5vw, 10px) clamp(12px, 1vw, 18px); }
   #knobsockProfile .profile-actions { gap: 10px; margin-top: clamp(12px, 1.3vw, 25px); }
   #knobsockProfile .pill-btn { min-height: 38px; padding: clamp(9px, 0.7vw, 14px) clamp(16px, 1.4vw, 26px); font-size: clamp(13px, 1vw, 19px); }
   #knobsockProfile .profile-field { margin-top: clamp(10px, 1vw, 20px); }
@@ -5568,7 +5592,7 @@
       engaged = false;
       dy = 0;
       if (e.touches.length !== 1 || profileEditing || root.classList.contains('is-closing')) return;
-      if (e.target.closest && e.target.closest('input, textarea, select')) return;
+      if (e.target.closest && e.target.closest('input, textarea, select, .profile-song-progress')) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startAt = Date.now();
@@ -5718,23 +5742,294 @@
     return links ? '<div class="profile-socials">' + links + '</div>' : '';
   }
 
-  function normalizeSoundCloudUrl(raw) {
+  const SOUNDCLOUD_ERRORS = {
+    notSoundCloud: 'That isn’t a SoundCloud link. Paste a link like soundcloud.com/artist/song.',
+    short: 'Short share links (on.soundcloud.com/…) don’t work. Open the link in your browser and copy the full soundcloud.com/artist/song address instead.',
+    playlist: 'That’s a playlist or album. Paste a link to a single song.',
+    notTrack: 'That link doesn’t go to a song. Paste a link like soundcloud.com/artist/song.',
+    missing: 'SoundCloud can’t find that song. It might be private or deleted.'
+  };
+  const SOUNDCLOUD_RESERVED_USERS = ['discover', 'search', 'stream', 'you', 'upload', 'charts', 'pages', 'settings', 'messages', 'notifications', 'people', 'tags', 'terms-of-use', 'mobile', 'imprint', 'jobs', 'popular', 'signin', 'logout', 'feed', 'player'];
+  const SOUNDCLOUD_RESERVED_PAGES = ['likes', 'tracks', 'reposts', 'popular-tracks', 'followers', 'following', 'comments', 'spotlight', 'toptracks', 'playlists'];
+  const SOUNDCLOUD_SLUG = /^[A-Za-z0-9_-]+$/;
+
+  function checkSoundCloudUrl(raw) {
+    let text = String(raw || '').trim();
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) text = 'https://' + text;
     let url;
-    try { url = new URL(String(raw || '').trim()); } catch (e) { return ''; }
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    try { url = new URL(text); } catch (e) { return { error: SOUNDCLOUD_ERRORS.notSoundCloud }; }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return { error: SOUNDCLOUD_ERRORS.notSoundCloud };
     const host = url.hostname.toLowerCase();
-    if (host === 'm.soundcloud.com' || host === 'www.soundcloud.com') url.hostname = 'soundcloud.com';
-    if (url.hostname !== 'soundcloud.com' && url.hostname !== 'on.soundcloud.com') return '';
-    if (!url.pathname.split('/').filter(Boolean).length) return '';
-    url.protocol = 'https:';
-    url.hash = '';
-    if (url.hostname === 'soundcloud.com') url.search = '';
-    return url.toString();
+    if (host === 'on.soundcloud.com' || host === 'soundcloud.app.goo.gl') return { error: SOUNDCLOUD_ERRORS.short };
+    if (host !== 'soundcloud.com' && host !== 'www.soundcloud.com' && host !== 'm.soundcloud.com') return { error: SOUNDCLOUD_ERRORS.notSoundCloud };
+    const parts = url.pathname.split('/').filter(Boolean);
+    const page = String(parts[1] || '').toLowerCase();
+    if (page === 'sets' || page === 'albums') return { error: SOUNDCLOUD_ERRORS.playlist };
+    if ((parts.length !== 2 && parts.length !== 3) ||
+        !parts.slice(0, 2).every((part) => SOUNDCLOUD_SLUG.test(part)) ||
+        (parts[2] && !/^s-[A-Za-z0-9]+$/.test(parts[2])) ||
+        SOUNDCLOUD_RESERVED_USERS.includes(parts[0].toLowerCase()) ||
+        SOUNDCLOUD_RESERVED_PAGES.includes(page)) {
+      return { error: SOUNDCLOUD_ERRORS.notTrack };
+    }
+    return { url: 'https://soundcloud.com/' + parts.join('/'), secret: parts.length === 3 };
   }
 
-  function soundCloudEmbedSrc(songUrl) {
-    return 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(songUrl) +
-      '&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false&show_artwork=false';
+  function normalizeSoundCloudUrl(raw) {
+    return String(raw || '').trim() ? (checkSoundCloudUrl(raw).url || '') : '';
+  }
+
+  async function verifySoundCloudTrack(url) {
+    let res;
+    try { res = await fetch('https://soundcloud.com/oembed?format=json&url=' + encodeURIComponent(url)); } catch (e) { return ''; }
+    if (res.status === 404 || res.status === 403) return SOUNDCLOUD_ERRORS.missing;
+    if (!res.ok) return '';
+    const data = await res.json().catch(() => null);
+    if (!data || typeof data.html !== 'string') return '';
+    if (/api\.soundcloud\.com(%2F|\/)playlists/i.test(data.html)) return SOUNDCLOUD_ERRORS.playlist;
+    if (!/api\.soundcloud\.com(%2F|\/)tracks/i.test(data.html)) return SOUNDCLOUD_ERRORS.notTrack;
+    return '';
+  }
+
+  function soundCloudEngineSrc(songUrl) {
+    return 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(songUrl) + '&auto_play=false&show_artwork=false';
+  }
+
+  function profileSongHtml() {
+    return '<div class="profile-song" id="profileSongPlayer">' +
+      '<button class="profile-song-play" id="profileSongPlay" type="button" aria-label="Play" disabled>&#9654;&#xFE0E;</button>' +
+      '<div class="profile-song-info">' +
+        '<div class="profile-song-title-wrap" id="profileSongTitleWrap"><div class="profile-song-title" id="profileSongTitle"><span class="profile-song-copy">Loading…</span></div></div>' +
+        '<div class="profile-song-progress" id="profileSongProgress" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+          '<div class="profile-song-progress-bg"><div class="profile-song-fill" id="profileSongFill"></div></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  let profileSongPlayer = null;
+
+  function stopProfileSong() {
+    const player = profileSongPlayer;
+    profileSongPlayer = null;
+    if (!player) return;
+    clearInterval(player.retry);
+    clearTimeout(player.timeout);
+    try { if (player.widget) player.widget.pause(); } catch (e) {}
+  }
+
+  function profileSoundCloudApi(doc) {
+    const view = doc.defaultView;
+    if (view.SC && view.SC.Widget) return Promise.resolve(view.SC);
+    if (!view.knobsockSoundCloudApi) {
+      view.knobsockSoundCloudApi = new Promise((resolve, reject) => {
+        const script = doc.createElement('script');
+        script.src = 'https://w.soundcloud.com/player/api.js';
+        script.onload = () => (view.SC && view.SC.Widget ? resolve(view.SC) : reject(new Error('SoundCloud unavailable')));
+        script.onerror = () => {
+          view.knobsockSoundCloudApi = null;
+          script.remove();
+          reject(new Error('SoundCloud unavailable'));
+        };
+        doc.head.appendChild(script);
+      });
+    }
+    return view.knobsockSoundCloudApi;
+  }
+
+  function pauseSiteMusic(doc) {
+    const view = doc.defaultView;
+    try {
+      const session = view.navigator.mediaSession;
+      if (session && session.playbackState === 'playing') {
+        view.postMessage({ type: 'knobsock-front-widget-command', action: 'pause' }, location.origin);
+      }
+    } catch (e) {}
+  }
+
+  function mountProfileSong(songUrl) {
+    stopProfileSong();
+    const box = pq('profileSongPlayer');
+    if (!box) return;
+    const doc = box.ownerDocument;
+    const view = doc.defaultView || window;
+    const button = pq('profileSongPlay');
+    const titleWrap = pq('profileSongTitleWrap');
+    const title = pq('profileSongTitle');
+    const progress = pq('profileSongProgress');
+    const fill = pq('profileSongFill');
+    const player = { widget: null, ready: false, wantsPlay: false, progressSeen: false, duration: 0, position: 0, startAt: 0, requestedAt: 0, retry: 0, timeout: 0, dragging: false };
+    profileSongPlayer = player;
+    const alive = () => profileSongPlayer === player && box.isConnected;
+
+    const titleCopy = (text, artist) => {
+      const copy = doc.createElement('span');
+      copy.className = 'profile-song-copy';
+      copy.textContent = text;
+      if (artist) {
+        const credit = doc.createElement('span');
+        credit.className = 'profile-song-artist';
+        credit.textContent = ' by ' + artist;
+        copy.appendChild(credit);
+      }
+      return copy;
+    };
+    const setTitle = (text, artist) => {
+      title.classList.remove('scrolling');
+      title.style.animationDuration = '';
+      title.textContent = '';
+      title.appendChild(titleCopy(text, artist));
+      view.requestAnimationFrame(() => {
+        if (!alive() || title.scrollWidth <= titleWrap.clientWidth) return;
+        title.appendChild(titleCopy(text, artist));
+        title.style.animationDuration = ((title.scrollWidth / 2) / 45) + 's';
+        title.classList.add('scrolling');
+      });
+    };
+    const setIcon = (playing) => {
+      button.innerHTML = playing ? '&#10074;&#10074;' : '&#9654;&#xFE0E;';
+      button.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    };
+    const setFill = (fraction) => {
+      const value = Math.min(1, Math.max(0, fraction || 0));
+      fill.style.width = (value * 100) + '%';
+      progress.setAttribute('aria-valuenow', String(Math.round(value * 100)));
+    };
+    const clearRetry = () => { clearInterval(player.retry); player.retry = 0; };
+    const fail = (text) => {
+      clearRetry();
+      player.wantsPlay = false;
+      button.disabled = true;
+      setIcon(false);
+      setTitle(text);
+    };
+    const firePlay = () => {
+      try { player.widget.setVolume(100); player.widget.play(); } catch (e) {}
+    };
+
+    const frame = doc.createElement('iframe');
+    frame.className = 'profile-song-engine';
+    frame.title = 'SoundCloud audio engine';
+    frame.allow = 'autoplay';
+    frame.tabIndex = -1;
+    frame.setAttribute('aria-hidden', 'true');
+    frame.src = soundCloudEngineSrc(songUrl);
+    box.appendChild(frame);
+    player.timeout = setTimeout(() => { if (alive() && !player.ready) fail('Song unavailable'); }, 20000);
+
+    profileSoundCloudApi(doc).then((SC) => {
+      if (!alive()) return;
+      const widget = SC.Widget(frame);
+      const events = SC.Widget.Events;
+      player.widget = widget;
+      widget.bind(events.READY, () => {
+        if (!alive()) return;
+        clearTimeout(player.timeout);
+        widget.getCurrentSound((sound) => {
+          if (!alive()) return;
+          if (!sound) { fail('Song unavailable'); return; }
+          player.ready = true;
+          player.duration = sound.duration || 0;
+          button.disabled = false;
+          setTitle(sound.title || 'Untitled', sound.user && sound.user.username);
+        });
+      });
+      widget.bind(events.PLAY_PROGRESS, (data) => {
+        if (!alive()) return;
+        player.position = data.currentPosition || 0;
+        if (!player.progressSeen && player.wantsPlay && player.position > player.startAt) {
+          player.progressSeen = true;
+          clearRetry();
+        }
+        if (!player.dragging) setFill(data.relativePosition);
+      });
+      widget.bind(events.PAUSE, () => {
+        if (!alive() || (player.wantsPlay && !player.progressSeen)) return;
+        player.wantsPlay = false;
+        player.progressSeen = false;
+        clearRetry();
+        setIcon(false);
+      });
+      widget.bind(events.FINISH, () => {
+        if (!alive()) return;
+        player.wantsPlay = false;
+        player.progressSeen = false;
+        player.position = 0;
+        clearRetry();
+        setIcon(false);
+        setFill(0);
+      });
+      widget.bind(events.ERROR, () => { if (alive()) fail('Song unavailable'); });
+    }).catch(() => { if (alive()) fail('Song unavailable'); });
+
+    button.addEventListener('click', () => {
+      button.classList.remove('bounce-spin');
+      void button.offsetWidth;
+      button.classList.add('bounce-spin');
+      if (!alive() || !player.ready) return;
+      if (player.wantsPlay) {
+        player.wantsPlay = false;
+        player.progressSeen = false;
+        clearRetry();
+        try { player.widget.pause(); } catch (e) {}
+        setIcon(false);
+        return;
+      }
+      player.wantsPlay = true;
+      player.progressSeen = false;
+      player.startAt = player.position;
+      player.requestedAt = Date.now();
+      setIcon(true);
+      pauseSiteMusic(doc);
+      firePlay();
+      clearRetry();
+      player.retry = setInterval(() => {
+        if (!alive() || !player.wantsPlay || player.progressSeen) { clearRetry(); return; }
+        if (Date.now() - player.requestedAt > 9000) {
+          clearRetry();
+          player.wantsPlay = false;
+          setIcon(false);
+          return;
+        }
+        firePlay();
+      }, 300);
+    });
+    button.addEventListener('animationend', (event) => {
+      if (event.animationName !== 'kpSongSpin') return;
+      button.style.transition = 'none';
+      button.classList.remove('bounce-spin');
+      void button.offsetWidth;
+      button.style.transition = '';
+    });
+
+    const seekFraction = (clientX) => {
+      const rect = progress.getBoundingClientRect();
+      return rect.width ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
+    };
+    const commitSeek = (fraction) => {
+      const target = fraction * player.duration;
+      player.position = target;
+      player.startAt = Math.min(player.startAt, target);
+      try { player.widget.seekTo(target); } catch (e) {}
+    };
+    progress.addEventListener('pointerdown', (event) => {
+      if (!player.ready || !player.duration) return;
+      event.preventDefault();
+      player.dragging = true;
+      try { progress.setPointerCapture(event.pointerId); } catch (e) {}
+      setFill(seekFraction(event.clientX));
+    });
+    progress.addEventListener('pointermove', (event) => {
+      if (player.dragging) setFill(seekFraction(event.clientX));
+    });
+    progress.addEventListener('pointerup', (event) => {
+      if (!player.dragging) return;
+      player.dragging = false;
+      const fraction = seekFraction(event.clientX);
+      setFill(fraction);
+      commitSeek(fraction);
+    });
+    progress.addEventListener('pointercancel', () => { player.dragging = false; });
   }
 
   function lastOnlineLabel(data, username) {
@@ -5874,6 +6169,7 @@
   function renderProfileView(username, data) {
     const panel = pq('profilePanel');
     if (!panel) return;
+    stopProfileSong();
     profileEditing = false;
     const profile = (data && data.profile) || {};
     const name = (data && data.username) || username;
@@ -5895,9 +6191,7 @@
       '</div>' +
       socialsHtml(profile) +
       '<div class="profile-section"><div class="profile-label">Song</div>' +
-        (song
-          ? '<div class="profile-song"><iframe title="' + escapeHtml(name) + '’s song" allow="autoplay" loading="lazy" src="' + escapeHtml(soundCloudEmbedSrc(song)) + '"></iframe></div>'
-          : '<div class="profile-empty">No song yet.</div>') +
+        (song ? profileSongHtml() : '<div class="profile-empty">No song yet.</div>') +
       '</div>' +
       '<div class="profile-section"><div class="profile-label">About me</div>' +
         (profile.about
@@ -5912,6 +6206,7 @@
         : (session ? '<div class="profile-report-row" id="profileReportRow"></div>' : ''))
     );
     wireProfileClose();
+    if (song) mountProfileSong(song);
     fillProfileRanks(username, stats);
     if (!mine && session) renderReportRow(username, name);
     const linkBtn = pq('profileLinkBtn');
@@ -6022,6 +6317,7 @@
   function renderProfileEdit(data) {
     const panel = pq('profilePanel');
     if (!panel || !session) return;
+    stopProfileSong();
     profileEditing = true;
     const profile = Object.assign({}, (data && data.profile) || {});
     let draftPhoto = safePhoto(profile.photo);
@@ -6035,7 +6331,7 @@
         '<button class="pill-btn profile-btn-secondary" id="profilePhotoRemove" type="button">Remove</button>' +
       '</div></div>' +
       '<label class="profile-field"><span>Favorite color</span><input type="text" id="profileFavColor" maxlength="30" autocomplete="off" value="' + escapeHtml(profile.favoriteColor || '') + '"></label>' +
-      '<label class="profile-field"><span>Song</span><input type="text" id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + escapeHtml(profile.song || '') + '"><div class="profile-hint">Paste a link to a track on SoundCloud.</div></label>' +
+      '<label class="profile-field"><span>Song</span><input type="text" id="profileSong" maxlength="300" inputmode="url" autocomplete="off" placeholder="https://soundcloud.com/artist/song" value="' + escapeHtml(profile.song || '') + '"><div class="profile-hint">Paste the full link to a single song, like soundcloud.com/artist/song. Short on.soundcloud.com links won’t work.</div></label>' +
       '<label class="profile-field"><span>About me</span><textarea id="profileAbout" maxlength="4000">' + escapeHtml(profile.about || '') + '</textarea></label>' +
       '<div class="profile-field"><span>Socials</span>' + SOCIALS.map((social) =>
         '<label class="profile-social-field">' + social.label +
@@ -6081,11 +6377,12 @@
     pq('profileSave').addEventListener('click', async function () {
       const button = this;
       const rawSong = pq('profileSong').value.trim();
-      const song = rawSong ? normalizeSoundCloudUrl(rawSong) : '';
-      if (rawSong && !song) {
-        msg.textContent = 'That doesn’t look like a SoundCloud link.';
+      const songCheck = rawSong ? checkSoundCloudUrl(rawSong) : { url: '' };
+      if (songCheck.error) {
+        msg.textContent = songCheck.error;
         return;
       }
+      const song = songCheck.url;
       const socialValues = {};
       for (const social of SOCIALS) {
         const value = normalizeSocial(social.key, pq('profileSocial_' + social.key).value);
@@ -6110,6 +6407,15 @@
       button.disabled = true;
       button.textContent = 'Saving…';
       msg.textContent = '';
+      if (song && !songCheck.secret && song !== normalizeSoundCloudUrl(profile.song)) {
+        const songError = await verifySoundCloudTrack(song);
+        if (songError) {
+          msg.textContent = songError;
+          button.disabled = false;
+          button.textContent = 'Save';
+          return;
+        }
+      }
       const key = session.username.toLowerCase();
       try {
         const result = await callAccountFunction('saveProfile', {
@@ -6138,6 +6444,7 @@
     if (!panel) return;
     closeAccountMenu();
     closeFightMenu();
+    stopProfileSong();
     profileViewing = username;
     profileEditing = false;
     const hit = profileCache[String(username).toLowerCase()];
@@ -6173,6 +6480,7 @@
   });
 
   function releaseProfile(doc) {
+    stopProfileSong();
     profileViewing = null;
     profileEditing = false;
     doc.removeEventListener('keydown', profileKeydown);

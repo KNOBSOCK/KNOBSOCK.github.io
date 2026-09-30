@@ -179,26 +179,41 @@ function cleanPhoto(value: unknown) {
   return photo;
 }
 
+const SOUNDCLOUD_RESERVED_USERS = ['discover', 'search', 'stream', 'you', 'upload', 'charts', 'pages', 'settings', 'messages', 'notifications', 'people', 'tags', 'terms-of-use', 'mobile', 'imprint', 'jobs', 'popular', 'signin', 'logout', 'feed', 'player'];
+const SOUNDCLOUD_RESERVED_PAGES = ['likes', 'tracks', 'reposts', 'popular-tracks', 'followers', 'following', 'comments', 'spotlight', 'toptracks', 'playlists'];
+const SOUNDCLOUD_SLUG = /^[A-Za-z0-9_-]+$/;
+
 function cleanSong(value: unknown) {
-  const raw = String(value ?? '').trim();
+  let raw = String(value ?? '').trim();
   if (!raw) return '';
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = 'https://' + raw;
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new InvalidProfile('That doesn’t look like a SoundCloud link.');
+    throw new InvalidProfile('That isn’t a SoundCloud link. Paste a link like soundcloud.com/artist/song.');
   }
   const host = url.hostname.toLowerCase();
-  if (host === 'm.soundcloud.com' || host === 'www.soundcloud.com') url.hostname = 'soundcloud.com';
-  if ((url.protocol !== 'https:' && url.protocol !== 'http:') ||
-      (url.hostname !== 'soundcloud.com' && url.hostname !== 'on.soundcloud.com') ||
-      !url.pathname.split('/').filter(Boolean).length) {
-    throw new InvalidProfile('That doesn’t look like a SoundCloud link.');
+  if (host === 'on.soundcloud.com' || host === 'soundcloud.app.goo.gl') {
+    throw new InvalidProfile('Short share links (on.soundcloud.com/…) don’t work. Open the link in your browser and copy the full soundcloud.com/artist/song address instead.');
   }
-  url.protocol = 'https:';
-  url.hash = '';
-  if (url.hostname === 'soundcloud.com') url.search = '';
-  return url.toString().slice(0, 300);
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') ||
+      (host !== 'soundcloud.com' && host !== 'www.soundcloud.com' && host !== 'm.soundcloud.com')) {
+    throw new InvalidProfile('That isn’t a SoundCloud link. Paste a link like soundcloud.com/artist/song.');
+  }
+  const parts = url.pathname.split('/').filter(Boolean);
+  const page = String(parts[1] || '').toLowerCase();
+  if (page === 'sets' || page === 'albums') {
+    throw new InvalidProfile('That’s a playlist or album. Paste a link to a single song.');
+  }
+  if ((parts.length !== 2 && parts.length !== 3) ||
+      !parts.slice(0, 2).every((part) => SOUNDCLOUD_SLUG.test(part)) ||
+      (parts[2] && !/^s-[A-Za-z0-9]+$/.test(parts[2])) ||
+      SOUNDCLOUD_RESERVED_USERS.includes(parts[0].toLowerCase()) ||
+      SOUNDCLOUD_RESERVED_PAGES.includes(page)) {
+    throw new InvalidProfile('That link doesn’t go to a song. Paste a link like soundcloud.com/artist/song.');
+  }
+  return 'https://soundcloud.com/' + parts.join('/');
 }
 
 const SOCIAL_LABELS: Record<string, string> = { instagram: 'Instagram', youtube: 'YouTube', tiktok: 'TikTok' };
