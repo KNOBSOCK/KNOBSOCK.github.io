@@ -2394,7 +2394,7 @@
       height: var(--portrait-tab-height);
       min-height: var(--portrait-tab-height);
       flex: none;
-      background: #080808;
+      background: var(--vods-portrait-bg, #080808);
       color: var(--text);
       pointer-events: auto;
     }
@@ -2402,7 +2402,7 @@
        white instead of inheriting the black hover text on its black bar. */
     .layout.mode-portrait .vods-tab:hover,
     .layout.mode-portrait .vods-tab:active {
-      background: #080808;
+      background: var(--vods-portrait-bg, #080808);
       color: var(--text);
     }
     .layout.mode-portrait .vods-tab-label,
@@ -2413,7 +2413,7 @@
     .layout.mode-portrait .vods-tab:active .vods-tab-chevron { color: var(--text); }
     .layout.mode-portrait .vods-tab-chevron { transform: rotate(180deg); }
     .layout.mode-portrait .vods-panel.open .vods-tab-chevron { transform: none; }
-    .layout.mode-portrait .vods-drawer { background: #080808; pointer-events: auto; border-radius: 0; }
+    .layout.mode-portrait .vods-drawer { background: var(--vods-portrait-bg, #080808); pointer-events: auto; border-radius: 0; }
     .layout.mode-portrait .vods-panel.open .vods-drawer {
       max-height: min(55cqh, 320px);
     }
@@ -4102,6 +4102,7 @@
   }
   function tintPaletteCss(hex) {
     var t = hexToHsl(hex);
+    var shade = 'rgb(' + hexToRgbString(hex).split(',').map(function (v) { return Math.round(Number(v) * 0.75); }).join(', ') + ')';
     var dark = hslRgb(t.h, t.s, t.l * 0.6);
     var vars = {
       '--ink': '#0d0d0d',
@@ -4112,7 +4113,8 @@
       '--accent-dim': '#333333',
       '--text-dim': '#aaaaaa',
       '--error': '#aaaaaa',
-      '--vods-bg': '#080808',
+      '--vods-bg': shade,
+      '--vods-portrait-bg': shade,
       '--portrait-input-bg': 'rgba(' + dark + ', 0.5)'
     };
     function block(sel, vars) {
