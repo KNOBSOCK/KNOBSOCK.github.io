@@ -5496,6 +5496,7 @@
 #knobsockProfile .profile-msg { min-height: 16px; margin-top: 10px; font-size: clamp(13px, 2vmin, 16px); }
 #knobsockProfile .profile-msg:empty { display: none; }
 #knobsockProfile .profile-report-row { margin-top: 0; }
+#knobsockProfile .profile-actions .profile-reported { align-self: center; }
 #knobsockProfile .profile-report-label { margin: clamp(14px, 2.8vmin, 28px) 0 8px; font-size: clamp(14px, 2.2vmin, 20px); }
 #knobsockProfile .profile-inline-link { -webkit-appearance: none; appearance: none; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; text-decoration: underline; }
 @media (orientation: landscape) {
@@ -6257,13 +6258,13 @@
           ? '<button class="pill-btn" id="profileEditBtn" type="button">Edit profile</button>'
           : '<button class="pill-btn" id="profileLinkBtn" type="button">Link email to edit profile</button>') +
           '</div><div class="profile-msg" id="profileMsg"></div>'
-        : (session ? '<div class="profile-report-row" id="profileReportRow"></div>' : ''))
+        : '<div class="profile-report-row" id="profileReportRow"></div>')
     );
     wireProfileClose();
     if (song) mountProfileSong(song);
     wireAdminBadgeTaps(pq('profileCard'));
     fillProfileRanks(username, stats);
-    if (!mine && session) renderReportRow(username, name);
+    if (!mine) renderReportRow(username, name);
     const linkBtn = pq('profileLinkBtn');
     if (linkBtn) linkBtn.addEventListener('click', function () { closeProfile(); renderAccountAccess('link'); });
     const editBtn = pq('profileEditBtn');
@@ -6290,15 +6291,39 @@
     try { return localStorage.getItem(reportedKey(key)) === '1'; } catch (e) { return false; }
   }
 
+  function openForumProfile(username) {
+    dropProfileNow();
+    const link = document.createElement('a');
+    link.href = '/forums#profile/' + encodeURIComponent(String(username).toLowerCase());
+    link.target = '_top';
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  const FORUM_PROFILE_BUTTON = '<button class="pill-btn" id="profileForumBtn" type="button">Go to Profile</button>';
+
   function renderReportRow(username, name) {
     const row = pq('profileReportRow');
     if (!row) return;
     const key = String(username).toLowerCase();
-    if (hasReported(key)) {
-      row.innerHTML = '<span class="profile-empty">Reported. Thanks for letting us know.</span>';
+    const wireForumButton = () => {
+      const button = pq('profileForumBtn');
+      if (button) button.addEventListener('click', function () { openForumProfile(username); });
+    };
+    if (!session) {
+      row.innerHTML = '<div class="profile-actions">' + FORUM_PROFILE_BUTTON + '</div>';
+      wireForumButton();
       return;
     }
-    row.innerHTML = '<div class="profile-actions"><button class="pill-btn" id="profileReportBtn" type="button">Report profile</button></div>';
+    if (hasReported(key)) {
+      row.innerHTML = '<div class="profile-actions">' + FORUM_PROFILE_BUTTON + '<span class="profile-empty profile-reported">Reported. Thanks for letting us know.</span></div>';
+      wireForumButton();
+      return;
+    }
+    row.innerHTML = '<div class="profile-actions">' + FORUM_PROFILE_BUTTON + '<button class="pill-btn" id="profileReportBtn" type="button">Report profile</button></div>';
+    wireForumButton();
     pq('profileReportBtn').addEventListener('click', function () {
       row.innerHTML =
         '<label class="profile-report-label" for="profileReportReason">Why are you reporting ' + escapeHtml(name) + '?</label>' +
@@ -6555,7 +6580,13 @@
     root.classList.add('is-closing');
     setTimeout(() => removeProfileRoot(doc, root), PROFILE_CLOSE_MS);
   }
-  window.addEventListener('pagehide', closeProfile);
+  function dropProfileNow() {
+    const doc = profileDoc();
+    const root = doc.getElementById('knobsockProfile');
+    releaseProfile(doc);
+    if (root) removeProfileRoot(doc, root);
+  }
+  window.addEventListener('pagehide', dropProfileNow);
 
   function toggleFightMenu() {
     if (!isChatUnlocked()) return;
