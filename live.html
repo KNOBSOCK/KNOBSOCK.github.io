@@ -134,6 +134,10 @@
     }
   }
 
+  @media (max-width: 860px) and (max-height: 600px) and (orientation: portrait) {
+    .logo-link { width: min(70vw, 480px, 29vh); }
+  }
+
   @media (orientation: landscape) and (max-height: 860px) and (hover: none) and (pointer: coarse) {
     html, body { overflow: hidden; }
     .page {
@@ -255,7 +259,7 @@
   </a>
 
   <div class="player-wrap">
-    <iframe src="/livestream-chat-widget.html?v=profile-swipe-2"
+    <iframe src="/livestream-chat-widget.html?v=small-screen-1"
             title="KNOBSOCK Live"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>

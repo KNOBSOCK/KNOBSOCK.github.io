@@ -568,6 +568,12 @@
     }
   }
 
+  @media (max-width: 860px) and (max-height: 500px) and (orientation: portrait) {
+    .layout:not(.mode-portrait):not(.chat-hidden) .video-pane {
+      max-height: max(84px, calc(100vh - var(--stats-h) - 250px));
+    }
+  }
+
   .layout.chat-hidden .chat-pane {
     display: none;
   }
