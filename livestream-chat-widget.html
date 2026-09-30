@@ -1047,22 +1047,6 @@
     .tapin-gate.is-locked .tapin-cue { animation: none; }
   }
 
-  .color-picker {
-    -webkit-appearance: none;
-    appearance: none;
-    width: clamp(20px, 6.4cqmin, 26px);
-    height: clamp(20px, 6.4cqmin, 26px);
-    border: 1px solid var(--line);
-    border-radius: 50%;
-    padding: 0;
-    background: none;
-    cursor: pointer;
-    flex: none;
-  }
-  .color-picker::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
-  .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
-  .color-picker::-moz-color-swatch { border: none; border-radius: 50%; }
-
   @property --tapin-frac {
     syntax: '<number>';
     inherits: false;
@@ -1218,12 +1202,10 @@
   }
   .fight-target::before {
     content: '';
-    width: 7px;
-    height: 7px;
+    width: 10px;
+    height: 10px;
     flex: none;
-    border-radius: 50%;
-    background: #4ad66d;
-    box-shadow: 0 0 0 2px rgba(74,214,109,.15);
+    background: url("/online-dot.png?v=1") center / contain no-repeat;
   }
   .fight-target:hover,
   .fight-target:focus-visible {
@@ -1240,6 +1222,133 @@
   }
   .fight-target-empty.is-loading {
     color: var(--text);
+  }
+
+  .viewer-menu-wrap {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: flex-end;
+  }
+  .viewers-btn {
+    position: relative;
+    width: clamp(24px, 7.2cqmin, 30px);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: rgba(var(--ink-rgb), 0.72);
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .viewers-btn img {
+    display: block;
+    width: 72%;
+    height: 72%;
+    object-fit: contain;
+    pointer-events: none;
+    transition: filter 0.15s ease;
+  }
+  .viewers-btn:hover:not(:disabled),
+  .viewers-btn:active:not(:disabled),
+  .viewers-btn[aria-expanded="true"] {
+    background: var(--interactive-hover);
+    border-color: var(--interactive-hover);
+    transform: translateY(-1px) rotate(-4deg);
+  }
+  .viewers-btn:hover:not(:disabled) img,
+  .viewers-btn:active:not(:disabled) img,
+  .viewers-btn[aria-expanded="true"] img {
+    filter: brightness(0);
+  }
+  @media (max-width: 860px) {
+    .fight-btn,
+    .viewers-btn { width: clamp(36px, 10.8cqmin, 45px); }
+    .fight-btn.is-icon-fallback::before { font-size: clamp(22px, 7.2cqmin, 31px); }
+    .tapin-btn {
+      width: clamp(33px, 10.5cqmin, 42px);
+      font-size: clamp(16px, 5.1cqmin, 21px);
+    }
+    .tapin-btn-icon {
+      width: clamp(27px, 8.55cqmin, 34px);
+      height: clamp(27px, 8.55cqmin, 34px);
+    }
+    .tapin-btn .tapin-count { font-size: clamp(13px, 4.2cqmin, 16px); }
+    .layout:not(.mode-portrait) .composer-status { padding-bottom: clamp(10px, 3.6cqmin, 16px); }
+  }
+  .viewer-menu .fight-target-list {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .viewer-item.is-you {
+    color: var(--text-dim);
+  }
+  .viewer-you {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: .88em;
+  }
+  .viewer-item:hover .viewer-you,
+  .viewer-item:focus-visible .viewer-you {
+    color: inherit;
+  }
+  .viewer-guests {
+    padding: clamp(6px, 1.8cqmin, 8px) clamp(8px, 2.4cqmin, 11px);
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: clamp(10px, 2.6cqmin, 12px);
+  }
+  .viewer-pager {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: clamp(4px, 1.2cqmin, 6px) clamp(8px, 2.4cqmin, 11px) clamp(6px, 1.8cqmin, 9px);
+    border-top: 1px solid rgba(255,255,255,.12);
+  }
+  .viewer-page-label {
+    color: var(--text-dim);
+    font-family: 'Gratis Neue', var(--font-body);
+    font-size: clamp(10px, 2.6cqmin, 12px);
+    text-transform: uppercase;
+  }
+  .viewer-arrow {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    width: clamp(30px, 9cqmin, 38px);
+    aspect-ratio: 560 / 473;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .viewer-arrow img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .viewer-arrow:not(:disabled):hover { transform: scale(1.12); }
+  .viewer-arrow:not(:disabled):active { transform: scale(0.95); }
+  .viewer-arrow:disabled { opacity: 0.3; cursor: default; }
+  .viewer-arrow.is-jump { animation: viewerArrowJumpPrev 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  #viewerNext.is-jump { animation-name: viewerArrowJumpNext; }
+  @keyframes viewerArrowJumpPrev {
+    0% { transform: translateX(0) scale(1); }
+    38% { transform: translateX(-14%) scale(1.3); }
+    100% { transform: translateX(0) scale(1); }
+  }
+  @keyframes viewerArrowJumpNext {
+    0% { transform: translateX(0) scale(1); }
+    38% { transform: translateX(14%) scale(1.3); }
+    100% { transform: translateX(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .viewer-arrow.is-jump { animation: none; }
   }
 
   .fight-panel-wrap {
@@ -1486,8 +1595,7 @@
     opacity: .58;
   }
   .fight-target.is-on-cooldown::before {
-    background: var(--text-dim);
-    box-shadow: none;
+    filter: grayscale(1);
   }
   .fight-target-cooldown {
     margin-left: auto;
@@ -2397,7 +2505,8 @@
        control row. Anchor its picker to the whole composer instead, so the
        upward-unrolling list remains fully inside the visible chat area. */
     .layout.mode-portrait .composer-bar { position: relative; }
-    .layout.mode-portrait .fight-menu-wrap { position: static; }
+    .layout.mode-portrait .fight-menu-wrap,
+    .layout.mode-portrait .viewer-menu-wrap { position: static; }
     .layout.mode-portrait .fight-menu {
       z-index: 60;
       right: 10px;
@@ -5384,6 +5493,132 @@
     if (button) button.setAttribute('aria-expanded', 'false');
   }
 
+  const VIEWER_PAGE_SIZE = 10;
+  const VIEWER_ACTIVE_MS = 270000;
+  const VIEWER_CACHE_MS = 60000;
+  let viewerPaging = null;
+
+  function closeViewerMenu() {
+    const menu = $('viewerMenu');
+    const button = $('viewersBtn');
+    if (menu) menu.classList.remove('is-open');
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleViewerMenu() {
+    const menu = $('viewerMenu');
+    const button = $('viewersBtn');
+    if (!menu || !button) return;
+    const open = !menu.classList.contains('is-open');
+    menu.classList.toggle('is-open', open);
+    button.setAttribute('aria-expanded', String(open));
+    if (!open) return;
+    closeFightMenu();
+    closeAccountMenu();
+    if (!viewerPaging || Date.now() - viewerPaging.fetchedAt > VIEWER_CACHE_MS) {
+      viewerPaging = {
+        cutoff: Date.now() - VIEWER_ACTIVE_MS,
+        fetchedAt: Date.now(),
+        pages: [],
+        lastDocs: [],
+        full: [],
+        page: 0,
+        loading: false,
+        error: false
+      };
+      loadViewerPage(0);
+    } else {
+      renderViewerMenu();
+    }
+  }
+
+  function loadViewerPage(index) {
+    const paging = viewerPaging;
+    if (!paging || paging.loading || index < 0) return;
+    if (paging.pages[index]) {
+      paging.page = index;
+      renderViewerMenu();
+      return;
+    }
+    if (index > 0 && !paging.full[index - 1]) return;
+    let query = db.collection('chat_presence')
+      .where('lastSeen', '>', paging.cutoff)
+      .orderBy('lastSeen', 'desc')
+      .limit(VIEWER_PAGE_SIZE);
+    if (index > 0) query = query.startAfter(paging.lastDocs[index - 1]);
+    paging.loading = true;
+    paging.error = false;
+    renderViewerMenu();
+    query.get().then((snapshot) => {
+      if (viewerPaging !== paging) return;
+      paging.loading = false;
+      if (!snapshot.docs.length && index > 0) {
+        paging.full[index - 1] = false;
+        renderViewerMenu();
+        return;
+      }
+      const decode = window.KNOBSOCK_PRESENCE_USERNAME_FROM_ID;
+      const names = [];
+      let guests = 0;
+      snapshot.docs.forEach((doc) => {
+        const name = typeof decode === 'function' ? decode(doc.id) : '';
+        if (name) names.push(name);
+        else guests += 1;
+      });
+      paging.pages[index] = { names, guests };
+      paging.lastDocs[index] = snapshot.docs[snapshot.docs.length - 1];
+      paging.full[index] = snapshot.docs.length === VIEWER_PAGE_SIZE;
+      paging.page = index;
+      renderViewerMenu();
+    }).catch(() => {
+      if (viewerPaging !== paging) return;
+      paging.loading = false;
+      paging.error = true;
+      renderViewerMenu();
+    });
+  }
+
+  function renderViewerMenu() {
+    const list = $('viewerList');
+    if (!list) return;
+    const paging = viewerPaging;
+    const heading = $('viewerMenuHeading');
+    const countEl = document.getElementById('activeViewersCount');
+    const count = countEl ? parseInt(countEl.textContent, 10) : NaN;
+    if (heading) heading.textContent = count > 0 ? 'Who’s watching · ' + count : 'Who’s watching';
+    const page = paging && paging.pages[paging.page];
+    if (!page && (!paging || paging.loading)) {
+      list.innerHTML = '<div class="fight-target-empty is-loading">Loading viewers…</div>';
+    } else if (!page && paging.error) {
+      list.innerHTML = '<div class="fight-target-empty">Couldn’t load viewers. Try again in a bit.</div>';
+    } else if (!page || (!page.names.length && !page.guests)) {
+      list.innerHTML = '<div class="fight-target-empty">No one’s here right now.</div>';
+    } else {
+      const me = session ? session.username.toLowerCase() : '';
+      list.innerHTML = page.names.map((name) => {
+        const you = name.toLowerCase() === me;
+        return '<button type="button" class="fight-target viewer-item' + (you ? ' is-you' : '') + '" data-username="' + escapeHtml(name) + '">' +
+          '<span>' + escapeHtml(name) + '</span>' + (you ? '<span class="viewer-you">you</span>' : '') + '</button>';
+      }).join('') +
+        (page.guests ? '<div class="viewer-guests">+ ' + page.guests + (page.guests === 1 ? ' guest' : ' guests') + '</div>' : '');
+    }
+    const prev = $('viewerPrev');
+    const next = $('viewerNext');
+    const label = $('viewerPageLabel');
+    const hasOlder = !!paging && (paging.page < paging.pages.length - 1 || !!paging.full[paging.page]);
+    if (prev) prev.disabled = !paging || paging.loading || paging.page === 0;
+    if (next) next.disabled = !paging || paging.loading || !hasOlder;
+    if (label) label.textContent = paging && paging.loading ? 'Loading…' : 'Page ' + ((paging ? paging.page : 0) + 1);
+  }
+
+  function jumpViewerArrow(el) {
+    if (!el || el.disabled) return;
+    el.classList.remove('is-jump');
+    void el.offsetWidth;
+    el.classList.add('is-jump');
+    el.addEventListener('animationend', () => el.classList.remove('is-jump'), { once: true });
+  }
+
   function toggleAccountMenu() {
     const menu = $('accountMenu');
     const button = $('accountNameBtn');
@@ -5391,6 +5626,7 @@
     const open = !menu.classList.contains('is-open');
     if (open) {
       closeFightMenu();
+      closeViewerMenu();
       const bar = menu.parentElement;
       if (bar) {
         const gap = 6;
@@ -6407,6 +6643,7 @@
     let draftPhoto = safePhoto(profile.photo);
     const cardColor = safeHex(profile.cardColor, PROFILE_DEFAULT_BG);
     const borderColor = safeHex(profile.borderColor, PROFILE_DEFAULT_BORDER);
+    const chatColor = safeHex(data && data.color, myCurrentColor() || defaultColorFor(session.username));
     panel.innerHTML = profileChrome(profile,
       '<div class="profile-label">Edit profile</div>' +
       '<div class="profile-field"><span>Photo</span><div class="profile-photo-row">' +
@@ -6421,6 +6658,9 @@
         '<label class="profile-social-field">' + social.label +
         '<input type="text" id="profileSocial_' + social.key + '" maxlength="120" autocomplete="off" autocapitalize="off" placeholder="' + social.placeholder + '" value="' + escapeHtml(profile[social.key] ? (social.key === 'youtube' ? profile[social.key] : '@' + profile[social.key]) : '') + '"></label>'
       ).join('') + '<div class="profile-hint">Paste a username or link. Only Instagram, YouTube and TikTok for now.</div></div>' +
+      '<div class="profile-field"><span>Chat name color</span><div class="profile-colors">' +
+        '<label><input type="color" id="profileChatColor" value="' + chatColor + '"> Your name in chat</label>' +
+      '</div></div>' +
       '<div class="profile-field"><span>Card colors</span><div class="profile-colors">' +
         '<label><input type="color" id="profileCardColor" value="' + cardColor + '"> Background color</label>' +
         '<label><input type="color" id="profileBorderColor" value="' + borderColor + '"> Border</label>' +
@@ -6488,6 +6728,7 @@
         borderColor: safeHex(pq('profileBorderColor').value, PROFILE_DEFAULT_BORDER),
         updatedAt: Date.now()
       };
+      const nextChatColor = safeHex(pq('profileChatColor').value, chatColor);
       button.disabled = true;
       button.textContent = 'Saving…';
       msg.textContent = '';
@@ -6508,6 +6749,12 @@
           profile: next
         });
         const saved = Object.assign({}, data || {}, { profile: (result && result.profile) || next });
+        if (nextChatColor.toLowerCase() !== chatColor.toLowerCase()) {
+          saved.color = nextChatColor;
+          rememberColor(key, nextChatColor);
+          usernamesRef.doc(key).set({ color: nextChatColor }, { merge: true }).catch((err) => console.error(err));
+          if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
+        }
         cacheProfileDoc(key, saved);
         renderProfileView(session.username, saved);
       } catch (error) {
@@ -6609,6 +6856,7 @@
     menu.classList.toggle('is-open', open);
     button.setAttribute('aria-expanded', String(open));
     if (!open) return;
+    closeViewerMenu();
     fightTargetEmptyRetries = 0;
     renderFightTargetList();
     fetchActiveFightTargets();
@@ -7805,10 +8053,7 @@
 
   function renderChatShell() {
 
-    const myColor = colorForUsername(session.username, () => {
-      const picker = $('colorPicker');
-      if (picker) picker.value = usernameColorCache[session.username.toLowerCase()];
-    });
+    colorForUsername(session.username);
 
     app.innerHTML = `
       <div class="chat-screen is-chat-empty">
@@ -7824,13 +8069,6 @@
           </div>
           <div class="composer-status">
             <div class="status-actions">
-              <div class="fight-menu-wrap">
-                <button type="button" class="round-btn fight-btn" id="fightBtn" title="Challenge someone to a fight" aria-label="Challenge someone to a fight" aria-expanded="false"><img src="/fight-gloves.png" alt=""></button>
-                <div class="fight-menu" id="fightMenu">
-                  <div class="fight-menu-heading">Pick a fighter</div>
-                  <div class="fight-target-list" id="fightTargetList"></div>
-                </div>
-              </div>
               <div class="tapin-gate" id="tapinGate">
                 <div class="tapin-cue">
                   <span class="chat-gate-status" id="chatGateStatus"></span>
@@ -7838,7 +8076,25 @@
                 </div>
                 <button type="button" class="round-btn tapin-btn" id="tapinBtn" title="Tap in!"><span class="tapin-btn-label" id="tapinBtnLabel"><img class="tapin-btn-icon" src="/tapin-cheers.png" alt=""></span></button>
               </div>
-              <input type="color" class="color-picker" id="colorPicker" title="Pick your name color" value="${myColor}">
+              <div class="fight-menu-wrap">
+                <button type="button" class="round-btn fight-btn" id="fightBtn" title="Challenge someone to a fight" aria-label="Challenge someone to a fight" aria-expanded="false"><img src="/fight-gloves.png" alt=""></button>
+                <div class="fight-menu" id="fightMenu">
+                  <div class="fight-menu-heading">Pick a fighter</div>
+                  <div class="fight-target-list" id="fightTargetList"></div>
+                </div>
+              </div>
+              <div class="viewer-menu-wrap">
+                <button type="button" class="round-btn viewers-btn" id="viewersBtn" title="Who’s watching" aria-label="Who’s watching" aria-expanded="false"><img src="/viewer-list-icon.png?v=1" alt=""></button>
+                <div class="fight-menu viewer-menu" id="viewerMenu">
+                  <div class="fight-menu-heading" id="viewerMenuHeading">Who’s watching</div>
+                  <div class="fight-target-list" id="viewerList"></div>
+                  <div class="viewer-pager">
+                    <button type="button" class="viewer-arrow" id="viewerPrev" aria-label="Previous page"><img src="/hamburger-arrow-prev.webp" alt=""></button>
+                    <span class="viewer-page-label" id="viewerPageLabel">Page 1</span>
+                    <button type="button" class="viewer-arrow" id="viewerNext" aria-label="Next page"><img src="/hamburger-arrow-next.webp" alt=""></button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="chat-lock-timer" id="chatLockTimer"></div>
@@ -7864,14 +8120,6 @@
         </div>
       </div>
     `;
-
-    $('colorPicker').addEventListener('input', (e) => {
-      const color = e.target.value;
-      const key = session.username.toLowerCase();
-      rememberColor(key, color);
-      usernamesRef.doc(key).set({ color: color }, { merge: true }).catch((err) => console.error(err));
-      if (lastRenderedMsgs) renderMessages(lastRenderedMsgs);
-    });
 
     $('accountNameBtn').addEventListener('click', toggleAccountMenu);
     $('accountProfileBtn').addEventListener('click', function () { openProfile(session.username); });
@@ -7952,9 +8200,19 @@
         fightBtn.classList.add('is-icon-fallback');
       }, { once: true });
     }
+    $('viewersBtn').addEventListener('click', toggleViewerMenu);
+    $('viewerPrev').addEventListener('click', function () { jumpViewerArrow(this); loadViewerPage(viewerPaging ? viewerPaging.page - 1 : 0); });
+    $('viewerNext').addEventListener('click', function () { jumpViewerArrow(this); loadViewerPage(viewerPaging ? viewerPaging.page + 1 : 0); });
+    $('viewerList').addEventListener('click', (event) => {
+      const item = event.target && event.target.closest('.viewer-item[data-username]');
+      if (!item) return;
+      closeViewerMenu();
+      openProfile(item.getAttribute('data-username'));
+    });
     app.addEventListener('click', (event) => {
       const menuWrap = event.target && event.target.closest('.fight-menu-wrap');
       if (!menuWrap) closeFightMenu();
+      if (!(event.target && event.target.closest('.viewer-menu-wrap'))) closeViewerMenu();
       if (!(event.target && event.target.closest('#accountNameBtn, #accountMenu'))) closeAccountMenu();
       const emojiWrap = event.target && event.target.closest('.emoji-picker-wrap');
       if (!emojiWrap) {
