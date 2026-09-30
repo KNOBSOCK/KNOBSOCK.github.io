@@ -27,6 +27,20 @@
     isOfficial
       ? '<img class="official-badge" src="/forum-official-badge.png" alt="Official KNOBSOCK account" title="Official KNOBSOCK account">'
       : "";
+  let adminUsernames = new Set();
+  const adminBadge = (name, isOfficial) =>
+    !isOfficial && adminUsernames.has(String(name || "").toLowerCase())
+      ? '<span class="admin-badge" tabindex="0" role="img" aria-label="Admin" data-tip="admin"><img src="/forum-official-badge.png" alt=""></span>'
+      : "";
+  document.addEventListener("click", (e) => {
+    const badge = e.target.closest && e.target.closest(".admin-badge");
+    if (!badge) return;
+    e.preventDefault();
+    e.stopPropagation();
+    badge.classList.add("is-tip");
+    clearTimeout(badge.tipTimer);
+    badge.tipTimer = setTimeout(() => badge.classList.remove("is-tip"), 1600);
+  }, true);
   const date = (v) =>
     time(v)
       ? new Date(time(v)).toLocaleString([], {
@@ -85,6 +99,9 @@
               : DEFAULT_CENSORED_WORDS;
         censorRegexes = words.map(buildCensorRegex);
         usernameCensorRegexes = words.map(buildUsernameCensorRegex);
+        adminUsernames = new Set(
+          (data && Array.isArray(data.admins) ? data.admins : []).map((n) => String(n).toLowerCase()),
+        );
       },
       () => {},
     );
@@ -892,7 +909,7 @@
       mineThreads = ordered(visibleThreads().filter((t) => String(t.username || "").toLowerCase() === key));
     view.innerHTML =
       '<div class="breadcrumbs"><a href="#">Boards</a></div><div class="profile-page" style="' + profileStyle(p) + '">' +
-      '<div class="profile-banner"><h1>' + esc(name) + '</h1><span>' + onlineHtml(lastOnline(data, key)) + "</span></div>" +
+      '<div class="profile-banner"><h1>' + esc(name) + adminBadge(name) + '</h1><span>' + onlineHtml(lastOnline(data, key)) + "</span></div>" +
       '<div class="profile-grid"><aside class="profile-side">' +
       '<div class="profile-photo">' + photoHtml(photo, name) + "</div>" +
       '<table class="profile-facts"><tr><th>Favorite color</th><td>' + (p.favoriteColor ? esc(censorText(p.favoriteColor)) : "—") +
@@ -1168,6 +1185,7 @@
             esc(t.username) +
             "</a>" +
             officialBadge(t.isOfficial) +
+            adminBadge(t.username, t.isOfficial) +
             "</small></td><td>" +
             Math.max(0, (t.postCount || 1) - 1) +
             "</td><td><small>" +
@@ -1432,6 +1450,7 @@
                 '">' +
                 esc(p.username) +
                 officialBadge(p.isOfficial) +
+                adminBadge(p.username, p.isOfficial) +
                 '</a><a href="#thread/' +
                 id +
                 "/" +

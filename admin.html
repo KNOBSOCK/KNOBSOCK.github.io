@@ -194,12 +194,13 @@
 
   .editor-grid {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     gap: 20px;
     align-items: start;
   }
+  .editor-grid > *, .live-grid > *, .sidebar-stack > * { min-width: 0; }
   @media (max-width: 780px) {
-    .editor-grid { grid-template-columns: 1fr; }
+    .editor-grid { grid-template-columns: minmax(0, 1fr); }
   }
 
   .sidebar-stack {
@@ -661,6 +662,44 @@
     color: var(--text-dim);
     margin-bottom: 10px;
   }
+  .user-history-profile {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .user-history-photo {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.25);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+  .user-history-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .user-history-bio {
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .user-history-bio.empty { color: var(--text-dim); }
+  .user-history-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .user-history-pager span { font-size: 12px; color: var(--text-dim); }
 
   .photo-upload-grid {
     display: flex;
@@ -808,6 +847,17 @@
     border-radius: 6px;
     padding: 4px 6px;
     font-size: 12px;
+  }
+  @media (max-width: 640px) {
+    .topbar { padding: 10px 12px; gap: 10px; }
+    .tabs { gap: 2px; }
+    .nav-tab { padding: 8px 10px; }
+    .tab-panel { padding: 14px 10px; }
+    .card { padding: 12px; }
+    .row { padding: 6px; gap: 6px; }
+    .modal-overlay { padding: 10px; }
+    .modal-panel { max-height: 90vh; max-height: 90dvh; padding: 12px; }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="url"], input:not([type]), textarea, select { font-size: 16px; }
   }
 </style>
 </head>
@@ -1226,6 +1276,11 @@
     <div class="user-history-meta" id="userHistoryMeta"></div>
     <div class="modal-actions" id="userHistoryActions"></div>
     <div class="list-scroll" id="userHistoryMessages" style="max-height:360px;overflow-y:auto;margin-top:10px;"></div>
+    <div class="user-history-pager" id="userHistoryPager" hidden>
+      <button type="button" class="btn" id="userHistoryNewerBtn">← Newer</button>
+      <span id="userHistoryPageLabel"></span>
+      <button type="button" class="btn" id="userHistoryOlderBtn">Older →</button>
+    </div>
   </div>
 </div>
 
@@ -2657,6 +2712,70 @@
   let banModalDuration = 'permanent';
 
   const MESSAGE_LOAD_LIMIT = 500;
+  const USER_HISTORY_PAGE_SIZE = 10;
+  let userHistoryPaging = null;
+
+  function userMessagesQuery(identity) {
+    return identity.deviceId
+      ? CHAT_MESSAGES_REF.where('deviceId', '==', identity.deviceId)
+      : CHAT_MESSAGES_REF.where('username', '==', identity.username);
+  }
+
+  function loadUserHistoryPage(index) {
+    const paging = userHistoryPaging;
+    if (!paging || paging.loading || index < 0) return Promise.resolve();
+    if (paging.pages[index]) {
+      paging.page = index;
+      renderUserHistory();
+      return Promise.resolve();
+    }
+    let query = paging.query.orderBy('ts', 'desc').limit(USER_HISTORY_PAGE_SIZE);
+    if (index > 0) query = query.startAfter(paging.lastDocs[index - 1]);
+    paging.loading = true;
+    renderUserHistoryPager();
+    return query.get().then(function (snap) {
+      paging.loading = false;
+      if (userHistoryPaging !== paging) return;
+      if (!snap.docs.length && index > 0) {
+        paging.full[index - 1] = false;
+        renderUserHistory();
+        return;
+      }
+      paging.pages[index] = snap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      paging.lastDocs[index] = snap.docs[snap.docs.length - 1];
+      paging.full[index] = snap.docs.length === USER_HISTORY_PAGE_SIZE;
+      paging.page = index;
+      liveMessages = [].concat.apply([], paging.pages.filter(Boolean));
+      renderUserHistory();
+    }).catch(function (err) {
+      paging.loading = false;
+      renderUserHistoryPager();
+      alert('Could not load messages: ' + err.message);
+    });
+  }
+
+  function renderUserHistoryPager() {
+    const pager = document.getElementById('userHistoryPager');
+    const paging = userHistoryPaging;
+    const active = paging && userHistoryUsername && paging.username === userHistoryUsername.toLowerCase();
+    pager.hidden = !active;
+    if (!active) return;
+    const hasOlder = paging.page < paging.pages.length - 1 || !!paging.full[paging.page];
+    document.getElementById('userHistoryNewerBtn').disabled = paging.loading || paging.page === 0;
+    document.getElementById('userHistoryOlderBtn').disabled = paging.loading || !hasOlder;
+    document.getElementById('userHistoryPageLabel').textContent = paging.loading ? 'Loading…' : 'Page ' + (paging.page + 1);
+  }
+
+  function userProfileHtml(userDoc) {
+    const profile = (userDoc && userDoc.profile) || {};
+    const photo = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(String(profile.photo || '')) ? profile.photo : '';
+    const name = String((userDoc && userDoc.username) || userHistoryUsername || '?');
+    const about = String(profile.about || '').trim();
+    return '<div class="user-history-profile">' +
+      '<div class="user-history-photo">' + (photo ? '<img src="' + photo + '" alt="">' : escapeAttr(name.charAt(0).toUpperCase())) + '</div>' +
+      '<div class="user-history-bio' + (about ? '' : ' empty') + '">' + (about ? escapeAttr(about) : 'No bio.') + '</div>' +
+    '</div>';
+  }
 
   function isBanRowActive(ban) {
     if (!ban) return false;
@@ -2717,10 +2836,6 @@
         return batch.commit();
       });
     }, Promise.resolve());
-  }
-
-  function batchDeleteMessages(msgs) {
-    return commitDeletesInBatches(msgs.map(function (m) { return CHAT_MESSAGES_REF.doc(m.id); }));
   }
 
   function purgeLegacyIpFields() {
@@ -2828,7 +2943,15 @@
     root.querySelectorAll('.delete-msg-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (!confirm('Delete this message?')) return;
-        CHAT_MESSAGES_REF.doc(btn.getAttribute('data-id')).delete().catch(function (err) { alert('Delete failed: ' + err.message); });
+        const id = btn.getAttribute('data-id');
+        CHAT_MESSAGES_REF.doc(id).delete().then(function () {
+          if (!userHistoryPaging) return;
+          userHistoryPaging.pages = userHistoryPaging.pages.map(function (page) {
+            return page && page.filter(function (m) { return m.id !== id; });
+          });
+          liveMessages = liveMessages.filter(function (m) { return m.id !== id; });
+          if (userHistoryUsername) renderUserHistory();
+        }).catch(function (err) { alert('Delete failed: ' + err.message); });
       });
     });
   }
@@ -3088,7 +3211,7 @@
     const banned = isBanRowActive(ban);
 
     document.getElementById('userHistoryTitle').textContent = username;
-    document.getElementById('userHistoryMeta').innerHTML =
+    document.getElementById('userHistoryMeta').innerHTML = userProfileHtml(userDoc) +
       'IP hash on record: ' + escapeAttr(identity.ipHash ? (identity.ipHash.slice(0, 12) + '…') : 'none / expired') + ' (reference only, not enforced — hashed, expires 90 days after signup)<br>' +
       'Device on record: ' + (identity.deviceId ? 'yes' : 'no — a ban here can only delete their messages, not block them') + '<br>' +
       'Joined: ' + escapeAttr(timeLabel(userDoc && userDoc.createdAt));
@@ -3126,12 +3249,14 @@
       });
     }
 
-    const msgs = messagesMatchingIdentity(identity);
+    const paging = userHistoryPaging && userHistoryPaging.username === username.toLowerCase() ? userHistoryPaging : null;
+    const msgs = paging ? (paging.pages[paging.page] || []) : messagesMatchingIdentity(identity);
     const listEl = document.getElementById('userHistoryMessages');
     listEl.innerHTML = msgs.length
       ? msgs.map(renderChatRow).join('')
-      : '<div class="empty-state">No messages found for this user.</div>';
+      : '<div class="empty-state">' + (paging && !paging.pages.length ? 'Loading messages…' : 'No messages found for this user.') + '</div>';
     wireChatRowActions(listEl);
+    renderUserHistoryPager();
   }
 
   function openBanModal(username) {
@@ -3174,8 +3299,21 @@
     };
     if (banModalTarget.ipHash) payload.lastKnownIpHash = banModalTarget.ipHash;
 
+    const target = banModalTarget;
     CHAT_BANS_REF.doc(key).set(payload, { merge: true })
-      .then(function () { return batchDeleteMessages(messagesMatchingIdentity(banModalTarget)); })
+      .then(function () { return userMessagesQuery(target).get(); })
+      .then(function (snap) {
+        return commitDeletesInBatches(snap.docs.map(function (doc) { return doc.ref; })).then(function () {
+          const removed = new Set(snap.docs.map(function (doc) { return doc.id; }));
+          liveMessages = liveMessages.filter(function (m) { return !removed.has(m.id); });
+          if (userHistoryPaging && userHistoryPaging.username === target.username.toLowerCase()) {
+            userHistoryPaging.pages = [[]];
+            userHistoryPaging.lastDocs = [];
+            userHistoryPaging.full = [false];
+            userHistoryPaging.page = 0;
+          }
+        });
+      })
       .then(function () {
         closeBanModal();
         if (userHistoryUsername) renderUserHistory();
@@ -3468,23 +3606,28 @@
         if (!userDoc.exists) throw new Error('No account found with that exact username.');
         const user = Object.assign({ id: userDoc.id }, userDoc.data());
         const identity = { username: user.username, deviceId: user.lastDeviceId || null };
-        const messageQuery = identity.deviceId
-          ? CHAT_MESSAGES_REF.where('deviceId', '==', identity.deviceId)
-          : CHAT_MESSAGES_REF.where('username', '==', identity.username);
-        const reads = [messageQuery.get(), CHAT_IP_LOG_REF.doc(userDoc.id).get()];
+        const reads = [CHAT_IP_LOG_REF.doc(userDoc.id).get()];
         if (identity.deviceId) reads.push(CHAT_BANS_REF.doc(identity.deviceId).get());
         return Promise.all(reads).then(function (results) {
           liveUsers = [user];
-          liveMessages = results[0].docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); })
-            .sort(function (a, b) { return toMillis(b.ts) - toMillis(a.ts); });
+          liveMessages = [];
           liveIpLog = {};
-          liveIpLog[userDoc.id] = results[1].exists ? results[1].data() : null;
+          liveIpLog[userDoc.id] = results[0].exists ? results[0].data() : null;
           liveBans = {};
-          if (identity.deviceId && results[2] && results[2].exists) liveBans[identity.deviceId] = results[2].data();
+          if (identity.deviceId && results[1] && results[1].exists) liveBans[identity.deviceId] = results[1].data();
+          userHistoryPaging = {
+            username: String(user.username).toLowerCase(),
+            query: userMessagesQuery(identity),
+            pages: [],
+            lastDocs: [],
+            full: [],
+            page: 0,
+            loading: false
+          };
           input.value = user.username;
-          status.textContent = liveMessages.length + ' message' + (liveMessages.length === 1 ? '' : 's') + ' loaded.';
-          status.style.color = 'var(--accent)';
+          status.textContent = '';
           openUserHistory(user.username);
+          return loadUserHistoryPage(0);
         });
       }).catch(function (err) {
         status.textContent = err.message || 'Could not load that user.';
@@ -3503,6 +3646,12 @@
     loadProfileReports();
 
     document.getElementById('loadUserHistoryBtn').addEventListener('click', loadUserHistoryOnDemand);
+    document.getElementById('userHistoryNewerBtn').addEventListener('click', function () {
+      if (userHistoryPaging) loadUserHistoryPage(userHistoryPaging.page - 1);
+    });
+    document.getElementById('userHistoryOlderBtn').addEventListener('click', function () {
+      if (userHistoryPaging) loadUserHistoryPage(userHistoryPaging.page + 1);
+    });
     document.getElementById('userLookupInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') loadUserHistoryOnDemand();
     });
