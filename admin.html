@@ -1058,6 +1058,16 @@
           <div class="live-card-body" style="max-height:260px;"></div>
         </div>
         <div class="card">
+          <div class="card-head"><h2>Admins</h2></div>
+          <div class="live-card-body" style="max-height:280px;">
+            <div class="add-row">
+              <input type="text" class="search-input" id="newAdminUsername" placeholder="Chat username to make an admin" autocomplete="off" autocapitalize="off" spellcheck="false">
+              <button type="button" class="btn" id="addAdminBtn">+ Add</button>
+            </div>
+            <div class="list-scroll" id="adminsList" style="max-height:none;overflow-y:auto;"></div>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Censored Words</h2></div>
           <div class="live-card-body" style="max-height:280px;">
             <div class="add-row">
@@ -2899,6 +2909,31 @@
     });
   }
 
+  let liveAdmins = [];
+
+  function renderAdminsList() {
+    const root = document.getElementById('adminsList');
+    if (!root) return;
+    if (!liveAdmins.length) {
+      root.innerHTML = '<div class="empty-state">No admins yet. Admins get a checkmark next to their name in chat and on their profile.</div>';
+      return;
+    }
+    root.innerHTML = liveAdmins.map(function (name) {
+      return '<div class="censor-word-row"><span>' + escapeAttr(name) + '</span>' +
+        '<button type="button" class="icon-btn small remove-admin-btn" data-username="' + escapeAttr(name) + '" title="Remove admin">&times;</button></div>';
+    }).join('');
+    root.querySelectorAll('.remove-admin-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const name = btn.getAttribute('data-username');
+        saveAdmins(liveAdmins.filter(function (n) { return n !== name; }));
+      });
+    });
+  }
+
+  function saveAdmins(usernames) {
+    CHAT_CENSORED_WORDS_REF.set({ admins: usernames }, { merge: true }).catch(function (err) { alert('Save failed: ' + err.message); });
+  }
+
   function saveCensorWords(words) {
     CHAT_CENSORED_WORDS_REF.set({ words: words }, { merge: true }).catch(function (err) { alert('Save failed: ' + err.message); });
   }
@@ -3475,10 +3510,14 @@
     CHAT_CENSORED_WORDS_REF.onSnapshot(function (doc) {
       const data = doc.exists ? doc.data() : null;
       liveCensorWords = (data && Array.isArray(data.words)) ? data.words : [];
+      liveAdmins = (data && Array.isArray(data.admins)) ? data.admins.map(function (n) { return String(n).toLowerCase(); }) : [];
       renderCensorWordsList();
+      renderAdminsList();
     }, function (err) {
       const root = document.getElementById('censorWordsList');
       if (root) root.innerHTML = '<div class="empty-state">Could not load censored words: ' + escapeAttr(err.message) + '</div>';
+      const adminsRoot = document.getElementById('adminsList');
+      if (adminsRoot) adminsRoot.innerHTML = '<div class="empty-state">Could not load admins: ' + escapeAttr(err.message) + '</div>';
     });
 
     let liveVideoUrlPrefilled = false;
@@ -3841,6 +3880,21 @@
       });
     });
 
+
+    document.getElementById('addAdminBtn').addEventListener('click', function () {
+      const input = document.getElementById('newAdminUsername');
+      const name = input.value.trim().replace(/^@/, '').toLowerCase();
+      if (!name) return;
+      if (name.length > 24 || /\s/.test(name)) {
+        alert('Chat usernames are 1 to 24 characters with no spaces.');
+        return;
+      }
+      if (liveAdmins.indexOf(name) === -1) saveAdmins(liveAdmins.concat([name]));
+      input.value = '';
+    });
+    document.getElementById('newAdminUsername').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('addAdminBtn').click();
+    });
 
     document.getElementById('addCensorWordBtn').addEventListener('click', function () {
       const input = document.getElementById('newCensorWord');
