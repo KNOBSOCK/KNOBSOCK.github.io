@@ -5499,27 +5499,28 @@
 #knobsockProfile .profile-report-label { margin: clamp(14px, 2.8vmin, 28px) 0 8px; font-size: clamp(14px, 2.2vmin, 20px); }
 #knobsockProfile .profile-inline-link { -webkit-appearance: none; appearance: none; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; text-decoration: underline; }
 @media (orientation: landscape) {
-  #knobsockProfile .kp-frame { width: clamp(520px, 50vw, 960px); max-width: 92vw; height: auto; max-height: 75vh; max-height: 75dvh; aspect-ratio: 16 / 9; }
-  #knobsockProfile .profile-card { height: 100%; padding: clamp(18px, 2vw, 38px); border-width: 3px; border-radius: clamp(14px, 1.6vw, 30px); }
-  #knobsockProfile .profile-close { top: clamp(10px, 1.2vw, 22px); right: clamp(10px, 1.2vw, 22px); width: clamp(32px, 2.6vw, 50px); height: clamp(32px, 2.6vw, 50px); font-size: clamp(14px, 1.2vw, 22px); }
-  #knobsockProfile .profile-head { gap: clamp(14px, 1.6vw, 30px); padding-right: clamp(44px, 3.6vw, 68px); }
-  #knobsockProfile .profile-photo { width: clamp(96px, 9.5vw, 182px); border-width: 3px; border-radius: clamp(10px, 1vw, 18px); font-size: clamp(40px, 4vw, 76px); }
-  #knobsockProfile .profile-name { font-size: clamp(24px, 2.3vw, 44px); }
-  #knobsockProfile .profile-line { margin-top: clamp(4px, 0.45vw, 9px); font-size: clamp(13px, 1.15vw, 22px); }
-  #knobsockProfile .profile-section { margin-top: clamp(12px, 1.3vw, 25px); }
-  #knobsockProfile .profile-label { margin-bottom: clamp(5px, 0.5vw, 10px); font-size: clamp(16px, 1.45vw, 28px); }
-  #knobsockProfile .profile-about { font-size: clamp(14px, 1.15vw, 22px); }
-  #knobsockProfile .profile-empty { font-size: clamp(13px, 1.05vw, 20px); }
-  #knobsockProfile .profile-actions { gap: 10px; margin-top: clamp(12px, 1.3vw, 25px); }
-  #knobsockProfile .pill-btn { min-height: 38px; padding: clamp(9px, 0.7vw, 14px) clamp(16px, 1.4vw, 26px); font-size: clamp(13px, 1vw, 19px); }
-  #knobsockProfile .profile-field { margin-top: clamp(10px, 1vw, 20px); }
+  #knobsockProfile { --kpu: min(1vw, 1.9vh); }
+  #knobsockProfile .kp-frame { width: clamp(520px, calc(50 * var(--kpu)), 960px); max-width: 92vw; height: auto; }
+  #knobsockProfile .profile-card { height: auto; min-height: min(75vh, calc(min(clamp(520px, calc(50 * var(--kpu)), 960px), 92vw) * 0.5625)); max-height: 88vh; max-height: 88dvh; padding: clamp(12px, calc(2 * var(--kpu)), 38px); border-width: 3px; border-radius: clamp(14px, calc(1.6 * var(--kpu)), 30px); }
+  #knobsockProfile .profile-close { top: clamp(10px, calc(1.2 * var(--kpu)), 22px); right: clamp(10px, calc(1.2 * var(--kpu)), 22px); width: clamp(26px, calc(2.6 * var(--kpu)), 50px); height: clamp(26px, calc(2.6 * var(--kpu)), 50px); font-size: clamp(14px, calc(1.2 * var(--kpu)), 22px); }
+  #knobsockProfile .profile-head { gap: clamp(14px, calc(1.6 * var(--kpu)), 30px); padding-right: clamp(44px, calc(3.6 * var(--kpu)), 68px); }
+  #knobsockProfile .profile-photo { width: clamp(64px, calc(9.5 * var(--kpu)), 182px); border-width: 3px; border-radius: clamp(10px, calc(1 * var(--kpu)), 18px); font-size: clamp(28px, calc(4 * var(--kpu)), 76px); }
+  #knobsockProfile .profile-name { font-size: clamp(18px, calc(2.3 * var(--kpu)), 44px); }
+  #knobsockProfile .profile-line { margin-top: clamp(2px, calc(0.45 * var(--kpu)), 9px); font-size: clamp(11px, calc(1.15 * var(--kpu)), 22px); }
+  #knobsockProfile .profile-section { margin-top: clamp(8px, calc(1.3 * var(--kpu)), 25px); }
+  #knobsockProfile .profile-label { margin-bottom: clamp(3px, calc(0.5 * var(--kpu)), 10px); font-size: clamp(13px, calc(1.45 * var(--kpu)), 28px); }
+  #knobsockProfile .profile-about { font-size: clamp(12px, calc(1.15 * var(--kpu)), 22px); }
+  #knobsockProfile .profile-empty { font-size: clamp(11px, calc(1.05 * var(--kpu)), 20px); }
+  #knobsockProfile .profile-actions { gap: 10px; margin-top: clamp(8px, calc(1.3 * var(--kpu)), 25px); }
+  #knobsockProfile .pill-btn { min-height: clamp(30px, calc(3.8 * var(--kpu)), 38px); padding: clamp(7px, calc(0.7 * var(--kpu)), 14px) clamp(14px, calc(1.4 * var(--kpu)), 26px); font-size: clamp(12px, calc(1 * var(--kpu)), 19px); }
+  #knobsockProfile .profile-field { margin-top: clamp(10px, calc(1 * var(--kpu)), 20px); }
   #knobsockProfile .profile-field > span,
   #knobsockProfile .profile-colors label,
-  #knobsockProfile .profile-report-label { font-size: clamp(14px, 1.1vw, 21px); }
+  #knobsockProfile .profile-report-label { font-size: clamp(14px, calc(1.1 * var(--kpu)), 21px); }
   #knobsockProfile input[type="text"], #knobsockProfile textarea, #knobsockProfile select { padding: 8px 12px; }
   #knobsockProfile textarea { min-height: 90px; }
-  #knobsockProfile .profile-colors input[type="color"] { width: clamp(36px, 2.6vw, 50px); height: clamp(36px, 2.6vw, 50px); }
-  #knobsockProfile .profile-msg { font-size: clamp(12px, 1vw, 18px); }
+  #knobsockProfile .profile-colors input[type="color"] { width: clamp(36px, calc(2.6 * var(--kpu)), 50px); height: clamp(36px, calc(2.6 * var(--kpu)), 50px); }
+  #knobsockProfile .profile-msg { font-size: clamp(12px, calc(1 * var(--kpu)), 18px); }
 }
 @media (orientation: portrait) {
   #knobsockProfile .kp-frame { width: 92vw; height: auto; }
@@ -5536,7 +5537,7 @@
 #knobsockProfile .admin-badge img { display: block; width: 100%; height: 100%; }
 #knobsockProfile .admin-badge::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; z-index: 5; padding: 4px 9px; border-radius: 7px; background: #000000; color: #ffffff; font-family: 'Gratis Neue', var(--font-body); font-size: 13px; font-weight: 700; line-height: 1.3; letter-spacing: 0.04em; white-space: nowrap; opacity: 0; pointer-events: none; transform: translateX(-50%); transition: opacity 0.12s ease; }
 #knobsockProfile .admin-badge:hover::after, #knobsockProfile .admin-badge:focus-visible::after, #knobsockProfile .admin-badge.is-tip::after { opacity: 1; }
-@media (orientation: landscape) { #knobsockProfile .admin-badge { font-size: clamp(24px, 2.3vw, 44px); } }
+@media (orientation: landscape) { #knobsockProfile .admin-badge { font-size: clamp(20px, calc(2.3 * var(--kpu)), 44px); } }
 @media (orientation: portrait) { #knobsockProfile .admin-badge { font-size: clamp(20px, 5.6vmin, 30px); } }
 `;
   const PROFILE_VARS = ['--ink', '--line', '--text', '--text-dim', '--accent', '--accent-dim', '--interactive-hover', '--interactive-hover-text', '--font-body'];
