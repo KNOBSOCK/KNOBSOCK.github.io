@@ -4657,8 +4657,15 @@
     const pane = document.getElementById('chatPane');
     if (!pane || !vodsListEl) return null;
     const tabH = vodsTab ? vodsTab.offsetHeight || 38 : 38;
-    const room = pane.clientHeight - tabH;
-    if (room <= 0 || vodsListEl.scrollHeight <= room) return null;
+    const bar = pane.querySelector('.composer-bar');
+    if (bar && vodsBarObserver && !vodsObservedBars.has(bar)) {
+      vodsObservedBars.add(bar);
+      vodsBarObserver.observe(bar);
+    }
+    const limit = bar ? bar.getBoundingClientRect().top - pane.getBoundingClientRect().top : pane.clientHeight;
+    const room = limit - tabH;
+    if (room <= 0) return null;
+    if (!bar && vodsListEl.scrollHeight <= room) return null;
     return room;
   }
 
@@ -4670,6 +4677,8 @@
   }
 
   window.addEventListener('resize', applyVodsPeek);
+  const vodsObservedBars = new WeakSet();
+  const vodsBarObserver = window.ResizeObserver ? new ResizeObserver(applyVodsPeek) : null;
   if (window.ResizeObserver && document.getElementById('chatPane')) {
     new ResizeObserver(applyVodsPeek).observe(document.getElementById('chatPane'));
   }
