@@ -2346,6 +2346,11 @@
     appearance: none;
   }
   .composer textarea.msg-input:focus { border-color: var(--interactive-hover); }
+  .composer textarea.msg-input::placeholder {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
   .composer-input-wrap.is-multiline textarea.msg-input { border-radius: clamp(10px, 2.5vw, 16px); }
   .composer-input-wrap.is-multiline .char-counter {
     top: auto;
@@ -5629,7 +5634,7 @@
     input.disabled = !unlocked;
     sendBtn.disabled = !unlocked;
     refreshVoiceButton();
-    input.placeholder = unlocked ? 'Type a message…' : 'Tap in above to chat…';
+    input.placeholder = unlocked ? 'Type a message…' : 'Tap in to chat…';
     const tapinBtn = $('tapinBtn');
     const tapinGate = $('tapinGate');
     if (tapinBtn) tapinBtn.classList.toggle('is-required', !unlocked);
