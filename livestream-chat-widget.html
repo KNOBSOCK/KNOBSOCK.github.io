@@ -230,17 +230,17 @@
   }
   .center-skip-btn:hover { opacity: 1; }
   .center-skip-btn:active { transform: translate(-50%, -50%) scale(0.9); }
-  .center-skip-back.is-skipping { animation: centerSkipBack 0.36s cubic-bezier(0.34, 1.56, 0.64, 1); }
-  .center-skip-forward.is-skipping { animation: centerSkipForward 0.36s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .center-skip-back.is-skipping { animation: centerSkipBack 0.5s cubic-bezier(0.34, 1.3, 0.64, 1); }
+  .center-skip-forward.is-skipping { animation: centerSkipForward 0.5s cubic-bezier(0.34, 1.3, 0.64, 1); }
   @keyframes centerSkipBack {
     0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
-    40% { transform: translate(-50%, -50%) rotate(-28deg) scale(1.12); }
-    100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+    50% { transform: translate(-50%, -50%) rotate(-180deg) scale(1.12); }
+    100% { transform: translate(-50%, -50%) rotate(-360deg) scale(1); }
   }
   @keyframes centerSkipForward {
     0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
-    40% { transform: translate(-50%, -50%) rotate(28deg) scale(1.12); }
-    100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+    50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.12); }
+    100% { transform: translate(-50%, -50%) rotate(360deg) scale(1); }
   }
   @media (prefers-reduced-motion: reduce) {
     .center-skip-btn.is-skipping { animation: none; }
