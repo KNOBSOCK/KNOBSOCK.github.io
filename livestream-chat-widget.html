@@ -547,6 +547,7 @@
   }
 
   @media (max-width: 860px) {
+    :root { --inset-bottom: 0px; }
     .layout {
       flex-direction: column;
     }
@@ -1359,18 +1360,18 @@
   }
   @media (max-width: 860px) {
     .fight-btn,
-    .viewers-btn { width: clamp(36px, 10.8cqmin, 45px); }
-    .fight-btn.is-icon-fallback::before { font-size: clamp(22px, 7.2cqmin, 31px); }
+    .viewers-btn { width: clamp(27px, 8.1cqmin, 34px); }
+    .fight-btn.is-icon-fallback::before { font-size: clamp(17px, 5.4cqmin, 23px); }
     .tapin-btn {
-      width: clamp(33px, 10.5cqmin, 42px);
-      font-size: clamp(16px, 5.1cqmin, 21px);
+      width: clamp(25px, 7.9cqmin, 32px);
+      font-size: clamp(12px, 3.8cqmin, 16px);
     }
     .tapin-btn-icon {
-      width: clamp(27px, 8.55cqmin, 34px);
-      height: clamp(27px, 8.55cqmin, 34px);
+      width: clamp(20px, 6.4cqmin, 26px);
+      height: clamp(20px, 6.4cqmin, 26px);
     }
-    .tapin-btn .tapin-count { font-size: clamp(13px, 4.2cqmin, 16px); }
-    .layout:not(.mode-portrait) .composer-status { padding-bottom: clamp(10px, 3.6cqmin, 16px); }
+    .tapin-btn .tapin-count { font-size: clamp(10px, 3.2cqmin, 12px); }
+    .layout:not(.mode-portrait) .composer-status { padding-bottom: clamp(8px, 2.7cqmin, 12px); }
   }
   .fight-menu .fight-target-list {
     flex: 1 1 auto;
@@ -2021,6 +2022,9 @@
     -webkit-tap-highlight-color: transparent;
     transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
   }
+  @media (max-width: 860px) {
+    .msg-bubble { font-size: 16px; }
+  }
   .msg-bubble:focus-visible { border-color: var(--interactive-hover); outline: none; }
   .msg.is-reply-target .msg-bubble {
     border-color: var(--interactive-hover);
@@ -2257,13 +2261,43 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin: 5px 10px 2px;
-    padding: 3px 0 3px 9px;
+    max-height: 0;
+    margin: 0 10px;
+    padding: 0 0 0 9px;
+    overflow: hidden;
     border-left: 3px solid var(--interactive-hover);
     color: var(--text-dim);
     font-size: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition:
+      max-height 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      margin 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      padding 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      opacity 0.2s ease,
+      transform 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      visibility 0s linear 0.26s;
   }
-  .composer-reply[hidden] { display: none; }
+  .composer-reply.is-open {
+    max-height: 64px;
+    margin: 5px 10px 2px;
+    padding: 3px 0 3px 9px;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition:
+      max-height 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      margin 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      padding 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      opacity 0.2s ease 0.04s,
+      transform 0.26s cubic-bezier(0.22, 0.8, 0.25, 1),
+      visibility 0s linear 0s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .composer-reply,
+    .composer-reply.is-open { transition: none; }
+  }
   .composer-reply-label { min-width: 0; overflow-wrap: anywhere; }
   .composer-reply-label b { color: var(--interactive-hover); }
   .composer-reply-cancel {
@@ -8473,8 +8507,9 @@
   function updateReplyComposer() {
     const bar = $('replyComposer');
     if (!bar) return;
-    bar.hidden = !activeReply;
-    $('replyComposerName').textContent = activeReply ? activeReply.username : '';
+    bar.classList.toggle('is-open', !!activeReply);
+    bar.setAttribute('aria-hidden', activeReply ? 'false' : 'true');
+    if (activeReply) $('replyComposerName').textContent = activeReply.username;
   }
 
   function cancelReply() {
@@ -8640,7 +8675,7 @@
               ? '<button class="account-menu-item" id="accountSignOutBtn" type="button">Sign out</button>'
               : '<button class="account-menu-item" id="accountLinkBtn" type="button">Link email to account</button>'}</div>
           </div>
-          <div class="composer-reply" id="replyComposer" aria-live="polite" hidden>
+          <div class="composer-reply" id="replyComposer" aria-live="polite" aria-hidden="true">
             <span class="composer-reply-label">Replying to: <b id="replyComposerName"></b></span>
             <button type="button" class="composer-reply-cancel" id="cancelReplyBtn" aria-label="Cancel reply">Cancel ×</button>
           </div>
