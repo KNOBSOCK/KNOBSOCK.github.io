@@ -2043,6 +2043,33 @@
     font-size: clamp(10px, 2.4cqw, 12px);
   }
 
+  .history-status {
+    flex: none;
+    padding: 4px 0 2px;
+    text-align: center;
+    color: var(--text-dim);
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    font-size: clamp(10px, 2.4cqw, 12px);
+  }
+  .history-more {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+  }
+  .history-more:hover,
+  .history-more:focus-visible {
+    outline: none;
+    color: var(--text);
+  }
+
   .streak-bar-wrap {
     flex: none;
     max-height: 0;
@@ -8373,6 +8400,14 @@
        A stationary tap on that same surface is treated as a player tap, so
        portrait controls can be revealed from anywhere over the video. */
     const messagesEl = $('messages');
+    messagesEl.addEventListener('scroll', () => {
+      if (messagesEl.scrollTop < 60) loadOlderMessages();
+    }, { passive: true });
+    messagesEl.addEventListener('click', (event) => {
+      if (!(event.target && event.target.closest('[data-history-more]'))) return;
+      event.stopPropagation();
+      loadOlderMessages();
+    });
     let messageTouchStart = null;
     let ignoreMessageClickUntil = 0;
     function isMessageInteractive(target) {
@@ -8508,12 +8543,15 @@
     });
   }
 
-  // Live chat is intentionally forward-only for viewers: a new tab begins
-  // empty and receives messages from that moment on.  The transcript is kept
-  // in sessionStorage only, so a reload of the same tab is seamless without
-  // pulling history from Firestore, while a new visitor never sees old chat.
   const MESSAGE_CACHE_KEY = 'chat_message_session_v1';
   const MESSAGE_CACHE_LIMIT = 50;
+  const MESSAGE_MEMORY_LIMIT = 400;
+  const HISTORY_PAGE_SIZE = 20;
+  const HISTORY_MIN_VISIBLE = 8;
+  const HISTORY_MAX_PAGES_PER_LOAD = 3;
+  let historyLoading = false;
+  let historyExhausted = false;
+  let scrollChatToBottomNext = false;
   let messageCacheSaveTimer = null;
   let messageCache = [];
   let messageSessionStartedAt = 0;
@@ -8526,6 +8564,8 @@
     messageSessionStartedAt = Date.now();
     messageCache = [];
     messageStreamCursor = 0;
+    historyLoading = false;
+    historyExhausted = false;
     try {
       const saved = JSON.parse(sessionStorage.getItem(MESSAGE_CACHE_KEY) || 'null');
       if (saved && saved.owner === username && typeof saved.startedAt === 'number' && Array.isArray(saved.messages)) {
@@ -8547,7 +8587,7 @@
           owner: messageSessionOwner,
           startedAt: messageSessionStartedAt,
           streamCursor: messageStreamCursor,
-          messages: messageCache
+          messages: messageCache.slice(-MESSAGE_CACHE_LIMIT)
         }));
       } catch (e) {}
     }, 250);
@@ -8561,12 +8601,67 @@
     });
     messageCache = Array.from(byId.values())
       // The one-per-second live packets are handled directly by the listener;
-      // keeping them in the 50-message transcript cache would push actual
-      // chat messages out during a full fight.
+      // keeping them in the transcript cache would push actual chat messages
+      // out during a full fight.
       .filter((m) => m && m.type !== 'fight_live' && typeof m.ts === 'number' && m.ts > clearedAt)
       .sort((a, b) => a.ts - b.ts)
-      .slice(-MESSAGE_CACHE_LIMIT);
+      .slice(-MESSAGE_MEMORY_LIMIT);
     saveMessageCache();
+  }
+
+  function isVisibleChatMessage(m) {
+    return !!m && (!isFightEvent(m) || m.type === 'fight_challenge' || m.type === 'fight_result' || m.type === 'fight_draw');
+  }
+
+  function oldestLoadedTs() {
+    return messageCache.reduce((oldest, m) => (oldest == null || m.ts < oldest ? m.ts : oldest), null);
+  }
+
+  async function loadOlderMessages() {
+    if (historyLoading || historyExhausted || !session) return;
+    historyLoading = true;
+    const container = $('messages');
+    const prevHeight = container ? container.scrollHeight : 0;
+    const prevTop = container ? container.scrollTop : 0;
+    const hadMessages = messageCache.length > 0;
+    renderMessages(messageCache, { keepScroll: true });
+    const fetched = [];
+    try {
+      let before = oldestLoadedTs();
+      let visible = 0;
+      for (let page = 0; page < HISTORY_MAX_PAGES_PER_LOAD; page += 1) {
+        let query = messagesRef.orderBy('ts', 'desc');
+        if (before != null) query = query.where('ts', '<', before);
+        if (clearedAt) query = query.where('ts', '>', clearedAt);
+        const snapshot = await query.limit(HISTORY_PAGE_SIZE).get();
+        const docs = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
+        fetched.push(...docs);
+        visible += docs.filter(isVisibleChatMessage).length;
+        if (docs.length < HISTORY_PAGE_SIZE) {
+          historyExhausted = true;
+          break;
+        }
+        before = docs[docs.length - 1].ts;
+        if (visible >= HISTORY_MIN_VISIBLE) break;
+      }
+    } catch (e) {
+      console.error('Could not load earlier messages:', e);
+    }
+    historyLoading = false;
+    if (fetched.length) mergeMessageCache(fetched);
+    const after = $('messages');
+    if (!hadMessages || !after) {
+      renderMessages(messageCache, { toBottom: true });
+      return;
+    }
+    renderMessages(messageCache, { keepScroll: true });
+    after.scrollTop = after.scrollHeight - prevHeight + prevTop;
+  }
+
+  function historyHeaderHtml() {
+    if (historyLoading) return '<div class="history-status">Loading earlier messages…</div>';
+    if (historyExhausted) return '<div class="history-status">That’s the start of the chat.</div>';
+    return '<div class="history-status"><button type="button" class="history-more" data-history-more>Load earlier messages</button></div>';
   }
 
   function messageCursor() {
@@ -8576,9 +8671,13 @@
     );
   }
 
-  function renderMessages(msgs) {
+  function renderMessages(msgs, options) {
     const container = $('messages');
     if (!container) return;
+    const opts = options || {};
+    const wasNearBottom = !container.children.length ||
+      container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    const previousTop = container.scrollTop;
     lastRenderedMsgs = msgs;
     const hasVisibleMessage = msgs.some((message) => message && (
       !isFightEvent(message) ||
@@ -8589,11 +8688,13 @@
     const screen = app.querySelector('.chat-screen');
     if (screen) screen.classList.toggle('is-chat-empty', !hasVisibleMessage);
     if (!msgs.length) {
-      container.innerHTML = `<div class="empty-state">No messages yet. Say wassup</div>`;
+      container.innerHTML = historyLoading
+        ? `<div class="empty-state">Loading messages…</div>`
+        : `<div class="empty-state">No messages yet. Say wassup</div>`;
       return;
     }
 
-    container.innerHTML = msgs.map(m => {
+    container.innerHTML = historyHeaderHtml() + msgs.map(m => {
       if (m.type === 'join') {
         return `<div class="system-msg">${escapeHtml(m.username)} has joined</div>`;
       }
@@ -8624,7 +8725,12 @@
 
     void container.offsetHeight;
 
-    container.scrollTop = container.scrollHeight;
+    if (opts.toBottom || scrollChatToBottomNext || (!opts.keepScroll && wasNearBottom)) {
+      container.scrollTop = container.scrollHeight;
+      scrollChatToBottomNext = false;
+    } else {
+      container.scrollTop = previousTop;
+    }
     const fightMenu = $('fightMenu');
     if (fightMenu && fightMenu.classList.contains('is-open')) renderFightTargetList();
   }
@@ -8643,6 +8749,7 @@
     input.value = '';
     input.disabled = true;
     updateCharCounter();
+    scrollChatToBottomNext = true;
 
     try {
       await sendMessageToFirestore({
@@ -8747,6 +8854,7 @@
     markSeen();
     renderChatShell();
     subscribeToMessages();
+    if (!messageCache.length && !historyExhausted) loadOlderMessages();
     if (canAutoFocusInput()) $('msgInput').focus();
   }
 
