@@ -2357,6 +2357,121 @@
     flex: 1;
     min-width: 0;
   }
+  .voice-btn svg { width: 56%; height: 56%; }
+  .voice-btn:disabled { opacity: 0.45; cursor: default; }
+  .voice-btn.is-recording {
+    border-color: #000000;
+    background: #d32f2f;
+    color: #ffffff;
+    animation: voiceRecPulse 1s ease-in-out infinite;
+  }
+  @keyframes voiceRecPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); }
+    50% { box-shadow: 0 0 0 6px rgba(211, 47, 47, 0); }
+  }
+  .voice-recording {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 6px 0 14px;
+    border: 2px solid #000000;
+    border-radius: clamp(8px, 2.4cqmin, 12px);
+    background: #120202;
+    color: #ffffff;
+    font-family: 'Gratis Neue', var(--font-body);
+    font-size: 14px;
+  }
+  .voice-recording[hidden] { display: none; }
+  .voice-rec-dot {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff3b3b;
+    animation: voiceRecBlink 1s steps(2, start) infinite;
+  }
+  @keyframes voiceRecBlink { to { visibility: hidden; } }
+  .voice-rec-time { flex: none; font-variant-numeric: tabular-nums; }
+  .voice-rec-hint {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .voice-rec-cancel {
+    flex: none;
+    padding: 6px 8px;
+    border: 0;
+    background: transparent;
+    color: #ffffff;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .voice-btn.is-recording,
+    .voice-rec-dot { animation: none; }
+  }
+  .voice-msg {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: min(230px, 62cqw);
+    max-width: 100%;
+    vertical-align: middle;
+  }
+  .voice-play {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 2px solid #000000;
+    border-radius: 50%;
+    background: var(--interactive-hover);
+    color: #000000;
+    cursor: pointer;
+  }
+  .voice-play svg { width: 14px; height: 14px; }
+  .voice-icon-pause { display: none; }
+  .voice-msg.is-playing .voice-icon-play { display: none; }
+  .voice-msg.is-playing .voice-icon-pause { display: block; }
+  .voice-msg.is-loading .voice-play { opacity: 0.6; }
+  .voice-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+  }
+  .voice-progress {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--voice-progress, 0%);
+    background: var(--interactive-hover);
+  }
+  .voice-time {
+    flex: none;
+    color: var(--text-dim);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+  }
+  .voice-msg.is-expired .voice-play {
+    background: transparent;
+    color: var(--text-dim);
+    cursor: default;
+  }
+  .voice-msg.is-expired .voice-track { opacity: 0.4; }
 
   .composer-input-wrap input { padding-right: clamp(58px, 15cqmin, 72px); }
   .composer-input-wrap input::placeholder {
@@ -4603,6 +4718,7 @@
   db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   const usernamesRef = db.collection('chat_usernames');
   const messagesRef = db.collection('chat_messages');
+  const voiceRef = db.collection('chat_voice');
   const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
   const devicesRef = db.collection('chat_devices');
@@ -5455,6 +5571,7 @@
     if (screen) screen.classList.toggle('is-chat-locked', !unlocked);
     input.disabled = !unlocked;
     sendBtn.disabled = !unlocked;
+    refreshVoiceButton();
     input.placeholder = unlocked ? 'Type a message…' : 'Tap in above to chat…';
     const tapinBtn = $('tapinBtn');
     const tapinGate = $('tapinGate');
@@ -7993,8 +8110,43 @@
     }
   }
 
+  let tapInInFlight = false;
+
+  async function syncTapInStatsFromAccount() {
+    if (!session) return;
+    const key = session.username.toLowerCase();
+    try {
+      const doc = await usernamesRef.doc(key).get({ source: 'server' });
+      if (!session || session.username.toLowerCase() !== key) return;
+      const account = tapInStatsFrom(doc.exists ? doc.data() : null);
+      if (account.lastTapInAt > lastTapInAt) {
+        lastTapInAt = account.lastTapInAt;
+        myStreak = account.streak;
+        myStreakDay = account.streakDay;
+      } else if (account.lastTapInAt === lastTapInAt && account.streak > myStreak) {
+        myStreak = account.streak;
+        myStreakDay = account.streakDay;
+      }
+    } catch (e) {
+      console.error('Could not check tap-in before saving:', e);
+    }
+  }
+
   async function sendTapIn() {
+    if (tapInInFlight || !session) return;
     if (CHAT_UNLOCK_MS - (Date.now() - lastTapInAt) > 0) return;
+    tapInInFlight = true;
+    try {
+      await syncTapInStatsFromAccount();
+    } finally {
+      tapInInFlight = false;
+    }
+    if (!session) return;
+    if (CHAT_UNLOCK_MS - (Date.now() - lastTapInAt) > 0) {
+      refreshTapInButtonState();
+      refreshChatGateState();
+      return;
+    }
     lastTapInAt = Date.now();
     refreshTapInButtonState();
     refreshChatGateState();
@@ -8121,6 +8273,7 @@
 
   let adminUsernames = new Set();
   let userBadges = {};
+  let voiceUsers = new Set();
   let userBadgesSignature = '{}';
   let deletedMessageIds = new Set();
 
@@ -8138,6 +8291,8 @@
     const admins = (data && Array.isArray(data.admins) ? data.admins : []).map((name) => String(name).toLowerCase()).sort();
     const badges = (data && data.badges && typeof data.badges === 'object') ? data.badges : {};
     const badgesSignature = JSON.stringify(badges);
+    voiceUsers = new Set((data && Array.isArray(data.voiceUsers) ? data.voiceUsers : []).map((name) => String(name).toLowerCase()));
+    refreshVoiceButton();
     const badgesChanged = badgesSignature !== userBadgesSignature;
     if (badgesChanged) {
       userBadges = badges;
@@ -8608,12 +8763,356 @@
   }
 
   let limitMsgTimer = null;
-  function flashLimitMsg() {
+  function showComposerNotice(text) {
     const el = $('composerLimitMsg');
     if (!el) return;
+    el.textContent = text;
     el.hidden = false;
     clearTimeout(limitMsgTimer);
     limitMsgTimer = setTimeout(() => { el.hidden = true; }, 4000);
+  }
+
+  function flashLimitMsg() {
+    showComposerNotice('Messages have to be ' + MAX_MSG_LEN + ' characters or fewer — trim it down and hit send again.');
+  }
+
+  const VOICE_SLOTS = 10;
+  const VOICE_MAX_MS = 10000;
+  const VOICE_MIN_MS = 600;
+  const VOICE_MAX_CHARS = 300000;
+  const VOICE_COOLDOWN_MS = 20000;
+  const VOICE_COOLDOWN_KEY = 'knobsock_voice_last_sent';
+  const VOICE_SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  const voiceAudioCache = new Map();
+  let voiceRecording = null;
+  let voicePlaying = null;
+  let voiceLatestSeq = 0;
+
+  function voiceSupported() {
+    return typeof MediaRecorder !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  function canUseVoice() {
+    return !!session && voiceSupported() && voiceUsers.has(String(session.username || '').toLowerCase());
+  }
+
+  function refreshVoiceButton() {
+    const btn = $('voiceBtn');
+    if (!btn) return;
+    const allowed = canUseVoice();
+    btn.hidden = !allowed;
+    btn.disabled = !isChatUnlocked();
+    if (!allowed && voiceRecording) stopVoiceRecording(false);
+  }
+
+  function pickVoiceMime() {
+    const options = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+    for (const type of options) {
+      try { if (MediaRecorder.isTypeSupported(type)) return type; } catch (e) {}
+    }
+    return '';
+  }
+
+  function voiceClock(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+  }
+
+  function voiceCooldownLeft() {
+    let last = 0;
+    try { last = Number(localStorage.getItem(VOICE_COOLDOWN_KEY)) || 0; } catch (e) {}
+    return Math.max(0, last + VOICE_COOLDOWN_MS - Date.now());
+  }
+
+  function showVoiceRecordingUi(on) {
+    const overlay = $('voiceRecording');
+    const btn = $('voiceBtn');
+    if (overlay) overlay.hidden = !on;
+    if (btn) {
+      btn.classList.toggle('is-recording', on);
+      btn.setAttribute('aria-label', on ? 'Send voice message' : 'Record a voice message');
+    }
+    if (!on) {
+      const time = $('voiceRecTime');
+      if (time) time.textContent = '0:00';
+    }
+  }
+
+  async function startVoiceRecording() {
+    if (voiceRecording || !canUseVoice()) return;
+    if (!isChatUnlocked()) return;
+    const wait = voiceCooldownLeft();
+    if (wait > 0) {
+      showComposerNotice('You can send another voice message in ' + Math.ceil(wait / 1000) + 's.');
+      return;
+    }
+    const state = { chunks: [], cancelled: false, startedAt: 0, timer: null, limit: null };
+    voiceRecording = state;
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      voiceRecording = null;
+      showComposerNotice('Microphone is blocked. Allow mic access for this site (in Instagram, open the page in Safari).');
+      return;
+    }
+    if (voiceRecording !== state) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    const mime = pickVoiceMime();
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 });
+    } catch (e) {
+      try { recorder = new MediaRecorder(stream); } catch (err) {
+        stream.getTracks().forEach((track) => track.stop());
+        voiceRecording = null;
+        showComposerNotice('Voice messages are not supported in this browser.');
+        return;
+      }
+    }
+    state.stream = stream;
+    state.recorder = recorder;
+    state.mime = recorder.mimeType || mime || 'audio/webm';
+    state.reply = activeReply;
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size) state.chunks.push(event.data);
+    });
+    recorder.addEventListener('stop', () => finishVoiceRecording(state));
+    recorder.start();
+    state.startedAt = Date.now();
+    showVoiceRecordingUi(true);
+    state.timer = setInterval(() => {
+      const time = $('voiceRecTime');
+      if (time) time.textContent = voiceClock(Date.now() - state.startedAt) + ' / 0:10';
+    }, 200);
+    state.limit = setTimeout(() => stopVoiceRecording(true), VOICE_MAX_MS);
+  }
+
+  function stopVoiceRecording(send) {
+    const state = voiceRecording;
+    if (!state) return;
+    state.cancelled = !send;
+    state.durationMs = Math.min(VOICE_MAX_MS, Date.now() - state.startedAt);
+    clearInterval(state.timer);
+    clearTimeout(state.limit);
+    showVoiceRecordingUi(false);
+    if (state.recorder && state.recorder.state !== 'inactive') {
+      try { state.recorder.stop(); } catch (e) { finishVoiceRecording(state); }
+    } else {
+      finishVoiceRecording(state);
+    }
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        resolve(result.slice(result.indexOf(',') + 1));
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function finishVoiceRecording(state) {
+    if (state.finished) return;
+    state.finished = true;
+    if (state.stream) state.stream.getTracks().forEach((track) => track.stop());
+    if (voiceRecording === state) voiceRecording = null;
+    if (state.cancelled || !session) return;
+    const durationMs = Math.round(state.durationMs || 0);
+    if (durationMs < VOICE_MIN_MS || !state.chunks.length) {
+      showComposerNotice('That voice message was too short.');
+      return;
+    }
+    const blob = new Blob(state.chunks, { type: state.mime });
+    const btn = $('voiceBtn');
+    if (btn) btn.disabled = true;
+    try {
+      const audio = await blobToBase64(blob);
+      if (audio.length > VOICE_MAX_CHARS) {
+        showComposerNotice('That voice message came out too big to send. Try a shorter one.');
+        return;
+      }
+      const counterRef = voiceRef.doc('counter');
+      const ts = Date.now();
+      const seq = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(counterRef);
+        const next = (snap.exists ? Number(snap.data().seq) || 0 : 0) + 1;
+        tx.set(counterRef, { seq: next });
+        tx.set(voiceRef.doc('slot_' + (next % VOICE_SLOTS)), {
+          seq: next,
+          audio: audio,
+          mime: String(state.mime).slice(0, 60),
+          durationMs: durationMs,
+          username: session.username,
+          deviceId: CLIENT_ID,
+          ts: ts
+        });
+        return next;
+      });
+      voiceAudioCache.set(seq, URL.createObjectURL(blob));
+      try { localStorage.setItem(VOICE_COOLDOWN_KEY, String(Date.now())); } catch (e) {}
+      scrollChatToBottomNext = true;
+      await messagesRef.add({
+        type: 'voice',
+        username: session.username,
+        text: '🎤 voice message',
+        color: myCurrentColor(),
+        deviceId: CLIENT_ID,
+        ts: Date.now(),
+        voiceSeq: seq,
+        durationMs: durationMs,
+        ...(state.reply ? { replyTo: state.reply } : {})
+      });
+      if (state.reply && activeReply === state.reply) cancelReply();
+    } catch (e) {
+      console.error('Voice message failed:', e);
+      showComposerNotice('Voice message failed to send. Try again.');
+    } finally {
+      refreshVoiceButton();
+    }
+  }
+
+  function toggleVoiceRecording() {
+    if (voiceRecording) {
+      if (voiceRecording.recorder) stopVoiceRecording(true);
+      return;
+    }
+    startVoiceRecording();
+  }
+
+  function base64ToBlobUrl(base64, mime) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  }
+
+  async function loadVoiceUrl(seq) {
+    if (voiceAudioCache.has(seq)) return voiceAudioCache.get(seq);
+    const snap = await voiceRef.doc('slot_' + (seq % VOICE_SLOTS)).get();
+    const data = snap.exists ? snap.data() : null;
+    if (!data || Number(data.seq) !== seq || typeof data.audio !== 'string') {
+      voiceAudioCache.set(seq, null);
+      return null;
+    }
+    const url = base64ToBlobUrl(data.audio, String(data.mime || 'audio/mp4').split(';')[0]);
+    voiceAudioCache.set(seq, url);
+    return url;
+  }
+
+  function voiceElements(seq) {
+    const container = $('messages');
+    return container ? Array.from(container.querySelectorAll('.voice-msg[data-voice-seq="' + seq + '"]')) : [];
+  }
+
+  function paintVoiceState(seq) {
+    const playing = voicePlaying && voicePlaying.seq === seq ? voicePlaying : null;
+    const expired = voiceAudioCache.get(seq) === null;
+    voiceElements(seq).forEach((el) => {
+      const totalMs = Number(el.getAttribute('data-voice-ms')) || VOICE_MAX_MS;
+      el.classList.toggle('is-playing', !!(playing && playing.started));
+      el.classList.toggle('is-loading', !!(playing && !playing.started));
+      el.classList.toggle('is-expired', expired);
+      const btn = el.querySelector('.voice-play');
+      if (btn) {
+        btn.disabled = expired;
+        btn.setAttribute('aria-label', expired ? 'Voice message expired' : playing ? 'Pause voice message' : 'Play voice message');
+      }
+      const time = el.querySelector('.voice-time');
+      let fraction = 0;
+      if (playing && playing.started) {
+        const total = Number.isFinite(playing.audio.duration) && playing.audio.duration > 0 ? playing.audio.duration * 1000 : totalMs;
+        fraction = Math.min(1, (playing.audio.currentTime * 1000) / total);
+        if (time) time.textContent = voiceClock(Math.max(0, total - playing.audio.currentTime * 1000));
+      } else if (time) {
+        time.textContent = expired ? 'expired' : voiceClock(totalMs);
+      }
+      el.style.setProperty('--voice-progress', (fraction * 100).toFixed(1) + '%');
+    });
+  }
+
+  function stopVoicePlayback() {
+    const current = voicePlaying;
+    if (!current) return;
+    voicePlaying = null;
+    cancelAnimationFrame(current.raf);
+    try { current.audio.pause(); } catch (e) {}
+    paintVoiceState(current.seq);
+  }
+
+  async function toggleVoicePlayback(el) {
+    const seq = Number(el.getAttribute('data-voice-seq'));
+    if (!Number.isFinite(seq) || seq < 1) return;
+    if (voicePlaying && voicePlaying.seq === seq) {
+      stopVoicePlayback();
+      return;
+    }
+    stopVoicePlayback();
+    const audio = new Audio();
+    audio.src = VOICE_SILENT_WAV;
+    const unlock = audio.play();
+    if (unlock && typeof unlock.catch === 'function') unlock.catch(() => {});
+    const playback = { seq: seq, audio: audio, started: false, raf: 0 };
+    voicePlaying = playback;
+    paintVoiceState(seq);
+    let url;
+    try {
+      url = await loadVoiceUrl(seq);
+    } catch (e) {
+      url = undefined;
+    }
+    if (voicePlaying !== playback) return;
+    if (!url) {
+      voicePlaying = null;
+      paintVoiceState(seq);
+      if (url === undefined) showComposerNotice('Could not load that voice message. Try again.');
+      return;
+    }
+    audio.pause();
+    audio.src = url;
+    audio.addEventListener('ended', () => { if (voicePlaying === playback) stopVoicePlayback(); });
+    audio.addEventListener('error', () => {
+      if (voicePlaying !== playback) return;
+      stopVoicePlayback();
+      showComposerNotice('This device can’t play that voice message.');
+    });
+    try {
+      await audio.play();
+    } catch (e) {
+      if (voicePlaying === playback) stopVoicePlayback();
+      return;
+    }
+    if (voicePlaying !== playback) return;
+    playback.started = true;
+    const tick = () => {
+      if (voicePlaying !== playback) return;
+      paintVoiceState(seq);
+      playback.raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  function voiceBubbleHtml(m) {
+    const seq = Number(m.voiceSeq);
+    if (!Number.isFinite(seq) || seq < 1) return renderMessageText(m.text);
+    if (voiceLatestSeq - seq >= VOICE_SLOTS && !voiceAudioCache.has(seq)) voiceAudioCache.set(seq, null);
+    const expired = voiceAudioCache.get(seq) === null;
+    const totalMs = Math.max(1000, Math.min(VOICE_MAX_MS, Number(m.durationMs) || VOICE_MAX_MS));
+    const playing = voicePlaying && voicePlaying.seq === seq;
+    const classes = 'voice-msg' + (expired ? ' is-expired' : '') + (playing && voicePlaying.started ? ' is-playing' : '') + (playing && !voicePlaying.started ? ' is-loading' : '');
+    return '<span class="' + classes + '" data-voice-seq="' + seq + '" data-voice-ms="' + totalMs + '">' +
+      '<button type="button" class="voice-play" aria-label="' + (expired ? 'Voice message expired' : 'Play voice message') + '"' + (expired ? ' disabled' : '') + '>' +
+      '<svg class="voice-icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8Z" fill="currentColor"/></svg>' +
+      '<svg class="voice-icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor"/></svg>' +
+      '</button>' +
+      '<span class="voice-track"><span class="voice-progress"></span></span>' +
+      '<span class="voice-time">' + (expired ? 'expired' : voiceClock(totalMs)) + '</span>' +
+      '</span>';
   }
 
   function renderChatShell() {
@@ -8683,17 +9182,29 @@
             <div class="composer-input-wrap">
               <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
               <span class="char-counter" id="charCounter">0/${MAX_MSG_LEN}</span>
+              <div class="voice-recording" id="voiceRecording" hidden>
+                <span class="voice-rec-dot" aria-hidden="true"></span>
+                <span class="voice-rec-time" id="voiceRecTime">0:00</span>
+                <span class="voice-rec-hint">Tap the mic to send</span>
+                <button type="button" class="voice-rec-cancel" id="voiceRecCancel">Cancel</button>
+              </div>
             </div>
             <div class="emoji-picker-wrap">
               <button type="button" class="emoji-picker-toggle" id="emojiPickerToggle" title="Custom emojis" aria-label="Custom emojis" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M8 14 Q12 19 16 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
               <div class="emoji-picker-popover" id="emojiPickerPopover"></div>
             </div>
+            ${voiceSupported() ? '<button type="button" class="emoji-picker-toggle voice-btn" id="voiceBtn" title="Voice message (10 seconds max)" aria-label="Record a voice message" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' : ''}
             <button class="send-btn" id="sendBtn" title="Send" aria-label="Send"><img src="/send-button.png" alt=""></button>
           </div>
           <div class="composer-limit-msg" id="composerLimitMsg" hidden>Messages have to be ${MAX_MSG_LEN} characters or fewer — trim it down and hit send again.</div>
         </div>
       </div>
     `;
+
+    const voiceBtn = $('voiceBtn');
+    if (voiceBtn) voiceBtn.addEventListener('click', toggleVoiceRecording);
+    $('voiceRecCancel').addEventListener('click', () => stopVoiceRecording(false));
+    refreshVoiceButton();
 
     $('accountNameBtn').addEventListener('click', toggleAccountMenu);
     $('accountProfileBtn').addEventListener('click', function () { openProfile(session.username); });
@@ -8749,6 +9260,12 @@
       return !!(target && target.closest('a, button, input, textarea, select, label'));
     }
     function toggleFromMessageTap(event) {
+      const voicePlay = event.target && event.target.closest('.voice-play');
+      if (voicePlay) {
+        const voice = voicePlay.closest('.voice-msg');
+        if (voice && !voice.classList.contains('is-expired')) toggleVoicePlayback(voice);
+        return;
+      }
       const quote = event.target && event.target.closest('.reply-preview[data-reply-id]');
       if (quote) { jumpToReplyOriginal(quote); return; }
       const bubble = event.target && event.target.closest('.msg-bubble[data-message-id]');
@@ -8782,7 +9299,7 @@
     });
     messagesEl.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      if (event.target.closest('.reply-preview')) return;
+      if (event.target.closest('.reply-preview, .voice-play')) return;
       const bubble = event.target && event.target.closest('.msg-bubble[data-message-id]');
       if (!bubble) return;
       event.preventDefault();
@@ -9115,6 +9632,7 @@
       return;
     }
 
+    voiceLatestSeq = msgs.reduce((latest, m) => (m && m.type === 'voice' ? Math.max(latest, Number(m.voiceSeq) || 0) : latest), voiceLatestSeq);
     container.innerHTML = historyHeaderHtml() + msgs.map(m => {
       if (m.type === 'join') {
         return `<div class="system-msg">${escapeHtml(m.username)} has joined</div>`;
@@ -9144,7 +9662,7 @@
         <div class="msg ${mine ? 'mine' : ''}${selected ? ' is-reply-target' : ''}">
           <div class="msg-meta">${nameHtml}${adminBadgeHtml(m.username)} · ${timeLabel(m.ts)}</div>
           <div class="msg-content">
-            <div class="msg-bubble${isEmojiOnlyMessage(m.text) && !replyHtml ? ' emoji-only' : ''}" data-message-id="${escapeHtml(m.id)}" role="button" tabindex="0" aria-label="Reply to ${escapeHtml(m.username)}">${replyHtml}${renderMessageText(m.text)}</div>
+            <div class="msg-bubble${m.type !== 'voice' && isEmojiOnlyMessage(m.text) && !replyHtml ? ' emoji-only' : ''}" data-message-id="${escapeHtml(m.id)}" role="button" tabindex="0" aria-label="Reply to ${escapeHtml(m.username)}">${replyHtml}${m.type === 'voice' ? voiceBubbleHtml(m) : renderMessageText(m.text)}</div>
           </div>
         </div>
       `;

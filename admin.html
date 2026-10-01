@@ -3264,6 +3264,7 @@
   const BADGE_SIZE = 128;
   const BADGE_GIF_MAX_BYTES = 600 * 1024;
   let liveBadges = {};
+  let liveVoiceUsers = [];
   let badgeEditorSignature = null;
 
   function safeBadgeUrl(url) {
@@ -3323,7 +3324,8 @@
     if (!root || !userHistoryUsername) return;
     const key = userHistoryUsername.toLowerCase();
     const badge = liveBadges[key] || null;
-    const signature = key + '|' + JSON.stringify(badge);
+    const voiceAllowed = liveVoiceUsers.indexOf(key) !== -1;
+    const signature = key + '|' + JSON.stringify(badge) + '|' + voiceAllowed;
     if (!force && signature === badgeEditorSignature) return;
     badgeEditorSignature = signature;
     const url = badge && safeBadgeUrl(badge.url);
@@ -3336,7 +3338,10 @@
       '<input type="text" id="badgeLabelInput" maxlength="24" placeholder="Hover text, e.g. VIP" value="' + escapeAttr((badge && badge.label) || '') + '">' +
       '<button type="button" class="btn btn-primary" id="badgeSaveBtn">' + (url ? 'Update badge' : 'Add badge') + '</button>' +
       (url ? '<button type="button" class="btn-link" id="badgeRemoveBtn">Remove</button>' : '') +
-      '<div class="badge-editor-status" id="badgeStatus"></div>';
+      '<div class="badge-editor-status" id="badgeStatus"></div>' +
+      '<div class="badge-editor-title">Voice messages</div>' +
+      '<div class="badge-editor-preview">' + (voiceAllowed ? 'Allowed — they see the mic button in chat.' : 'Not allowed — the mic button is hidden for them.') + '</div>' +
+      '<button type="button" class="btn' + (voiceAllowed ? '' : ' btn-primary') + '" id="voiceAccessBtn">' + (voiceAllowed ? 'Remove voice access' : 'Allow voice messages') + '</button>';
     const status = document.getElementById('badgeStatus');
     const saveBtn = document.getElementById('badgeSaveBtn');
     saveBtn.addEventListener('click', function () {
@@ -3359,6 +3364,17 @@
         status.textContent = 'Failed: ' + err.message;
       }).finally(function () {
         saveBtn.disabled = false;
+      });
+    });
+    const voiceAccessBtn = document.getElementById('voiceAccessBtn');
+    voiceAccessBtn.addEventListener('click', function () {
+      voiceAccessBtn.disabled = true;
+      const change = voiceAllowed
+        ? firebase.firestore.FieldValue.arrayRemove(key)
+        : firebase.firestore.FieldValue.arrayUnion(key);
+      CHAT_CENSORED_WORDS_REF.set({ voiceUsers: change }, { merge: true }).catch(function (err) {
+        voiceAccessBtn.disabled = false;
+        status.textContent = 'Failed: ' + err.message;
       });
     });
     const removeBtn = document.getElementById('badgeRemoveBtn');
@@ -3851,6 +3867,7 @@
       liveCensorWords = (data && Array.isArray(data.words)) ? data.words : [];
       liveAdmins = (data && Array.isArray(data.admins)) ? data.admins.map(function (n) { return String(n).toLowerCase(); }) : [];
       liveBadges = (data && data.badges && typeof data.badges === 'object') ? data.badges : {};
+      liveVoiceUsers = (data && Array.isArray(data.voiceUsers)) ? data.voiceUsers.map(function (n) { return String(n).toLowerCase(); }) : [];
       renderBadgeEditor(false);
       renderCensorWordsList();
       renderAdminsList();

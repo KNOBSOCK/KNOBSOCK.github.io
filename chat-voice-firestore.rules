@@ -1,0 +1,34 @@
+    match /chat_voice/counter {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['seq'])
+        && request.resource.data.seq == 1;
+      allow update: if request.resource.data.keys().hasOnly(['seq'])
+        && request.resource.data.seq == resource.data.seq + 1;
+    }
+
+    match /chat_voice/{slot} {
+      allow read: if true;
+      allow create, update: if slot.matches('slot_[0-9]')
+        && request.resource.data.keys().hasOnly(['seq', 'audio', 'mime', 'durationMs', 'username', 'deviceId', 'ts'])
+        && request.resource.data.seq is int
+        && request.resource.data.seq == getAfter(/databases/$(database)/documents/chat_voice/counter).data.seq
+        && slot == 'slot_' + string(request.resource.data.seq % 10)
+        && request.resource.data.audio is string
+        && request.resource.data.audio.size() > 0
+        && request.resource.data.audio.size() <= 300000
+        && request.resource.data.mime is string
+        && request.resource.data.mime.matches('audio/[A-Za-z0-9.+;=, -]{1,60}')
+        && request.resource.data.durationMs is int
+        && request.resource.data.durationMs > 0
+        && request.resource.data.durationMs <= 10500
+        && request.resource.data.username is string
+        && request.resource.data.username.size() > 0
+        && request.resource.data.username.size() <= 40
+        && request.resource.data.username.lower() in get(/databases/$(database)/documents/chat_config/censoredWords).data.get('voiceUsers', [])
+        && request.resource.data.deviceId is string
+        && request.resource.data.deviceId.size() > 0
+        && request.resource.data.deviceId.size() <= 100
+        && forumNotBanned(request.resource.data.deviceId)
+        && request.resource.data.ts is int;
+      allow delete: if isAdmin();
+    }
