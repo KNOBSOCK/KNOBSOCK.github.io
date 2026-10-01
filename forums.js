@@ -1064,6 +1064,8 @@
     const name = raw.trim();
     if (!name || name.length > 24 || /[\s/]/.test(name))
       throw Error("Use 1–24 characters, without spaces or slashes.");
+    if (/[\p{Extended_Pictographic}\p{Regional_Indicator}‍⃣️]/u.test(name))
+      throw Error("Usernames can't have emojis in them.");
     if (activeBan()) throw Error("This browser is banned.");
     if (usernameContainsCensoredWord(name))
       throw Error("Please choose another username.");

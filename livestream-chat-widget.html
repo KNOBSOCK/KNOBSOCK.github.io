@@ -8203,6 +8203,10 @@
       renderAuth('Username must be 24 chars or fewer, no spaces.', username, termsChecked);
       return;
     }
+    if (/[\p{Extended_Pictographic}\p{Regional_Indicator}‍⃣️]/u.test(username)) {
+      renderAuth('Usernames can\'t have emojis in them.', username, termsChecked);
+      return;
+    }
     if (usernameContainsCensoredWord(username)) {
       renderAuth('That username isn\'t allowed. Please choose another.', username, termsChecked);
       return;
