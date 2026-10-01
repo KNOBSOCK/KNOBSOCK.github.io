@@ -8534,12 +8534,33 @@
     startReply();
   }
 
+  const REPLY_REVEAL_MARGIN = 12;
+
+  function revealReplyTarget(id) {
+    const container = $('messages');
+    if (!container || !id || !activeReply || activeReply.id !== id) return;
+    const bubble = Array.from(container.querySelectorAll('.msg-bubble[data-message-id]'))
+      .find((el) => el.getAttribute('data-message-id') === id);
+    if (!bubble) return;
+    const msg = bubble.closest('.msg') || bubble;
+    const box = container.getBoundingClientRect();
+    const rect = msg.getBoundingClientRect();
+    let delta = 0;
+    if (rect.bottom > box.bottom - REPLY_REVEAL_MARGIN) delta = rect.bottom - box.bottom + REPLY_REVEAL_MARGIN;
+    if (rect.top + delta < box.top + REPLY_REVEAL_MARGIN) delta = rect.top - box.top - REPLY_REVEAL_MARGIN;
+    if (Math.abs(delta) < 1) return;
+    container.scrollBy({ top: delta, behavior: 'smooth' });
+  }
+
   function startReply() {
     const input = $('msgInput');
     if (!replyTarget || !input) return;
     activeReply = { ...replyTarget };
     updateReplyComposer();
     if (canAutoFocusInput()) input.focus();
+    const id = activeReply.id;
+    requestAnimationFrame(() => requestAnimationFrame(() => revealReplyTarget(id)));
+    setTimeout(() => revealReplyTarget(id), 350);
   }
 
   function updateCharCounter() {
