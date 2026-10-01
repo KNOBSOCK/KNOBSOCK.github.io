@@ -844,7 +844,7 @@
     const HISTORY_MAX_READS = 600;
 
     function isShownMessage(m) {
-      return !!m && m.type !== 'join' && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
+      return !!m && m.type !== 'join' && !(typeof m.type === 'string' && m.type.indexOf('fight_') === 0) && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
     }
 
     function renderCombined(keepScroll) {
