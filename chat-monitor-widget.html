@@ -78,6 +78,43 @@
     text-shadow: inherit;
   }
   .msg .msg-name:hover { text-decoration: underline; }
+  .msg {
+    position: relative;
+    padding-right: 36px;
+  }
+  .msg-delete {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    cursor: pointer;
+    font: 700 16px/1 Tahoma, Arial, sans-serif;
+    opacity: 0.45;
+    transition: opacity .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .msg:hover .msg-delete,
+  .msg-delete:focus-visible {
+    opacity: 1;
+  }
+  .msg-delete:hover,
+  .msg-delete:focus-visible {
+    outline: none;
+    border-color: #ff6b6b;
+    background: #c62828;
+  }
+  .msg-delete:disabled {
+    cursor: default;
+    opacity: 0.3;
+  }
   .msg .msg-name:focus-visible {
     outline: 2px solid #fff;
     outline-offset: 3px;
@@ -817,8 +854,14 @@
         return '<div class="msg">' +
           '<button type="button" class="msg-name" data-message-id="' + escapeHtml(m.id) + '" style="color:' + color + '">' + escapeHtml(username) + ':</button> ' +
           '<span class="msg-text">' + renderMessageText(m.text) + '</span>' +
+          '<button type="button" class="msg-delete" data-delete-id="' + escapeHtml(m.id) + '" title="Delete for everyone" aria-label="Delete message from ' + escapeHtml(username) + '">&times;</button>' +
           '</div>';
       }).join('');
+      container.querySelectorAll('.msg-delete').forEach(function (button) {
+        button.addEventListener('click', function () {
+          deleteChatMessage(button.getAttribute('data-delete-id'), button);
+        });
+      });
       container.querySelectorAll('.msg-name').forEach(function (button) {
         button.addEventListener('click', function () {
           const message = messagesById.get(button.getAttribute('data-message-id'));
@@ -845,6 +888,40 @@
 
     function isShownMessage(m) {
       return !!m && m.type !== 'join' && !(typeof m.type === 'string' && m.type.indexOf('fight_') === 0) && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
+    }
+
+    const DELETED_MESSAGE_ID_LIMIT = 300;
+
+    function publishDeletedMessageId(id) {
+      const ref = configRef.doc('censoredWords');
+      return db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (doc) {
+          const data = doc.exists ? doc.data() : null;
+          const existing = data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds : [];
+          const next = existing.filter(function (existingId) { return existingId !== id; }).concat([id]).slice(-DELETED_MESSAGE_ID_LIMIT);
+          tx.set(ref, { deletedMessageIds: next }, { merge: true });
+        });
+      });
+    }
+
+    function deleteChatMessage(id, button) {
+      const message = messagesById.get(id);
+      if (!message) return;
+      const preview = String(message.text || '').slice(0, 80);
+      if (!confirm('Delete this message for everyone?\n\n' + (message.username || 'Unknown') + ': ' + preview)) return;
+      if (button) button.disabled = true;
+      messagesRef.doc(id).delete().then(function () {
+        deletedIds = new Set(deletedIds);
+        deletedIds.add(id);
+        renderCombined(false);
+        return publishDeletedMessageId(id).catch(function (err) {
+          console.error('Could not hide the deleted message in open chats:', err);
+          alert('Deleted, but open chats may keep showing it until they reload: ' + err.message);
+        });
+      }).catch(function (err) {
+        if (button) button.disabled = false;
+        alert('Delete failed: ' + err.message);
+      });
     }
 
     function renderCombined(keepScroll) {
