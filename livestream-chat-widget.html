@@ -4148,8 +4148,14 @@
   [skipBackFlash, skipForwardFlash].forEach(function (el) {
     if (el) el.addEventListener('animationend', function () { el.classList.remove('is-flashing'); });
   });
+  function clearPlayerFlashes(except) {
+    [skipBackFlash, skipForwardFlash, centerToggleIcon].forEach(function (el) {
+      if (el && el !== except) el.classList.remove('is-flashing');
+    });
+  }
   function flashSkip(el) {
     if (!el) return;
+    clearPlayerFlashes(el);
     el.classList.remove('is-flashing');
     void el.offsetWidth;
     el.classList.add('is-flashing');
@@ -4186,15 +4192,18 @@
     if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
     var target = event.target;
     var el = target && target.nodeType === 1 ? target : null;
-    if (el && el.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+    var inPlayer = !!(el && el.closest('.video-pane'));
+    if (el && el.closest('input:not([type="range"]), textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+    if (el && el.matches('input[type="range"]') && !inPlayer) return;
     var key = event.key;
     var action = null;
-    if (key === 'a' || key === 'A' || key === 'ArrowLeft') action = 'back';
-    else if (key === 'd' || key === 'D' || key === 'ArrowRight') action = 'forward';
-    else if (key === ' ' || key === 'Spacebar') action = 'toggle';
+    if (key === 'a' || key === 'A' || key === 'j' || key === 'J' || key === 'ArrowLeft') action = 'back';
+    else if (key === 'd' || key === 'D' || key === 'l' || key === 'L' || key === 'ArrowRight') action = 'forward';
+    else if (key === ' ' || key === 'Spacebar' || key === 'k' || key === 'K') action = 'toggle';
     if (!action) return;
-    if (action === 'toggle' && el && el.closest('button, a, [role="button"], summary')) return;
+    if ((key === ' ' || key === 'Spacebar') && !inPlayer && el && el.closest('button, a, [role="button"], summary')) return;
     if (profilePopupOpen() || videoPane.classList.contains('offline-card')) return;
+    if (inPlayer && el && typeof el.blur === 'function') el.blur();
     if (action === 'toggle') {
       var playing = togglePlayback();
       if (playing === null) return;
@@ -4239,6 +4248,7 @@
   }
   function flashCenterToggle(isPlaying) {
     if (!centerToggleIcon) return;
+    clearPlayerFlashes(centerToggleIcon);
     centerToggleIcon.innerHTML = playPauseGlyph(isPlaying);
     centerToggleIcon.classList.remove('is-flashing');
     void centerToggleIcon.offsetWidth;
