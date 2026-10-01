@@ -360,6 +360,37 @@
 
   function byId(id) { return document.getElementById(id); }
 
+  const SOUND_ON = !params.has('mute');
+  const SOUND_VOLUME = Math.max(0, Math.min(1, Number(params.get('volume') || 0.8) || 0));
+  const PUNCH_SOURCES = ['/Punch1.mp3', '/Punch2.mp3', '/Punch3.mp3'];
+  const PUNCH_POOL_PER_SOURCE = 3;
+  const punchPool = SOUND_ON && typeof Audio !== 'undefined'
+    ? PUNCH_SOURCES.flatMap((src) => Array.from({ length: PUNCH_POOL_PER_SOURCE }, () => {
+        const clip = new Audio(src);
+        clip.preload = 'auto';
+        return clip;
+      }))
+    : [];
+  let punchIndex = 0;
+
+  function playPunch(volumeScale) {
+    if (!punchPool.length) return;
+    const pick = Math.floor(Math.random() * PUNCH_SOURCES.length) * PUNCH_POOL_PER_SOURCE + (punchIndex % PUNCH_POOL_PER_SOURCE);
+    punchIndex += 1;
+    const clip = punchPool[pick];
+    try {
+      clip.pause();
+      clip.currentTime = 0;
+      clip.volume = Math.max(0, Math.min(1, SOUND_VOLUME * (volumeScale || 1) * (0.85 + Math.random() * 0.15)));
+      const play = clip.play();
+      if (play && typeof play.catch === 'function') play.catch(() => {});
+    } catch (e) {}
+  }
+
+  function playKnockout() {
+    [0, 120, 260].forEach((delay, i) => setTimeout(() => playPunch(i === 2 ? 1.15 : 1), delay));
+  }
+
   const stage = byId('stage');
   const timerText = byId('timerText');
   const banner = byId('banner');
@@ -466,6 +497,7 @@
     const other = sides[side === 'left' ? 'right' : 'left'];
     s.fist.classList.add('is-active');
     restartClass(s.fist, 'is-jab');
+    playPunch();
     restartClass(other.corner, 'is-hit');
     clearTimeout(s.idle);
     s.idle = setTimeout(() => s.fist.classList.remove('is-active'), FIST_IDLE_MS);
@@ -554,6 +586,7 @@
         restartClass(sides[winSide].fist, 'is-victory');
       }
       if (loseSide) sides[loseSide].corner.classList.add('is-loser');
+      playKnockout();
       banner.textContent = 'K.O.!';
       caption.textContent = result.winner + ' knocked out ' + result.loser;
       timerText.textContent = 'FINAL';
