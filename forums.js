@@ -28,10 +28,18 @@
       ? '<img class="official-badge" src="/forum-official-badge.png" alt="Official KNOBSOCK account" title="Official KNOBSOCK account">'
       : "";
   let adminUsernames = new Set();
+  let userBadges = {};
+  const customBadge = (name) => {
+    const badge = userBadges[String(name || "").toLowerCase()],
+      url = badge && String(badge.url || "");
+    if (!url || !(/^https:\/\/[^\s"'<>]+$/.test(url) || /^\/[^\s"'<>]*$/.test(url))) return "";
+    const label = String(badge.label || "badge").slice(0, 24);
+    return '<span class="admin-badge" tabindex="0" role="img" aria-label="' + esc(label) + '" data-tip="' + esc(label) + '"><img src="' + esc(url) + '" alt=""></span>';
+  };
   const adminBadge = (name, isOfficial) =>
-    !isOfficial && adminUsernames.has(String(name || "").toLowerCase())
+    (!isOfficial && adminUsernames.has(String(name || "").toLowerCase())
       ? '<span class="admin-badge" tabindex="0" role="img" aria-label="Admin" data-tip="admin"><img src="/forum-official-badge.png" alt=""></span>'
-      : "";
+      : "") + customBadge(name);
   document.addEventListener("click", (e) => {
     const badge = e.target.closest && e.target.closest(".admin-badge");
     if (!badge) return;
@@ -102,6 +110,7 @@
         adminUsernames = new Set(
           (data && Array.isArray(data.admins) ? data.admins : []).map((n) => String(n).toLowerCase()),
         );
+        userBadges = data && data.badges && typeof data.badges === "object" ? data.badges : {};
       },
       () => {},
     );

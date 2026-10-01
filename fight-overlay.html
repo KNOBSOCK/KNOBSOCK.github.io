@@ -157,27 +157,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .score-pop {
-    position: absolute;
-    top: -1cqw;
-    z-index: 5;
-    color: #fff;
-    font-size: 5cqw;
-    -webkit-text-stroke: 0.45cqw var(--ink);
-    paint-order: stroke fill;
-    opacity: 0;
-  }
-  .corner-left .score-pop { right: 4cqw; }
-  .corner-right .score-pop { left: 4cqw; }
-  .score-pop.is-on {
-    animation: scorePop 0.8s ease-out both;
-  }
-  @keyframes scorePop {
-    0% { opacity: 0; transform: translateY(2cqw) scale(.6); }
-    25% { opacity: 1; transform: translateY(0) scale(1.15); }
-    100% { opacity: 0; transform: translateY(-4cqw) scale(1); }
-  }
-
   .corner.is-hit {
     animation: hit 0.28s ease-out;
   }
@@ -327,7 +306,6 @@
         <div class="corner-score" id="scoreLeft">0</div>
       </div>
     </div>
-    <div class="score-pop" id="popLeft"></div>
   </div>
   <div class="vs">VS</div>
   <div class="corner corner-right" id="cornerRight">
@@ -337,7 +315,6 @@
         <div class="corner-score" id="scoreRight">0</div>
       </div>
     </div>
-    <div class="score-pop" id="popRight"></div>
   </div>
   <img class="fist fist-left" id="fistLeft" src="/fight-punch.png" alt="">
   <img class="fist fist-right" id="fistRight" src="/fight-punch.png" alt="">
@@ -356,7 +333,10 @@
   const RESULT_HOLD_MS = 7000;
   const LOOKBACK_MS = FIGHT_DURATION_MS + RESULT_HOLD_MS + 5000;
   const FIST_IDLE_MS = 900;
-  const JAB_GAP_MS = 230;
+  const PUNCH_INTERVAL_DEFAULT_MS = 1000;
+  const PUNCH_INTERVAL_MIN_MS = 400;
+  const PUNCH_INTERVAL_MAX_MS = 1500;
+  const PUNCH_STEP_MIN_MS = 50;
 
   function byId(id) { return document.getElementById(id); }
 
@@ -396,8 +376,8 @@
   const banner = byId('banner');
   const caption = byId('caption');
   const sides = {
-    left: { corner: byId('cornerLeft'), name: byId('nameLeft'), score: byId('scoreLeft'), pop: byId('popLeft'), fist: byId('fistLeft'), displayed: 0, raf: 0, idle: null, jabs: [] },
-    right: { corner: byId('cornerRight'), name: byId('nameRight'), score: byId('scoreRight'), pop: byId('popRight'), fist: byId('fistRight'), displayed: 0, raf: 0, idle: null, jabs: [] }
+    left: { corner: byId('cornerLeft'), name: byId('nameLeft'), score: byId('scoreLeft'), fist: byId('fistLeft'), displayed: 0, target: 0, stepMs: 0, lastPacketAt: 0, streamTimer: null, idle: null },
+    right: { corner: byId('cornerRight'), name: byId('nameRight'), score: byId('scoreRight'), fist: byId('fistRight'), displayed: 0, target: 0, stepMs: 0, lastPacketAt: 0, streamTimer: null, idle: null }
   };
 
   let fight = null;
@@ -423,15 +403,14 @@
 
   function resetSide(side) {
     const s = sides[side];
-    cancelAnimationFrame(s.raf);
+    stopStream(side);
     clearTimeout(s.idle);
-    s.jabs.forEach(clearTimeout);
-    s.jabs = [];
     s.displayed = 0;
+    s.target = 0;
+    s.lastPacketAt = 0;
     s.score.textContent = '0';
     s.corner.classList.remove('is-winner', 'is-loser', 'is-hit');
     s.fist.classList.remove('is-active', 'is-jab', 'is-victory');
-    s.pop.classList.remove('is-on');
   }
 
   function startFight(packet) {
@@ -478,18 +457,42 @@
   window.addEventListener('resize', fitNames);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNames);
 
-  function tweenScore(side, target) {
+  function stopStream(side) {
     const s = sides[side];
-    const from = s.displayed;
-    const startedAt = performance.now();
-    cancelAnimationFrame(s.raf);
-    const step = (now) => {
-      const t = Math.min(1, (now - startedAt) / 450);
-      s.displayed = Math.round(from + (target - from) * (1 - Math.pow(1 - t, 3)));
-      s.score.textContent = String(s.displayed);
-      if (t < 1) s.raf = requestAnimationFrame(step);
-    };
-    s.raf = requestAnimationFrame(step);
+    clearTimeout(s.streamTimer);
+    s.streamTimer = null;
+  }
+
+  function showScore(side, value) {
+    const s = sides[side];
+    stopStream(side);
+    s.displayed = value;
+    s.target = value;
+    s.score.textContent = String(value);
+  }
+
+  function streamPunches(side) {
+    const s = sides[side];
+    s.streamTimer = null;
+    if (!fight || fight.result || s.displayed >= s.target) return;
+    s.displayed += 1;
+    s.score.textContent = String(s.displayed);
+    jab(side);
+    if (s.displayed < s.target) s.streamTimer = setTimeout(() => streamPunches(side), s.stepMs);
+  }
+
+  function queuePunches(side, value) {
+    const s = sides[side];
+    const now = performance.now();
+    const interval = s.lastPacketAt
+      ? Math.min(PUNCH_INTERVAL_MAX_MS, Math.max(PUNCH_INTERVAL_MIN_MS, now - s.lastPacketAt))
+      : PUNCH_INTERVAL_DEFAULT_MS;
+    s.lastPacketAt = now;
+    s.target = value;
+    const pending = s.target - s.displayed;
+    if (pending <= 0) return;
+    s.stepMs = Math.max(PUNCH_STEP_MIN_MS, interval / pending);
+    if (!s.streamTimer) streamPunches(side);
   }
 
   function jab(side) {
@@ -503,18 +506,6 @@
     s.idle = setTimeout(() => s.fist.classList.remove('is-active'), FIST_IDLE_MS);
   }
 
-  function punchFrom(side, delta) {
-    const s = sides[side];
-    const count = Math.max(1, Math.min(4, Math.ceil(delta / 3)));
-    s.jabs.forEach(clearTimeout);
-    s.jabs = [];
-    for (let i = 0; i < count; i += 1) {
-      s.jabs.push(setTimeout(() => { if (fight && !fight.result) jab(side); }, i * JAB_GAP_MS));
-    }
-    s.pop.textContent = '+' + delta;
-    restartClass(s.pop, 'is-on');
-  }
-
   function setScore(player, score, punch) {
     const side = sideOf(player);
     if (!side || !Number.isFinite(score) || score < 0) return;
@@ -522,16 +513,19 @@
     const previous = fight.scores[player] || 0;
     if (value < previous) return;
     fight.scores[player] = value;
-    if (value === previous) return;
-    tweenScore(side, value);
-    if (punch && !fight.result) punchFrom(side, value - previous);
+    if (value === previous) {
+      if (punch) sides[side].lastPacketAt = performance.now();
+      return;
+    }
+    if (punch && !fight.result) queuePunches(side, value);
+    else showScore(side, value);
   }
 
   function forceScore(side, score) {
     const value = Math.floor(Number(score));
     if (!Number.isFinite(value) || value < 0) return;
     fight.scores[playerOf(side)] = value;
-    tweenScore(side, value);
+    showScore(side, value);
   }
 
   function handlePacket(packet) {
@@ -561,8 +555,7 @@
     finishedIds.add(fight.id);
     ['left', 'right'].forEach((side) => {
       const s = sides[side];
-      s.jabs.forEach(clearTimeout);
-      s.jabs = [];
+      showScore(side, fight.scores[playerOf(side)] || 0);
       clearTimeout(s.idle);
       s.fist.classList.remove('is-active', 'is-jab');
     });

@@ -692,6 +692,58 @@
     overflow-wrap: anywhere;
   }
   .user-history-bio.empty { color: var(--text-dim); }
+  .badge-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 13px;
+  }
+  .badge-editor-title {
+    flex: 1 0 100%;
+    font-weight: 700;
+  }
+  .badge-editor-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    color: var(--text-dim);
+  }
+  .badge-editor-preview img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+  }
+  .badge-editor input[type="text"] {
+    flex: 1 1 140px;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text);
+    font: inherit;
+  }
+  .badge-editor input[type="file"] {
+    flex: 1 1 180px;
+    min-width: 0;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+  }
+  .badge-editor .btn { font-size: 12px; padding: 7px 12px; }
+  .badge-editor-status {
+    flex: 1 0 100%;
+    min-height: 1em;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
   .user-history-pager {
     display: flex;
     align-items: center;
@@ -1274,6 +1326,7 @@
       <button type="button" class="btn-link" id="closeUserHistoryBtn">Close</button>
     </div>
     <div class="user-history-meta" id="userHistoryMeta"></div>
+    <div class="badge-editor" id="userBadgeEditor"></div>
     <div class="modal-actions" id="userHistoryActions"></div>
     <div class="list-scroll" id="userHistoryMessages" style="max-height:360px;overflow-y:auto;margin-top:10px;"></div>
     <div class="user-history-pager" id="userHistoryPager" hidden>
@@ -3208,8 +3261,123 @@
     });
   }
 
+  const BADGE_SIZE = 128;
+  const BADGE_GIF_MAX_BYTES = 600 * 1024;
+  let liveBadges = {};
+  let badgeEditorSignature = null;
+
+  function safeBadgeUrl(url) {
+    const value = String(url || '');
+    return /^https:\/\/[^\s"'<>]+$/.test(value) || /^\/[^\s"'<>]*$/.test(value) ? value : '';
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('Could not read that file.')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function badgeImageData(file) {
+    if (file.type === 'image/gif') {
+      if (file.size > BADGE_GIF_MAX_BYTES) return Promise.reject(new Error('That GIF is too big. Keep animated badges under 600 KB.'));
+      return readFileAsDataUrl(file).then(function (dataUrl) { return { dataUrl: dataUrl, ext: 'gif' }; });
+    }
+    return readFileAsDataUrl(file).then(function (dataUrl) {
+      return new Promise(function (resolve, reject) {
+        const img = new Image();
+        img.onload = function () {
+          const scale = Math.min(1, BADGE_SIZE / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.max(1, Math.round(img.naturalWidth * scale));
+          const h = Math.max(1, Math.round(img.naturalHeight * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const webp = canvas.toDataURL('image/webp', 0.92);
+          if (webp.indexOf('data:image/webp') === 0) resolve({ dataUrl: webp, ext: 'webp' });
+          else resolve({ dataUrl: canvas.toDataURL('image/png'), ext: 'png' });
+        };
+        img.onerror = function () { reject(new Error('That file is not an image this browser can read.')); };
+        img.src = dataUrl;
+      });
+    });
+  }
+
+  function uploadBadge(file, key) {
+    return badgeImageData(file).then(function (image) {
+      const base64 = image.dataUrl.slice(image.dataUrl.indexOf(',') + 1);
+      const path = 'badges/' + key.replace(/[^a-z0-9_-]/g, '_') + '-' + Date.now().toString(36) + '.' + image.ext;
+      return githubPutContent(path, base64, 'Add username badge: ' + path);
+    }).then(function (data) {
+      const url = data && data.content && data.content.download_url;
+      if (!url) throw new Error('GitHub upload succeeded but returned no URL — check badges/ in the repo.');
+      return url;
+    });
+  }
+
+  function renderBadgeEditor(force) {
+    const root = document.getElementById('userBadgeEditor');
+    if (!root || !userHistoryUsername) return;
+    const key = userHistoryUsername.toLowerCase();
+    const badge = liveBadges[key] || null;
+    const signature = key + '|' + JSON.stringify(badge);
+    if (!force && signature === badgeEditorSignature) return;
+    badgeEditorSignature = signature;
+    const url = badge && safeBadgeUrl(badge.url);
+    root.innerHTML =
+      '<div class="badge-editor-title">Name badge</div>' +
+      '<div class="badge-editor-preview">' + (url
+        ? '<img src="' + escapeAttr(url) + '" alt=""><span>' + escapeAttr(badge.label || 'badge') + '</span>'
+        : 'No badge') + '</div>' +
+      '<input type="file" id="badgeFileInput" accept="image/png,image/jpeg,image/webp,image/gif">' +
+      '<input type="text" id="badgeLabelInput" maxlength="24" placeholder="Hover text, e.g. VIP" value="' + escapeAttr((badge && badge.label) || '') + '">' +
+      '<button type="button" class="btn btn-primary" id="badgeSaveBtn">' + (url ? 'Update badge' : 'Add badge') + '</button>' +
+      (url ? '<button type="button" class="btn-link" id="badgeRemoveBtn">Remove</button>' : '') +
+      '<div class="badge-editor-status" id="badgeStatus"></div>';
+    const status = document.getElementById('badgeStatus');
+    const saveBtn = document.getElementById('badgeSaveBtn');
+    saveBtn.addEventListener('click', function () {
+      const file = document.getElementById('badgeFileInput').files[0];
+      const label = document.getElementById('badgeLabelInput').value.trim().slice(0, 24);
+      if (!file && !url) {
+        status.textContent = 'Pick an image first.';
+        return;
+      }
+      saveBtn.disabled = true;
+      status.textContent = file ? 'Uploading…' : 'Saving…';
+      const work = file ? uploadBadge(file, key) : Promise.resolve(url);
+      work.then(function (newUrl) {
+        const badges = {};
+        badges[key] = { url: newUrl, label: label || 'badge' };
+        return CHAT_CENSORED_WORDS_REF.set({ badges: badges }, { merge: true });
+      }).then(function () {
+        status.textContent = 'Saved. It shows up in chat and on profiles right away.';
+      }).catch(function (err) {
+        status.textContent = 'Failed: ' + err.message;
+      }).finally(function () {
+        saveBtn.disabled = false;
+      });
+    });
+    const removeBtn = document.getElementById('badgeRemoveBtn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', function () {
+        if (!confirm('Remove ' + userHistoryUsername + '’s badge?')) return;
+        removeBtn.disabled = true;
+        CHAT_CENSORED_WORDS_REF.update(new firebase.firestore.FieldPath('badges', key), firebase.firestore.FieldValue.delete())
+          .catch(function (err) {
+            removeBtn.disabled = false;
+            status.textContent = 'Failed: ' + err.message;
+          });
+      });
+    }
+  }
+
   function openUserHistory(username) {
     userHistoryUsername = username;
+    badgeEditorSignature = null;
     document.getElementById('userHistoryOverlay').hidden = false;
     loadIpForUsername(username);
     renderUserHistory();
@@ -3229,6 +3397,7 @@
     const banned = isBanRowActive(ban);
 
     document.getElementById('userHistoryTitle').textContent = username;
+    renderBadgeEditor(false);
     document.getElementById('userHistoryMeta').innerHTML = userProfileHtml(userDoc) +
       'IP hash on record: ' + escapeAttr(identity.ipHash ? (identity.ipHash.slice(0, 12) + '…') : 'none / expired') + ' (reference only, not enforced — hashed, expires 90 days after signup)<br>' +
       'Device on record: ' + (identity.deviceId ? 'yes' : 'no — a ban here can only delete their messages, not block them') + '<br>' +
@@ -3681,6 +3850,8 @@
       const data = doc.exists ? doc.data() : null;
       liveCensorWords = (data && Array.isArray(data.words)) ? data.words : [];
       liveAdmins = (data && Array.isArray(data.admins)) ? data.admins.map(function (n) { return String(n).toLowerCase(); }) : [];
+      liveBadges = (data && data.badges && typeof data.badges === 'object') ? data.badges : {};
+      renderBadgeEditor(false);
       renderCensorWordsList();
       renderAdminsList();
     }, function (err) {
