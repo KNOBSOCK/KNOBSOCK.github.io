@@ -891,15 +891,23 @@
         const firstPage = historyMsgs.length === kept.length && historyReads === docs.length;
         renderCombined(!firstPage);
         if (firstPage) container.scrollTop = container.scrollHeight;
+        maybeLoadOlderMessages();
       }).catch((err) => {
         if (generation === historyGeneration) historyLoading = false;
         console.error(err);
       });
     }
 
-    container.addEventListener('scroll', () => {
-      if (container.scrollTop < 60) loadOlderMessages();
+    function maybeLoadOlderMessages() {
+      if (historyLoading || historyDone) return;
+      if (container.scrollTop < 60 || container.scrollHeight <= container.clientHeight + 60) loadOlderMessages();
+    }
+
+    container.addEventListener('scroll', maybeLoadOlderMessages, { passive: true });
+    container.addEventListener('wheel', (event) => {
+      if (event.deltaY < 0) maybeLoadOlderMessages();
     }, { passive: true });
+    container.addEventListener('touchmove', maybeLoadOlderMessages, { passive: true });
 
     function subscribeToMessages() {
       if (unsubscribeMessages) unsubscribeMessages();

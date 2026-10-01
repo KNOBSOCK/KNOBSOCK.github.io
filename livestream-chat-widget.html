@@ -2052,23 +2052,6 @@
     letter-spacing: 0.02em;
     font-size: clamp(10px, 2.4cqw, 12px);
   }
-  .history-more {
-    -webkit-appearance: none;
-    appearance: none;
-    padding: 4px 10px;
-    border: 0;
-    border-radius: 999px;
-    background: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    font: inherit;
-    text-decoration: underline;
-  }
-  .history-more:hover,
-  .history-more:focus-visible {
-    outline: none;
-    color: var(--text);
-  }
 
   .streak-bar-wrap {
     flex: none;
@@ -4491,6 +4474,17 @@
   const devicesRef = db.collection('chat_devices');
 
   const ipLogRef = db.collection('chat_ip_log');
+
+  const gamesFirebaseConfig = {
+    apiKey: "AIzaSyDcvMimitPTnqPgL304yQ9Qwnhey_PrmDg",
+    authDomain: "games-6a3a7.firebaseapp.com",
+    projectId: "games-6a3a7",
+    storageBucket: "games-6a3a7.firebasestorage.app",
+    messagingSenderId: "425558749331",
+    appId: "1:425558749331:web:7905c8f24eeb518da95d66"
+  };
+  const gamesDb = firebase.initializeApp(gamesFirebaseConfig, 'games').firestore();
+  const fightLiveRef = gamesDb.collection('fight_live');
   const supabaseClient = window.supabase.createClient(
     'https://ypofuhazhxtzvtywguew.supabase.co',
     'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO',
@@ -7239,14 +7233,16 @@
     fight.liveScores[session.username] = score;
     fight.lastLiveScore = score;
     fight.lastLiveScoreAt = now;
-    emitFightEvent('fight_live', {
+    fightLiveRef.add({
       fightId: fight.id,
       challenger: fight.challenger,
       opponent: fight.opponent,
       player: session.username,
       score: score,
       startsAt: fight.startsAt,
-      endsAt: fight.endsAt
+      endsAt: fight.endsAt,
+      ts: Date.now(),
+      deviceId: CLIENT_ID
     }).catch(() => {
       // A brief offline hiccup should retry at the next ticker pass rather
       // than permanently freezing the public tug state.
@@ -7689,6 +7685,24 @@
       setFightRejectCooldown(message.opponent, until);
     }
     if (currentFight && currentFight.id === message.fightId) clearCurrentFight(message.fightId);
+  }
+
+  const FIGHT_LIVE_LOOKBACK_MS = FIGHT_DURATION_MS + FIGHT_RESULT_HOLD_MS + 5000;
+  const FIGHT_LIVE_LISTEN_LIMIT = 6;
+
+  function subscribeToFightLive() {
+    const since = Date.now() - FIGHT_LIVE_LOOKBACK_MS;
+    return fightLiveRef.where('ts', '>=', since).orderBy('ts', 'asc').limitToLast(FIGHT_LIVE_LISTEN_LIMIT).onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type !== 'added') return;
+          const message = Object.assign({ type: 'fight_live' }, change.doc.data());
+          if (Date.now() - (Number(message.ts) || 0) > FIGHT_LIVE_LOOKBACK_MS) return;
+          applyFightLiveScore(message);
+        });
+      },
+      (err) => console.error('Fight live scores unavailable:', err)
+    );
   }
 
   function handleFightMessage(message) {
@@ -8409,14 +8423,11 @@
        A stationary tap on that same surface is treated as a player tap, so
        portrait controls can be revealed from anywhere over the video. */
     const messagesEl = $('messages');
-    messagesEl.addEventListener('scroll', () => {
-      if (messagesEl.scrollTop < 60) loadOlderMessages();
+    messagesEl.addEventListener('scroll', maybeLoadOlderMessages, { passive: true });
+    messagesEl.addEventListener('wheel', (event) => {
+      if (event.deltaY < 0) maybeLoadOlderMessages();
     }, { passive: true });
-    messagesEl.addEventListener('click', (event) => {
-      if (!(event.target && event.target.closest('[data-history-more]'))) return;
-      event.stopPropagation();
-      loadOlderMessages();
-    });
+    messagesEl.addEventListener('touchmove', maybeLoadOlderMessages, { passive: true });
     let messageTouchStart = null;
     let ignoreMessageClickUntil = 0;
     function isMessageInteractive(target) {
@@ -8693,16 +8704,24 @@
     const after = $('messages');
     if (!hadMessages || !after) {
       renderMessages(messageCache, { toBottom: true });
+      if (fetched.length) maybeLoadOlderMessages();
       return;
     }
     renderMessages(messageCache, { keepScroll: true });
     after.scrollTop = after.scrollHeight - prevHeight + prevTop;
+    maybeLoadOlderMessages();
+  }
+
+  function maybeLoadOlderMessages() {
+    if (historyLoading || historyExhausted || historyCapped || !session) return;
+    const container = $('messages');
+    if (!container) return;
+    if (container.scrollTop < 60 || container.scrollHeight <= container.clientHeight + 60) loadOlderMessages();
   }
 
   function historyHeaderHtml() {
     if (historyLoading) return '<div class="history-status">Loading earlier messages…</div>';
-    if (historyExhausted || historyCapped) return '';
-    return '<div class="history-status"><button type="button" class="history-more" data-history-more>Load earlier messages</button></div>';
+    return '';
   }
 
   function messageCursor() {
@@ -8866,7 +8885,8 @@
     // visit this is the same transcript the user just had, not an empty chat.
     renderMessages(messageCache);
 
-    unsubscribeMessages = query
+    const stopFightLive = subscribeToFightLive();
+    const stopChat = query
       .onSnapshot(
         (snapshot) => {
           const incoming = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
@@ -8885,6 +8905,10 @@
           }
         }
       );
+    unsubscribeMessages = () => {
+      stopChat();
+      stopFightLive();
+    };
   }
 
   function startChat() {
@@ -8896,6 +8920,7 @@
     renderChatShell();
     subscribeToMessages();
     if (!messageCache.length && !historyExhausted) loadOlderMessages();
+    else maybeLoadOlderMessages();
     if (canAutoFocusInput()) $('msgInput').focus();
   }
 

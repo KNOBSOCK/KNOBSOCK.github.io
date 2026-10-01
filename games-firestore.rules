@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /fight_live/{packetId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['fightId', 'challenger', 'opponent', 'player', 'score', 'startsAt', 'endsAt', 'ts', 'deviceId'])
+        && request.resource.data.keys().hasAll(['fightId', 'challenger', 'opponent', 'player', 'score', 'startsAt', 'endsAt', 'ts', 'deviceId'])
+        && request.resource.data.fightId is string && request.resource.data.fightId.size() > 0 && request.resource.data.fightId.size() <= 100
+        && request.resource.data.challenger is string && request.resource.data.challenger.size() > 0 && request.resource.data.challenger.size() <= 40
+        && request.resource.data.opponent is string && request.resource.data.opponent.size() > 0 && request.resource.data.opponent.size() <= 40
+        && (request.resource.data.player == request.resource.data.challenger || request.resource.data.player == request.resource.data.opponent)
+        && request.resource.data.score is int && request.resource.data.score >= 0 && request.resource.data.score <= 5000
+        && request.resource.data.startsAt is number && request.resource.data.endsAt is number
+        && request.resource.data.endsAt > request.resource.data.startsAt
+        && request.resource.data.ts is int
+        && request.resource.data.ts > request.time.toMillis() - 600000
+        && request.resource.data.ts < request.time.toMillis() + 600000
+        && request.resource.data.deviceId is string && request.resource.data.deviceId.size() > 0 && request.resource.data.deviceId.size() <= 100;
+      allow update, delete: if false;
+    }
+  }
+}
