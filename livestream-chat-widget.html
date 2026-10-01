@@ -6217,6 +6217,12 @@
     profileCache[key] = { data: data || {}, at: Date.now() };
   }
 
+  function bumpCachedProfileStat(username, field) {
+    const hit = username && profileCache[String(username).toLowerCase()];
+    if (!hit) return;
+    hit.data = Object.assign({}, hit.data, { [field]: Math.max(0, Number(hit.data[field]) || 0) + 1 });
+  }
+
   function fetchProfileDoc(username) {
     const key = String(username).toLowerCase();
     const mine = session && key === session.username.toLowerCase();
@@ -7444,7 +7450,7 @@
     if (!isFailover) {
       const saveHighScore = devicesRef.doc(CLIENT_ID).set({ fightWins: winnerWins }, { merge: true });
       if (session) {
-        usernamesRef.doc(session.username.toLowerCase()).set({ fightWins: winnerWins }, { merge: true })
+        usernamesRef.doc(session.username.toLowerCase()).set({ fightWins: firebase.firestore.FieldValue.increment(1) }, { merge: true })
           .catch((e) => console.error('Could not save knockouts to account:', e));
       }
       saveHighScore.then(() => {
@@ -7642,8 +7648,19 @@
       .catch((e) => console.error('Could not save fight loss:', e));
   }
 
+  const countedFightResults = new Set();
+
+  function countFightResultLocally(message) {
+    if (message.type !== 'fight_result' || countedFightResults.has(message.fightId)) return;
+    if (Date.now() - (Number(message.ts) || 0) > FIGHT_LOSS_FRESH_MS) return;
+    countedFightResults.add(message.fightId);
+    if (message.winnerWins != null) bumpCachedProfileStat(message.winner, 'fightWins');
+    bumpCachedProfileStat(message.loser, 'fightLosses');
+  }
+
   function applyFightResult(message) {
     if (!message || !message.fightId) return;
+    countFightResultLocally(message);
     if (currentFight && currentFight.id === message.fightId) recordFightLoss(message);
     if (!currentFight || currentFight.id !== message.fightId) {
       currentFight = {

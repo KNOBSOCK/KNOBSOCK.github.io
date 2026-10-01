@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNOBSOCK Fight Overlay</title>
+<style>
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
+
+  :root {
+    --ink: #0b0b0f;
+    --red-hi: #ff4a3d;
+    --red: #ed3333;
+    --red-deep: #7d1111;
+    --gold-hi: #fff15a;
+    --gold: #f3ca18;
+    --gold-deep: #a86a00;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Gratis Neue', Tahoma, Arial, sans-serif;
+  }
+
+  .stage {
+    position: relative;
+    width: min(94vw, 235vh);
+    aspect-ratio: 1000 / 400;
+    container-type: inline-size;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .stage.is-in {
+    visibility: visible;
+    animation: stageIn 0.6s cubic-bezier(.2, 1.5, .4, 1) both;
+  }
+  .stage.is-out {
+    animation: stageOut 0.45s ease-in both;
+  }
+  @keyframes stageIn {
+    from { opacity: 0; transform: translateY(-35%) scale(0.55); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes stageOut {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(-25%) scale(0.8); }
+  }
+
+  .timer {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 1.2cqw;
+    height: 8.4cqw;
+    padding: 0 3cqw 0 1.6cqw;
+    transform: translateX(-50%);
+    border: 0.55cqw solid #fff;
+    border-radius: 999px;
+    background: var(--ink);
+    box-shadow: 0 0.7cqw 0 rgba(0, 0, 0, .55), 0 1.4cqw 2.8cqw rgba(0, 0, 0, .45);
+    color: #fff;
+    font-size: 4.6cqw;
+    letter-spacing: .06em;
+    white-space: nowrap;
+  }
+  .timer img {
+    width: 6.6cqw;
+    height: auto;
+  }
+  .stage.is-urgent .timer {
+    animation: urgent 0.5s ease-in-out infinite alternate;
+  }
+  @keyframes urgent {
+    from { background: var(--ink); }
+    to { background: var(--red-deep); transform: translateX(-50%) scale(1.07); }
+  }
+
+  .corner {
+    position: absolute;
+    top: 11cqw;
+    z-index: 1;
+    width: 37cqw;
+    height: 21cqw;
+  }
+  .corner-left { left: 3cqw; }
+  .corner-right { right: 3cqw; }
+
+  .corner-plate {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0.6cqw solid var(--ink);
+    border-radius: 1.4cqw;
+    box-shadow: 0 1cqw 0 var(--ink), 0 2.2cqw 3.4cqw rgba(0, 0, 0, .5);
+    transition: filter .5s ease, transform .5s ease;
+  }
+  .corner-left .corner-plate {
+    transform: skewX(-9deg);
+    background: linear-gradient(170deg, var(--red-hi), var(--red) 45%, var(--red-deep));
+  }
+  .corner-right .corner-plate {
+    transform: skewX(9deg);
+    background: linear-gradient(190deg, var(--gold-hi), var(--gold) 45%, var(--gold-deep));
+  }
+
+  .corner-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 0 3cqw;
+  }
+  .corner-left .corner-inner { transform: skewX(9deg); }
+  .corner-right .corner-inner { transform: skewX(-9deg); }
+
+  .corner-name {
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0.5cqw 1.4cqw;
+    border-radius: 0.8cqw;
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    font-size: 3.4cqw;
+    letter-spacing: .03em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .corner-score {
+    margin-top: 0.4cqw;
+    color: #fff;
+    font-size: 11cqw;
+    line-height: 1;
+    -webkit-text-stroke: 0.55cqw var(--ink);
+    paint-order: stroke fill;
+    text-shadow: 0 0.6cqw 0 var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-pop {
+    position: absolute;
+    top: -1cqw;
+    z-index: 5;
+    color: #fff;
+    font-size: 5cqw;
+    -webkit-text-stroke: 0.45cqw var(--ink);
+    paint-order: stroke fill;
+    opacity: 0;
+  }
+  .corner-left .score-pop { right: 4cqw; }
+  .corner-right .score-pop { left: 4cqw; }
+  .score-pop.is-on {
+    animation: scorePop 0.8s ease-out both;
+  }
+  @keyframes scorePop {
+    0% { opacity: 0; transform: translateY(2cqw) scale(.6); }
+    25% { opacity: 1; transform: translateY(0) scale(1.15); }
+    100% { opacity: 0; transform: translateY(-4cqw) scale(1); }
+  }
+
+  .corner.is-hit {
+    animation: hit 0.28s ease-out;
+  }
+  @keyframes hit {
+    0% { transform: none; }
+    25% { transform: translate(var(--hit-x), -0.4cqw) rotate(var(--hit-r)); }
+    60% { transform: translate(calc(var(--hit-x) * -0.4), 0.2cqw); }
+    100% { transform: none; }
+  }
+  .corner-left { --hit-x: -1.4cqw; --hit-r: -2deg; }
+  .corner-right { --hit-x: 1.4cqw; --hit-r: 2deg; }
+
+  .corner.is-winner .corner-plate {
+    filter: drop-shadow(0 0 2.4cqw rgba(255, 255, 255, .75));
+  }
+  .corner.is-winner {
+    animation: winner 0.6s cubic-bezier(.2, 1.6, .4, 1) both;
+  }
+  @keyframes winner {
+    from { transform: none; }
+    to { transform: scale(1.08); }
+  }
+  .corner.is-loser .corner-plate {
+    filter: grayscale(.85) brightness(.6);
+  }
+  .corner.is-loser {
+    animation: loser 0.7s ease-out both;
+  }
+  .corner-left.is-loser { --fall-r: -7deg; }
+  .corner-right.is-loser { --fall-r: 7deg; }
+  @keyframes loser {
+    from { transform: none; }
+    to { transform: translateY(2.4cqw) rotate(var(--fall-r)); }
+  }
+  .stage.is-draw .corner-plate {
+    filter: brightness(.82);
+  }
+
+  .vs {
+    position: absolute;
+    left: 50%;
+    top: 14.2cqw;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 13cqw;
+    height: 13cqw;
+    transform: translateX(-50%) rotate(-8deg);
+    border: 0.6cqw solid #fff;
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 0.8cqw 0 rgba(0, 0, 0, .6), 0 1.6cqw 3cqw rgba(0, 0, 0, .5);
+    color: #fff;
+    font-size: 5.4cqw;
+    letter-spacing: .02em;
+  }
+
+  .fist {
+    position: absolute;
+    top: 14.5cqw;
+    z-index: 3;
+    width: 15cqw;
+    height: auto;
+    opacity: 0;
+    filter: drop-shadow(0 1cqw 1.2cqw rgba(0, 0, 0, .55));
+    transition: opacity .22s ease;
+  }
+  .fist-left { left: 32cqw; --dir: 1; }
+  .fist-right { right: 32cqw; --dir: -1; }
+  .fist.is-active { opacity: 1; }
+  .fist { transform: scaleX(var(--dir)) rotate(-8deg); }
+  .fist.is-jab {
+    animation: jab 0.24s ease-out;
+  }
+  @keyframes jab {
+    0% { transform: translateX(calc(var(--dir) * -3cqw)) scaleX(var(--dir)) scale(.72) rotate(-14deg); }
+    45% { transform: translateX(calc(var(--dir) * 5cqw)) scaleX(var(--dir)) scale(1.28) rotate(4deg); }
+    100% { transform: scaleX(var(--dir)) rotate(-8deg); }
+  }
+  .fist.is-victory {
+    opacity: 1;
+    animation: victory 0.9s cubic-bezier(.2, 1.4, .4, 1) both;
+  }
+  @keyframes victory {
+    from { transform: scaleX(var(--dir)) scale(.6) rotate(-8deg); }
+    to { transform: translateY(-3cqw) scaleX(var(--dir)) scale(1.15) rotate(calc(var(--dir) * -18deg)); }
+  }
+
+  .banner {
+    position: absolute;
+    left: 50%;
+    top: 9cqw;
+    z-index: 6;
+    color: var(--gold-hi);
+    font-size: 15cqw;
+    line-height: 1;
+    white-space: nowrap;
+    -webkit-text-stroke: 0.8cqw var(--ink);
+    paint-order: stroke fill;
+    text-shadow: 0 1cqw 0 var(--ink), 0 0 4cqw rgba(255, 210, 60, .55);
+    opacity: 0;
+    transform: translateX(-50%) rotate(-6deg) scale(.3);
+  }
+  .banner.is-on {
+    animation: bannerIn 0.55s cubic-bezier(.2, 1.7, .4, 1) both;
+  }
+  @keyframes bannerIn {
+    from { opacity: 0; transform: translateX(-50%) rotate(-6deg) scale(.3); }
+    to { opacity: 1; transform: translateX(-50%) rotate(-6deg) scale(1); }
+  }
+
+  .caption {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    z-index: 6;
+    max-width: 92cqw;
+    overflow: hidden;
+    padding: 1cqw 3cqw;
+    transform: translateX(-50%);
+    border: 0.45cqw solid #fff;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 3.4cqw;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0;
+  }
+  .caption.is-on {
+    animation: captionIn 0.45s 0.25s ease-out both;
+  }
+  @keyframes captionIn {
+    from { opacity: 0; transform: translate(-50%, 2cqw); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" aria-hidden="true">
+  <div class="timer"><img src="/fight-gloves.png" alt=""><span id="timerText">FIGHT!</span></div>
+  <div class="corner corner-left" id="cornerLeft">
+    <div class="corner-plate">
+      <div class="corner-inner">
+        <div class="corner-name" id="nameLeft"></div>
+        <div class="corner-score" id="scoreLeft">0</div>
+      </div>
+    </div>
+    <div class="score-pop" id="popLeft"></div>
+  </div>
+  <div class="vs">VS</div>
+  <div class="corner corner-right" id="cornerRight">
+    <div class="corner-plate">
+      <div class="corner-inner">
+        <div class="corner-name" id="nameRight"></div>
+        <div class="corner-score" id="scoreRight">0</div>
+      </div>
+    </div>
+    <div class="score-pop" id="popRight"></div>
+  </div>
+  <img class="fist fist-left" id="fistLeft" src="/fight-punch.png" alt="">
+  <img class="fist fist-right" id="fistRight" src="/fight-punch.png" alt="">
+  <div class="banner" id="banner"></div>
+  <div class="caption" id="caption"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const DEMO = params.has('demo');
+  const FIGHT_DURATION_MS = 30000;
+  const RESULT_WAIT_MS = 6000;
+  const RESULT_HOLD_MS = 7000;
+  const LOOKBACK_MS = FIGHT_DURATION_MS + RESULT_HOLD_MS + 5000;
+  const FIST_IDLE_MS = 900;
+  const JAB_GAP_MS = 230;
+
+  function byId(id) { return document.getElementById(id); }
+
+  const stage = byId('stage');
+  const timerText = byId('timerText');
+  const banner = byId('banner');
+  const caption = byId('caption');
+  const sides = {
+    left: { corner: byId('cornerLeft'), name: byId('nameLeft'), score: byId('scoreLeft'), pop: byId('popLeft'), fist: byId('fistLeft'), displayed: 0, raf: 0, idle: null, jabs: [] },
+    right: { corner: byId('cornerRight'), name: byId('nameRight'), score: byId('scoreRight'), pop: byId('popRight'), fist: byId('fistRight'), displayed: 0, raf: 0, idle: null, jabs: [] }
+  };
+
+  let fight = null;
+  let hideTimer = null;
+  const finishedIds = new Set();
+
+  function restartClass(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  function sideOf(player) {
+    if (!fight) return null;
+    if (player === fight.challenger) return 'left';
+    if (player === fight.opponent) return 'right';
+    return null;
+  }
+
+  function playerOf(side) {
+    return side === 'left' ? fight.challenger : fight.opponent;
+  }
+
+  function resetSide(side) {
+    const s = sides[side];
+    cancelAnimationFrame(s.raf);
+    clearTimeout(s.idle);
+    s.jabs.forEach(clearTimeout);
+    s.jabs = [];
+    s.displayed = 0;
+    s.score.textContent = '0';
+    s.corner.classList.remove('is-winner', 'is-loser', 'is-hit');
+    s.fist.classList.remove('is-active', 'is-jab', 'is-victory');
+    s.pop.classList.remove('is-on');
+  }
+
+  function startFight(packet) {
+    clearTimeout(hideTimer);
+    const now = Date.now();
+    const startsAt = Number(packet.startsAt) || now;
+    const endsAt = Number(packet.endsAt) || now + FIGHT_DURATION_MS;
+    fight = {
+      id: packet.fightId,
+      challenger: String(packet.challenger),
+      opponent: String(packet.opponent),
+      startsAt: startsAt,
+      endsAt: endsAt,
+      flashUntil: Math.max(startsAt, now) + 1100,
+      scores: {},
+      result: null
+    };
+    sides.left.name.textContent = fight.challenger;
+    sides.right.name.textContent = fight.opponent;
+    fitNames();
+    resetSide('left');
+    resetSide('right');
+    banner.className = 'banner';
+    banner.textContent = '';
+    caption.className = 'caption';
+    caption.textContent = '';
+    caption.style.fontSize = '';
+    timerText.textContent = 'FIGHT!';
+    stage.classList.remove('is-out', 'is-result', 'is-draw', 'is-urgent');
+    restartClass(stage, 'is-in');
+  }
+
+  function fitName(el) {
+    el.style.fontSize = '';
+    const overflow = el.scrollWidth / Math.max(1, el.clientWidth);
+    if (overflow > 1) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) / overflow * 0.94) + 'px';
+  }
+
+  function fitNames() {
+    fitName(sides.left.name);
+    fitName(sides.right.name);
+  }
+
+  window.addEventListener('resize', fitNames);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNames);
+
+  function tweenScore(side, target) {
+    const s = sides[side];
+    const from = s.displayed;
+    const startedAt = performance.now();
+    cancelAnimationFrame(s.raf);
+    const step = (now) => {
+      const t = Math.min(1, (now - startedAt) / 450);
+      s.displayed = Math.round(from + (target - from) * (1 - Math.pow(1 - t, 3)));
+      s.score.textContent = String(s.displayed);
+      if (t < 1) s.raf = requestAnimationFrame(step);
+    };
+    s.raf = requestAnimationFrame(step);
+  }
+
+  function jab(side) {
+    const s = sides[side];
+    const other = sides[side === 'left' ? 'right' : 'left'];
+    s.fist.classList.add('is-active');
+    restartClass(s.fist, 'is-jab');
+    restartClass(other.corner, 'is-hit');
+    clearTimeout(s.idle);
+    s.idle = setTimeout(() => s.fist.classList.remove('is-active'), FIST_IDLE_MS);
+  }
+
+  function punchFrom(side, delta) {
+    const s = sides[side];
+    const count = Math.max(1, Math.min(4, Math.ceil(delta / 3)));
+    s.jabs.forEach(clearTimeout);
+    s.jabs = [];
+    for (let i = 0; i < count; i += 1) {
+      s.jabs.push(setTimeout(() => { if (fight && !fight.result) jab(side); }, i * JAB_GAP_MS));
+    }
+    s.pop.textContent = '+' + delta;
+    restartClass(s.pop, 'is-on');
+  }
+
+  function setScore(player, score, punch) {
+    const side = sideOf(player);
+    if (!side || !Number.isFinite(score) || score < 0) return;
+    const value = Math.floor(score);
+    const previous = fight.scores[player] || 0;
+    if (value < previous) return;
+    fight.scores[player] = value;
+    if (value === previous) return;
+    tweenScore(side, value);
+    if (punch && !fight.result) punchFrom(side, value - previous);
+  }
+
+  function forceScore(side, score) {
+    const value = Math.floor(Number(score));
+    if (!Number.isFinite(value) || value < 0) return;
+    fight.scores[playerOf(side)] = value;
+    tweenScore(side, value);
+  }
+
+  function handlePacket(packet) {
+    if (!packet || !packet.fightId || !packet.challenger || !packet.opponent) return;
+    if (finishedIds.has(packet.fightId)) return;
+    const endsAt = Number(packet.endsAt);
+    if (!Number.isFinite(endsAt) || Date.now() > endsAt + RESULT_WAIT_MS) return;
+    if (!fight || fight.id !== packet.fightId) {
+      if (fight && !fight.result && Date.now() < fight.endsAt + RESULT_WAIT_MS) return;
+      startFight(packet);
+    }
+    setScore(packet.player, Number(packet.score), true);
+  }
+
+  function handleOutcome(message) {
+    if (!message || !fight || message.fightId !== fight.id) return;
+    if (message.type === 'fight_score') setScore(message.player, Number(message.score), true);
+    if (message.type === 'fight_result') {
+      showResult({ winner: message.winner, loser: message.loser, winnerScore: message.winnerScore, loserScore: message.loserScore });
+    }
+    if (message.type === 'fight_draw') showResult({ draw: true, score: message.score });
+  }
+
+  function showResult(result) {
+    if (!fight || fight.result) return;
+    fight.result = result;
+    finishedIds.add(fight.id);
+    ['left', 'right'].forEach((side) => {
+      const s = sides[side];
+      s.jabs.forEach(clearTimeout);
+      s.jabs = [];
+      clearTimeout(s.idle);
+      s.fist.classList.remove('is-active', 'is-jab');
+    });
+    stage.classList.remove('is-urgent');
+    if (result.draw) {
+      if (result.score != null) {
+        forceScore('left', result.score);
+        forceScore('right', result.score);
+      }
+      banner.textContent = 'DRAW!';
+      caption.textContent = fight.challenger + ' and ' + fight.opponent + ' fought to a draw';
+      timerText.textContent = 'DRAW';
+      stage.classList.add('is-draw');
+    } else {
+      const winSide = sideOf(result.winner);
+      const loseSide = sideOf(result.loser);
+      if (winSide && result.winnerScore != null) forceScore(winSide, result.winnerScore);
+      if (loseSide && result.loserScore != null) forceScore(loseSide, result.loserScore);
+      if (winSide) {
+        sides[winSide].corner.classList.add('is-winner');
+        restartClass(sides[winSide].fist, 'is-victory');
+      }
+      if (loseSide) sides[loseSide].corner.classList.add('is-loser');
+      banner.textContent = 'K.O.!';
+      caption.textContent = result.winner + ' knocked out ' + result.loser;
+      timerText.textContent = 'FINAL';
+    }
+    stage.classList.add('is-result');
+    fitName(caption);
+    restartClass(banner, 'is-on');
+    restartClass(caption, 'is-on');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hide, RESULT_HOLD_MS);
+  }
+
+  function fallbackResult() {
+    const a = fight.scores[fight.challenger] || 0;
+    const b = fight.scores[fight.opponent] || 0;
+    if (a === b) {
+      showResult({ draw: true, score: a });
+      return;
+    }
+    const challengerWon = a > b;
+    showResult({
+      winner: challengerWon ? fight.challenger : fight.opponent,
+      loser: challengerWon ? fight.opponent : fight.challenger,
+      winnerScore: Math.max(a, b),
+      loserScore: Math.min(a, b)
+    });
+  }
+
+  function hide() {
+    restartClass(stage, 'is-out');
+    hideTimer = setTimeout(() => {
+      stage.classList.remove('is-in', 'is-out', 'is-result', 'is-draw', 'is-urgent');
+      fight = null;
+    }, 500);
+  }
+
+  function tick() {
+    if (!fight || fight.result) return;
+    const now = Date.now();
+    if (now < fight.startsAt) {
+      timerText.textContent = String(Math.ceil((fight.startsAt - now) / 1000));
+    } else if (now < fight.flashUntil) {
+      timerText.textContent = 'FIGHT!';
+    } else if (now < fight.endsAt) {
+      const remaining = Math.ceil((fight.endsAt - now) / 1000);
+      timerText.textContent = '0:' + String(remaining).padStart(2, '0');
+      stage.classList.toggle('is-urgent', remaining <= 5);
+    } else {
+      timerText.textContent = 'TIME!';
+      stage.classList.remove('is-urgent');
+      if (now > fight.endsAt + RESULT_WAIT_MS) fallbackResult();
+    }
+  }
+
+  setInterval(tick, 100);
+
+  function runDemo() {
+    const names = [params.get('a') || 'bruhguy324', params.get('b') || 'bobbywyckoff'];
+    const fightId = 'demo_' + Date.now().toString(36);
+    const startsAt = Date.now();
+    const endsAt = startsAt + FIGHT_DURATION_MS;
+    const scores = [0, 0];
+    const send = (i) => handlePacket({
+      fightId: fightId,
+      challenger: names[0],
+      opponent: names[1],
+      player: names[i],
+      score: scores[i],
+      startsAt: startsAt,
+      endsAt: endsAt,
+      ts: Date.now()
+    });
+    send(0);
+    send(1);
+    const loops = [0, 1].map((i) => setInterval(() => {
+      if (Date.now() >= endsAt) return;
+      if (Math.random() < 0.85) {
+        scores[i] += 1 + Math.floor(Math.random() * 8);
+        send(i);
+      }
+    }, 1000 + i * 90));
+    setTimeout(() => {
+      loops.forEach(clearInterval);
+      if (scores[0] === scores[1]) {
+        handleOutcome({ type: 'fight_draw', fightId: fightId, score: scores[0] });
+      } else {
+        const w = scores[0] > scores[1] ? 0 : 1;
+        handleOutcome({ type: 'fight_result', fightId: fightId, winner: names[w], loser: names[1 - w], winnerScore: scores[w], loserScore: scores[1 - w] });
+      }
+      setTimeout(runDemo, RESULT_HOLD_MS + 4000);
+    }, FIGHT_DURATION_MS + 1200);
+  }
+
+  if (DEMO) {
+    runDemo();
+    return;
+  }
+
+  const chatDb = firebase.initializeApp({
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  }).firestore();
+  const gamesDb = firebase.initializeApp({
+    apiKey: "AIzaSyDcvMimitPTnqPgL304yQ9Qwnhey_PrmDg",
+    authDomain: "games-6a3a7.firebaseapp.com",
+    projectId: "games-6a3a7",
+    storageBucket: "games-6a3a7.firebasestorage.app",
+    messagingSenderId: "425558749331",
+    appId: "1:425558749331:web:7905c8f24eeb518da95d66"
+  }, 'games').firestore();
+
+  const since = Date.now() - LOOKBACK_MS;
+
+  gamesDb.collection('fight_live')
+    .where('ts', '>=', since)
+    .orderBy('ts', 'asc')
+    .limitToLast(6)
+    .onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') handlePacket(change.doc.data());
+      });
+    }, (err) => console.error('Fight packets unavailable:', err));
+
+  chatDb.collection('chat_messages')
+    .where('type', 'in', ['fight_score', 'fight_result', 'fight_draw'])
+    .where('ts', '>=', since)
+    .orderBy('ts', 'asc')
+    .limitToLast(6)
+    .onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') handleOutcome(change.doc.data());
+      });
+    }, (err) => console.error('Fight results unavailable, falling back to live scores:', err));
+})();
+</script>
+</body>
+</html>
