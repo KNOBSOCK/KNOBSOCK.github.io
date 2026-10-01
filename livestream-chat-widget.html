@@ -8608,8 +8608,10 @@
     });
   }
 
-  const MESSAGE_CACHE_KEY = 'chat_message_session_v1';
+  const MESSAGE_CACHE_KEY = 'chat_message_cache_v2';
   const MESSAGE_CACHE_LIMIT = 50;
+  const MESSAGE_PERSIST_LIMIT = 250;
+  const MESSAGE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
   const MESSAGE_MEMORY_LIMIT = 400;
   const HISTORY_PAGE_SIZE = 20;
   const HISTORY_MIN_VISIBLE = 8;
@@ -8642,17 +8644,23 @@
     historyReads = 0;
     historyOldestTs = null;
     try {
-      const saved = JSON.parse(sessionStorage.getItem(MESSAGE_CACHE_KEY) || 'null');
-      if (saved && saved.owner === username && typeof saved.startedAt === 'number' && Array.isArray(saved.messages)) {
+      const saved = JSON.parse(localStorage.getItem(MESSAGE_CACHE_KEY) || 'null');
+      const fresh = saved && typeof saved.savedAt === 'number' && Date.now() - saved.savedAt < MESSAGE_CACHE_TTL_MS;
+      if (saved && !fresh) localStorage.removeItem(MESSAGE_CACHE_KEY);
+      if (fresh && saved.owner === username && typeof saved.startedAt === 'number' && Array.isArray(saved.messages)) {
         messageSessionStartedAt = saved.startedAt;
         messageStreamCursor = Math.max(0, Number(saved.streamCursor) || 0);
         historyFetched = Math.max(0, Number(saved.historyFetched) || 0);
         historyReads = Math.max(0, Number(saved.historyReads) || 0);
+        historyExhausted = saved.historyExhausted === true;
         historyCapped = historyFetched >= HISTORY_MAX_TOTAL || historyReads >= HISTORY_MAX_READS;
         messageCache = saved.messages
           .filter((m) => m && typeof m.id === 'string' && typeof m.ts === 'number' && !deletedMessageIds.has(m.id))
           .sort((a, b) => a.ts - b.ts)
-          .slice(-MESSAGE_CACHE_LIMIT);
+          .slice(-MESSAGE_PERSIST_LIMIT);
+        const savedOldest = Number(saved.historyOldestTs);
+        const cachedOldest = messageCache.length ? messageCache[0].ts : null;
+        if (Number.isFinite(savedOldest) && cachedOldest != null) historyOldestTs = Math.max(savedOldest, cachedOldest);
       }
     } catch (e) {}
   }
@@ -8661,13 +8669,18 @@
     clearTimeout(messageCacheSaveTimer);
     messageCacheSaveTimer = setTimeout(() => {
       try {
-        sessionStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify({
+        const keep = messageCache.slice(-MESSAGE_PERSIST_LIMIT);
+        const trimmed = keep.length < messageCache.length;
+        localStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify({
           owner: messageSessionOwner,
+          savedAt: Date.now(),
           startedAt: messageSessionStartedAt,
           streamCursor: messageStreamCursor,
           historyFetched: historyFetched,
           historyReads: historyReads,
-          messages: messageCache.slice(-MESSAGE_CACHE_LIMIT)
+          historyExhausted: historyExhausted,
+          historyOldestTs: trimmed && keep.length ? keep[0].ts : historyOldestTs,
+          messages: keep
         }));
       } catch (e) {}
     }, 250);
@@ -8746,6 +8759,7 @@
     }
     historyLoading = false;
     if (fetched.length) mergeMessageCache(fetched);
+    else saveMessageCache();
     const after = $('messages');
     if (!hadMessages || !after) {
       renderMessages(messageCache, { toBottom: true });
