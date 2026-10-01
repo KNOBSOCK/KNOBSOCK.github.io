@@ -78,43 +78,6 @@
     text-shadow: inherit;
   }
   .msg .msg-name:hover { text-decoration: underline; }
-  .msg {
-    position: relative;
-    padding-right: 36px;
-  }
-  .msg-delete {
-    position: absolute;
-    top: 2px;
-    right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.35);
-    color: #fff;
-    cursor: pointer;
-    font: 700 16px/1 Tahoma, Arial, sans-serif;
-    opacity: 0.45;
-    transition: opacity .15s ease, background .15s ease, border-color .15s ease;
-  }
-  .msg:hover .msg-delete,
-  .msg-delete:focus-visible {
-    opacity: 1;
-  }
-  .msg-delete:hover,
-  .msg-delete:focus-visible {
-    outline: none;
-    border-color: #ff6b6b;
-    background: #c62828;
-  }
-  .msg-delete:disabled {
-    cursor: default;
-    opacity: 0.3;
-  }
   .msg .msg-name:focus-visible {
     outline: 2px solid #fff;
     outline-offset: 3px;
@@ -198,15 +161,9 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 10px;
     padding: 12px 16px 0;
-  }
-  #liveStatusLabel {
-    flex: 1 1 auto;
-    font-weight: 700;
-    font-size: 15px;
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   }
   #signOutBtn {
     background: none;
@@ -218,20 +175,6 @@
     padding: 4px 0;
   }
   #signOutBtn:hover { color: #fff; }
-
-  #liveVideoRow {
-    flex: 0 0 auto;
-    display: flex;
-    gap: 8px;
-    padding: 8px 16px 0;
-  }
-  #liveVideoStatus {
-    flex: 0 0 auto;
-    padding: 4px 16px 0;
-    font-size: 12px;
-    min-height: 16px;
-    color: #f5c9c9;
-  }
 
   .moderation-overlay {
     position: fixed;
@@ -306,7 +249,23 @@
     border-radius: 7px;
     background: rgba(0, 0, 0, 0.18);
   }
+  .moderation-log-body { flex: 1 1 auto; min-width: 0; }
+  .moderation-log-delete {
+    flex: none;
+    padding: 4px 10px;
+    border: 1px solid rgba(255, 180, 150, 0.45);
+    border-radius: 999px;
+    background: transparent;
+    color: #f5c9c9;
+    cursor: pointer;
+    font: 700 12px Tahoma, Arial, sans-serif;
+  }
+  .moderation-log-delete:hover { border-color: #ff6b6b; background: #c62828; color: #fff; }
+  .moderation-log-delete:disabled { cursor: default; opacity: 0.4; }
   .moderation-log {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     padding: 9px 10px;
     border-bottom: 1px solid rgba(255, 180, 150, 0.16);
     font-size: 13px;
@@ -376,15 +335,8 @@
 
 <div id="app" hidden>
   <div id="statusBar">
-    <div id="liveStatusLabel"></div>
-    <button type="button" class="btn" id="liveStatusToggleBtn">…</button>
     <button type="button" id="signOutBtn">Sign Out</button>
   </div>
-  <div id="liveVideoRow">
-    <input type="text" id="liveVideoUrlInput" placeholder="Paste the YouTube live link">
-    <button type="button" class="btn" id="saveLiveVideoBtn">Save</button>
-  </div>
-  <div id="liveVideoStatus"></div>
   <div id="viewerBar">
     <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
     <span id="viewerCount">0</span>&nbsp;watching
@@ -446,7 +398,6 @@
   const bansRef = db.collection('chat_bans');
   const configRef = db.collection('chat_config');
 
-  const CHAT_LIVE_VIDEO_REF = configRef.doc('liveVideo');
 
   const loginWrap = document.getElementById('loginWrap');
   const appEl = document.getElementById('app');
@@ -636,8 +587,11 @@
           ? 'tapped in'
           : String(message.text || '');
       return '<div class="moderation-log">' +
+        '<div class="moderation-log-body">' +
         '<span class="moderation-log-time">' + escapeHtml(historyTimeLabel(message.ts)) + '</span>' +
         '<strong>' + escapeHtml(username) + ':</strong> ' + renderMessageText(text) +
+        '</div>' +
+        '<button type="button" class="moderation-log-delete" data-delete-id="' + escapeHtml(message.id) + '">Delete</button>' +
         '</div>';
     }
 
@@ -678,6 +632,12 @@
       moderationHistoryList.innerHTML = page
         ? (page.messages.length ? page.messages.map(renderHistoryMessage).join('') : '<div class="moderation-empty">No chat messages found for this user.</div>')
         : '<div class="moderation-empty">Loading…</div>';
+
+      moderationHistoryList.querySelectorAll('.moderation-log-delete').forEach(function (button) {
+        button.addEventListener('click', function () {
+          deleteChatMessage(button.getAttribute('data-delete-id'), button);
+        });
+      });
 
       moderationPagination.hidden = !page;
       moderationPreviousBtn.hidden = !page || moderationPageIndex === 0;
@@ -854,14 +814,8 @@
         return '<div class="msg">' +
           '<button type="button" class="msg-name" data-message-id="' + escapeHtml(m.id) + '" style="color:' + color + '">' + escapeHtml(username) + ':</button> ' +
           '<span class="msg-text">' + renderMessageText(m.text) + '</span>' +
-          '<button type="button" class="msg-delete" data-delete-id="' + escapeHtml(m.id) + '" title="Delete for everyone" aria-label="Delete message from ' + escapeHtml(username) + '">&times;</button>' +
           '</div>';
       }).join('');
-      container.querySelectorAll('.msg-delete').forEach(function (button) {
-        button.addEventListener('click', function () {
-          deleteChatMessage(button.getAttribute('data-delete-id'), button);
-        });
-      });
       container.querySelectorAll('.msg-name').forEach(function (button) {
         button.addEventListener('click', function () {
           const message = messagesById.get(button.getAttribute('data-message-id'));
@@ -904,8 +858,27 @@
       });
     }
 
+    function findMessageById(id) {
+      if (messagesById.has(id)) return messagesById.get(id);
+      let found = null;
+      moderationHistoryCache.forEach(function (history) {
+        history.pages.forEach(function (page) {
+          page.messages.forEach(function (message) { if (message.id === id) found = message; });
+        });
+      });
+      return found;
+    }
+
+    function removeMessageFromHistory(id) {
+      moderationHistoryCache.forEach(function (history) {
+        history.pages.forEach(function (page) {
+          page.messages = page.messages.filter(function (message) { return message.id !== id; });
+        });
+      });
+    }
+
     function deleteChatMessage(id, button) {
-      const message = messagesById.get(id);
+      const message = findMessageById(id);
       if (!message) return;
       const preview = String(message.text || '').slice(0, 80);
       if (!confirm('Delete this message for everyone?\n\n' + (message.username || 'Unknown') + ': ' + preview)) return;
@@ -913,7 +886,9 @@
       messagesRef.doc(id).delete().then(function () {
         deletedIds = new Set(deletedIds);
         deletedIds.add(id);
+        removeMessageFromHistory(id);
         renderCombined(false);
+        renderModeration();
         return publishDeletedMessageId(id).catch(function (err) {
           console.error('Could not hide the deleted message in open chats:', err);
           alert('Deleted, but open chats may keep showing it until they reload: ' + err.message);
@@ -1071,68 +1046,6 @@
     setInterval(refreshActiveCount, COUNT_REFRESH_MS);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') refreshActiveCount();
-    });
-
-    function extractVideoId(input) {
-      if (!input) return null;
-      const trimmed = input.trim();
-      if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
-      const m = trimmed.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-      return m ? m[1] : null;
-    }
-
-    let currentLiveStatus = true;
-
-    function renderLiveStatusToggle() {
-      const label = document.getElementById('liveStatusLabel');
-      const btn = document.getElementById('liveStatusToggleBtn');
-      if (!label || !btn) return;
-      label.textContent = currentLiveStatus ? 'Status: Live' : 'Status: Offline';
-      label.style.color = currentLiveStatus ? '#fff' : '#f5c9c9';
-      btn.textContent = currentLiveStatus ? 'Go Offline' : 'Go Live';
-      btn.classList.toggle('btn-primary', !currentLiveStatus);
-    }
-
-    let liveVideoUrlPrefilled = false;
-
-    CHAT_LIVE_VIDEO_REF.onSnapshot((doc) => {
-      const data = doc.exists ? doc.data() : null;
-      currentLiveStatus = !(data && data.isLive === false);
-      renderLiveStatusToggle();
-
-      if (!liveVideoUrlPrefilled) {
-        liveVideoUrlPrefilled = true;
-        const input = document.getElementById('liveVideoUrlInput');
-        if (input && data && data.videoId) {
-          input.value = 'https://www.youtube.com/watch?v=' + data.videoId;
-        }
-      }
-    }, () => {});
-
-    document.getElementById('liveStatusToggleBtn').addEventListener('click', () => {
-      CHAT_LIVE_VIDEO_REF.set({ isLive: !currentLiveStatus }, { merge: true })
-        .catch((err) => alert('Failed to update live status: ' + err.message));
-    });
-
-    document.getElementById('saveLiveVideoBtn').addEventListener('click', () => {
-      const input = document.getElementById('liveVideoUrlInput');
-      const statusEl = document.getElementById('liveVideoStatus');
-      const id = extractVideoId(input.value);
-      if (!id) {
-        statusEl.textContent = "That doesn't look like a valid YouTube link.";
-        statusEl.style.color = '#ffb3b3';
-        return;
-      }
-      statusEl.textContent = 'Saving…';
-      statusEl.style.color = '#f5c9c9';
-      CHAT_LIVE_VIDEO_REF.set({ videoId: id }, { merge: true }).then(() => {
-        input.value = 'https://www.youtube.com/watch?v=' + id;
-        statusEl.textContent = 'Saved — takes effect for anyone who loads or refreshes live.html.';
-        statusEl.style.color = '#fff';
-      }).catch((err) => {
-        statusEl.textContent = 'Save failed: ' + err.message;
-        statusEl.style.color = '#ffb3b3';
-      });
     });
 
   }
