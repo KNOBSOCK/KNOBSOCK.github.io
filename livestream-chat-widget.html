@@ -2323,6 +2323,40 @@
     border-radius: clamp(10px, 2.5vw, 28px);
   }
   .composer input:focus { border-color: var(--interactive-hover); }
+  .composer textarea.msg-input {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: clamp(8px, 2.4cqmin, 11px) clamp(8px, 2.4cqmin, 12px);
+    overflow-y: hidden;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: clamp(10px, 2.5vw, 28px);
+    color: var(--text);
+    font-size: max(16px, 3.6cqw);
+    font-family: var(--font-body);
+    line-height: 1.3;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    resize: none;
+    outline: none;
+    vertical-align: bottom;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .composer textarea.msg-input:focus { border-color: var(--interactive-hover); }
+  .composer-input-wrap.is-multiline textarea.msg-input { border-radius: clamp(10px, 2.5vw, 16px); }
+  .composer-input-wrap.is-multiline .char-counter {
+    top: auto;
+    bottom: clamp(6px, 1.8cqmin, 9px);
+    transform: none;
+  }
+  .composer:has(.composer-input-wrap.is-multiline) > .emoji-picker-wrap,
+  .composer:has(.composer-input-wrap.is-multiline) > .voice-btn,
+  .composer:has(.composer-input-wrap.is-multiline) > .send-btn {
+    align-self: flex-end;
+  }
 
   .send-btn {
     -webkit-appearance: none;
@@ -2357,6 +2391,7 @@
     flex: 1;
     min-width: 0;
   }
+  .voice-btn { flex: none; align-self: center; }
   .voice-btn svg { width: 56%; height: 56%; }
   .voice-btn:disabled { opacity: 0.45; cursor: default; }
   .voice-btn.is-recording {
@@ -2473,7 +2508,9 @@
   }
   .voice-msg.is-expired .voice-track { opacity: 0.4; }
 
-  .composer-input-wrap input { padding-right: clamp(58px, 15cqmin, 72px); }
+  .composer-input-wrap input,
+  .composer-input-wrap textarea.msg-input { padding-right: clamp(58px, 15cqmin, 72px); }
+  .composer-input-wrap textarea.msg-input::placeholder,
   .composer-input-wrap input::placeholder {
     font-family: 'Gratis Neue', var(--font-body);
   }
@@ -2522,12 +2559,18 @@
     width: 60%;
     height: 60%;
   }
-  .emoji-picker-toggle:hover,
   .emoji-picker-toggle:active,
   .emoji-picker-toggle[aria-expanded="true"] {
     background: var(--interactive-hover);
     border-color: var(--interactive-hover);
     color: var(--interactive-hover-text);
+  }
+  @media (hover: hover) {
+    .emoji-picker-toggle:hover {
+      background: var(--interactive-hover);
+      border-color: var(--interactive-hover);
+      color: var(--interactive-hover-text);
+    }
   }
   .emoji-picker-popover {
     position: absolute;
@@ -2888,7 +2931,8 @@
     }
     .layout.mode-portrait .chat-lock-timer { text-align: left; padding: 2px 10px; }
     .layout.mode-portrait .composer { padding: 6px 10px 10px; align-items: center; }
-    .layout.mode-portrait .composer input { background: var(--portrait-input-bg); }
+    .layout.mode-portrait .composer input,
+    .layout.mode-portrait .composer textarea.msg-input { background: var(--portrait-input-bg); }
     /* A signed-out portrait viewer should see the video cleanly behind a
        centered gate, not a second dark panel over the stream. */
     .layout.mode-portrait .chat-screen.auth-screen { padding-top: 0; }
@@ -3036,10 +3080,23 @@
       right: -54px;
       width: min(250px, 88cqw);
     }
-    .layout.mode-portrait .composer-input-wrap input {
+    .layout.mode-portrait .composer-input-wrap input,
+    .layout.mode-portrait .composer-input-wrap textarea.msg-input {
       display: block;
       width: 100% !important;
       min-width: 0;
+    }
+    .layout.mode-portrait .composer:has(.voice-btn:not([hidden])) {
+      grid-template-columns: minmax(0, 1fr) 34px 34px 54px;
+    }
+    .layout.mode-portrait .voice-btn {
+      grid-column: 3;
+      grid-row: 1;
+      width: 32px;
+      height: 32px;
+    }
+    .layout.mode-portrait .composer:has(.voice-btn:not([hidden])) .portrait-send-stack {
+      grid-column: 4;
     }
     .layout.mode-portrait .portrait-send-stack {
       display: flex;
@@ -8753,7 +8810,32 @@
     setTimeout(() => revealReplyTarget(id), 350);
   }
 
+  const MSG_INPUT_MAX_LINES = 5;
+
+  function autosizeMessageInput() {
+    const input = $('msgInput');
+    if (!input || input.tagName !== 'TEXTAREA') return;
+    const wrap = input.closest('.composer-input-wrap');
+    const messages = $('messages');
+    const nearBottom = messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80;
+    const before = input.offsetHeight;
+    const style = getComputedStyle(input);
+    const lineHeight = parseFloat(style.lineHeight) || 21;
+    const chrome = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    const maxHeight = Math.ceil(lineHeight * MSG_INPUT_MAX_LINES + chrome);
+    input.style.height = 'auto';
+    const needed = input.scrollHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    const height = Math.min(needed, maxHeight);
+    input.style.height = height + 'px';
+    input.style.overflowY = needed > maxHeight ? 'auto' : 'hidden';
+    if (wrap) wrap.classList.toggle('is-multiline', height > lineHeight * 1.5 + chrome);
+    if (messages && nearBottom && input.offsetHeight !== before) messages.scrollTop = messages.scrollHeight;
+  }
+
+  window.addEventListener('resize', () => autosizeMessageInput());
+
   function updateCharCounter() {
+    autosizeMessageInput();
     const input = $('msgInput');
     const counter = $('charCounter');
     if (!input || !counter) return;
@@ -9180,7 +9262,7 @@
           </div>
           <div class="composer">
             <div class="composer-input-wrap">
-              <input type="text" id="msgInput" name="chatMessage" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}" />
+              <textarea id="msgInput" class="msg-input" name="chatMessage" rows="1" autocomplete="off" autocorrect="on" enterkeyhint="send" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" placeholder="Type a message…" maxlength="${MSG_INPUT_HARD_CAP}"></textarea>
               <span class="char-counter" id="charCounter">0/${MAX_MSG_LEN}</span>
               <div class="voice-recording" id="voiceRecording" hidden>
                 <span class="voice-rec-dot" aria-hidden="true"></span>
@@ -9234,9 +9316,20 @@
     updateReplyComposer();
     $('msgInput').addEventListener('keydown', (e) => {
       if (e.key === 'Escape') cancelReply();
-      if (e.key === 'Enter') sendMessage();
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        sendMessage();
+      }
     });
-    $('msgInput').addEventListener('input', updateCharCounter);
+    $('msgInput').addEventListener('input', () => {
+      const field = $('msgInput');
+      if (/[\r\n]/.test(field.value)) {
+        const caret = field.selectionStart;
+        field.value = field.value.replace(/[\r\n]+/g, ' ');
+        try { field.setSelectionRange(caret, caret); } catch (e) {}
+      }
+      updateCharCounter();
+    });
     $('emojiPickerToggle').addEventListener('click', function () {
       const popover = $('emojiPickerPopover');
       const isOpen = popover.classList.toggle('is-open');
