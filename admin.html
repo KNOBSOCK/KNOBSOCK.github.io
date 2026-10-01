@@ -2838,6 +2838,23 @@
     }, Promise.resolve());
   }
 
+  const DELETED_MESSAGE_ID_LIMIT = 300;
+
+  function publishDeletedMessageIds(ids) {
+    if (!ids.length) return Promise.resolve();
+    return db.runTransaction(function (tx) {
+      return tx.get(CHAT_CENSORED_WORDS_REF).then(function (doc) {
+        const data = doc.exists ? doc.data() : null;
+        const existing = data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds : [];
+        const fresh = new Set(ids);
+        const next = existing.filter(function (id) { return !fresh.has(id); }).concat(ids).slice(-DELETED_MESSAGE_ID_LIMIT);
+        tx.set(CHAT_CENSORED_WORDS_REF, { deletedMessageIds: next }, { merge: true });
+      });
+    }).catch(function (err) {
+      console.error('Could not hide deleted messages in open chats:', err);
+    });
+  }
+
   function purgeLegacyIpFields() {
     const targets = liveUsers.filter(function (u) { return u.lastIp || u.lastSeenAt; });
     if (!targets.length) {
@@ -2945,6 +2962,7 @@
         if (!confirm('Delete this message?')) return;
         const id = btn.getAttribute('data-id');
         CHAT_MESSAGES_REF.doc(id).delete().then(function () {
+          publishDeletedMessageIds([id]);
           if (!userHistoryPaging) return;
           userHistoryPaging.pages = userHistoryPaging.pages.map(function (page) {
             return page && page.filter(function (m) { return m.id !== id; });
@@ -3305,6 +3323,9 @@
       .then(function (snap) {
         return commitDeletesInBatches(snap.docs.map(function (doc) { return doc.ref; })).then(function () {
           const removed = new Set(snap.docs.map(function (doc) { return doc.id; }));
+          publishDeletedMessageIds(snap.docs.slice()
+            .sort(function (a, b) { return (Number(a.data().ts) || 0) - (Number(b.data().ts) || 0); })
+            .map(function (doc) { return doc.id; }));
           liveMessages = liveMessages.filter(function (m) { return !removed.has(m.id); });
           if (userHistoryPaging && userHistoryPaging.username === target.username.toLowerCase()) {
             userHistoryPaging.pages = [[]];

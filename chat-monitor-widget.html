@@ -454,7 +454,6 @@
   });
 
   function startMonitor() {
-    const MAX_VISIBLE = 50;
 
     const FETCH_LIMIT = 120;
     // This is a live monitor, not an archive.  Begin at authentication time
@@ -475,10 +474,13 @@
       return new RegExp('\\b' + pattern + '\\b', 'gi');
     }
     let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+    let deletedIds = new Set();
     configRef.doc('censoredWords').onSnapshot((doc) => {
       const data = doc.exists ? doc.data() : null;
       const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
       CENSOR_REGEXES = words.map(buildCensorRegex);
+      deletedIds = new Set(data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds.map(String) : []);
+      if (lastMsgs.some((m) => deletedIds.has(m.id))) renderCombined(false);
     }, () => {});
     function censorText(text) {
       let result = text;
@@ -829,22 +831,98 @@
     let clearedAt = 0;
     let subscribedClearedAt = null;
     let unsubscribeMessages = null;
+    let liveMsgs = [];
+    let historyMsgs = [];
+    let historyFetched = 0;
+    let historyReads = 0;
+    let historyOldestTs = MONITOR_STARTED_AT;
+    let historyLoading = false;
+    let historyDone = false;
+    let historyGeneration = 0;
+    const HISTORY_PAGE_SIZE = 20;
+    const HISTORY_MAX_TOTAL = 150;
+    const HISTORY_MAX_READS = 600;
+
+    function isShownMessage(m) {
+      return !!m && m.type !== 'join' && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
+    }
+
+    function renderCombined(keepScroll) {
+      const byId = new Map();
+      historyMsgs.concat(liveMsgs).forEach((m) => byId.set(m.id, m));
+      const msgs = Array.from(byId.values()).filter(isShownMessage).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      if (!keepScroll) {
+        render(msgs);
+        return;
+      }
+      const prevHeight = container.scrollHeight;
+      const prevTop = container.scrollTop;
+      render(msgs);
+      container.scrollTop = container.scrollHeight - prevHeight + prevTop;
+    }
+
+    function loadOlderMessages() {
+      if (historyLoading || historyDone) return;
+      const pageSize = Math.min(HISTORY_PAGE_SIZE, HISTORY_MAX_READS - historyReads);
+      if (pageSize <= 0 || historyFetched >= HISTORY_MAX_TOTAL) {
+        historyDone = true;
+        return;
+      }
+      historyLoading = true;
+      const generation = historyGeneration;
+      const oldest = historyOldestTs;
+      let query = messagesRef.orderBy('ts', 'desc').where('ts', '<', oldest);
+      if (clearedAt) query = query.where('ts', '>', clearedAt);
+      query.limit(pageSize).get().then((snapshot) => {
+        if (generation !== historyGeneration) return;
+        const docs = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
+        historyReads += docs.length;
+        const kept = [];
+        for (const doc of docs) {
+          if (historyFetched >= HISTORY_MAX_TOTAL) break;
+          if (doc.type === 'join' || (typeof doc.type === 'string' && doc.type.indexOf('fight_') === 0)) continue;
+          kept.push(doc);
+          historyFetched += 1;
+        }
+        if (docs.length) historyOldestTs = docs[docs.length - 1].ts;
+        historyMsgs = historyMsgs.concat(kept);
+        if (docs.length < pageSize || historyFetched >= HISTORY_MAX_TOTAL || historyReads >= HISTORY_MAX_READS) historyDone = true;
+        historyLoading = false;
+        const firstPage = historyMsgs.length === kept.length && historyReads === docs.length;
+        renderCombined(!firstPage);
+        if (firstPage) container.scrollTop = container.scrollHeight;
+      }).catch((err) => {
+        if (generation === historyGeneration) historyLoading = false;
+        console.error(err);
+      });
+    }
+
+    container.addEventListener('scroll', () => {
+      if (container.scrollTop < 60) loadOlderMessages();
+    }, { passive: true });
 
     function subscribeToMessages() {
       if (unsubscribeMessages) unsubscribeMessages();
       subscribedClearedAt = clearedAt;
+      historyGeneration += 1;
+      historyMsgs = [];
+      liveMsgs = [];
+      historyFetched = 0;
+      historyReads = 0;
+      historyOldestTs = MONITOR_STARTED_AT;
+      historyLoading = false;
+      historyDone = false;
       let query = messagesRef.orderBy('ts', 'asc');
       query = query.where('ts', '>=', Math.max(clearedAt || 0, MONITOR_STARTED_AT));
       unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
         (snapshot) => {
-          const msgs = snapshot.docs.map(doc => Object.assign({ id: doc.id }, doc.data()))
-            .filter(m => m.type !== 'join')
-            .slice(-MAX_VISIBLE);
-          render(msgs);
+          liveMsgs = snapshot.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
+          renderCombined(false);
         },
 
         (err) => console.error(err)
       );
+      loadOlderMessages();
     }
 
     configRef.doc('clear').onSnapshot((doc) => {

@@ -51,13 +51,13 @@
     min-height: 100vh;
     min-height: 100dvh;
     gap: 2px;
-    padding: clamp(8px, 2vw, 20px) 0 0;
+    padding: clamp(4px, 1vw, 10px) 0 0;
   }
 
   .logo-link {
     flex: 0 0 auto;
     display: block;
-    width: min(70vw, 480px);
+    width: min(35vw, 240px);
     margin: 0 auto;
   }
   .logo-link img {
@@ -84,6 +84,33 @@
   }
 
   @media (min-width: 861px) {
+    .page:not(.chat-hidden) {
+      --widget-h: calc(34.875vw + 30px);
+      --widget-slack: calc(clamp(16px, 3vw, 32px) + 3px - clamp(4px, 1vw, 8px));
+      display: grid;
+      grid-template-rows: 1fr auto 1fr;
+      gap: 0;
+      padding: 0;
+    }
+    .page:not(.chat-hidden) .player-wrap {
+      margin-bottom: calc(-1 * var(--widget-slack));
+    }
+    .page:not(.chat-hidden) .logo-link {
+      align-self: end;
+      width: fit-content;
+      margin-bottom: 0.4vw;
+    }
+    .page:not(.chat-hidden) .logo-link picture {
+      display: block;
+    }
+    .page:not(.chat-hidden) .logo-link img {
+      width: 25vw;
+      height: auto;
+      max-height: calc((100vh - var(--widget-h) + var(--widget-slack)) / 2 - 0.4vw - 4px);
+      max-height: calc((100dvh - var(--widget-h) + var(--widget-slack)) / 2 - 0.4vw - 4px);
+      aspect-ratio: 1600 / 447;
+      object-fit: contain;
+    }
     .player-wrap {
       flex: 0 0 auto;
       min-height: 0;
@@ -255,11 +282,14 @@
 
 <div class="page">
   <a class="logo-link" href="/">
-    <img src="/knobsock-live-logo.png" alt="KNOBSOCK LIVE">
+    <picture>
+      <source media="(min-width: 861px)" srcset="/knobsock-live-logo-tight.png?v=1">
+      <img src="/knobsock-live-logo.png" alt="KNOBSOCK LIVE">
+    </picture>
   </a>
 
   <div class="player-wrap">
-    <iframe src="/livestream-chat-widget.html?v=chat-history-1"
+    <iframe src="/livestream-chat-widget.html?v=chat-history-4"
             title="KNOBSOCK Live"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowfullscreen></iframe>

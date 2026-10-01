@@ -7945,16 +7945,25 @@
   let USERNAME_CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildUsernameCensorRegex);
 
   let adminUsernames = new Set();
+  let deletedMessageIds = new Set();
 
   configRef.doc('censoredWords').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
     CENSOR_REGEXES = words.map(buildCensorRegex);
     USERNAME_CENSOR_REGEXES = words.map(buildUsernameCensorRegex);
+    deletedMessageIds = new Set(data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds.map(String) : []);
+    const hadDeleted = messageCache.some((m) => m && deletedMessageIds.has(m.id));
+    if (hadDeleted) {
+      messageCache = messageCache.filter((m) => m && !deletedMessageIds.has(m.id));
+      saveMessageCache();
+    }
     const admins = (data && Array.isArray(data.admins) ? data.admins : []).map((name) => String(name).toLowerCase()).sort();
-    if (admins.join('\n') === Array.from(adminUsernames).sort().join('\n')) return;
-    adminUsernames = new Set(admins);
-    if (lastRenderedMsgs && session) renderMessages(lastRenderedMsgs);
+    const adminsChanged = admins.join('\n') !== Array.from(adminUsernames).sort().join('\n');
+    if (adminsChanged) adminUsernames = new Set(admins);
+    if (!session) return;
+    if (hadDeleted) renderMessages(messageCache);
+    else if (adminsChanged && lastRenderedMsgs) renderMessages(lastRenderedMsgs);
   }, () => {});
 
   function usernameContainsCensoredWord(name) {
@@ -8549,8 +8558,14 @@
   const HISTORY_PAGE_SIZE = 20;
   const HISTORY_MIN_VISIBLE = 8;
   const HISTORY_MAX_PAGES_PER_LOAD = 3;
+  const HISTORY_MAX_TOTAL = 150;
+  const HISTORY_MAX_READS = 600;
   let historyLoading = false;
   let historyExhausted = false;
+  let historyCapped = false;
+  let historyFetched = 0;
+  let historyReads = 0;
+  let historyOldestTs = null;
   let scrollChatToBottomNext = false;
   let messageCacheSaveTimer = null;
   let messageCache = [];
@@ -8566,13 +8581,20 @@
     messageStreamCursor = 0;
     historyLoading = false;
     historyExhausted = false;
+    historyCapped = false;
+    historyFetched = 0;
+    historyReads = 0;
+    historyOldestTs = null;
     try {
       const saved = JSON.parse(sessionStorage.getItem(MESSAGE_CACHE_KEY) || 'null');
       if (saved && saved.owner === username && typeof saved.startedAt === 'number' && Array.isArray(saved.messages)) {
         messageSessionStartedAt = saved.startedAt;
         messageStreamCursor = Math.max(0, Number(saved.streamCursor) || 0);
+        historyFetched = Math.max(0, Number(saved.historyFetched) || 0);
+        historyReads = Math.max(0, Number(saved.historyReads) || 0);
+        historyCapped = historyFetched >= HISTORY_MAX_TOTAL || historyReads >= HISTORY_MAX_READS;
         messageCache = saved.messages
-          .filter((m) => m && typeof m.id === 'string' && typeof m.ts === 'number')
+          .filter((m) => m && typeof m.id === 'string' && typeof m.ts === 'number' && !deletedMessageIds.has(m.id))
           .sort((a, b) => a.ts - b.ts)
           .slice(-MESSAGE_CACHE_LIMIT);
       }
@@ -8587,6 +8609,8 @@
           owner: messageSessionOwner,
           startedAt: messageSessionStartedAt,
           streamCursor: messageStreamCursor,
+          historyFetched: historyFetched,
+          historyReads: historyReads,
           messages: messageCache.slice(-MESSAGE_CACHE_LIMIT)
         }));
       } catch (e) {}
@@ -8603,7 +8627,7 @@
       // The one-per-second live packets are handled directly by the listener;
       // keeping them in the transcript cache would push actual chat messages
       // out during a full fight.
-      .filter((m) => m && m.type !== 'fight_live' && typeof m.ts === 'number' && m.ts > clearedAt)
+      .filter((m) => m && m.type !== 'fight_live' && typeof m.ts === 'number' && m.ts > clearedAt && !deletedMessageIds.has(m.id))
       .sort((a, b) => a.ts - b.ts)
       .slice(-MESSAGE_MEMORY_LIMIT);
     saveMessageCache();
@@ -8618,7 +8642,7 @@
   }
 
   async function loadOlderMessages() {
-    if (historyLoading || historyExhausted || !session) return;
+    if (historyLoading || historyExhausted || historyCapped || !session) return;
     historyLoading = true;
     const container = $('messages');
     const prevHeight = container ? container.scrollHeight : 0;
@@ -8627,18 +8651,35 @@
     renderMessages(messageCache, { keepScroll: true });
     const fetched = [];
     try {
-      let before = oldestLoadedTs();
+      const loadedOldest = oldestLoadedTs();
+      let before = historyOldestTs != null && (loadedOldest == null || historyOldestTs < loadedOldest) ? historyOldestTs : loadedOldest;
       let visible = 0;
       for (let page = 0; page < HISTORY_MAX_PAGES_PER_LOAD; page += 1) {
+        const pageSize = Math.min(HISTORY_PAGE_SIZE, HISTORY_MAX_READS - historyReads);
+        if (pageSize <= 0 || historyFetched >= HISTORY_MAX_TOTAL) {
+          historyCapped = true;
+          break;
+        }
         let query = messagesRef.orderBy('ts', 'desc');
         if (before != null) query = query.where('ts', '<', before);
         if (clearedAt) query = query.where('ts', '>', clearedAt);
-        const snapshot = await query.limit(HISTORY_PAGE_SIZE).get();
+        const snapshot = await query.limit(pageSize).get();
         const docs = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
-        fetched.push(...docs);
-        visible += docs.filter(isVisibleChatMessage).length;
-        if (docs.length < HISTORY_PAGE_SIZE) {
+        historyReads += docs.length;
+        if (docs.length) historyOldestTs = docs[docs.length - 1].ts;
+        for (const doc of docs) {
+          if (historyFetched >= HISTORY_MAX_TOTAL) break;
+          if (isFightEvent(doc)) continue;
+          fetched.push(doc);
+          historyFetched += 1;
+          visible += 1;
+        }
+        if (docs.length < pageSize) {
           historyExhausted = true;
+          break;
+        }
+        if (historyFetched >= HISTORY_MAX_TOTAL || historyReads >= HISTORY_MAX_READS) {
+          historyCapped = true;
           break;
         }
         before = docs[docs.length - 1].ts;
@@ -8660,7 +8701,7 @@
 
   function historyHeaderHtml() {
     if (historyLoading) return '<div class="history-status">Loading earlier messages…</div>';
-    if (historyExhausted) return '<div class="history-status">That’s the start of the chat.</div>';
+    if (historyExhausted || historyCapped) return '';
     return '<div class="history-status"><button type="button" class="history-more" data-history-more>Load earlier messages</button></div>';
   }
 

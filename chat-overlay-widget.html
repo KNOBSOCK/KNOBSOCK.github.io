@@ -102,10 +102,13 @@
     return new RegExp('\\b' + pattern + '\\b', 'gi');
   }
   let CENSOR_REGEXES = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+  let deletedIds = new Set();
   configRef.doc('censoredWords').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
     CENSOR_REGEXES = words.map(buildCensorRegex);
+    deletedIds = new Set(data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds.map(String) : []);
+    if (lastMsgs.some((m) => deletedIds.has(m.id))) renderCombined();
   }, () => {});
   function censorText(text) {
     let result = text;
@@ -178,22 +181,52 @@
   let clearedAt = 0;
   let subscribedClearedAt = null;
   let unsubscribeMessages = null;
+  let historyMsgs = [];
+  let liveMsgs = [];
+  let historyGeneration = 0;
+
+  function isShownMessage(m) {
+    return !!m && m.type !== 'join' && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
+  }
+
+  function renderCombined() {
+    const byId = new Map();
+    historyMsgs.concat(liveMsgs).forEach((m) => byId.set(m.id, m));
+    const msgs = Array.from(byId.values()).filter(isShownMessage)
+      .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+      .slice(-MAX_VISIBLE);
+    render(msgs);
+  }
+
+  function loadRecentHistory() {
+    const generation = historyGeneration;
+    let query = messagesRef.orderBy('ts', 'desc').where('ts', '<', OVERLAY_STARTED_AT);
+    if (clearedAt) query = query.where('ts', '>', clearedAt);
+    query.limit(20).get().then((snapshot) => {
+      if (generation !== historyGeneration) return;
+      historyMsgs = snapshot.docs.map(doc => Object.assign({ id: doc.id }, doc.data()))
+        .filter(m => !(typeof m.type === 'string' && m.type.indexOf('fight_') === 0));
+      renderCombined();
+    }).catch((err) => console.error(err));
+  }
 
   function subscribeToMessages() {
     if (unsubscribeMessages) unsubscribeMessages();
     subscribedClearedAt = clearedAt;
+    historyGeneration += 1;
+    historyMsgs = [];
+    liveMsgs = [];
     let query = messagesRef.orderBy('ts', 'asc');
     query = query.where('ts', '>=', Math.max(clearedAt || 0, OVERLAY_STARTED_AT));
     unsubscribeMessages = query.limitToLast(FETCH_LIMIT).onSnapshot(
       (snapshot) => {
-        const msgs = snapshot.docs.map(doc => doc.data())
-          .filter(m => m.type !== 'join')
-          .slice(-MAX_VISIBLE);
-        render(msgs);
+        liveMsgs = snapshot.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
+        renderCombined();
       },
 
       (err) => console.error(err)
     );
+    loadRecentHistory();
   }
 
   configRef.doc('clear').onSnapshot((doc) => {
