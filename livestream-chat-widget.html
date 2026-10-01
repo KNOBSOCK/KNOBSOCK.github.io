@@ -245,8 +245,49 @@
   @media (prefers-reduced-motion: reduce) {
     .center-skip-btn.is-skipping { animation: none; }
   }
+  .center-skip-flash {
+    position: absolute;
+    top: 50%;
+    z-index: 4;
+    width: clamp(44px, 13cqmin, 80px);
+    height: clamp(44px, 13cqmin, 80px);
+    opacity: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+    transform: translate(-50%, -50%);
+  }
+  .center-skip-flash img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .center-skip-flash.flash-back { left: calc(50% - clamp(76px, 22%, 170px)); }
+  .center-skip-flash.flash-forward { left: calc(50% + clamp(76px, 22%, 170px)); }
+  .center-skip-flash.flash-back.is-flashing { animation: skipFlashBack 0.7s ease-out; }
+  .center-skip-flash.flash-forward.is-flashing { animation: skipFlashForward 0.7s ease-out; }
+  @keyframes skipFlashBack {
+    0% { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.8); }
+    15% { opacity: 0.95; }
+    75% { opacity: 0.95; transform: translate(-50%, -50%) rotate(-360deg) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) rotate(-360deg) scale(1.05); }
+  }
+  @keyframes skipFlashForward {
+    0% { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.8); }
+    15% { opacity: 0.95; }
+    75% { opacity: 0.95; transform: translate(-50%, -50%) rotate(360deg) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) rotate(360deg) scale(1.05); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .center-skip-flash.flash-back.is-flashing,
+    .center-skip-flash.flash-forward.is-flashing { animation: center-toggle-flash 550ms ease-out; }
+  }
+  @media (hover: hover) {
+    .center-skip-btn { display: none; }
+  }
   .video-pane.offline-card .center-skip-btn,
-  .video-pane.is-loading .center-skip-btn {
+  .video-pane.is-loading .center-skip-btn,
+  .video-pane.offline-card .center-skip-flash,
+  .video-pane.is-loading .center-skip-flash {
     display: none;
   }
 
@@ -2832,6 +2873,8 @@
         <div class="center-toggle-icon" id="centerToggleIcon" aria-hidden="true"></div>
         <button type="button" class="center-skip-btn center-skip-back" id="skipBackBtn" title="Back 10 seconds" aria-label="Back 10 seconds" disabled><img src="/skip-back-10.png?v=2" alt=""></button>
         <button type="button" class="center-skip-btn center-skip-forward" id="skipForwardBtn" title="Forward 10 seconds" aria-label="Forward 10 seconds" disabled><img src="/skip-forward-10.png?v=3" alt=""></button>
+        <div class="center-skip-flash flash-back" id="skipBackFlash" aria-hidden="true"><img src="/skip-back-10.png?v=2" alt=""></div>
+        <div class="center-skip-flash flash-forward" id="skipForwardFlash" aria-hidden="true"><img src="/skip-forward-10.png?v=3" alt=""></div>
       </div>
       <div class="video-loading" id="videoLoading">
 
@@ -4044,19 +4087,7 @@
   });
 
   playPauseBtn.addEventListener('click', function () {
-    if (backend === 'video') {
-      if (!videoReady) return;
-      if (!videoEl.paused && !videoEl.ended) videoEl.pause();
-      else videoEl.play().catch(function () {});
-      return;
-    }
-    if (!ytPlayer) return;
-    var state = ytPlayer.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-      ytPlayer.pauseVideo();
-    } else {
-      ytPlayer.playVideo();
-    }
+    togglePlayback();
   });
 
   var SKIP_SECONDS = 10;
@@ -4109,6 +4140,84 @@
       spinSkipButton(btn);
       skipBy(btn === skipBackBtn ? -SKIP_SECONDS : SKIP_SECONDS);
       if (!supportsHover) showControls(true);
+    });
+  });
+
+  var skipBackFlash = document.getElementById('skipBackFlash');
+  var skipForwardFlash = document.getElementById('skipForwardFlash');
+  [skipBackFlash, skipForwardFlash].forEach(function (el) {
+    if (el) el.addEventListener('animationend', function () { el.classList.remove('is-flashing'); });
+  });
+  function flashSkip(el) {
+    if (!el) return;
+    el.classList.remove('is-flashing');
+    void el.offsetWidth;
+    el.classList.add('is-flashing');
+  }
+
+  function togglePlayback() {
+    if (backend === 'video') {
+      if (!videoReady) return null;
+      if (!videoEl.paused && !videoEl.ended) {
+        videoEl.pause();
+        return false;
+      }
+      videoEl.play().catch(function () {});
+      return true;
+    }
+    if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return null;
+    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+      ytPlayer.pauseVideo();
+      return false;
+    }
+    ytPlayer.playVideo();
+    return true;
+  }
+
+  function profilePopupOpen() {
+    try {
+      return !!(window.top.document.getElementById('knobsockProfile') || document.getElementById('knobsockProfile'));
+    } catch (e) {
+      return !!document.getElementById('knobsockProfile');
+    }
+  }
+
+  function handlePlayerKey(event) {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+    var target = event.target;
+    var el = target && target.nodeType === 1 ? target : null;
+    if (el && el.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+    var key = event.key;
+    var action = null;
+    if (key === 'a' || key === 'A' || key === 'ArrowLeft') action = 'back';
+    else if (key === 'd' || key === 'D' || key === 'ArrowRight') action = 'forward';
+    else if (key === ' ' || key === 'Spacebar') action = 'toggle';
+    if (!action) return;
+    if (action === 'toggle' && el && el.closest('button, a, [role="button"], summary')) return;
+    if (profilePopupOpen() || videoPane.classList.contains('offline-card')) return;
+    if (action === 'toggle') {
+      var playing = togglePlayback();
+      if (playing === null) return;
+      event.preventDefault();
+      flashCenterToggle(playing);
+      return;
+    }
+    event.preventDefault();
+    skipBy(action === 'back' ? -SKIP_SECONDS : SKIP_SECONDS);
+    flashSkip(action === 'back' ? skipBackFlash : skipForwardFlash);
+  }
+
+  var playerKeyDocs = [document];
+  try {
+    if (window.parent !== window && window.parent.document) playerKeyDocs.push(window.parent.document);
+  } catch (e) {}
+  try {
+    if (window.top !== window && window.top !== window.parent && window.top.document) playerKeyDocs.push(window.top.document);
+  } catch (e) {}
+  playerKeyDocs.forEach(function (doc) { doc.addEventListener('keydown', handlePlayerKey); });
+  window.addEventListener('pagehide', function () {
+    playerKeyDocs.forEach(function (doc) {
+      try { doc.removeEventListener('keydown', handlePlayerKey); } catch (e) {}
     });
   });
 
