@@ -78,6 +78,20 @@
     text-shadow: inherit;
   }
   .msg .msg-name:hover { text-decoration: underline; }
+  .msg-reply-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+    vertical-align: 2px;
+    text-shadow: none;
+    white-space: nowrap;
+  }
   .msg .msg-name:focus-visible {
     outline: 2px solid #fff;
     outline-offset: 3px;
@@ -813,6 +827,7 @@
         const color = m.color || defaultColorFor(username);
         return '<div class="msg">' +
           '<button type="button" class="msg-name" data-message-id="' + escapeHtml(m.id) + '" style="color:' + color + '">' + escapeHtml(username) + ':</button> ' +
+          (m.replyTo && m.replyTo.username ? '<span class="msg-reply-tag" title="Reply to another chatter">&#8617; reply</span> ' : '') +
           '<span class="msg-text">' + renderMessageText(m.text) + '</span>' +
           '</div>';
       }).join('');
