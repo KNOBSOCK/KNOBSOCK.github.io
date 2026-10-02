@@ -324,8 +324,8 @@
   .stream-minimap {
     --minimap-size: clamp(72px, 34cqmin, 230px);
     position: absolute;
-    left: 0;
-    top: 0;
+    right: 0;
+    bottom: 0;
     width: var(--minimap-size);
     height: var(--minimap-size);
     pointer-events: none;
@@ -333,14 +333,14 @@
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .stream-minimap[hidden] { display: none; }
-  .stream-minimap.is-closed { transform: translate(-100%, 0); }
+  .stream-minimap.is-closed { transform: translate(100%, 0); }
   .video-pane.offline-card .stream-minimap { display: none; }
   .stream-minimap-panel {
     position: absolute;
     inset: 0;
     overflow: hidden;
-    border-radius: 0 0 7.2px 0;
-    background: rgba(0, 0, 0, 0.62);
+    border-radius: 7.2px 0 0 0;
+    background: transparent;
   }
   .video-frame-wrap .stream-minimap-frame,
   .layout.mode-portrait .video-frame-wrap .stream-minimap-frame {
@@ -3218,7 +3218,7 @@
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
         <button class="pill-btn pip-btn" id="pipBtn" title="Pop out video" hidden>PiP</button>
-        <button type="button" class="pill-btn map-toggle-btn" id="mapToggleBtn" title="Hide map" aria-expanded="true" aria-controls="streamMinimapPanel" hidden>Hide Map</button>
+        <button type="button" class="pill-btn map-toggle-btn" id="mapToggleBtn" title="Show map" aria-expanded="false" aria-controls="streamMinimapPanel" hidden>Show Map</button>
         <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
           <span id="activeViewersCount">0</span>
@@ -3241,7 +3241,7 @@
         <div class="center-skip-flash flash-back" id="skipBackFlash" aria-hidden="true"><img src="/skip-back-10.png?v=2" alt=""></div>
         <div class="center-skip-flash flash-forward" id="skipForwardFlash" aria-hidden="true"><img src="/skip-forward-10.png?v=3" alt=""></div>
         <div class="stream-minimap-clip">
-          <div class="stream-minimap" id="streamMinimap" hidden>
+          <div class="stream-minimap is-closed" id="streamMinimap" hidden>
             <div class="stream-minimap-panel" id="streamMinimapPanel">
               <iframe class="stream-minimap-frame" id="streamMinimapFrame" title="Stream location map" tabindex="-1"></iframe>
             </div>
@@ -4378,7 +4378,7 @@
   var streamMinimap = document.getElementById('streamMinimap');
   var mapToggleBtn = document.getElementById('mapToggleBtn');
   var streamMinimapFrame = document.getElementById('streamMinimapFrame');
-  var streamMinimapOpen = true;
+  var streamMinimapOpen = false;
   var streamMinimapPosted = null;
   var streamMinimapLiveLocation = null;
   var streamMinimapLiveTimer = null;
@@ -4395,7 +4395,6 @@
     if (streamMinimap.hidden === !visible) return;
     streamMinimap.hidden = !visible;
     mapToggleBtn.hidden = !visible;
-    if (visible && !streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=2';
   }
 
   function fetchStreamMinimapLive() {
@@ -4462,21 +4461,18 @@
 
   function syncStreamMinimap() {
     if (!streamMinimap) return;
-    if (watchingVodId) {
-      stopStreamMinimapLive();
+    var mode = watchingVodId ? 'vod' : (isEffectivelyLive() ? 'live' : '');
+    setStreamMinimapVisible(!!mode);
+    if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
+    if (!mode || !streamMinimapOpen) return;
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=4';
+    if (mode === 'vod') {
       var history = streamMinimapVodHistory(watchingVodId, watchingVodStartedAt);
-      setStreamMinimapVisible(true);
       postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, watchingVodStartedAt + streamMinimapPlaybackSeconds() * 1000) : null);
       return;
     }
-    if (isEffectivelyLive()) {
-      setStreamMinimapVisible(true);
-      startStreamMinimapLive();
-      if (streamMinimapLiveLocation) postStreamMinimap(streamMinimapLiveLocation);
-      return;
-    }
-    stopStreamMinimapLive();
-    setStreamMinimapVisible(false);
+    startStreamMinimapLive();
+    if (streamMinimapLiveLocation) postStreamMinimap(streamMinimapLiveLocation);
   }
 
   function setStreamMinimapOpen(open) {
@@ -4485,6 +4481,7 @@
     mapToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     mapToggleBtn.textContent = open ? 'Hide Map' : 'Show Map';
     mapToggleBtn.title = open ? 'Hide map' : 'Show map';
+    syncStreamMinimap();
   }
 
   if (streamMinimap) {
@@ -4506,7 +4503,7 @@
       if (!document.hidden && streamMinimapLiveTimer) fetchStreamMinimapLive();
     });
     setInterval(syncStreamMinimap, 1000);
-    setStreamMinimapOpen(true);
+    setStreamMinimapOpen(false);
   }
 
   if (liveBtn) {
