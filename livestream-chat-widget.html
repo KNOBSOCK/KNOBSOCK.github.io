@@ -323,27 +323,24 @@
   }
   .stream-minimap {
     --minimap-size: clamp(72px, 34cqmin, 230px);
-    --minimap-radius: 7.2px;
+    --minimap-gap: clamp(6px, 3cqmin, 16px);
     position: absolute;
     right: 0;
-    bottom: clamp(6px, 3cqmin, 16px);
+    bottom: calc(var(--minimap-lift, 0px) + var(--minimap-gap));
     width: var(--minimap-size);
     height: var(--minimap-size);
     pointer-events: none;
     transform: translate(0, 0);
-    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .stream-minimap[hidden] { display: none; }
   .stream-minimap.is-closed { transform: translate(100%, 0); }
-  .video-pane.controls-visible .stream-minimap { opacity: 0; }
-  @media (hover: none) {
-    .video-pane.controls-visible .stream-minimap-tab { pointer-events: none; }
-  }
   .video-pane.offline-card .stream-minimap { display: none; }
   .stream-minimap-panel {
     position: absolute;
     inset: 0;
     overflow: hidden;
+    border-radius: 7.2px 0 0 7.2px;
     background: rgba(0, 0, 0, 0.62);
   }
   .video-frame-wrap .stream-minimap-frame,
@@ -360,37 +357,6 @@
     pointer-events: none;
     background: transparent;
   }
-  .stream-minimap-tab {
-    -webkit-appearance: none;
-    appearance: none;
-    position: absolute;
-    right: 100%;
-    top: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: clamp(24px, 8cqmin, 38px);
-    padding: 0;
-    border: 0;
-    border-radius: var(--minimap-radius) 0 0 var(--minimap-radius);
-    background: rgba(0, 0, 0, 0.72);
-    color: rgba(255, 255, 255, 0.75);
-    cursor: pointer;
-    pointer-events: auto;
-    transition: background 0.2s ease;
-  }
-  .stream-minimap-tab:hover { background: var(--interactive-hover); color: var(--interactive-hover-text); }
-  @media (hover: none) {
-    .stream-minimap-tab:hover { background: rgba(0, 0, 0, 0.72); color: rgba(255, 255, 255, 0.75); }
-  }
-  .stream-minimap-chevron {
-    display: inline-block;
-    font-size: clamp(14px, 5cqmin, 24px);
-    line-height: 1;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .stream-minimap.is-closed .stream-minimap-chevron { transform: rotate(180deg); }
 
   .chat-pane {
     position: relative;
@@ -3253,6 +3219,7 @@
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
         <button class="pill-btn pip-btn" id="pipBtn" title="Pop out video" hidden>PiP</button>
+        <button type="button" class="pill-btn map-toggle-btn" id="mapToggleBtn" title="Hide map" aria-expanded="true" aria-controls="streamMinimapPanel" hidden>Hide Map</button>
         <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
           <span id="activeViewersCount">0</span>
@@ -3276,7 +3243,6 @@
         <div class="center-skip-flash flash-forward" id="skipForwardFlash" aria-hidden="true"><img src="/skip-forward-10.png?v=3" alt=""></div>
         <div class="stream-minimap-clip">
           <div class="stream-minimap" id="streamMinimap" hidden>
-            <button type="button" class="stream-minimap-tab" id="streamMinimapTab" title="Hide map" aria-label="Hide map" aria-expanded="true" aria-controls="streamMinimapPanel"><span class="stream-minimap-chevron" aria-hidden="true">&#9658;&#xFE0E;</span></button>
             <div class="stream-minimap-panel" id="streamMinimapPanel">
               <iframe class="stream-minimap-frame" id="streamMinimapFrame" title="Stream location map" tabindex="-1"></iframe>
             </div>
@@ -3874,7 +3840,6 @@
          the controls before the browser can follow that link. */
       if (e.target.closest('.portrait-video-logo')) return;
       if (e.target.closest('.stream-stats')) return;
-      if (e.target.closest('.stream-minimap')) return;
       if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls, .center-toggle-icon, .center-skip-btn')) {
         showControls(true);
         return;
@@ -4412,7 +4377,7 @@
   var STREAM_MAP_VOD_RANGE_MS = 12 * 60 * 60 * 1000;
   var STREAM_MAP_LIVE_POLL_MS = 15000;
   var streamMinimap = document.getElementById('streamMinimap');
-  var streamMinimapTab = document.getElementById('streamMinimapTab');
+  var mapToggleBtn = document.getElementById('mapToggleBtn');
   var streamMinimapFrame = document.getElementById('streamMinimapFrame');
   var streamMinimapOpen = true;
   var streamMinimapPosted = null;
@@ -4430,6 +4395,7 @@
   function setStreamMinimapVisible(visible) {
     if (streamMinimap.hidden === !visible) return;
     streamMinimap.hidden = !visible;
+    mapToggleBtn.hidden = !visible;
     if (visible && !streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=2';
   }
 
@@ -4517,23 +4483,21 @@
   function setStreamMinimapOpen(open) {
     streamMinimapOpen = open;
     streamMinimap.classList.toggle('is-closed', !open);
-    streamMinimapTab.setAttribute('aria-expanded', open ? 'true' : 'false');
-    streamMinimapTab.title = open ? 'Hide map' : 'Show map';
-    streamMinimapTab.setAttribute('aria-label', streamMinimapTab.title);
+    mapToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    mapToggleBtn.textContent = open ? 'Hide Map' : 'Show Map';
+    mapToggleBtn.title = open ? 'Hide map' : 'Show map';
   }
 
   if (streamMinimap) {
-    streamMinimapTab.addEventListener('click', function (event) {
+    mapToggleBtn.addEventListener('click', function (event) {
       event.stopPropagation();
       setStreamMinimapOpen(!streamMinimapOpen);
     });
-    if (supportsHover) {
-      ['mouseenter', 'mousemove'].forEach(function (type) {
-        streamMinimapTab.addEventListener(type, function (event) {
-          event.stopPropagation();
-          hideControlsNow();
-        });
-      });
+    var videoControlsEl = document.getElementById('videoControls');
+    if (videoControlsEl && window.ResizeObserver) {
+      new ResizeObserver(function () {
+        videoPane.style.setProperty('--minimap-lift', videoControlsEl.offsetHeight + 'px');
+      }).observe(videoControlsEl);
     }
     streamMinimapFrame.addEventListener('load', function () {
       streamMinimapPosted = null;
