@@ -42,6 +42,46 @@ async function playable(url) {
   }
 }
 
+async function fetchText(url) {
+  const res = await fetch(url, { headers: { Referer: SITE_ORIGIN } });
+  if (!res.ok) throw new Error(`${url} returned ${res.status}`);
+  return res.text();
+}
+
+async function recordingTimeline(playlistUrl) {
+  try {
+    let text = await fetchText(playlistUrl);
+    if (!/#EXTINF/.test(text)) {
+      const variant = text.split(/\r?\n/).map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
+      if (!variant) return null;
+      text = await fetchText(new URL(variant, playlistUrl).href);
+    }
+    const anchors = [];
+    const maxEpoch = Date.now() / 1000 + 86400;
+    let position = 0, duration = 0, previous = null, discontinuity = false;
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (line === "#EXT-X-DISCONTINUITY") { discontinuity = true; continue; }
+      if (line.startsWith("#EXTINF:")) { duration = parseFloat(line.slice(8)) || 0; continue; }
+      if (line.startsWith("#")) continue;
+      const match = line.match(/-(\d{10})\.(?:m4s|ts)(?:[?#]|$)/);
+      const number = match ? Number(match[1]) : NaN;
+      if (!(number > 1500000000 && number < maxEpoch)) return null;
+      if (previous === null || discontinuity || number !== previous + 1) {
+        anchors.push({ v: Math.round(position * 1000) / 1000, t: number * 1000 });
+      }
+      previous = number;
+      discontinuity = false;
+      position += duration;
+    }
+    return anchors.length && anchors.length <= 500 ? anchors : null;
+  } catch (err) {
+    console.log(`Could not read recording timestamps from ${playlistUrl}: ${err.message}`);
+    return null;
+  }
+}
+
 async function recentEndedStreams() {
   const data = await bunny("?page=1&itemsPerPage=100");
   const items = data && Array.isArray(data.items) ? data.items : [];
@@ -66,6 +106,7 @@ async function finishedRecording(guid) {
     thumb: play.thumbnailUrl || live.thumbnailUrl || "",
     startedAt: bunnyDate(live.startedAt || live.dateCreated),
     vertical: Number(live.height) > Number(live.width),
+    timeline: await recordingTimeline(play.videoPlaylistUrl),
   };
 }
 
@@ -119,6 +160,8 @@ async function main() {
         thumb: rec.thumb,
         aspect: rec.vertical ? "9:16" : "16:9",
         addedAt: (rec.startedAt || new Date()).getTime(),
+        guid: rec.guid,
+        ...(rec.timeline ? { timeline: rec.timeline, startedAt: rec.timeline[0].t } : rec.startedAt ? { startedAt: rec.startedAt.getTime() } : {}),
       });
       added += 1;
       console.log(`${DRY_RUN ? "[dry run] Would save" : "Saving"} ${rec.guid} to Past Streams: ${rec.url}`);

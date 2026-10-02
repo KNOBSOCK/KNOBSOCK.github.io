@@ -3959,6 +3959,14 @@
     // rewatchable recording at its (translated) old URL — so archive the
     // outgoing link into Past Streams instead of just discarding it, no
     // API access needed.
+    function withVodSync(item, source) {
+      if (!source || (source.guid && String(item.url || '').toLowerCase().indexOf(String(source.guid).toLowerCase()) === -1)) return item;
+      ['startedAt', 'timeline', 'session', 'guid'].forEach(function (key) {
+        if (source && source[key] !== undefined && source[key] !== null) item[key] = source[key];
+      });
+      return item;
+    }
+
     function archivePreviousLiveLinkAsVod(rawUrl) {
       const url = toPastStreamVodUrl(rawUrl);
       const guidMatch = String(url).match(/\/([0-9a-fA-F-]{10,})\/playlist\.m3u8/);
@@ -3976,7 +3984,7 @@
       renderVodsList();
       CHAT_VODS_REF.set({
         items: vodDraftList.map(function (v) {
-          return { url: (v.url || '').trim(), title: (v.title || '').trim(), thumb: (v.thumb || '').trim(), aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || Date.now() };
+          return withVodSync({ url: (v.url || '').trim(), title: (v.title || '').trim(), thumb: (v.thumb || '').trim(), aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || Date.now() }, v);
         }),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: auth.currentUser.email || auth.currentUser.uid
@@ -4185,7 +4193,7 @@
       const data = doc.exists ? doc.data() : null;
       const items = (data && Array.isArray(data.items)) ? data.items : [];
       vodDraftList = items.map(function (v) {
-        return { url: v.url, title: v.title || '', thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0 };
+        return withVodSync({ url: v.url, title: v.title || '', thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0 }, v);
       });
       renderVodsList();
     }, function (err) {
@@ -4212,7 +4220,7 @@
       const saveBtn = document.getElementById('vodsSaveBtn');
       const statusEl = document.getElementById('vodsStatus');
       const cleaned = vodDraftList
-        .map(function (v) { return { url: (v.url || '').trim(), title: (v.title || '').trim(), thumb: (v.thumb || '').trim(), aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || Date.now() }; })
+        .map(function (v) { return withVodSync({ url: (v.url || '').trim(), title: (v.title || '').trim(), thumb: (v.thumb || '').trim(), aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || Date.now() }, v); })
         .filter(function (v) { return v.url; });
       const invalid = cleaned.filter(function (v) { return !extractVideoId(v.url) && !isDirectVideoUrl(v.url); });
       if (invalid.length) {

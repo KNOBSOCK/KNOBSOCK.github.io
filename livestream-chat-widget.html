@@ -827,6 +827,7 @@
     z-index: 5;
     display: flex;
     gap: clamp(6px, 1.5cqw, 10px);
+    transform-origin: top left;
   }
 
   .viewer-badge {
@@ -3218,7 +3219,7 @@
         <button class="pill-btn unmute-btn" id="unmuteBtn" title="Unmute">Unmute</button>
         <button class="pill-btn toggle-chat-btn" id="toggleChatBtn" title="Hide chat">Hide Chat</button>
         <button class="pill-btn pip-btn" id="pipBtn" title="Pop out video" hidden>PiP</button>
-        <button type="button" class="pill-btn map-toggle-btn" id="mapToggleBtn" title="Show map" aria-expanded="false" aria-controls="streamMinimapPanel" hidden>Show Map</button>
+        <button type="button" class="pill-btn map-toggle-btn" id="mapToggleBtn" title="Hide map" aria-expanded="true" aria-controls="streamMinimapPanel" hidden>Hide Map</button>
         <div class="viewer-badge" id="viewerBadge" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
           <span id="activeViewersCount">0</span>
@@ -3241,7 +3242,7 @@
         <div class="center-skip-flash flash-back" id="skipBackFlash" aria-hidden="true"><img src="/skip-back-10.png?v=2" alt=""></div>
         <div class="center-skip-flash flash-forward" id="skipForwardFlash" aria-hidden="true"><img src="/skip-forward-10.png?v=3" alt=""></div>
         <div class="stream-minimap-clip">
-          <div class="stream-minimap is-closed" id="streamMinimap" hidden>
+          <div class="stream-minimap" id="streamMinimap" hidden>
             <div class="stream-minimap-panel" id="streamMinimapPanel">
               <iframe class="stream-minimap-frame" id="streamMinimapFrame" title="Stream location map" tabindex="-1"></iframe>
             </div>
@@ -3895,6 +3896,28 @@
     return true;
   };
 
+  var paneActions = videoPane.querySelector('.video-pane-actions');
+  function fitPaneActions() {
+    if (!paneActions) return;
+    var margin = layoutEl.classList.contains('mode-portrait') ? 8 : paneActions.offsetLeft;
+    var available = videoPane.clientWidth - margin * 2;
+    var needed = paneActions.scrollWidth;
+    paneActions.style.scale = needed > available && available > 0 ? String(available / needed) : '';
+  }
+  if (paneActions) {
+    if (window.ResizeObserver) {
+      var paneActionsObserver = new ResizeObserver(fitPaneActions);
+      paneActionsObserver.observe(videoPane);
+      paneActionsObserver.observe(paneActions);
+    }
+    if (window.MutationObserver) {
+      new MutationObserver(fitPaneActions).observe(paneActions, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden'] });
+      new MutationObserver(fitPaneActions).observe(layoutEl, { attributes: true, attributeFilter: ['class'] });
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitPaneActions);
+    fitPaneActions();
+  }
+
   unmuteBtn.disabled = true;
 
   var pendingUnmute = false;
@@ -4051,7 +4074,7 @@
     } catch (e) {}
   }
   var watchingVodAspect = '16:9';
-  var watchingVodStartedAt = 0;
+  var watchingVodEntry = null;
 
   // A Bunny direct stream's on-air state can't be trusted to the admin's
   // manual isLive flag alone — the whole point is that no one has to
@@ -4328,7 +4351,7 @@
     watchingVodId = vodId;
     watchingVodTitle = (entry && entry.title) || '';
     watchingVodAspect = entry && entry.aspect === '9:16' ? '9:16' : '16:9';
-    watchingVodStartedAt = Number(entry && entry.addedAt) || 0;
+    watchingVodEntry = entry || null;
     syncVodPlaybackLayout();
     window.setLiveAspectMode(watchingVodAspect);
     loadedVideoId = vodId;
@@ -4362,7 +4385,7 @@
   window.returnToLive = function () {
     watchingVodId = null;
     watchingVodAspect = '16:9';
-    watchingVodStartedAt = 0;
+    watchingVodEntry = null;
     loadedVideoId = null;
     syncVodPlaybackLayout();
     window.applyLiveVideoState(configuredLiveSource, configuredIsLive, configuredLiveAspect);
@@ -4374,15 +4397,16 @@
   var STREAM_MAP_KEY = 'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO';
   var STREAM_MAP_STALE_MS = 15 * 60 * 1000;
   var STREAM_MAP_VOD_RANGE_MS = 12 * 60 * 60 * 1000;
-  var STREAM_MAP_LIVE_POLL_MS = 15000;
+  var STREAM_MAP_LIVE_POLL_MS = 30000;
   var streamMinimap = document.getElementById('streamMinimap');
   var mapToggleBtn = document.getElementById('mapToggleBtn');
   var streamMinimapFrame = document.getElementById('streamMinimapFrame');
-  var streamMinimapOpen = false;
+  var streamMinimapOpen = true;
   var streamMinimapPosted = null;
   var streamMinimapLiveLocation = null;
   var streamMinimapLiveTimer = null;
   var streamMinimapHistory = {};
+  var streamMinimapTimelines = {};
 
   function postStreamMinimap(locationData) {
     var key = JSON.stringify(locationData || {});
@@ -4420,13 +4444,106 @@
     streamMinimapLiveLocation = null;
   }
 
-  function streamMinimapVodHistory(vodId, startedAt) {
-    if (!startedAt) return { ready: true, entries: [] };
+  function streamMinimapCleanTimeline(list) {
+    if (!Array.isArray(list)) return null;
+    var anchors = list.map(function (a) {
+      return a && { v: Number(a.v), t: Number(a.t) };
+    }).filter(function (a) {
+      return a && Number.isFinite(a.v) && Number.isFinite(a.t) && a.v >= 0 && a.t > 0;
+    }).sort(function (a, b) { return a.v - b.v; });
+    return anchors.length ? anchors : null;
+  }
+
+  function streamMinimapFetchText(url) {
+    return fetch(url, { cache: 'force-cache' }).then(function (res) {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.text();
+    });
+  }
+
+  function streamMinimapReadPlaylist(url) {
+    return streamMinimapFetchText(url).then(function (text) {
+      if (/#EXTINF/.test(text)) return { text: text };
+      var variant = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l && l.charAt(0) !== '#'; })[0];
+      if (!variant) throw new Error('empty playlist');
+      return streamMinimapFetchText(new URL(variant, url).href).then(function (inner) { return { text: inner }; });
+    }).then(function (result) {
+      var anchors = [];
+      var maxEpoch = Date.now() / 1000 + 86400;
+      var position = 0, duration = 0, previous = null, discontinuity = false, stamped = true;
+      result.text.split(/\r?\n/).forEach(function (raw) {
+        var line = raw.trim();
+        if (!line) return;
+        if (line === '#EXT-X-DISCONTINUITY') { discontinuity = true; return; }
+        if (line.indexOf('#EXTINF:') === 0) { duration = parseFloat(line.slice(8)) || 0; return; }
+        if (line.charAt(0) === '#') return;
+        var match = line.match(/-(\d{10})\.(?:m4s|ts)(?:[?#]|$)/);
+        var number = match ? Number(match[1]) : NaN;
+        if (!(number > 1500000000 && number < maxEpoch)) stamped = false;
+        if (stamped && (previous === null || discontinuity || number !== previous + 1)) {
+          anchors.push({ v: Math.round(position * 1000) / 1000, t: number * 1000 });
+        }
+        previous = number;
+        discontinuity = false;
+        position += duration;
+      });
+      return { anchors: stamped && anchors.length && anchors.length <= 500 ? anchors : null, duration: position };
+    });
+  }
+
+  function streamMinimapFallbackTimeline(entry) {
+    var session = entry && entry.session;
+    var start = Number(entry && entry.startedAt) || Number(session && session.ingestAt) || Number(entry && entry.addedAt) || 0;
+    return start ? [{ v: 0, t: start }] : null;
+  }
+
+  function streamMinimapVodTimeline(vodId, entry) {
+    var cached = streamMinimapTimelines[vodId];
+    if (cached) return cached;
+    var record = { ready: false, timeline: null };
+    streamMinimapTimelines[vodId] = record;
+    function finish(timeline) {
+      record.timeline = timeline || streamMinimapFallbackTimeline(entry);
+      record.ready = true;
+      syncStreamMinimap();
+    }
+    var stored = streamMinimapCleanTimeline(entry && entry.timeline);
+    if (stored) {
+      record.timeline = stored;
+      record.ready = true;
+      return record;
+    }
+    var url = entry && entry.type === 'direct' ? String(entry.url || '') : '';
+    if (!/\.m3u8(\?|$)/i.test(url)) {
+      finish(null);
+      return record;
+    }
+    streamMinimapReadPlaylist(url).then(function (own) {
+      if (own.anchors) return own.anchors;
+      var bunny = url.match(/^(https:\/\/[^/]+\.b-cdn\.net)\/([0-9a-f-]{36})\/playlist\.m3u8/i);
+      if (!bunny) return null;
+      return streamMinimapReadPlaylist(bunny[1] + '/live/' + bunny[2] + '/playlist.m3u8').then(function (live) {
+        var tolerance = Math.max(10, own.duration * 0.01);
+        return live.anchors && Math.abs(live.duration - own.duration) <= tolerance ? live.anchors : null;
+      }, function () { return null; });
+    }).then(finish, function () { finish(null); });
+    return record;
+  }
+
+  function streamMinimapWallClock(timeline, seconds) {
+    var anchor = timeline[0];
+    for (var i = 1; i < timeline.length && timeline[i].v <= seconds; i++) anchor = timeline[i];
+    return anchor.t + (seconds - anchor.v) * 1000;
+  }
+
+  function streamMinimapVodHistory(vodId, timeline) {
+    var startedAt = timeline[0].t;
     var cached = streamMinimapHistory[vodId];
     if (cached && cached.startedAt === startedAt) return cached;
     var record = { ready: false, entries: [], startedAt: startedAt };
     streamMinimapHistory[vodId] = record;
-    var url = STREAM_MAP_ENDPOINT + '?from=' + startedAt + '&to=' + (startedAt + STREAM_MAP_VOD_RANGE_MS);
+    var until = Math.min(startedAt + 24 * 60 * 60 * 1000 - 1, Math.max(startedAt + STREAM_MAP_VOD_RANGE_MS, timeline[timeline.length - 1].t + STREAM_MAP_VOD_RANGE_MS));
+    var url = STREAM_MAP_ENDPOINT + '?from=' + startedAt + '&to=' + until;
     fetch(url, { headers: { apikey: STREAM_MAP_KEY } }).then(function (res) {
       return res.ok ? res.json() : { entries: [] };
     }).then(function (data) {
@@ -4467,8 +4584,13 @@
     if (!mode || !streamMinimapOpen) return;
     if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=4';
     if (mode === 'vod') {
-      var history = streamMinimapVodHistory(watchingVodId, watchingVodStartedAt);
-      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, watchingVodStartedAt + streamMinimapPlaybackSeconds() * 1000) : null);
+      var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
+      if (!sync.ready || !sync.timeline) {
+        postStreamMinimap(null);
+        return;
+      }
+      var history = streamMinimapVodHistory(watchingVodId, sync.timeline);
+      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds())) : null);
       return;
     }
     startStreamMinimapLive();
@@ -4503,7 +4625,7 @@
       if (!document.hidden && streamMinimapLiveTimer) fetchStreamMinimapLive();
     });
     setInterval(syncStreamMinimap, 1000);
-    setStreamMinimapOpen(false);
+    setStreamMinimapOpen(true);
   }
 
   if (liveBtn) {
@@ -5387,7 +5509,7 @@
     latestVods = items.map((v) => {
       const ytId = extractVideoId(v.url);
       if (ytId) return { id: ytId, type: 'youtube', title: v.title, thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0 };
-      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0 };
+      if (isDirectVideoUrl(v.url)) return { id: extractDirectVideoId(v.url), type: 'direct', url: v.url, title: v.title, thumb: v.thumb || '', aspect: v.aspect === '9:16' ? '9:16' : '16:9', addedAt: v.addedAt || 0, startedAt: v.startedAt || 0, timeline: v.timeline || null, session: v.session || null };
       return null;
     }).filter(Boolean);
     renderVods();
