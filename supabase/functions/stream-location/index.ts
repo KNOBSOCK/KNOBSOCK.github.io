@@ -69,16 +69,6 @@ function findArea(lon: number, lat: number) {
   }
   return null;
 }
-function areaCenter(feature: typeof nta.features[number]) {
-  const geometry = feature.geometry;
-  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
-  let west = Infinity, east = -Infinity, south = Infinity, north = -Infinity;
-  for (const polygon of polygons) for (const ring of polygon) for (const [lon, lat] of ring) {
-    west = Math.min(west, lon); east = Math.max(east, lon);
-    south = Math.min(south, lat); north = Math.max(north, lat);
-  }
-  return { lat: (south + north) / 2, lon: (west + east) / 2 };
-}
 function displayName(name: string, code: string) {
   if (code === 'MN0501') return 'Flatiron District';
   const simple = name.replace(/\s*\((East|West|North|South|Central)\)$/i, '').trim();
@@ -99,7 +89,7 @@ Deno.serve(async (req) => {
     }
     const area = nta.features.find((feature) => feature.properties.nta2020 === data.nta_code);
     const neighborhood = area ? displayName(area.properties.ntaname, area.properties.nta2020) : data.neighborhood;
-    return json({ ntaCode: data.nta_code, neighborhood, borough: data.borough, center: area ? areaCenter(area) : null, updatedAt: data.updated_at });
+    return json({ ntaCode: data.nta_code, neighborhood, borough: data.borough, updatedAt: data.updated_at });
   }
   if (req.method !== 'POST' && req.method !== 'DELETE') return json({ error: 'Method not allowed.' }, 405);
   if (!await authorized(req)) return json({ error: 'A verified KNOBSOCK admin session is required.' }, 401);
