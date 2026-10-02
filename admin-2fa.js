@@ -25,6 +25,15 @@
     }).catch(function () { return 0; });
   }
 
+  function getAccessToken() {
+    return supa().auth.getSession().then(function (result) {
+      if (result.error) throw result.error;
+      var session = result.data && result.data.session;
+      if (!session || !session.access_token) throw new Error('Your authenticator session expired. Sign in again.');
+      return session.access_token;
+    });
+  }
+
   function mount(root, firebaseAuth, options) {
     var opts = options || {};
     var state = { email: '' };
@@ -181,5 +190,5 @@
     ]);
   }
 
-  window.KnobsockAdmin2FA = { mount: mount, twoFactorUntil: twoFactorUntil, signOut: signOut };
+  window.KnobsockAdmin2FA = { mount: mount, twoFactorUntil: twoFactorUntil, getAccessToken: getAccessToken, signOut: signOut };
 })();

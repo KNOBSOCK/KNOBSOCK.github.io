@@ -4,30 +4,51 @@ import nta from '../_shared/nyc-nta.json' with { type: 'json' };
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json; charset=utf-8'
 };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: cors });
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-function constantTimeEqual(a: string, b: string) {
-  const aa = new TextEncoder().encode(a), bb = new TextEncoder().encode(b);
-  let diff = aa.length ^ bb.length;
-  const len = Math.max(aa.length, bb.length);
-  for (let i = 0; i < len; i++) diff |= (aa[i % (aa.length || 1)] || 0) ^ (bb[i % (bb.length || 1)] || 0);
-  return diff === 0;
+function publishableKey() {
+  const legacy = Deno.env.get('SUPABASE_ANON_KEY');
+  if (legacy) return legacy;
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') || '{}') as Record<string, unknown>;
+    return Object.values(keys).find((value): value is string => typeof value === 'string') || '';
+  } catch {
+    return '';
+  }
 }
-function authorized(req: Request) {
+
+function jwtPayload(authHeader: string) {
+  try {
+    const part = authHeader.replace(/^Bearer\s+/i, '').split('.')[1] || '';
+    const decoded = atob(part.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((part.length + 3) % 4));
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+async function authorized(req: Request) {
   const header = req.headers.get('authorization') || '';
-  if (!header.startsWith('Basic ')) return false;
-  let decoded = '';
-  try { decoded = atob(header.slice(6)); } catch { return false; }
-  const split = decoded.indexOf(':');
-  if (split < 0) return false;
-  const user = Deno.env.get('LOCATION_INGEST_USERNAME') || '';
-  const pass = Deno.env.get('LOCATION_INGEST_PASSWORD') || '';
-  return !!user && !!pass && constantTimeEqual(decoded.slice(0, split), user) && constantTimeEqual(decoded.slice(split + 1), pass);
+  if (!/^Bearer\s+/i.test(header) || jwtPayload(header).aal !== 'aal2') return false;
+  const key = publishableKey();
+  if (!key) return false;
+  try {
+    const accessToken = header.replace(/^Bearer\s+/i, '').trim();
+    const userClient = createClient(Deno.env.get('SUPABASE_URL')!, key, {
+      global: { headers: { Authorization: header } }
+    });
+    const { data: { user }, error } = await userClient.auth.getUser(accessToken);
+    if (error || !user?.email) return false;
+    const admins = JSON.parse(Deno.env.get('KNOBSOCK_ADMINS') || '{}') as Record<string, unknown>;
+    return typeof admins[user.email.trim().toLowerCase()] === 'string' && !!admins[user.email.trim().toLowerCase()];
+  } catch {
+    return false;
+  }
 }
 function inRing(point: [number, number], ring: number[][]) {
   const [x, y] = point; let inside = false;
@@ -48,8 +69,12 @@ function findArea(lon: number, lat: number) {
   }
   return null;
 }
-function displayName(name: string) {
-  return name.replace(/\s*\((East|West|North|South)\)$/i, '').replace(/-/g, '–');
+function displayName(name: string, code: string) {
+  if (code === 'MN0501') return 'Flatiron District';
+  const simple = name.replace(/\s*\((East|West|North|South|Central)\)$/i, '').trim();
+  if (simple.startsWith('Bedford-Stuyvesant')) return 'Bedford-Stuyvesant';
+  if (code === 'BK0771') return 'Green-Wood Cemetery';
+  return simple.split('-')[0].trim();
 }
 
 Deno.serve(async (req) => {
@@ -62,10 +87,18 @@ Deno.serve(async (req) => {
       await db.from('stream_location').delete().eq('id', 1);
       return json({ neighborhood: null, borough: null, updatedAt: null });
     }
-    return json({ ntaCode: data.nta_code, neighborhood: data.neighborhood, borough: data.borough, updatedAt: data.updated_at });
+    const area = nta.features.find((feature) => feature.properties.nta2020 === data.nta_code);
+    const neighborhood = area ? displayName(area.properties.ntaname, area.properties.nta2020) : data.neighborhood;
+    return json({ ntaCode: data.nta_code, neighborhood, borough: data.borough, updatedAt: data.updated_at });
   }
-  if (req.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
-  if (!authorized(req)) return json({ error: 'Unauthorized.' }, 401);
+  if (req.method !== 'POST' && req.method !== 'DELETE') return json({ error: 'Method not allowed.' }, 405);
+  if (!await authorized(req)) return json({ error: 'A verified KNOBSOCK admin session is required.' }, 401);
+
+  if (req.method === 'DELETE') {
+    const { error } = await db.from('stream_location').delete().eq('id', 1);
+    if (error) return json({ error: 'Could not clear the shared location.' }, 503);
+    return json({ ok: true });
+  }
 
   let payload: Record<string, unknown>;
   try { payload = await req.json(); } catch { return json({ error: 'Invalid JSON.' }, 400); }
@@ -74,7 +107,7 @@ Deno.serve(async (req) => {
   if (accuracy > 3000) return json({ error: 'Location is too imprecise to identify a neighborhood.' }, 422);
   const area = findArea(lon, lat);
   if (!area) return json({ error: 'No neighborhood boundary matched.' }, 422);
-  const row = { id: 1, nta_code: area.nta2020, neighborhood: displayName(area.ntaname), borough: area.boroname, updated_at: new Date().toISOString() };
+  const row = { id: 1, nta_code: area.nta2020, neighborhood: displayName(area.ntaname, area.nta2020), borough: area.boroname, updated_at: new Date().toISOString() };
   const { error } = await db.from('stream_location').upsert(row, { onConflict: 'id' });
   if (error) return json({ error: 'Could not save the neighborhood.' }, 503);
   return json({ ok: true });

@@ -175,10 +175,13 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 8px;
     padding: 12px 16px 0;
   }
+  #locationControls { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #locationShareStatus { color: #f5c9c9; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #locationShareBtn { min-height: 36px; padding: 7px 10px; white-space: nowrap; }
   #signOutBtn {
     background: none;
     border: none;
@@ -189,6 +192,12 @@
     padding: 4px 0;
   }
   #signOutBtn:hover { color: #fff; }
+
+  @media (max-width: 420px) {
+    #statusBar { padding: 8px 12px 0; }
+    #locationControls { gap: 6px; }
+    #locationShareStatus { font-size: 10px; max-width: 112px; }
+  }
 
   .moderation-overlay {
     position: fixed;
@@ -349,6 +358,10 @@
 
 <div id="app" hidden>
   <div id="statusBar">
+    <div id="locationControls" role="group" aria-label="Stream location sharing">
+      <button type="button" class="btn btn-primary" id="locationShareBtn" aria-pressed="false">Share location</button>
+      <span id="locationShareStatus" aria-live="polite">Location sharing is off.</span>
+    </div>
     <button type="button" id="signOutBtn">Sign Out</button>
   </div>
   <div id="viewerBar">
@@ -391,7 +404,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/admin-2fa.js?v=2"></script>
+<script src="/admin-2fa.js?v=3"></script>
 
 <script>
 (function () {
@@ -418,15 +431,141 @@
   const loginError = document.getElementById('loginError');
   const admin2faRoot = document.getElementById('admin2faRoot');
   let adminExpiryTimer = null;
+  const locationShareBtn = document.getElementById('locationShareBtn');
+  const locationShareStatus = document.getElementById('locationShareStatus');
+  const openedFromLocationLink = new URLSearchParams(window.location.search).has('location-share');
+  const LOCATION_ENDPOINT = 'https://ypofuhazhxtzvtywguew.supabase.co/functions/v1/stream-location';
+  const LOCATION_API_KEY = 'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO';
+  let locationWatchId = null;
+  let locationHeartbeat = null;
+  let lastLocationPosition = null;
+  let locationSending = false;
+  let locationSendPromise = null;
+  let locationSharing = false;
 
-  document.getElementById('signOutBtn').addEventListener('click', function () {
-    window.KnobsockAdmin2FA.signOut(auth);
+  function setLocationStatus(message) {
+    locationShareStatus.textContent = message;
+    locationShareBtn.textContent = locationSharing ? 'Stop sharing' : 'Share location';
+    locationShareBtn.setAttribute('aria-pressed', String(locationSharing));
+  }
+
+  function stopLocationWatch() {
+    if (locationWatchId !== null) navigator.geolocation.clearWatch(locationWatchId);
+    if (locationHeartbeat !== null) clearInterval(locationHeartbeat);
+    locationWatchId = null;
+    locationHeartbeat = null;
+    lastLocationPosition = null;
+    locationSharing = false;
+    locationShareBtn.disabled = false;
+    locationShareBtn.textContent = 'Share location';
+    locationShareBtn.setAttribute('aria-pressed', 'false');
+  }
+
+  async function locationAuthHeaders() {
+    const token = await window.KnobsockAdmin2FA.getAccessToken();
+    return { Authorization: 'Bearer ' + token, apikey: LOCATION_API_KEY };
+  }
+
+  async function clearSharedLocation() {
+    try {
+      const headers = await locationAuthHeaders();
+      const response = await fetch(LOCATION_ENDPOINT, { method: 'DELETE', headers });
+      if (!response.ok) throw new Error('Could not clear the shared location.');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function stopLocationSharing(message) {
+    const wasSharing = locationSharing;
+    stopLocationWatch();
+    if (!wasSharing) {
+      setLocationStatus(message || 'Location sharing is off.');
+      return;
+    }
+    locationShareBtn.disabled = true;
+    setLocationStatus('Stopping location sharing…');
+    if (locationSendPromise) await locationSendPromise;
+    const cleared = await clearSharedLocation();
+    locationShareBtn.disabled = false;
+    setLocationStatus(cleared ? (message || 'Location sharing is off.') : 'Sharing stopped; map will clear shortly.');
+  }
+
+  async function sendCurrentLocation() {
+    if (!locationSharing || !lastLocationPosition) return;
+    if (locationSending) return locationSendPromise;
+    locationSending = true;
+    let finishSend;
+    locationSendPromise = new Promise(function (resolve) { finishSend = resolve; });
+    try {
+      const headers = await locationAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      const position = lastLocationPosition;
+      const response = await fetch(LOCATION_ENDPOINT, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          acc: position.coords.accuracy
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          stopLocationWatch();
+          setLocationStatus('Authenticator session expired. Sign in again.');
+          return;
+        }
+        throw new Error(result.error || 'Could not update the map.');
+      }
+      setLocationStatus('Sharing your neighborhood with the map.');
+    } catch (error) {
+      setLocationStatus(error && error.message ? error.message : 'Could not update the map. Check your connection.');
+    } finally {
+      locationSending = false;
+      finishSend();
+      locationSendPromise = null;
+    }
+  }
+
+  function startLocationSharing() {
+    if (!navigator.geolocation) {
+      setLocationStatus('This browser does not support location.');
+      return;
+    }
+    locationSharing = true;
+    locationShareBtn.disabled = true;
+    setLocationStatus('Waiting for phone location permission…');
+    locationWatchId = navigator.geolocation.watchPosition(function (position) {
+      lastLocationPosition = position;
+      void sendCurrentLocation();
+    }, function (error) {
+      void stopLocationSharing(error.code === 1
+        ? 'Allow location access for this site in phone settings.'
+        : 'Phone location is unavailable. Check Location Services and try again.');
+    }, { enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 });
+    locationHeartbeat = setInterval(function () { void sendCurrentLocation(); }, 60000);
+    locationShareBtn.disabled = false;
+    setLocationStatus('Getting your neighborhood…');
+  }
+
+  locationShareBtn.addEventListener('click', function () {
+    if (locationSharing) void stopLocationSharing();
+    else startLocationSharing();
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', async function () {
+    if (locationSharing) await stopLocationSharing('Location sharing stopped.');
+    await window.KnobsockAdmin2FA.signOut(auth);
   });
 
   let monitorStarted = false;
   auth.onAuthStateChanged(function (user) {
     clearTimeout(adminExpiryTimer);
     if (!user) {
+      if (locationSharing) void stopLocationSharing('Sign in again to share location.');
       loginWrap.hidden = false;
       appEl.hidden = true;
       window.KnobsockAdmin2FA.mount(admin2faRoot, auth, {
@@ -437,17 +576,23 @@
     }
     window.KnobsockAdmin2FA.twoFactorUntil(user).then(function (until) {
       if (until <= Date.now()) {
-        auth.signOut();
+        if (locationSharing) void stopLocationSharing('Your admin session expired.');
+        void window.KnobsockAdmin2FA.signOut(auth);
         return;
       }
-      adminExpiryTimer = setTimeout(function () {
-        window.KnobsockAdmin2FA.signOut(auth).then(function () {
+      adminExpiryTimer = setTimeout(async function () {
+        if (locationSharing) await stopLocationSharing('Your admin session expired.');
+        await window.KnobsockAdmin2FA.signOut(auth).then(function () {
           loginError.textContent = 'Your admin session expired. Sign in again.';
         });
       }, Math.min(until - Date.now(), 2147483000));
       loginWrap.hidden = true;
       appEl.hidden = false;
       loginError.textContent = '';
+      if (openedFromLocationLink) {
+        setLocationStatus('Tap Share location to show your neighborhood on stream.');
+        locationShareBtn.focus({ preventScroll: true });
+      }
       if (!monitorStarted) {
         monitorStarted = true;
         startMonitor();
