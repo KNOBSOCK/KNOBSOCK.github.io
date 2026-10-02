@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import nta from '../_shared/nyc-nta.geojson' with { type: 'json' };
+import nta from '../_shared/nyc-nta.json' with { type: 'json' };
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
