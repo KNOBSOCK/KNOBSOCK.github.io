@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#09111b">
+<title>KNOBSOCK Location Link</title>
+<style>
+:root{color-scheme:dark;--gold:#ffd21a;--cyan:#45f4df}*{box-sizing:border-box}body{margin:0;background:#09111b;color:#efffff;font:16px/1.45 system-ui,sans-serif;min-height:100vh;padding:24px;display:grid;place-items:center}
+main{width:min(100%,430px);border:1px solid #45f4df66;background:linear-gradient(145deg,#101d2b,#08101b);padding:24px;box-shadow:0 0 30px #45f4df18}
+h1{font-size:22px;letter-spacing:.04em;margin:0 0 8px}p{color:#b5c7cf;font-size:14px}label{display:block;margin:16px 0 6px;font-size:13px;color:#a9d5d4}input{width:100%;padding:13px;border:1px solid #547078;background:#061019;color:white;font-size:16px}
+button{width:100%;padding:14px;margin-top:16px;background:var(--gold);color:#10131a;border:0;font-weight:800;font-size:16px}button.stop{background:#263842;color:#fff}#status{margin-top:14px;color:var(--cyan);font-size:14px;min-height:2.5em}.fine{font-size:12px;color:#859ba3}
+</style><main><h1>KNOBSOCK LOCATION LINK</h1>
+<p>When started, this page shares your approximate NYC neighborhood with the stream map. Your exact coordinates are sent securely to identify the neighborhood, then discarded. Only the neighborhood and update time are kept.</p>
+<label for="user">Location link username</label><input id="user" autocomplete="username" autocapitalize="none">
+<label for="pass">Location link password</label><input id="pass" type="password" autocomplete="current-password">
+<button id="start">START SHARING</button><button id="stop" class="stop" hidden>STOP SHARING</button>
+<div id="status" role="status">Sharing is off.</div>
+<p class="fine">Keep this page open while streaming. Phones may pause web pages when they are locked or switched to another app. Use the native OwnTracks app for more dependable background updates.</p></main>
+<script>
+const ENDPOINT='https://ypofuhazhxtzvtywguew.supabase.co/functions/v1/stream-location';
+const $=id=>document.getElementById(id),status=$('status');let watchId=null,heartbeat=null,last=null,sending=false;
+async function send(){if(!last||sending)return;sending=true;try{
+const auth=btoa($('user').value.trim()+':'+$('pass').value);
+const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Basic '+auth},body:JSON.stringify({lat:last.coords.latitude,lon:last.coords.longitude,acc:last.coords.accuracy})});
+if(!r.ok)throw Error('Server returned '+r.status);status.textContent='Location is sharing with the map.';
+}catch(e){status.textContent='Could not send location. Check the link details and connection.'}finally{sending=false}}
+$('start').onclick=()=>{if(!navigator.geolocation){status.textContent='This browser does not support location.';return}
+if(!$('user').value.trim()||!$('pass').value){status.textContent='Enter the location link username and password first.';return}
+status.textContent='Requesting phone location permission…';watchId=navigator.geolocation.watchPosition(p=>{last=p;void send()},e=>{status.textContent=e.code===1?'Location permission was denied. Allow it in browser settings.':'Waiting for a usable phone location…'},{enableHighAccuracy:false,maximumAge:15000,timeout:20000});
+heartbeat=setInterval(()=>{if(last)void send()},60000);$('start').hidden=true;$('stop').hidden=false};
+$('stop').onclick=()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);clearInterval(heartbeat);watchId=null;heartbeat=null;last=null;$('start').hidden=false;$('stop').hidden=true;status.textContent='Sharing is off.'};
+</script></html>
