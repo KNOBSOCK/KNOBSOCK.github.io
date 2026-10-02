@@ -317,16 +317,15 @@
   .stream-minimap-clip {
     position: absolute;
     inset: 0;
-    z-index: 5;
+    z-index: 4;
     overflow: hidden;
     pointer-events: none;
   }
   .stream-minimap {
     --minimap-size: clamp(72px, 34cqmin, 230px);
-    --minimap-gap: clamp(6px, 3cqmin, 16px);
     position: absolute;
-    right: 0;
-    bottom: calc(var(--minimap-lift, 0px) + var(--minimap-gap));
+    left: 0;
+    top: 0;
     width: var(--minimap-size);
     height: var(--minimap-size);
     pointer-events: none;
@@ -334,13 +333,13 @@
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .stream-minimap[hidden] { display: none; }
-  .stream-minimap.is-closed { transform: translate(100%, 0); }
+  .stream-minimap.is-closed { transform: translate(-100%, 0); }
   .video-pane.offline-card .stream-minimap { display: none; }
   .stream-minimap-panel {
     position: absolute;
     inset: 0;
     overflow: hidden;
-    border-radius: 7.2px 0 0 7.2px;
+    border-radius: 0 0 7.2px 0;
     background: rgba(0, 0, 0, 0.62);
   }
   .video-frame-wrap .stream-minimap-frame,
@@ -4493,12 +4492,6 @@
       event.stopPropagation();
       setStreamMinimapOpen(!streamMinimapOpen);
     });
-    var videoControlsEl = document.getElementById('videoControls');
-    if (videoControlsEl && window.ResizeObserver) {
-      new ResizeObserver(function () {
-        videoPane.style.setProperty('--minimap-lift', videoControlsEl.offsetHeight + 'px');
-      }).observe(videoControlsEl);
-    }
     streamMinimapFrame.addEventListener('load', function () {
       streamMinimapPosted = null;
       syncStreamMinimap();
