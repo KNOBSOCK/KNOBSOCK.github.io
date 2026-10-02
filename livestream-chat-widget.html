@@ -314,6 +314,84 @@
   #videoEl { cursor: pointer; }
   .video-frame-wrap video::-webkit-media-controls { display: none !important; }
 
+  .stream-minimap-clip {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .stream-minimap {
+    --minimap-size: clamp(72px, 34cqmin, 230px);
+    --minimap-radius: 7.2px;
+    position: absolute;
+    right: 0;
+    bottom: clamp(6px, 3cqmin, 16px);
+    width: var(--minimap-size);
+    height: var(--minimap-size);
+    pointer-events: none;
+    transform: translate(0, 0);
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  }
+  .stream-minimap[hidden] { display: none; }
+  .stream-minimap.is-closed { transform: translate(100%, 0); }
+  .video-pane.controls-visible .stream-minimap { opacity: 0; }
+  @media (hover: none) {
+    .video-pane.controls-visible .stream-minimap-tab { pointer-events: none; }
+  }
+  .video-pane.offline-card .stream-minimap { display: none; }
+  .stream-minimap-panel {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.62);
+  }
+  .video-frame-wrap .stream-minimap-frame,
+  .layout.mode-portrait .video-frame-wrap .stream-minimap-frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    border: 0;
+    transform: none;
+    visibility: visible;
+    pointer-events: none;
+    background: transparent;
+  }
+  .stream-minimap-tab {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    right: 100%;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(24px, 8cqmin, 38px);
+    padding: 0;
+    border: 0;
+    border-radius: var(--minimap-radius) 0 0 var(--minimap-radius);
+    background: rgba(0, 0, 0, 0.72);
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.2s ease;
+  }
+  .stream-minimap-tab:hover { background: var(--interactive-hover); color: var(--interactive-hover-text); }
+  @media (hover: none) {
+    .stream-minimap-tab:hover { background: rgba(0, 0, 0, 0.72); color: rgba(255, 255, 255, 0.75); }
+  }
+  .stream-minimap-chevron {
+    display: inline-block;
+    font-size: clamp(14px, 5cqmin, 24px);
+    line-height: 1;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .stream-minimap.is-closed .stream-minimap-chevron { transform: rotate(180deg); }
+
   .chat-pane {
     position: relative;
     z-index: 1;
@@ -3196,6 +3274,14 @@
         <button type="button" class="center-skip-btn center-skip-forward" id="skipForwardBtn" title="Forward 10 seconds" aria-label="Forward 10 seconds" disabled><img src="/skip-forward-10.png?v=3" alt=""></button>
         <div class="center-skip-flash flash-back" id="skipBackFlash" aria-hidden="true"><img src="/skip-back-10.png?v=2" alt=""></div>
         <div class="center-skip-flash flash-forward" id="skipForwardFlash" aria-hidden="true"><img src="/skip-forward-10.png?v=3" alt=""></div>
+        <div class="stream-minimap-clip">
+          <div class="stream-minimap" id="streamMinimap" hidden>
+            <button type="button" class="stream-minimap-tab" id="streamMinimapTab" title="Hide map" aria-label="Hide map" aria-expanded="true" aria-controls="streamMinimapPanel"><span class="stream-minimap-chevron" aria-hidden="true">&#9658;&#xFE0E;</span></button>
+            <div class="stream-minimap-panel" id="streamMinimapPanel">
+              <iframe class="stream-minimap-frame" id="streamMinimapFrame" title="Stream location map" tabindex="-1"></iframe>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="video-loading" id="videoLoading">
 
@@ -3788,6 +3874,7 @@
          the controls before the browser can follow that link. */
       if (e.target.closest('.portrait-video-logo')) return;
       if (e.target.closest('.stream-stats')) return;
+      if (e.target.closest('.stream-minimap')) return;
       if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls, .center-toggle-icon, .center-skip-btn')) {
         showControls(true);
         return;
@@ -4000,6 +4087,7 @@
     } catch (e) {}
   }
   var watchingVodAspect = '16:9';
+  var watchingVodStartedAt = 0;
 
   // A Bunny direct stream's on-air state can't be trusted to the admin's
   // manual isLive flag alone — the whole point is that no one has to
@@ -4276,6 +4364,7 @@
     watchingVodId = vodId;
     watchingVodTitle = (entry && entry.title) || '';
     watchingVodAspect = entry && entry.aspect === '9:16' ? '9:16' : '16:9';
+    watchingVodStartedAt = Number(entry && entry.addedAt) || 0;
     syncVodPlaybackLayout();
     window.setLiveAspectMode(watchingVodAspect);
     loadedVideoId = vodId;
@@ -4302,17 +4391,166 @@
     updateLiveButtonState();
     updateOfflineCardState();
     updateNowPlaying();
+    syncStreamMinimap();
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(watchingVodId);
   };
 
   window.returnToLive = function () {
     watchingVodId = null;
     watchingVodAspect = '16:9';
+    watchingVodStartedAt = 0;
     loadedVideoId = null;
     syncVodPlaybackLayout();
     window.applyLiveVideoState(configuredLiveSource, configuredIsLive, configuredLiveAspect);
+    syncStreamMinimap();
     if (typeof window.onVodStateChange === 'function') window.onVodStateChange(null);
   };
+
+  var STREAM_MAP_ENDPOINT = 'https://ypofuhazhxtzvtywguew.supabase.co/functions/v1/stream-location';
+  var STREAM_MAP_KEY = 'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO';
+  var STREAM_MAP_STALE_MS = 15 * 60 * 1000;
+  var STREAM_MAP_VOD_RANGE_MS = 12 * 60 * 60 * 1000;
+  var STREAM_MAP_LIVE_POLL_MS = 15000;
+  var streamMinimap = document.getElementById('streamMinimap');
+  var streamMinimapTab = document.getElementById('streamMinimapTab');
+  var streamMinimapFrame = document.getElementById('streamMinimapFrame');
+  var streamMinimapOpen = true;
+  var streamMinimapPosted = null;
+  var streamMinimapLiveLocation = null;
+  var streamMinimapLiveTimer = null;
+  var streamMinimapHistory = {};
+
+  function postStreamMinimap(locationData) {
+    var key = JSON.stringify(locationData || {});
+    if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
+    streamMinimapPosted = key;
+    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {} }, location.origin); } catch (e) {}
+  }
+
+  function setStreamMinimapVisible(visible) {
+    if (streamMinimap.hidden === !visible) return;
+    streamMinimap.hidden = !visible;
+    if (visible && !streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=2';
+  }
+
+  function fetchStreamMinimapLive() {
+    if (document.hidden) return;
+    fetch(STREAM_MAP_ENDPOINT, { headers: { apikey: STREAM_MAP_KEY }, cache: 'no-store' }).then(function (res) {
+      return res.ok ? res.json() : null;
+    }).then(function (data) {
+      if (!data || !streamMinimapLiveTimer) return;
+      streamMinimapLiveLocation = { ntaCode: data.ntaCode || null, neighborhood: data.neighborhood || null, borough: data.borough || null };
+      syncStreamMinimap();
+    }).catch(function () {});
+  }
+
+  function startStreamMinimapLive() {
+    if (streamMinimapLiveTimer) return;
+    streamMinimapLiveTimer = setInterval(fetchStreamMinimapLive, STREAM_MAP_LIVE_POLL_MS);
+    fetchStreamMinimapLive();
+  }
+
+  function stopStreamMinimapLive() {
+    clearInterval(streamMinimapLiveTimer);
+    streamMinimapLiveTimer = null;
+    streamMinimapLiveLocation = null;
+  }
+
+  function streamMinimapVodHistory(vodId, startedAt) {
+    if (!startedAt) return { ready: true, entries: [] };
+    var cached = streamMinimapHistory[vodId];
+    if (cached && cached.startedAt === startedAt) return cached;
+    var record = { ready: false, entries: [], startedAt: startedAt };
+    streamMinimapHistory[vodId] = record;
+    var url = STREAM_MAP_ENDPOINT + '?from=' + startedAt + '&to=' + (startedAt + STREAM_MAP_VOD_RANGE_MS);
+    fetch(url, { headers: { apikey: STREAM_MAP_KEY } }).then(function (res) {
+      return res.ok ? res.json() : { entries: [] };
+    }).then(function (data) {
+      record.entries = (data && Array.isArray(data.entries) ? data.entries : []).filter(function (entry) {
+        return entry && Number.isFinite(entry.t);
+      }).sort(function (a, b) { return a.t - b.t; });
+      record.ready = true;
+      syncStreamMinimap();
+    }).catch(function () {
+      record.ready = true;
+    });
+    return record;
+  }
+
+  function streamMinimapLocationAt(entries, at) {
+    var lo = 0, hi = entries.length - 1, found = null;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (entries[mid].t <= at) { found = entries[mid]; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (!found || !found.ntaCode || at - found.t > STREAM_MAP_STALE_MS) return null;
+    return { ntaCode: found.ntaCode, neighborhood: found.neighborhood || null, borough: found.borough || null };
+  }
+
+  function streamMinimapPlaybackSeconds() {
+    if (backend === 'video') return videoEl.currentTime || 0;
+    if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
+      try { return ytPlayer.getCurrentTime() || 0; } catch (e) {}
+    }
+    return 0;
+  }
+
+  function syncStreamMinimap() {
+    if (!streamMinimap) return;
+    if (watchingVodId) {
+      stopStreamMinimapLive();
+      var history = streamMinimapVodHistory(watchingVodId, watchingVodStartedAt);
+      setStreamMinimapVisible(true);
+      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, watchingVodStartedAt + streamMinimapPlaybackSeconds() * 1000) : null);
+      return;
+    }
+    if (isEffectivelyLive()) {
+      setStreamMinimapVisible(true);
+      startStreamMinimapLive();
+      if (streamMinimapLiveLocation) postStreamMinimap(streamMinimapLiveLocation);
+      return;
+    }
+    stopStreamMinimapLive();
+    setStreamMinimapVisible(false);
+  }
+
+  function setStreamMinimapOpen(open) {
+    streamMinimapOpen = open;
+    streamMinimap.classList.toggle('is-closed', !open);
+    streamMinimapTab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    streamMinimapTab.title = open ? 'Hide map' : 'Show map';
+    streamMinimapTab.setAttribute('aria-label', streamMinimapTab.title);
+  }
+
+  if (streamMinimap) {
+    streamMinimapTab.addEventListener('click', function (event) {
+      event.stopPropagation();
+      setStreamMinimapOpen(!streamMinimapOpen);
+    });
+    if (supportsHover) {
+      ['mouseenter', 'mousemove'].forEach(function (type) {
+        streamMinimapTab.addEventListener(type, function (event) {
+          event.stopPropagation();
+          hideControlsNow();
+        });
+      });
+    }
+    streamMinimapFrame.addEventListener('load', function () {
+      streamMinimapPosted = null;
+      syncStreamMinimap();
+    });
+    window.addEventListener('message', function (event) {
+      if (event.origin !== location.origin || !event.data || event.data.type !== 'knobsock-map-ready') return;
+      streamMinimapPosted = null;
+      syncStreamMinimap();
+    });
+    videoEl.addEventListener('seeked', syncStreamMinimap);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && streamMinimapLiveTimer) fetchStreamMinimapLive();
+    });
+    setInterval(syncStreamMinimap, 1000);
+    setStreamMinimapOpen(true);
+  }
 
   if (liveBtn) {
     liveBtn.addEventListener('click', function () {

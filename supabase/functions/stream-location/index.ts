@@ -9,6 +9,8 @@ const cors = {
   'Content-Type': 'application/json; charset=utf-8'
 };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: cors });
+const STALE_MS = 15 * 60 * 1000;
+const HISTORY_MAX_RANGE_MS = 24 * 60 * 60 * 1000;
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
 function publishableKey() {
@@ -77,13 +79,52 @@ function displayName(name: string, code: string) {
   return simple.split('-')[0].trim();
 }
 
+async function logLocation(row: { nta_code: string; neighborhood: string; borough: string; updated_at: string } | null) {
+  try {
+    const { data: last } = await db.from('stream_location_log').select('nta_code,at').order('at', { ascending: false }).limit(1).maybeSingle();
+    const code = row ? row.nta_code : null;
+    if (last && last.nta_code === code && (!code || Date.now() - Date.parse(last.at) < 60 * 1000)) return;
+    await db.from('stream_location_log').insert({
+      nta_code: code,
+      neighborhood: row ? row.neighborhood : null,
+      borough: row ? row.borough : null,
+      at: row ? row.updated_at : new Date().toISOString()
+    });
+  } catch {
+    return;
+  }
+}
+
+async function history(params: URLSearchParams) {
+  const from = Number(params.get('from'));
+  const to = Number(params.get('to') || from + HISTORY_MAX_RANGE_MS / 2);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > HISTORY_MAX_RANGE_MS) return json({ error: 'Invalid range.' }, 400);
+  const { data, error } = await db.from('stream_location_log')
+    .select('nta_code,neighborhood,borough,at')
+    .gte('at', new Date(from - STALE_MS).toISOString())
+    .lte('at', new Date(to).toISOString())
+    .order('at', { ascending: true })
+    .limit(5000);
+  if (error) return json({ error: 'Location history is not configured.' }, 503);
+  return json({
+    entries: (data || []).map((entry) => ({
+      t: Date.parse(entry.at),
+      ntaCode: entry.nta_code,
+      neighborhood: entry.neighborhood,
+      borough: entry.borough
+    }))
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method === 'GET') {
+    const params = new URL(req.url).searchParams;
+    if (params.has('from')) return history(params);
     const { data, error } = await db.from('stream_location').select('nta_code,neighborhood,borough,updated_at').eq('id', 1).maybeSingle();
     if (error) return json({ error: 'Location is not configured.' }, 503);
     if (!data?.updated_at) return json({ neighborhood: null, borough: null, updatedAt: null });
-    if (Date.now() - Date.parse(data.updated_at) > 15 * 60 * 1000) {
+    if (Date.now() - Date.parse(data.updated_at) > STALE_MS) {
       await db.from('stream_location').delete().eq('id', 1);
       return json({ neighborhood: null, borough: null, updatedAt: null });
     }
@@ -97,6 +138,7 @@ Deno.serve(async (req) => {
   if (req.method === 'DELETE') {
     const { error } = await db.from('stream_location').delete().eq('id', 1);
     if (error) return json({ error: 'Could not clear the shared location.' }, 503);
+    await logLocation(null);
     return json({ ok: true });
   }
 
@@ -110,5 +152,6 @@ Deno.serve(async (req) => {
   const row = { id: 1, nta_code: area.nta2020, neighborhood: displayName(area.ntaname, area.nta2020), borough: area.boroname, updated_at: new Date().toISOString() };
   const { error } = await db.from('stream_location').upsert(row, { onConflict: 'id' });
   if (error) return json({ error: 'Could not save the neighborhood.' }, 503);
+  await logLocation(row);
   return json({ ok: true });
 });
