@@ -265,6 +265,27 @@
     gap: 6px;
     min-width: 0;
   }
+  .vod-map-start {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .vod-map-start input {
+    flex: 1 1 270px;
+    min-width: min(270px, 100%);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 8px;
+    font-size: 14px;
+    color-scheme: dark;
+  }
+  .vod-map-start input:focus { outline: none; border-color: var(--accent); }
+  .vod-map-start.is-auto input { color: var(--text-dim); }
   .icon-btn {
     flex: none;
     -webkit-appearance: none;
@@ -910,6 +931,7 @@
     .modal-overlay { padding: 10px; }
     .modal-panel { max-height: 90vh; max-height: 90dvh; padding: 12px; }
     input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="url"], input:not([type]), textarea, select { font-size: 16px; }
+    .vod-map-start input { font-size: 16px; }
   }
 </style>
 </head>
@@ -4184,6 +4206,40 @@
         .catch(function () { clearTimeout(timeoutId); });
     }
 
+    function vodMapStart(v) {
+      const anchors = Array.isArray(v.timeline) ? v.timeline.filter(function (a) {
+        return a && Number.isFinite(Number(a.v)) && Number.isFinite(Number(a.t)) && Number(a.t) > 0;
+      }) : [];
+      if (anchors.length) {
+        const first = anchors.reduce(function (min, a) { return Number(a.v) < Number(min.v) ? a : min; });
+        return Number(first.t) - Number(first.v) * 1000;
+      }
+      return Number(v.startedAt) || 0;
+    }
+
+    function setVodMapStart(v, ms) {
+      if (!ms) {
+        delete v.timeline;
+        delete v.startedAt;
+        return;
+      }
+      const current = vodMapStart(v);
+      const anchors = Array.isArray(v.timeline) ? v.timeline.filter(function (a) {
+        return a && Number.isFinite(Number(a.v)) && Number.isFinite(Number(a.t)) && Number(a.t) > 0;
+      }) : [];
+      v.timeline = anchors.length && current
+        ? anchors.map(function (a) { return Object.assign({}, a, { v: Number(a.v), t: Number(a.t) + (ms - current) }); })
+        : [{ v: 0, t: ms }];
+      v.startedAt = ms;
+    }
+
+    function toLocalDateTimeInput(ms) {
+      if (!ms) return '';
+      const d = new Date(ms);
+      const p = function (n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
     function renderVodsList() {
       const root = document.getElementById('vodsList');
       if (!vodDraftList.length) {
@@ -4198,6 +4254,15 @@
             '<input type="text" class="title-input" placeholder="VOD title" value="' + escapeAttr(v.title || '') + '">' +
             '<input type="text" class="thumb-input" placeholder="Thumbnail image URL (optional — required for Bunny links)" value="' + escapeAttr(v.thumb || '') + '">' +
             '<select class="aspect-input" title="VOD aspect ratio"><option value="16:9"' + (v.aspect !== '9:16' ? ' selected' : '') + '>16:9</option><option value="9:16"' + (v.aspect === '9:16' ? ' selected' : '') + '>9:16</option></select>' +
+            '<div class="vod-map-start' + (vodMapStart(v) ? '' : ' is-auto') + '" title="The real date and time (your local time) when 0:00 of this video happened. The mini map lines up from this. Blank means automatic.">' +
+              '<span>Map start</span>' +
+              '<input type="datetime-local" step="1" class="map-start-input" value="' + escapeAttr(toLocalDateTimeInput(vodMapStart(v))) + '">' +
+              '<button type="button" class="btn-link map-nudge" data-ms="-5000">&minus;5s</button>' +
+              '<button type="button" class="btn-link map-nudge" data-ms="-1000">&minus;1s</button>' +
+              '<button type="button" class="btn-link map-nudge" data-ms="1000">+1s</button>' +
+              '<button type="button" class="btn-link map-nudge" data-ms="5000">+5s</button>' +
+              '<button type="button" class="btn-link map-auto">Auto</button>' +
+            '</div>' +
           '</div>' +
           '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
         '</div>';
@@ -4229,6 +4294,30 @@
         });
         row.querySelector('.aspect-input').addEventListener('change', function () {
           vodDraftList[idx].aspect = row.querySelector('.aspect-input').value;
+        });
+        const mapStartInput = row.querySelector('.map-start-input');
+        const mapStartWrap = row.querySelector('.vod-map-start');
+        function showMapStart() {
+          const ms = vodMapStart(vodDraftList[idx]);
+          mapStartInput.value = toLocalDateTimeInput(ms);
+          mapStartWrap.classList.toggle('is-auto', !ms);
+        }
+        mapStartInput.addEventListener('change', function () {
+          const ms = mapStartInput.value ? new Date(mapStartInput.value).getTime() : 0;
+          setVodMapStart(vodDraftList[idx], Number.isFinite(ms) ? ms : 0);
+          showMapStart();
+        });
+        row.querySelectorAll('.map-nudge').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            const item = vodDraftList[idx];
+            const base = vodMapStart(item) || Number(item.addedAt) || Date.now();
+            setVodMapStart(item, base + Number(btn.dataset.ms));
+            showMapStart();
+          });
+        });
+        row.querySelector('.map-auto').addEventListener('click', function () {
+          setVodMapStart(vodDraftList[idx], 0);
+          showMapStart();
         });
         row.querySelector('.remove-btn').addEventListener('click', function () {
           vodDraftList.splice(idx, 1);
