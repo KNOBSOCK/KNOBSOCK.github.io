@@ -59,12 +59,10 @@
   };
   const BASE_SIZE = numberParam('size', 44, 12, 200);
   const MAX_NAMES = numberParam('max', 100, 1, 300);
-  const ALWAYS_ON = params.get('always') === '1';
   const DEMO = params.get('demo') === '1';
   const USE_COLORS = params.get('colors') !== '0';
   const ACTIVE_WINDOW_MS = 270000;
   const RESUBSCRIBE_MS = 10 * 60 * 1000;
-  const LIVE_PROBE_MS = 30000;
   const GAP = 0.12;
   const STEP = 2;
 
@@ -324,25 +322,8 @@
     }).catch((err) => console.error(err));
   }
 
-  if (DEMO) {
-    runDemo();
-  } else if (ALWAYS_ON) {
-    setLive(true);
-  } else {
-    let liveUrl = null, manualLive = false, probeTimer = 0;
-    const probe = () => {
-      if (!liveUrl) { setLive(manualLive); return; }
-      fetch(liveUrl, { cache: 'no-store' }).then((res) => setLive(!!res.ok)).catch(() => setLive(false));
-    };
-    db.collection('chat_config').doc('liveVideo').onSnapshot((doc) => {
-      const data = doc.exists ? doc.data() : {};
-      liveUrl = data.directUrl || null;
-      manualLive = !liveUrl && data.isLive !== false && !!data.videoId;
-      clearInterval(probeTimer);
-      probe();
-      probeTimer = setInterval(probe, LIVE_PROBE_MS);
-    }, () => setLive(false));
-  }
+  if (DEMO) runDemo();
+  else setLive(true);
 })();
 </script>
 </body>
