@@ -3279,7 +3279,7 @@
           <div class="stream-minimap" id="streamMinimap" hidden>
             <div class="stream-minimap-zoom">
               <button type="button" id="mapZoomIn" aria-label="Zoom in" title="Zoom in" disabled>+</button>
-              <button type="button" id="mapZoomOut" aria-label="Zoom out" title="Zoom out">&minus;</button>
+              <button type="button" id="mapZoomOut" aria-label="Zoom out" title="Zoom out" disabled>&minus;</button>
             </div>
             <div class="stream-minimap-panel" id="streamMinimapPanel">
               <iframe class="stream-minimap-frame" id="streamMinimapFrame" title="Stream location map" tabindex="-1"></iframe>
@@ -4459,6 +4459,14 @@
   var streamMinimapOpen = true;
   var STREAM_MAP_ZOOM_LEVELS = [1, 1.8, 3.4];
   var streamMinimapZoomLevel = 0;
+  var streamMinimapHasLocation = false;
+  var mapZoomIn = document.getElementById('mapZoomIn');
+  var mapZoomOut = document.getElementById('mapZoomOut');
+  function refreshStreamMinimapZoomButtons() {
+    if (!mapZoomIn || !mapZoomOut) return;
+    mapZoomIn.disabled = !streamMinimapHasLocation || streamMinimapZoomLevel === 0;
+    mapZoomOut.disabled = !streamMinimapHasLocation || streamMinimapZoomLevel === STREAM_MAP_ZOOM_LEVELS.length - 1;
+  }
   var streamMinimapPosted = null;
   var streamMinimapLiveLocation = null;
   var streamMinimapLiveLocationAt = 0;
@@ -4473,6 +4481,11 @@
 
   function postStreamMinimap(locationData, heading) {
     var headingValue = typeof heading === 'number' && isFinite(heading) ? Math.round(heading * 10) / 10 : null;
+    var hasLocation = !!(locationData && locationData.ntaCode);
+    if (hasLocation !== streamMinimapHasLocation) {
+      streamMinimapHasLocation = hasLocation;
+      refreshStreamMinimapZoomButtons();
+    }
     var zoom = STREAM_MAP_ZOOM_LEVELS[streamMinimapZoomLevel];
     var key = JSON.stringify({ l: locationData || {}, h: headingValue, z: zoom });
     if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
@@ -4911,12 +4924,9 @@
   }
 
   if (streamMinimap) {
-    var mapZoomIn = document.getElementById('mapZoomIn');
-    var mapZoomOut = document.getElementById('mapZoomOut');
     function setStreamMinimapZoom(level) {
       streamMinimapZoomLevel = Math.max(0, Math.min(STREAM_MAP_ZOOM_LEVELS.length - 1, level));
-      mapZoomIn.disabled = streamMinimapZoomLevel === 0;
-      mapZoomOut.disabled = streamMinimapZoomLevel === STREAM_MAP_ZOOM_LEVELS.length - 1;
+      refreshStreamMinimapZoomButtons();
       syncStreamMinimap();
     }
     mapZoomIn.addEventListener('click', function (event) {
