@@ -26,8 +26,8 @@
     inset: 0;
   }
   #ticker { z-index: 1; }
-  #bubbles { z-index: 2; }
-  #names { z-index: 3; pointer-events: none; }
+  #names { z-index: 2; pointer-events: none; }
+  #bubbles { z-index: 3; pointer-events: none; }
   #debug { z-index: 4; pointer-events: none; }
   .bubble {
     position: absolute;
@@ -140,12 +140,13 @@
     const value = Number(params.get(name));
     return params.has(name) && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
   };
-  const NAME_SIZE = numberParam('size', 40, 12, 200);
+  const NAME_SIZE = numberParam('size', 52, 12, 400);
   const MAX_NAMES = numberParam('max', 100, 1, 300);
-  const BUBBLE_COUNT = numberParam('bubbles', 5, 0, 30);
+  const BUBBLE_COUNT = numberParam('bubbles', 10, 0, 50);
   const BUBBLE_SIZE = numberParam('bubbleSize', 34, 12, 200);
   const INTERVAL_MS = numberParam('interval', 7, 2, 120) * 1000;
   const SPEED = numberParam('speed', 1, 0, 5);
+  const BUBBLE_AREA = numberParam('bubbleArea', 0.5, 0.15, 1);
   const TICKER_Y = numberParam('tickerY', 0.7, 0, 1);
   const TICKER_SIZE = numberParam('tickerSize', 64, 12, 200);
   const PILE_LIMIT = numberParam('pile', 0.76, 0.1, 1);
@@ -164,10 +165,11 @@
   const LIVE_PROBE_MS = 30000;
   const DROP_GAP_MS = 380;
   const STEP = 1 / 60;
-  const CAT_SOLID = 0x1, CAT_NAME = 0x2, CAT_BUBBLE = 0x4, CAT_CEILING = 0x8;
-  const SOLID_FILTER = { category: CAT_SOLID, mask: CAT_SOLID | CAT_NAME | CAT_BUBBLE };
-  const NAME_FILTER = { category: CAT_NAME, mask: CAT_SOLID | CAT_NAME | CAT_BUBBLE };
-  const BUBBLE_FILTER = { category: CAT_BUBBLE, mask: CAT_SOLID | CAT_NAME | CAT_BUBBLE | CAT_CEILING };
+  const CAT_SOLID = 0x1, CAT_NAME = 0x2, CAT_BUBBLE = 0x4, CAT_CEILING = 0x8, CAT_TICKER = 0x10;
+  const SOLID_FILTER = { category: CAT_SOLID, mask: CAT_NAME | CAT_BUBBLE };
+  const TICKER_FILTER = { category: CAT_TICKER, mask: CAT_NAME };
+  const NAME_FILTER = { category: CAT_NAME, mask: CAT_SOLID | CAT_NAME | CAT_TICKER };
+  const BUBBLE_FILTER = { category: CAT_BUBBLE, mask: CAT_SOLID | CAT_BUBBLE | CAT_CEILING };
 
   const { Engine, Bodies, Body, Composite } = Matter;
 
@@ -197,7 +199,6 @@
 
   const engine = Engine.create({ gravity: { x: 0, y: GRAVITY }, positionIterations: 10, velocityIterations: 8 });
   let walls = [];
-  const bubbleShelf = () => H * (SHOW_TICKER ? TICKER_Y : PILE_LIMIT);
   function buildWalls() {
     if (walls.length) Composite.remove(engine.world, walls);
     const thick = 200;
@@ -206,7 +207,7 @@
       Bodies.rectangle(-thick / 2, H / 2 - H, thick, H * 4, { isStatic: true, friction: 0.3, collisionFilter: SOLID_FILTER }),
       Bodies.rectangle(W + thick / 2, H / 2 - H, thick, H * 4, { isStatic: true, friction: 0.3, collisionFilter: SOLID_FILTER }),
       Bodies.rectangle(W / 2, -thick / 2, W * 3, thick, { isStatic: true, friction: 0.2, collisionFilter: { category: CAT_CEILING, mask: CAT_BUBBLE } }),
-      Bodies.rectangle(W / 2, bubbleShelf() + thick / 2, W * 3, thick, { isStatic: true, friction: 0.2, collisionFilter: { category: CAT_CEILING, mask: CAT_BUBBLE } })
+      Bodies.rectangle(W / 2, H * BUBBLE_AREA + thick / 2, W * 3, thick, { isStatic: true, friction: 0.2, collisionFilter: { category: CAT_CEILING, mask: CAT_BUBBLE } })
     ];
     Composite.add(engine.world, walls);
   }
@@ -297,7 +298,7 @@
   let clock = 0;
 
   const randBase = () => rand(0.6, 1.05);
-  const bubbleFloor = () => bubbleShelf() - 4;
+  const bubbleFloor = () => H * BUBBLE_AREA;
 
   function measureBubble(b) {
     b.w = b.el.offsetWidth;
@@ -320,11 +321,11 @@
     let score = 0;
     const minX = x - w / 2, maxX = x + w / 2, minY = y - h / 2, maxY = y + h / 2;
     Composite.allBodies(engine.world).forEach((body) => {
-      if (body.collisionFilter.category === CAT_CEILING) return;
+      if (body.collisionFilter.category !== CAT_BUBBLE) return;
       const bb = body.bounds;
       const ox = Math.min(maxX, bb.max.x) - Math.max(minX, bb.min.x);
       const oy = Math.min(maxY, bb.max.y) - Math.max(minY, bb.min.y);
-      if (ox > 0 && oy > 0) score += ox * oy * (body.collisionFilter.category === CAT_NAME ? 0.3 : 1);
+      if (ox > 0 && oy > 0) score += ox * oy;
     });
     bubbles.forEach((o) => {
       if (o.body || o.leaving) return;
@@ -389,7 +390,7 @@
     b.body = Bodies.rectangle(b.x, b.y, b.w * s, b.h * s, {
       angle: b.angle,
       chamfer: { radius: Math.min(b.w, b.h) * s * 0.14 },
-      density: 0.02,
+      density: 0.04,
       friction: 0.35,
       frictionStatic: 0.5,
       frictionAir: 0.02,
@@ -425,7 +426,7 @@
   function highlight(b) {
     if (!b || b.leaving) return;
     if (hot && hot !== b) cool();
-    const fit = Math.min(W * 0.5 / Math.max(1, b.w), H * 0.3 / Math.max(1, b.h));
+    const fit = Math.min(W * 0.5 / Math.max(1, b.w), bubbleFloor() * 0.6 / Math.max(1, b.h));
     const target = Math.max(b.base, Math.min(HIGHLIGHT_SCALE, fit));
     hot = b;
     b.hot = true;
@@ -494,7 +495,6 @@
   function stepBubbles(dt) {
     clock += dt;
     const g = engine.gravity;
-    const floor = bubbleFloor();
     bubbles.forEach((b) => {
       if (b.delay > 0) {
         b.delay -= dt;
@@ -532,11 +532,11 @@
       const cruise = 30 * SPEED * viewFactor * b.cruise * (1 - b.heat * 0.7);
       const hh = (body.bounds.max.y - body.bounds.min.y) / 2;
       const bandTop = H * 0.03 + hh;
-      const bandBottom = Math.max(bandTop, Math.min(H * 0.62, bubbleShelf()) - hh);
+      const bandBottom = Math.max(bandTop, bubbleFloor() - H * 0.02 - hh);
       b.homeTimer -= dt;
       if (b.homeTimer <= 0 || b.homeY < bandTop - 1 || b.homeY > bandBottom + 1) {
         b.homeY = rand(bandTop, bandBottom);
-        b.homeTimer = rand(8, 18);
+        b.homeTimer = rand(6, 12);
       }
       b.dir += Math.sin(clock * 0.31 + b.phase) * 0.25 * dt;
       const dx = Math.cos(b.dir), dy = Math.sin(b.dir);
@@ -548,8 +548,7 @@
       const lift = Math.max(-cruise * 1.4, Math.min(cruise * 1.4, (b.homeY - body.position.y) * 0.7));
       let desiredX = Math.cos(b.dir) * cruise;
       let desiredY = Math.sin(b.dir) * cruise * 0.35 + lift;
-      if (body.bounds.max.y > floor) desiredY -= Math.min(cruise * 3, (body.bounds.max.y - floor) * 1.5);
-      const blendX = Math.min(1, dt * 1.1), blendY = Math.min(1, dt * 2.5);
+      const blendX = Math.min(1, dt * 1.1), blendY = Math.min(1, dt * 10);
       Body.setVelocity(body, { x: (vx + (desiredX - vx) * blendX) / 60, y: (vy + (desiredY - vy) * blendY) / 60 });
       const wobble = Math.sin(clock * 0.5 + b.phase) * 2.5 * (1 - b.heat) * Math.PI / 180;
       let w = body.angularVelocity * 60;
@@ -647,7 +646,7 @@
     if (tickerBody && Math.abs(tickerBody.plugin.w - w) < 3 && Math.abs(tickerBody.plugin.h - h) < 3 &&
       Math.abs(tickerBody.position.x - x) < 2 && Math.abs(tickerBody.position.y - y) < 2) return;
     if (tickerBody) Composite.remove(engine.world, tickerBody);
-    tickerBody = Bodies.rectangle(x, y, w, h, { isStatic: true, friction: 0.6, restitution: 0.12, chamfer: { radius: h * 0.25 }, collisionFilter: SOLID_FILTER });
+    tickerBody = Bodies.rectangle(x, y, w, h, { isStatic: true, friction: 0.6, restitution: 0.12, chamfer: { radius: h * 0.25 }, collisionFilter: TICKER_FILTER });
     tickerBody.plugin = { w, h };
     Composite.add(engine.world, tickerBody);
   }
@@ -777,6 +776,10 @@
       currentItem = provider;
       if (animate !== false && previous && line.animate) {
         tickerSliding = true;
+        if (tickerBody) {
+          Composite.remove(engine.world, tickerBody);
+          tickerBody = null;
+        }
         const opts = { duration: CONFIG.transitionMs, easing: 'cubic-bezier(.22,.7,.2,1)', fill: 'forwards' };
         const a = previous.animate([{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(100%)', opacity: 0 }], opts);
         const b = line.animate([{ transform: 'translateX(-100%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], opts);
