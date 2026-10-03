@@ -353,6 +353,7 @@
     pointer-events: auto;
   }
   .stream-minimap.is-closed .stream-minimap-zoom { pointer-events: none; }
+  .stream-minimap-zoom[hidden] { display: none; }
   .stream-minimap-zoom button {
     -webkit-appearance: none;
     appearance: none;
@@ -3295,7 +3296,7 @@
         <div class="center-skip-flash flash-forward" id="skipForwardFlash" aria-hidden="true"><img src="/skip-forward-10.png?v=3" alt=""></div>
         <div class="stream-minimap-clip">
           <div class="stream-minimap" id="streamMinimap" hidden>
-            <div class="stream-minimap-zoom">
+            <div class="stream-minimap-zoom" hidden>
               <button type="button" id="mapZoomIn" aria-label="Zoom in" title="Zoom in" disabled>+</button>
               <button type="button" id="mapZoomOut" aria-label="Zoom out" title="Zoom out" disabled>&minus;</button>
             </div>
@@ -4486,6 +4487,7 @@
   var mapZoomOut = document.getElementById('mapZoomOut');
   function refreshStreamMinimapZoomButtons() {
     if (!mapZoomIn || !mapZoomOut) return;
+    mapZoomIn.parentElement.hidden = !streamMinimapHasLocation;
     mapZoomIn.disabled = !streamMinimapHasLocation || streamMinimapZoomLevel === 0;
     mapZoomOut.disabled = !streamMinimapHasLocation || streamMinimapZoomLevel === STREAM_MAP_ZOOM_LEVELS.length - 1;
   }

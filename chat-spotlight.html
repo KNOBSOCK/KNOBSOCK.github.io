@@ -71,6 +71,11 @@
     object-fit: contain;
     vertical-align: -0.2em;
   }
+  #text.emoji-only .chat-emoji {
+    width: 2.1em;
+    height: 2.1em;
+    vertical-align: middle;
+  }
 </style>
 </head>
 <body>
@@ -152,6 +157,25 @@
       return '<img class="chat-emoji" src="' + escapeHtml(emoji.url) + '" alt="' + escapeHtml(match) + '">';
     });
   }
+  function isEmojiOnly(text) {
+    const tokens = String(text || '').trim().split(/\s+/).filter(Boolean);
+    return tokens.length > 0 && tokens.length <= 6 && tokens.every((token) => {
+      const parts = token.match(/:([a-z0-9_-]{1,32}):/gi);
+      return parts && parts.join('') === token && parts.every((part) => chatEmojiByName[part.slice(1, -1).toLowerCase()]);
+    });
+  }
+
+  function fillCard(message) {
+    nameEl.textContent = message.username;
+    nameEl.style.color = colorFor(message);
+    textEl.innerHTML = renderMessageText(message.text);
+    textEl.classList.toggle('emoji-only', isEmojiOnly(message.text));
+    fitCard();
+    textEl.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) img.addEventListener('load', fitCard, { once: true });
+    });
+  }
+
   function isSpotlightable(m) {
     return !!m && !m.type && typeof m.text === 'string' && m.text.trim().length > 0 &&
       !!m.username && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
@@ -182,10 +206,7 @@
     card.classList.remove('is-leaving', 'is-animating', 'is-shown');
     void card.offsetWidth;
     currentId = message.id;
-    nameEl.textContent = message.username;
-    nameEl.style.color = colorFor(message);
-    textEl.innerHTML = renderMessageText(message.text);
-    fitCard();
+    fillCard(message);
     requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('is-animating', 'is-shown')));
   }
 
@@ -271,6 +292,8 @@
         if (!byName[name]) byName[name] = { name, url };
       });
       chatEmojiByName = byName;
+      const current = pool.find((m) => m.id === currentId);
+      if (current) fillCard(current);
     })
     .catch(() => {});
 

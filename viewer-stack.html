@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNOBSOCK Viewer Stack</title>
+<style>
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: block;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+  #stack {
+    position: absolute;
+    inset: 0;
+  }
+  .name {
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: nowrap;
+    font-family: 'Gratis Neue', Tahoma, Arial, sans-serif;
+    line-height: 1;
+    color: #ffffff;
+    -webkit-text-stroke: 0.12em #000000;
+    paint-order: stroke fill;
+    will-change: transform, opacity;
+  }
+  #measure {
+    position: absolute;
+    visibility: hidden;
+    white-space: nowrap;
+    font-family: 'Gratis Neue', Tahoma, Arial, sans-serif;
+    line-height: 1;
+    -webkit-text-stroke: 0.12em #000000;
+    paint-order: stroke fill;
+  }
+</style>
+</head>
+<body>
+<div id="stack"></div>
+<span id="measure"></span>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const numberParam = (name, fallback, min, max) => {
+    const value = Number(params.get(name));
+    return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+  };
+  const BASE_SIZE = numberParam('size', 44, 12, 200);
+  const ALWAYS_ON = params.get('always') === '1';
+  const USE_COLORS = params.get('colors') === '1';
+  const ACTIVE_WINDOW_MS = 270000;
+  const RESUBSCRIBE_MS = 10 * 60 * 1000;
+  const LIVE_PROBE_MS = 30000;
+  const GAP = 0.12;
+  const STEP = 2;
+
+  firebase.initializeApp({
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  });
+  const db = firebase.firestore();
+
+  const stackEl = document.getElementById('stack');
+  const measureEl = document.getElementById('measure');
+  const viewers = new Map();
+  const order = [];
+  let size = BASE_SIZE;
+
+  function usernameFromId(id) {
+    if (typeof id !== 'string' || id.indexOf('u_') !== 0) return '';
+    try {
+      const encoded = id.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+      const binary = atob(encoded + '='.repeat((4 - encoded.length % 4) % 4));
+      const name = new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+      return name.length >= 1 && name.length <= 24 && !/\s/.test(name) ? name : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function hashHue(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return hash % 360;
+  }
+
+  function measure(name) {
+    measureEl.style.fontSize = size + 'px';
+    measureEl.textContent = name;
+    return { w: Math.ceil(measureEl.offsetWidth), h: Math.ceil(measureEl.offsetHeight) };
+  }
+
+  function layout() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const columns = new Array(Math.ceil(width / STEP) + 1).fill(0);
+      const gap = Math.round(size * GAP);
+      let overflow = false;
+      const placements = [];
+      for (const name of order) {
+        const box = measure(name);
+        const span = Math.min(columns.length, Math.ceil((box.w + gap) / STEP));
+        let bestStart = 0, bestFloor = Infinity, ties = [];
+        for (let start = 0; start + span <= columns.length; start++) {
+          let floor = 0;
+          for (let c = start; c < start + span; c++) if (columns[c] > floor) floor = columns[c];
+          if (floor < bestFloor - 0.5) { bestFloor = floor; ties = [start]; }
+          else if (Math.abs(floor - bestFloor) <= 0.5) ties.push(start);
+        }
+        const viewer = viewers.get(name);
+        if (viewer && viewer.slot !== undefined && ties.indexOf(viewer.slot) !== -1) bestStart = viewer.slot;
+        else bestStart = ties[Math.floor(Math.random() * ties.length)] || 0;
+        const top = bestFloor + box.h + gap;
+        for (let c = bestStart; c < bestStart + span; c++) columns[c] = top;
+        placements.push({ name, x: bestStart * STEP, y: height - bestFloor - box.h, slot: bestStart, w: box.w, h: box.h });
+        if (top > height) overflow = true;
+      }
+      if (!overflow || size <= 12) return placements;
+      size = Math.max(12, Math.floor(size * 0.9));
+    }
+    return [];
+  }
+
+  function fallDuration(distance) {
+    return Math.min(1400, Math.max(260, Math.sqrt(Math.max(0, distance)) * 38));
+  }
+
+  function moveTo(viewer, x, y, dropping) {
+    const from = viewer.pos || { x, y: -viewer.h - 20 };
+    viewer.el.style.fontSize = size + 'px';
+    const distance = y - from.y;
+    const duration = fallDuration(Math.abs(distance));
+    if (viewer.anim) viewer.anim.cancel();
+    const frames = dropping || distance > 2
+      ? [
+          { transform: `translate(${from.x}px, ${from.y}px)`, easing: 'cubic-bezier(0.55, 0, 1, 0.45)' },
+          { transform: `translate(${x}px, ${y}px) scale(1.08, 0.86)`, offset: 0.86, easing: 'ease-out' },
+          { transform: `translate(${x}px, ${y}px)` }
+        ]
+      : [
+          { transform: `translate(${from.x}px, ${from.y}px)` },
+          { transform: `translate(${x}px, ${y}px)` }
+        ];
+    viewer.anim = viewer.el.animate(frames, { duration, fill: 'forwards' });
+    viewer.pos = { x, y };
+  }
+
+  let relayoutTimer = 0;
+  function relayout(newNames) {
+    clearTimeout(relayoutTimer);
+    relayoutTimer = setTimeout(() => {
+      const placements = layout();
+      placements.forEach((p, index) => {
+        const viewer = viewers.get(p.name);
+        if (!viewer) return;
+        viewer.slot = p.slot;
+        viewer.w = p.w;
+        viewer.h = p.h;
+        const isNew = newNames && newNames.indexOf(p.name) !== -1;
+        if (isNew) {
+          viewer.pos = { x: p.x, y: -p.h - 20 };
+          setTimeout(() => {
+            viewer.el.style.opacity = '1';
+            moveTo(viewer, p.x, p.y, true);
+          }, newNames.indexOf(p.name) * 180);
+        } else {
+          moveTo(viewer, p.x, p.y, false);
+        }
+      });
+    }, 60);
+  }
+
+  function addViewer(name) {
+    if (viewers.has(name)) return false;
+    const el = document.createElement('div');
+    el.className = 'name';
+    el.textContent = name;
+    el.style.opacity = '0';
+    el.style.fontSize = size + 'px';
+    if (USE_COLORS) el.style.color = 'hsl(' + hashHue(name.toLowerCase()) + ', 75%, 72%)';
+    stackEl.appendChild(el);
+    viewers.set(name, { name, el, pos: null });
+    order.push(name);
+    return true;
+  }
+
+  function removeViewer(name) {
+    const viewer = viewers.get(name);
+    if (!viewer) return;
+    viewers.delete(name);
+    order.splice(order.indexOf(name), 1);
+    if (viewer.anim) viewer.anim.cancel();
+    const pos = viewer.pos || { x: 0, y: 0 };
+    viewer.el.animate([
+      { transform: `translate(${pos.x}px, ${pos.y}px) scale(1)`, opacity: 1 },
+      { transform: `translate(${pos.x}px, ${pos.y}px) scale(1.25)`, opacity: 0 }
+    ], { duration: 320, fill: 'forwards' }).onfinish = () => viewer.el.remove();
+  }
+
+  const lastSeen = new Map();
+
+  function sync() {
+    const now = Date.now();
+    const present = [];
+    lastSeen.forEach((seen, name) => { if (now - seen <= ACTIVE_WINDOW_MS) present.push(name); });
+    const leaving = order.filter((name) => present.indexOf(name) === -1);
+    const joining = present.filter((name) => !viewers.has(name)).sort((a, b) => lastSeen.get(a) - lastSeen.get(b));
+    leaving.forEach(removeViewer);
+    joining.forEach(addViewer);
+    if (leaving.length || joining.length) {
+      if (!joining.length) size = Math.max(size, Math.min(BASE_SIZE, size * 1.1));
+      relayout(joining);
+    }
+  }
+
+  let unsubscribe = null;
+  let resubscribeTimer = 0;
+  function subscribe() {
+    stopListening();
+    const cutoff = Date.now() - ACTIVE_WINDOW_MS;
+    unsubscribe = db.collection('chat_presence').where('lastSeen', '>', cutoff).onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const name = usernameFromId(change.doc.id);
+        if (!name) return;
+        if (change.type === 'removed') lastSeen.delete(name);
+        else lastSeen.set(name, Number(change.doc.data().lastSeen) || 0);
+      });
+      sync();
+    }, (err) => console.error(err));
+    resubscribeTimer = setTimeout(subscribe, RESUBSCRIBE_MS);
+  }
+
+  function stopListening() {
+    if (unsubscribe) unsubscribe();
+    unsubscribe = null;
+    clearTimeout(resubscribeTimer);
+  }
+
+  let listening = false;
+  function setLive(live) {
+    if (live === listening) return;
+    listening = live;
+    if (live) subscribe();
+    else {
+      stopListening();
+      lastSeen.clear();
+      sync();
+    }
+  }
+
+  setInterval(sync, 15000);
+  window.addEventListener('resize', () => { size = BASE_SIZE; relayout([]); });
+
+  if (ALWAYS_ON) {
+    setLive(true);
+  } else {
+    let liveUrl = null, manualLive = false, probeTimer = 0;
+    const probe = () => {
+      if (!liveUrl) { setLive(manualLive); return; }
+      fetch(liveUrl, { cache: 'no-store' }).then((res) => setLive(!!res.ok)).catch(() => setLive(false));
+    };
+    db.collection('chat_config').doc('liveVideo').onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() : {};
+      liveUrl = data.directUrl || null;
+      manualLive = !liveUrl && data.isLive !== false && !!data.videoId;
+      clearInterval(probeTimer);
+      probe();
+      probeTimer = setInterval(probe, LIVE_PROBE_MS);
+    }, () => setLive(false));
+  }
+})();
+</script>
+</body>
+</html>
