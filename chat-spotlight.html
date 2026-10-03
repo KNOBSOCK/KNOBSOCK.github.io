@@ -29,19 +29,23 @@
     max-width: 100%;
     max-height: 100%;
     padding: 0.55em 0.8em 0.6em;
-    border: 0.09em solid #ffd21a;
+    border: 0.09em solid #000000;
     border-radius: 0.38em;
     background: rgba(8, 8, 8, 0.86);
-    box-shadow: 0 0.12em 0.5em rgba(0, 0, 0, 0.6), 0 0 0.6em rgba(255, 210, 26, 0.25);
+    box-shadow: 0 0.12em 0.5em rgba(0, 0, 0, 0.6);
     color: #ffffff;
-    opacity: 0;
-    transform: scale(0.92) translateY(0.3em);
-    transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateX(-120vw);
     overflow: hidden;
   }
+  #card.is-animating {
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
   #card.is-shown {
-    opacity: 1;
     transform: none;
+  }
+  #card.is-leaving {
+    transform: translateX(120vw);
+    transition: transform 0.5s cubic-bezier(0.55, 0, 0.78, 0);
   }
   #name {
     display: block;
@@ -164,24 +168,40 @@
     }
   }
 
+  const LEAVE_MS = 520;
+  let showTimer = null;
+
+  function slideOut() {
+    if (!card.classList.contains('is-shown')) return false;
+    card.classList.remove('is-shown', 'is-animating');
+    card.classList.add('is-leaving');
+    return true;
+  }
+
+  function slideIn(message) {
+    card.classList.remove('is-leaving', 'is-animating', 'is-shown');
+    void card.offsetWidth;
+    currentId = message.id;
+    nameEl.textContent = message.username;
+    nameEl.style.color = colorFor(message);
+    textEl.innerHTML = renderMessageText(message.text);
+    fitCard();
+    requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('is-animating', 'is-shown')));
+  }
+
   function show(message) {
-    card.classList.remove('is-shown');
-    setTimeout(() => {
-      if (!message) return;
-      currentId = message.id;
-      nameEl.textContent = message.username;
-      nameEl.style.color = colorFor(message);
-      textEl.innerHTML = renderMessageText(message.text);
-      fitCard();
-      requestAnimationFrame(() => card.classList.add('is-shown'));
-    }, card.classList.contains('is-shown') || currentId ? 380 : 0);
+    clearTimeout(showTimer);
+    const leaving = slideOut();
+    if (!message) return;
+    showTimer = setTimeout(() => slideIn(message), leaving ? LEAVE_MS : 0);
   }
 
   function pickNext() {
     const eligible = pool.filter(isSpotlightable);
     if (!eligible.length) {
       currentId = null;
-      card.classList.remove('is-shown');
+      clearTimeout(showTimer);
+      slideOut();
       return;
     }
     let choices = eligible.filter((m) => m.id !== currentId && recentlyShown.indexOf(m.id) === -1);
