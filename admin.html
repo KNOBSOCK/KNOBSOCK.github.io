@@ -2894,9 +2894,40 @@
   const DELETED_MESSAGE_ID_LIMIT = 300;
 
   let liveDeletedMessageIds = null;
+  let republishingDeletedIds = false;
+  const PENDING_DELETED_KEY = 'admin_pending_deleted_ids';
+
+  function readPendingDeletedIds() {
+    try {
+      const value = JSON.parse(localStorage.getItem(PENDING_DELETED_KEY) || '[]');
+      return Array.isArray(value) ? value.map(String) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writePendingDeletedIds(ids) {
+    try {
+      if (ids.length) localStorage.setItem(PENDING_DELETED_KEY, JSON.stringify(ids.slice(-DELETED_MESSAGE_ID_LIMIT)));
+      else localStorage.removeItem(PENDING_DELETED_KEY);
+    } catch (e) {}
+  }
+
+  function confirmPendingDeletedIds(fromServer) {
+    const pending = readPendingDeletedIds();
+    if (!pending.length || !Array.isArray(liveDeletedMessageIds) || !fromServer) return;
+    const have = new Set(liveDeletedMessageIds);
+    const missing = pending.filter(function (id) { return !have.has(id); });
+    writePendingDeletedIds(missing);
+    if (!missing.length || republishingDeletedIds) return;
+    republishingDeletedIds = true;
+    publishDeletedMessageIds(missing).then(function () { republishingDeletedIds = false; });
+  }
 
   function publishDeletedMessageIds(ids) {
     if (!ids.length) return Promise.resolve();
+    const pending = readPendingDeletedIds();
+    writePendingDeletedIds(pending.filter(function (id) { return ids.indexOf(id) === -1; }).concat(ids));
     let write;
     if (Array.isArray(liveDeletedMessageIds)) {
       const fresh = new Set(ids);
@@ -3873,6 +3904,7 @@
       liveBadges = (data && data.badges && typeof data.badges === 'object') ? data.badges : {};
       liveVoiceUsers = (data && Array.isArray(data.voiceUsers)) ? data.voiceUsers.map(function (n) { return String(n).toLowerCase(); }) : [];
       liveDeletedMessageIds = (data && Array.isArray(data.deletedMessageIds)) ? data.deletedMessageIds.map(String) : [];
+      confirmPendingDeletedIds(!doc.metadata.hasPendingWrites && !doc.metadata.fromCache);
       renderBadgeEditor(false);
       renderCensorWordsList();
       renderAdminsList();
