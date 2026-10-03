@@ -136,7 +136,14 @@ async function history(params: URLSearchParams) {
     .lte('at', new Date(to).toISOString())
     .order('at', { ascending: true })
     .limit(20000);
+  const lags = await db.from('stream_uplink_lag_log')
+    .select('lag_ms,at')
+    .gte('at', new Date(from - STALE_MS).toISOString())
+    .lte('at', new Date(to).toISOString())
+    .order('at', { ascending: true })
+    .limit(20000);
   return json({
+    lags: lags.error ? [] : (lags.data || []).map((entry) => ({ t: Date.parse(entry.at), ms: entry.lag_ms })),
     entries: (data || []).map((entry) => ({
       t: Date.parse(entry.at),
       ntaCode: entry.nta_code,

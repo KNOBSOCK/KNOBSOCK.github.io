@@ -4543,6 +4543,10 @@
           appendStreamMinimapLiveHistory('heading', { t: Date.parse(payload.new.updated_at || '') || Date.now() + streamMinimapServerSkew, h: payload.new.heading });
           setStreamMinimapLiveHeading(payload.new.heading, Date.now());
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stream_uplink_lag', filter: 'id=eq.1' }, function (payload) {
+          if (session.stopped || !payload || !payload.new) return;
+          appendStreamMinimapLiveHistory('lag', { t: Date.parse(payload.new.updated_at || '') || Date.now() + streamMinimapServerSkew, ms: payload.new.lag_ms });
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stream_location' }, function (payload) {
           if (session.stopped || !payload) return;
           var row = payload.eventType === 'DELETE' ? null : payload.new;
@@ -4614,6 +4618,23 @@
   var streamMinimapLiveHistory = null;
   var streamMinimapServerSkew = 0;
   var STREAM_MAP_LIVE_LOOKBACK_MS = 50 * 60 * 1000;
+  var STREAM_MAP_CAPTURE_OFFSET_MS = 3000;
+  var STREAM_MAP_LAG_STALE_MS = 60000;
+
+  function streamMinimapLagAt(list, at) {
+    if (!list || !list.length) return 0;
+    var lo = 0, hi = list.length - 1, found = null;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (list[mid].t <= at) { found = list[mid]; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (!found || found.ms === null || found.ms === undefined || at - found.t > STREAM_MAP_LAG_STALE_MS) return 0;
+    return Math.max(0, Number(found.ms) || 0);
+  }
+
+  function streamMinimapCaptureTime(frameWall, lags) {
+    return frameWall - STREAM_MAP_CAPTURE_OFFSET_MS - streamMinimapLagAt(lags, frameWall);
+  }
 
   function streamMinimapPlausibleWall(ms) {
     return isFinite(ms) && Math.abs(ms - Date.now()) < 6 * 60 * 60 * 1000 ? ms : null;
@@ -4685,7 +4706,7 @@
 
   function ensureStreamMinimapLiveHistory() {
     if (streamMinimapLiveHistory) return streamMinimapLiveHistory;
-    var record = { ready: false, entries: [], headings: [] };
+    var record = { ready: false, entries: [], headings: [], lags: [] };
     streamMinimapLiveHistory = record;
     var from = Date.now() + streamMinimapServerSkew - STREAM_MAP_LIVE_LOOKBACK_MS;
     var url = STREAM_MAP_ENDPOINT + '?from=' + Math.round(from) + '&to=' + Math.round(from + STREAM_MAP_LIVE_LOOKBACK_MS + 6 * 60 * 60 * 1000);
@@ -4697,6 +4718,8 @@
       var fetchedHeadings = (data && Array.isArray(data.headings) ? data.headings : []).filter(function (e) { return e && isFinite(e.t); });
       record.entries = fetchedEntries.concat(record.entries).sort(byTime);
       record.headings = fetchedHeadings.concat(record.headings).sort(byTime);
+      var fetchedLags = (data && Array.isArray(data.lags) ? data.lags : []).filter(function (e) { return e && isFinite(e.t); });
+      record.lags = fetchedLags.concat(record.lags).sort(byTime);
       record.ready = true;
       syncStreamMinimap();
     }).catch(function () { record.ready = true; });
@@ -4706,7 +4729,7 @@
   function appendStreamMinimapLiveHistory(kind, item) {
     var record = streamMinimapLiveHistory;
     if (!record || !item || !isFinite(item.t)) return;
-    var list = kind === 'heading' ? record.headings : record.entries;
+    var list = kind === 'heading' ? record.headings : kind === 'lag' ? record.lags : record.entries;
     list.push(item);
     if (list.length > 1 && list[list.length - 2].t > item.t) list.sort(function (a, b) { return a.t - b.t; });
     if (list.length > 20000) list.splice(0, list.length - 20000);
@@ -4860,13 +4883,16 @@
     var startedAt = timeline[0].t;
     var cached = streamMinimapHistory[vodId];
     if (cached && cached.startedAt === startedAt) return cached;
-    var record = { ready: false, entries: [], headings: [], startedAt: startedAt };
+    var record = { ready: false, entries: [], headings: [], lags: [], startedAt: startedAt };
     streamMinimapHistory[vodId] = record;
     var until = Math.min(startedAt + 24 * 60 * 60 * 1000 - 1, Math.max(startedAt + STREAM_MAP_VOD_RANGE_MS, timeline[timeline.length - 1].t + STREAM_MAP_VOD_RANGE_MS));
     var url = STREAM_MAP_ENDPOINT + '?from=' + startedAt + '&to=' + until;
     fetch(url, { headers: { apikey: STREAM_MAP_KEY } }).then(function (res) {
       return res.ok ? res.json() : { entries: [] };
     }).then(function (data) {
+      record.lags = (data && Array.isArray(data.lags) ? data.lags : []).filter(function (entry) {
+        return entry && Number.isFinite(entry.t);
+      }).sort(function (a, b) { return a.t - b.t; });
       record.headings = (data && Array.isArray(data.headings) ? data.headings : []).filter(function (entry) {
         return entry && Number.isFinite(entry.t);
       }).sort(function (a, b) { return a.t - b.t; });
@@ -4913,7 +4939,7 @@
         return;
       }
       var history = streamMinimapVodHistory(watchingVodId, sync.timeline);
-      var playbackAt = streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds());
+      var playbackAt = streamMinimapCaptureTime(streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds()), history.lags);
       postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, playbackAt) : null, history.headings ? streamMinimapHeadingAt(history.headings, playbackAt) : null);
       return;
     }
@@ -4924,7 +4950,8 @@
     if (frameWall !== null) {
       var liveHistory = ensureStreamMinimapLiveHistory();
       if (liveHistory.ready) {
-        postStreamMinimap(streamMinimapLocationAt(liveHistory.entries, frameWall), streamMinimapHeadingAt(liveHistory.headings, frameWall));
+        var capturedAt = streamMinimapCaptureTime(frameWall, liveHistory.lags);
+        postStreamMinimap(streamMinimapLocationAt(liveHistory.entries, capturedAt), streamMinimapHeadingAt(liveHistory.headings, capturedAt));
         return;
       }
     }
