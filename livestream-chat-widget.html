@@ -376,14 +376,7 @@
   .stream-minimap.is-closed .stream-minimap-zoom { opacity: 0; }
   @media (hover: none) and (pointer: coarse) {
     .stream-minimap { --minimap-size: clamp(103px, 48.4cqmin, 330px); }
-    .stream-minimap-zoom {
-      gap: 6px;
-      flex-direction: column;
-      right: calc(100% + 6px);
-      bottom: auto;
-      top: 50%;
-      transform: translateY(-50%);
-    }
+    .stream-minimap-zoom { gap: 6px; bottom: calc(100% + 6px); }
     .stream-minimap-zoom button {
       width: clamp(30px, 10cqmin, 42px);
       height: clamp(30px, 10cqmin, 42px);
