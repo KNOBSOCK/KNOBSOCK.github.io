@@ -5171,11 +5171,11 @@
 
   function syncStreamMinimap() {
     if (!streamMinimap) return;
-    if (streamMinimapOpen) loadStreamMinimapLastSync();
+    loadStreamMinimapLastSync();
     var mode = watchingVodId ? 'vod' : (isEffectivelyLive() || streamMinimapTestLive ? 'live' : '');
     setStreamMinimapVisible(!!mode);
-    if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
-    if (!mode || !streamMinimapOpen) { setStreamMinimapExact(null); return; }
+    if (mode !== 'live') stopStreamMinimapLive();
+    if (!mode) { setStreamMinimapExact(null); return; }
     if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=22';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
