@@ -320,6 +320,7 @@
     z-index: 4;
     overflow: hidden;
     pointer-events: none;
+    container-type: size;
   }
   .stream-minimap {
     --minimap-size: clamp(72px, 34cqmin, 230px);
@@ -4405,14 +4406,85 @@
   var streamMinimapPosted = null;
   var streamMinimapLiveLocation = null;
   var streamMinimapLiveTimer = null;
+  var STREAM_MAP_SUPABASE_URL = 'https://ypofuhazhxtzvtywguew.supabase.co';
+  var STREAM_MAP_HEADING_STALE_MS = 40000;
+  var streamMinimapHeading = { value: null, receivedAt: 0 };
+  var streamMinimapRealtime = null;
   var streamMinimapHistory = {};
   var streamMinimapTimelines = {};
 
-  function postStreamMinimap(locationData) {
-    var key = JSON.stringify(locationData || {});
+  function postStreamMinimap(locationData, heading) {
+    var headingValue = typeof heading === 'number' && isFinite(heading) ? Math.round(heading * 10) / 10 : null;
+    var key = JSON.stringify({ l: locationData || {}, h: headingValue });
     if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
     streamMinimapPosted = key;
-    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {} }, location.origin); } catch (e) {}
+    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue }, location.origin); } catch (e) {}
+  }
+
+  function streamMinimapLiveHeading() {
+    var h = streamMinimapHeading;
+    return h.value !== null && Date.now() - h.receivedAt <= STREAM_MAP_HEADING_STALE_MS ? h.value : null;
+  }
+
+  function setStreamMinimapLiveHeading(value, receivedAt) {
+    var number = value === null || value === undefined ? null : Number(value);
+    streamMinimapHeading = { value: number !== null && isFinite(number) ? number : null, receivedAt: receivedAt };
+    syncStreamMinimap();
+  }
+
+  function loadStreamMinimapSupabase() {
+    if (window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
+    return new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      script.async = true;
+      script.onload = function () { window.supabase && window.supabase.createClient ? resolve(window.supabase) : reject(new Error('missing')); };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  function startStreamMinimapHeading() {
+    if (streamMinimapRealtime) return;
+    var session = { client: null, channel: null, stopped: false };
+    streamMinimapRealtime = session;
+    loadStreamMinimapSupabase().then(function (lib) {
+      if (session.stopped) return;
+      session.client = lib.createClient(STREAM_MAP_SUPABASE_URL, STREAM_MAP_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+      session.client.from('stream_heading').select('heading,updated_at').eq('id', 1).maybeSingle().then(function (result) {
+        var row = result && result.data;
+        if (session.stopped || !row || !row.updated_at || streamMinimapHeading.receivedAt) return;
+        var age = Date.now() - Date.parse(row.updated_at);
+        if (age >= 0 && age <= STREAM_MAP_HEADING_STALE_MS) setStreamMinimapLiveHeading(row.heading, Date.now() - age);
+      });
+      session.channel = session.client.channel('stream-heading')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stream_heading', filter: 'id=eq.1' }, function (payload) {
+          if (session.stopped || !payload || !payload.new) return;
+          setStreamMinimapLiveHeading(payload.new.heading, Date.now());
+        })
+        .subscribe();
+    }).catch(function () {});
+  }
+
+  function stopStreamMinimapHeading() {
+    var session = streamMinimapRealtime;
+    streamMinimapRealtime = null;
+    streamMinimapHeading = { value: null, receivedAt: 0 };
+    if (!session) return;
+    session.stopped = true;
+    if (session.client && session.channel) {
+      try { session.client.removeChannel(session.channel); } catch (e) {}
+    }
+  }
+
+  function streamMinimapHeadingAt(list, at) {
+    var lo = 0, hi = list.length - 1, found = null;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (list[mid].t <= at) { found = list[mid]; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (!found || found.h === null || found.h === undefined || at - found.t > STREAM_MAP_HEADING_STALE_MS) return null;
+    return Number(found.h);
   }
 
   function setStreamMinimapVisible(visible) {
@@ -4442,6 +4514,7 @@
     clearInterval(streamMinimapLiveTimer);
     streamMinimapLiveTimer = null;
     streamMinimapLiveLocation = null;
+    stopStreamMinimapHeading();
   }
 
   function streamMinimapCleanTimeline(list) {
@@ -4540,13 +4613,16 @@
     var startedAt = timeline[0].t;
     var cached = streamMinimapHistory[vodId];
     if (cached && cached.startedAt === startedAt) return cached;
-    var record = { ready: false, entries: [], startedAt: startedAt };
+    var record = { ready: false, entries: [], headings: [], startedAt: startedAt };
     streamMinimapHistory[vodId] = record;
     var until = Math.min(startedAt + 24 * 60 * 60 * 1000 - 1, Math.max(startedAt + STREAM_MAP_VOD_RANGE_MS, timeline[timeline.length - 1].t + STREAM_MAP_VOD_RANGE_MS));
     var url = STREAM_MAP_ENDPOINT + '?from=' + startedAt + '&to=' + until;
     fetch(url, { headers: { apikey: STREAM_MAP_KEY } }).then(function (res) {
       return res.ok ? res.json() : { entries: [] };
     }).then(function (data) {
+      record.headings = (data && Array.isArray(data.headings) ? data.headings : []).filter(function (entry) {
+        return entry && Number.isFinite(entry.t);
+      }).sort(function (a, b) { return a.t - b.t; });
       record.entries = (data && Array.isArray(data.entries) ? data.entries : []).filter(function (entry) {
         return entry && Number.isFinite(entry.t);
       }).sort(function (a, b) { return a.t - b.t; });
@@ -4582,7 +4658,7 @@
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
     if (!mode || !streamMinimapOpen) return;
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=5';
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=6';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
@@ -4590,11 +4666,13 @@
         return;
       }
       var history = streamMinimapVodHistory(watchingVodId, sync.timeline);
-      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds())) : null);
+      var playbackAt = streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds());
+      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, playbackAt) : null, history.headings ? streamMinimapHeadingAt(history.headings, playbackAt) : null);
       return;
     }
     startStreamMinimapLive();
-    if (streamMinimapLiveLocation) postStreamMinimap(streamMinimapLiveLocation);
+    startStreamMinimapHeading();
+    if (streamMinimapLiveLocation) postStreamMinimap(streamMinimapLiveLocation, streamMinimapLiveHeading());
   }
 
   function setStreamMinimapOpen(open) {

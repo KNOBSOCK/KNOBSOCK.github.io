@@ -34,8 +34,17 @@ const beacon=document.querySelector('.beacon');
 const mapSvg=document.querySelector('.map-wrap svg');
 const districtGroup=document.getElementById('districts');
 const FULL_VIEW={x:0,y:50,width:440,height:500};
-let activeCode='';let viewFrame=0;let rotationTimer=0;let rotationNode=null;
-function stopRotation(){if(rotationTimer){clearTimeout(rotationTimer);rotationTimer=0}if(rotationNode){rotationNode.remove();rotationNode=null}}
+let activeCode='';let viewFrame=0;let rotationTimer=0;let heading=null;
+const rot={angle:0,cx:0,cy:0,frame:0,last:0};
+function applyRotation(){if(rot.angle)districtGroup.setAttribute('transform',`rotate(${rot.angle.toFixed(2)} ${rot.cx} ${rot.cy})`);else districtGroup.removeAttribute('transform')}
+function stopRotation(){if(rotationTimer){clearTimeout(rotationTimer);rotationTimer=0}cancelAnimationFrame(rot.frame);rot.frame=0;rot.angle=0;applyRotation()}
+function rotationFrame(now){
+  const dt=Math.min(.1,Math.max(0,(now-rot.last)/1000));rot.last=now;
+  if(heading===null)rot.angle+=2*dt;
+  else{const diff=((-heading-rot.angle)%360+540)%360-180;rot.angle+=diff*Math.min(1,dt*3.5)}
+  rot.angle=(rot.angle%360+360)%360;applyRotation();rot.frame=requestAnimationFrame(rotationFrame);
+}
+function setHeading(value){heading=typeof value==='number'&&isFinite(value)?(value%360+360)%360:null}
 function animateViewBox(target,duration){
   cancelAnimationFrame(viewFrame);
   const box=mapSvg.viewBox.baseVal;
@@ -57,11 +66,7 @@ function zoomViewFor(el){
   return{x:cx-width/2,y:cy-height/2,width,height,cx,cy};
 }
 function beginSlowRotation(cx,cy){
-  rotationNode=document.createElementNS('http://www.w3.org/2000/svg','animateTransform');
-  rotationNode.setAttribute('attributeName','transform');rotationNode.setAttribute('type','rotate');
-  rotationNode.setAttribute('from',`0 ${cx} ${cy}`);rotationNode.setAttribute('to',`360 ${cx} ${cy}`);
-  rotationNode.setAttribute('dur','180s');rotationNode.setAttribute('repeatCount','indefinite');rotationNode.setAttribute('begin','indefinite');
-  districtGroup.appendChild(rotationNode);rotationNode.beginElement();
+  rot.cx=cx;rot.cy=cy;rot.last=performance.now();cancelAnimationFrame(rot.frame);rot.frame=requestAnimationFrame(rotationFrame);
 }
 function restoreCity(){
   if(!activeCode)return;
@@ -81,7 +86,7 @@ async function update(){try{const r=await fetch(ENDPOINT,{headers:{apikey:API_KE
 if(new URLSearchParams(location.search).has('embed')){
   document.documentElement.classList.add('embed');
   if(matchMedia('(pointer: coarse)').matches)districtGroup.removeAttribute('filter');
-  addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.type==='knobsock-map')render(e.data.location||{})});
+  addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.type==='knobsock-map'){setHeading(e.data.heading);render(e.data.location||{})}});
   try{parent.postMessage({type:'knobsock-map-ready'},location.origin)}catch(e){}
 }else{update();setInterval(update,15000)}
 </script></body></html>

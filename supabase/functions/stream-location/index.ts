@@ -95,6 +95,14 @@ async function logLocation(row: { nta_code: string; neighborhood: string; boroug
   }
 }
 
+async function setHeading(heading: number | null) {
+  const at = new Date().toISOString();
+  const { error } = await db.from('stream_heading').upsert({ id: 1, heading, updated_at: at }, { onConflict: 'id' });
+  if (error) return false;
+  await db.from('stream_heading_log').insert({ heading, at });
+  return true;
+}
+
 async function history(params: URLSearchParams) {
   const from = Number(params.get('from'));
   const to = Number(params.get('to') || from + HISTORY_MAX_RANGE_MS / 2);
@@ -106,12 +114,22 @@ async function history(params: URLSearchParams) {
     .order('at', { ascending: true })
     .limit(5000);
   if (error) return json({ error: 'Location history is not configured.' }, 503);
+  const headings = await db.from('stream_heading_log')
+    .select('heading,at')
+    .gte('at', new Date(from - STALE_MS).toISOString())
+    .lte('at', new Date(to).toISOString())
+    .order('at', { ascending: true })
+    .limit(20000);
   return json({
     entries: (data || []).map((entry) => ({
       t: Date.parse(entry.at),
       ntaCode: entry.nta_code,
       neighborhood: entry.neighborhood,
       borough: entry.borough
+    })),
+    headings: headings.error ? [] : (headings.data || []).map((entry) => ({
+      t: Date.parse(entry.at),
+      h: entry.heading
     }))
   });
 }
@@ -139,11 +157,19 @@ Deno.serve(async (req) => {
     const { error } = await db.from('stream_location').delete().eq('id', 1);
     if (error) return json({ error: 'Could not clear the shared location.' }, 503);
     await logLocation(null);
+    await setHeading(null);
     return json({ ok: true });
   }
 
   let payload: Record<string, unknown>;
   try { payload = await req.json(); } catch { return json({ error: 'Invalid JSON.' }, 400); }
+  if ('heading' in payload && !('lat' in payload)) {
+    const raw = payload.heading;
+    const heading = raw === null ? null : Number(raw);
+    if (heading !== null && (!Number.isFinite(heading) || heading < 0 || heading >= 360)) return json({ error: 'Heading must be between 0 and 360.' }, 422);
+    if (!await setHeading(heading === null ? null : Math.round(heading * 10) / 10)) return json({ error: 'Could not save the heading.' }, 503);
+    return json({ ok: true });
+  }
   const lat = Number(payload.lat), lon = Number(payload.lon), accuracy = Number(payload.acc ?? payload.accuracy ?? 0);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 40.45 || lat > 41.05 || lon < -74.3 || lon > -73.65) return json({ error: 'Location is outside the NYC service area.' }, 422);
   if (accuracy > 3000) return json({ error: 'Location is too imprecise to identify a neighborhood.' }, 422);

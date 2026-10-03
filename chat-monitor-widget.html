@@ -450,6 +450,7 @@
   }
 
   function stopLocationWatch() {
+    stopCompass();
     if (locationWatchId !== null) navigator.geolocation.clearWatch(locationWatchId);
     if (locationHeartbeat !== null) clearInterval(locationHeartbeat);
     locationWatchId = null;
@@ -463,8 +464,133 @@
 
   async function locationAuthHeaders() {
     const token = await window.KnobsockAdmin2FA.getAccessToken();
-    return { Authorization: 'Bearer ' + token, apikey: LOCATION_API_KEY };
+    const headers = { Authorization: 'Bearer ' + token, apikey: LOCATION_API_KEY };
+    lastAuthHeaders = headers;
+    return headers;
   }
+
+  let lastAuthHeaders = null;
+  let compassState = 'off';
+  let compassListening = false;
+  let compassVector = null;
+  let compassHeading = null;
+  let compassSentHeading = null;
+  let compassSentAt = 0;
+  let compassSending = false;
+  let compassTimer = null;
+  const COMPASS_MIN_TURN = 10;
+  const COMPASS_MIN_GAP_MS = 1500;
+  const COMPASS_HEARTBEAT_MS = 15000;
+
+  function requestCompassPermission() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      return DeviceOrientationEvent.requestPermission().catch(function () { return 'denied'; });
+    }
+    return Promise.resolve(typeof DeviceOrientationEvent !== 'undefined' ? 'granted' : 'unavailable');
+  }
+
+  function compassReading(event) {
+    let heading = null;
+    if (typeof event.webkitCompassHeading === 'number' && event.webkitCompassHeading >= 0) {
+      if (typeof event.webkitCompassAccuracy === 'number' && event.webkitCompassAccuracy < 0) return null;
+      heading = event.webkitCompassHeading;
+    } else if (event.absolute && typeof event.alpha === 'number') {
+      heading = 360 - event.alpha;
+    }
+    if (heading === null || !isFinite(heading)) return null;
+    const screenAngle = screen.orientation && typeof screen.orientation.angle === 'number'
+      ? screen.orientation.angle
+      : (typeof window.orientation === 'number' ? window.orientation : 0);
+    return ((heading + screenAngle) % 360 + 360) % 360;
+  }
+
+  function onCompassEvent(event) {
+    const reading = compassReading(event);
+    if (reading === null) return;
+    const radians = reading * Math.PI / 180;
+    const x = Math.cos(radians), y = Math.sin(radians);
+    compassVector = compassVector ? { x: compassVector.x * 0.75 + x * 0.25, y: compassVector.y * 0.75 + y * 0.25 } : { x, y };
+    compassHeading = ((Math.atan2(compassVector.y, compassVector.x) * 180 / Math.PI) % 360 + 360) % 360;
+    if (compassState !== 'on') {
+      compassState = 'on';
+      if (locationSharing && lastLocationPosition) setLocationStatus(sharingStatusText());
+    }
+    maybeSendHeading();
+  }
+
+  function turnBetween(a, b) {
+    return Math.abs(((a - b) % 360 + 540) % 360 - 180);
+  }
+
+  async function postHeading(heading, keepalive) {
+    const headers = keepalive && lastAuthHeaders ? lastAuthHeaders : await locationAuthHeaders();
+    return fetch(LOCATION_ENDPOINT, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+      body: JSON.stringify({ heading: heading === null ? null : Math.round(heading * 10) / 10 }),
+      keepalive: !!keepalive
+    });
+  }
+
+  function maybeSendHeading() {
+    if (!locationSharing || !compassListening || compassHeading === null || document.hidden || compassSending) return;
+    const now = Date.now();
+    const turned = compassSentHeading === null ? 360 : turnBetween(compassHeading, compassSentHeading);
+    const due = (turned >= COMPASS_MIN_TURN && now - compassSentAt >= COMPASS_MIN_GAP_MS) || now - compassSentAt >= COMPASS_HEARTBEAT_MS;
+    if (!due) return;
+    const heading = compassHeading;
+    compassSending = true;
+    compassSentHeading = heading;
+    compassSentAt = now;
+    postHeading(heading, false).catch(function () {
+      compassSentHeading = null;
+    }).finally(function () {
+      compassSending = false;
+    });
+  }
+
+  function pauseCompass() {
+    if (!compassListening || compassSentHeading === null) return;
+    compassSentHeading = null;
+    compassSentAt = 0;
+    void postHeading(null, true).catch(function () {});
+  }
+
+  function startCompass() {
+    if (compassListening) return;
+    compassListening = true;
+    compassVector = null;
+    compassHeading = null;
+    compassSentHeading = null;
+    compassSentAt = 0;
+    window.addEventListener('deviceorientation', onCompassEvent);
+    window.addEventListener('deviceorientationabsolute', onCompassEvent);
+    compassTimer = setInterval(maybeSendHeading, 5000);
+  }
+
+  function stopCompass() {
+    if (!compassListening) return;
+    compassListening = false;
+    window.removeEventListener('deviceorientation', onCompassEvent);
+    window.removeEventListener('deviceorientationabsolute', onCompassEvent);
+    clearInterval(compassTimer);
+    compassTimer = null;
+    compassHeading = null;
+    compassSentHeading = null;
+    compassState = 'off';
+  }
+
+  function sharingStatusText() {
+    if (compassState === 'on') return 'Sharing neighborhood + compass.';
+    if (compassState === 'denied') return 'Sharing neighborhood. Compass blocked.';
+    return 'Sharing your neighborhood with the map.';
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) pauseCompass();
+    else maybeSendHeading();
+  });
+  window.addEventListener('pagehide', pauseCompass);
 
   async function clearSharedLocation() {
     try {
@@ -520,7 +646,7 @@
         }
         throw new Error(result.error || 'Could not update the map.');
       }
-      setLocationStatus('Sharing your neighborhood with the map.');
+      setLocationStatus(sharingStatusText());
     } catch (error) {
       setLocationStatus(error && error.message ? error.message : 'Could not update the map. Check your connection.');
     } finally {
@@ -552,8 +678,17 @@
   }
 
   locationShareBtn.addEventListener('click', function () {
-    if (locationSharing) void stopLocationSharing();
-    else startLocationSharing();
+    if (locationSharing) {
+      void stopLocationSharing();
+      return;
+    }
+    const compassPermission = requestCompassPermission();
+    startLocationSharing();
+    compassPermission.then(function (state) {
+      if (!locationSharing) return;
+      if (state === 'granted') startCompass();
+      else compassState = state === 'denied' ? 'denied' : 'off';
+    });
   });
 
   document.getElementById('signOutBtn').addEventListener('click', async function () {
