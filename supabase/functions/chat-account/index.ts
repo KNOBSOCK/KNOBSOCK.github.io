@@ -121,6 +121,16 @@ async function writeDevice(clientId: string, fields: Record<string, unknown>) {
 }
 
 const ADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
+const ADMIN_TOTP_FRESH_SECONDS = 10 * 60;
+
+function totpVerifiedAt(authHeader: string) {
+  const amr = jwtPayload(authHeader).amr;
+  if (!Array.isArray(amr)) return 0;
+  return amr.reduce((latest: number, entry: unknown) => {
+    const claim = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {};
+    return claim.method === 'totp' ? Math.max(latest, Number(claim.timestamp) || 0) : latest;
+  }, 0);
+}
 
 function adminUidFor(email: string | undefined) {
   const raw = Deno.env.get('KNOBSOCK_ADMINS');
@@ -279,6 +289,9 @@ Deno.serve(async (request) => {
       if (!uid) return response({ error: 'This email is not an admin.', code: 'forbidden' }, 403);
       if (jwtPayload(authHeader).aal !== 'aal2') {
         return response({ error: 'Finish the authenticator code step first.', code: 'mfa-required' }, 403);
+      }
+      if (Date.now() / 1000 - totpVerifiedAt(authHeader) > ADMIN_TOTP_FRESH_SECONDS) {
+        return response({ error: 'Enter a fresh authenticator code.', code: 'mfa-required' }, 403);
       }
       return response(await firebaseAdminToken(uid));
     }

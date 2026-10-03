@@ -1341,7 +1341,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/admin-2fa.js?v=2"></script>
+<script src="/admin-2fa.js?v=4"></script>
 <script src="/forums-admin.js?v=7"></script>
 <script>
   const firebaseConfig = {
@@ -1666,12 +1666,12 @@
     }
     window.KnobsockAdmin2FA.twoFactorUntil(user).then(function (until) {
       if (until <= Date.now()) {
-        auth.signOut();
+        window.KnobsockAdmin2FA.lock(auth);
         return;
       }
       adminExpiryTimer = setTimeout(function () {
-        window.KnobsockAdmin2FA.signOut(auth).then(function () {
-          loginError.textContent = 'Your admin session expired. Sign in again.';
+        window.KnobsockAdmin2FA.lock(auth).then(function () {
+          loginError.textContent = 'Your 12 hours are up. Enter your authenticator code to keep going.';
         });
       }, Math.min(until - Date.now(), 2147483000));
       loginWrap.hidden = true;
