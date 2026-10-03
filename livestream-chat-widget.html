@@ -346,8 +346,9 @@
   }
   .stream-minimap-zoom {
     position: absolute;
-    right: 4px;
-    bottom: calc(100% + 4px);
+    left: 5px;
+    top: 5px;
+    z-index: 1;
     display: flex;
     gap: 4px;
     pointer-events: auto;
@@ -360,14 +361,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: clamp(20px, 7cqmin, 30px);
-    height: clamp(20px, 7cqmin, 30px);
+    width: clamp(18px, 6cqmin, 26px);
+    height: clamp(18px, 6cqmin, 26px);
     padding: 0;
     border: 0;
     border-radius: 7.2px;
     background: rgba(0, 0, 0, 0.72);
     color: rgba(255, 255, 255, 0.9);
-    font: 700 clamp(14px, 5cqmin, 20px)/1 Arial, Helvetica, sans-serif;
+    font: 700 clamp(13px, 4.4cqmin, 18px)/1 Arial, Helvetica, sans-serif;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: background 0.2s ease, opacity 0.2s ease;
@@ -377,11 +378,11 @@
   .stream-minimap.is-closed .stream-minimap-zoom { opacity: 0; }
   @media (hover: none) and (pointer: coarse) {
     .stream-minimap { --minimap-size: clamp(103px, 48.4cqmin, 330px); }
-    .stream-minimap-zoom { gap: 6px; bottom: calc(100% + 6px); }
+    .stream-minimap-zoom { gap: 5px; left: 6px; top: 6px; }
     .stream-minimap-zoom button {
-      width: clamp(30px, 10cqmin, 42px);
-      height: clamp(30px, 10cqmin, 42px);
-      font-size: clamp(20px, 7cqmin, 28px);
+      width: clamp(26px, 8.5cqmin, 36px);
+      height: clamp(26px, 8.5cqmin, 36px);
+      font-size: clamp(18px, 6cqmin, 24px);
     }
   }
   .stream-minimap-zoom button:hover:not(:disabled) { background: var(--interactive-hover); color: var(--interactive-hover-text); }
