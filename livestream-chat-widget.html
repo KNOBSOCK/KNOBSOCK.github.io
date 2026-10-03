@@ -334,7 +334,8 @@
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .stream-minimap[hidden] { display: none; }
-  .stream-minimap.is-closed { transform: translate(100%, 0); }
+  .stream-minimap.is-closed,
+  .stream-minimap.is-unavailable { transform: translate(100%, 0); }
   .video-pane.offline-card .stream-minimap { display: none; }
   .video-pane.offline-card.map-test .stream-minimap:not([hidden]) { display: block; }
   .stream-minimap-panel {
@@ -374,7 +375,8 @@
   }
   .stream-minimap-zoom button:disabled { opacity: 0.35; cursor: default; }
   .stream-minimap-zoom { transition: opacity 0.3s ease; }
-  .stream-minimap.is-closed .stream-minimap-zoom { opacity: 0; }
+  .stream-minimap.is-closed .stream-minimap-zoom,
+  .stream-minimap.is-unavailable .stream-minimap-zoom { opacity: 0; pointer-events: none; }
   @media (hover: none) and (pointer: coarse) {
     .stream-minimap { --minimap-size: clamp(103px, 48.4cqmin, 330px); }
     .stream-minimap-zoom { gap: 6px; bottom: calc(100% + 6px); }
@@ -4491,6 +4493,29 @@
     mapZoomIn.disabled = !streamMinimapHasLocation || streamMinimapZoomLevel === 0;
     mapZoomOut.disabled = !streamMinimapHasLocation || streamMinimapZoomLevel === STREAM_MAP_ZOOM_LEVELS.length - 1;
   }
+  var streamMinimapShown = false;
+  var streamMinimapAvailable = false;
+  var streamMinimapHideTimer = null;
+  function refreshMapToggleBtn() {
+    mapToggleBtn.hidden = !streamMinimapShown || (streamMinimapOpen && !streamMinimapAvailable);
+  }
+  function applyStreamMinimapAvailable(available) {
+    streamMinimapAvailable = available;
+    streamMinimap.classList.toggle('is-unavailable', !available);
+    refreshMapToggleBtn();
+  }
+  function setStreamMinimapAvailable(available) {
+    clearTimeout(streamMinimapHideTimer);
+    streamMinimapHideTimer = null;
+    if (available || !streamMinimapAvailable) {
+      applyStreamMinimapAvailable(available);
+      return;
+    }
+    streamMinimapHideTimer = setTimeout(function () {
+      streamMinimapHideTimer = null;
+      applyStreamMinimapAvailable(false);
+    }, 2000);
+  }
   var streamMinimapPosted = null;
   var streamMinimapLiveLocation = null;
   var streamMinimapLiveLocationAt = 0;
@@ -4509,6 +4534,7 @@
     if (hasLocation !== streamMinimapHasLocation) {
       streamMinimapHasLocation = hasLocation;
       refreshStreamMinimapZoomButtons();
+      setStreamMinimapAvailable(hasLocation);
     }
     var zoom = STREAM_MAP_ZOOM_LEVELS[streamMinimapZoomLevel];
     var isLive = !watchingVodId;
@@ -4687,7 +4713,8 @@
   function setStreamMinimapVisible(visible) {
     if (streamMinimap.hidden === !visible) return;
     streamMinimap.hidden = !visible;
-    mapToggleBtn.hidden = !visible;
+    streamMinimapShown = visible;
+    refreshMapToggleBtn();
   }
 
   function setStreamMinimapLiveLocation(location, receivedAt) {
@@ -5202,6 +5229,7 @@
     mapToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     mapToggleBtn.textContent = open ? 'Hide Map' : 'Show Map';
     mapToggleBtn.title = open ? 'Hide map' : 'Show map';
+    refreshMapToggleBtn();
     syncStreamMinimap();
   }
 
@@ -5237,6 +5265,7 @@
       if (!document.hidden && streamMinimapLiveTimer) fetchStreamMinimapLive();
     });
     setInterval(syncStreamMinimap, 250);
+    applyStreamMinimapAvailable(false);
     setStreamMinimapOpen(true);
   }
 
