@@ -140,7 +140,7 @@
     const value = Number(params.get(name));
     return params.has(name) && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
   };
-  const NAME_SIZE = numberParam('size', 52, 12, 400);
+  const NAME_SIZE = numberParam('size', 40, 12, 400);
   const MAX_NAMES = numberParam('max', 100, 1, 300);
   const BUBBLE_COUNT = numberParam('bubbles', 10, 0, 50);
   const BUBBLE_SIZE = numberParam('bubbleSize', 34, 12, 200);
