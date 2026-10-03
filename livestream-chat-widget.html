@@ -862,6 +862,13 @@
     border-color: var(--interactive-hover);
     color: var(--interactive-hover-text);
   }
+  @media (hover: none) {
+    .video-pane-actions .pill-btn:hover:not(:active) {
+      background: var(--accent);
+      border-color: var(--accent-dim);
+      color: #ffffff;
+    }
+  }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
   .pill-btn[hidden] { display: none; }
 
