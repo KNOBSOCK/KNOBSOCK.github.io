@@ -23,6 +23,7 @@
 .embed .map-wrap svg{animation:crt-map-flicker 1.6s linear infinite}
 @keyframes crt-map-flicker{0%,100%{filter:brightness(1)}8%{filter:brightness(.97)}17%{filter:brightness(1.02)}29%{filter:brightness(.98)}41%{filter:brightness(1.03)}53%{filter:brightness(.99)}67%{filter:brightness(1.01)}80%{filter:brightness(.98)}92%{filter:brightness(1.02)}}
 .embed #place{white-space:nowrap;max-width:100%;font-size:clamp(6px,13vmin,15px);line-height:1.05;text-align:center;-webkit-text-stroke-width:clamp(.5px,.9vw,1.5px)}
+@media (hover:none) and (pointer:coarse){.embed .readout{bottom:1.2vmin}}
 .compass{position:absolute;z-index:4;top:6px;right:6px;width:60px;height:60px;pointer-events:none}
 .compass svg{display:block;width:100%;height:100%;overflow:visible}
 .compass text{font-family:GratisNeue,Arial,sans-serif;font-weight:bold}
