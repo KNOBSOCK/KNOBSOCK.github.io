@@ -142,7 +142,9 @@
   };
   const NAME_SIZE = numberParam('size', 40, 12, 400);
   const MAX_NAMES = numberParam('max', 100, 1, 300);
-  const BUBBLE_COUNT = numberParam('bubbles', 10, 0, 50);
+  const BUBBLE_COUNT = numberParam('bubbles', 5, 0, 50);
+  const POOL_SIZE = numberParam('pool', 50, 5, 100);
+  const CYCLE_MS = numberParam('cycle', 60, 10, 600) * 1000;
   const BUBBLE_SIZE = numberParam('bubbleSize', 34, 12, 200);
   const INTERVAL_MS = numberParam('interval', 7, 2, 120) * 1000;
   const SPEED = numberParam('speed', 1, 0, 5);
@@ -159,17 +161,17 @@
   const RESIZE_MS = Math.max(1500, INTERVAL_MS / 2.3);
   const HIGHLIGHT_SCALE = 1.6;
   const RECENT_MEMORY = Math.min(4, Math.max(1, Math.floor(BUBBLE_COUNT / 2)));
-  const ACTIVE_WINDOW_MS = 270000;
+  const ACTIVE_WINDOW_MS = 150000;
   const RESUBSCRIBE_MS = 10 * 60 * 1000;
   const DROP_GAP_MS = 380;
   const STEP = 1 / 60;
   const CAT_SOLID = 0x1, CAT_NAME = 0x2, CAT_BUBBLE = 0x4, CAT_CEILING = 0x8, CAT_TICKER = 0x10;
   const SOLID_FILTER = { category: CAT_SOLID, mask: CAT_NAME | CAT_BUBBLE };
   const TICKER_FILTER = { category: CAT_TICKER, mask: CAT_NAME };
-  const NAME_FILTER = { category: CAT_NAME, mask: CAT_SOLID | CAT_NAME | CAT_TICKER };
-  const BUBBLE_FILTER = { category: CAT_BUBBLE, mask: CAT_SOLID | CAT_BUBBLE | CAT_CEILING };
+  const NAME_FILTER = { category: CAT_NAME, mask: CAT_SOLID | CAT_NAME | CAT_TICKER | CAT_BUBBLE };
+  const BUBBLE_FILTER = { category: CAT_BUBBLE, mask: CAT_SOLID | CAT_BUBBLE | CAT_CEILING | CAT_NAME };
 
-  const { Engine, Bodies, Body, Composite } = Matter;
+  const { Engine, Bodies, Body, Composite, Events } = Matter;
 
   firebase.initializeApp({
     apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
@@ -270,7 +272,24 @@
     return min + Math.random() * (max - min);
   }
 
-  const colorCache = new Map();
+  const COLOR_CACHE_KEY = 'obs_name_colors_v1';
+  const COLOR_CACHE_TTL = 12 * 60 * 60 * 1000;
+  let colorCacheBornAt = Date.now();
+  const colorCache = new Map((() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLOR_CACHE_KEY) || '{}');
+      if (raw && typeof raw.at === 'number' && Date.now() - raw.at < COLOR_CACHE_TTL && raw.colors) {
+        colorCacheBornAt = raw.at;
+        return Object.entries(raw.colors);
+      }
+    } catch (e) {}
+    return [];
+  })());
+  function saveColors() {
+    try {
+      localStorage.setItem(COLOR_CACHE_KEY, JSON.stringify({ at: colorCacheBornAt, colors: Object.fromEntries(colorCache) }));
+    } catch (e) {}
+  }
   function applyColor(name, el) {
     const key = name.toLowerCase();
     if (colorCache.has(key)) {
@@ -278,12 +297,14 @@
       return;
     }
     el.style.color = defaultColorFor(name);
+    colorCache.set(key, defaultColorFor(name));
     db.collection('chat_usernames').doc(key).get().then((doc) => {
       const data = doc.exists ? doc.data() : null;
       const color = data && typeof data.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(data.color) ? data.color : defaultColorFor(name);
       colorCache.set(key, color);
+      saveColors();
       el.style.color = color;
-    }).catch(() => colorCache.set(key, defaultColorFor(name)));
+    }).catch(() => {});
   }
 
   const bubbles = new Map();
@@ -291,7 +312,6 @@
   let hot = null;
   let hotTimer = 0;
   const recentlyHot = [];
-  let bubblesLoaded = false;
   let pool = [];
   let clock = 0;
 
@@ -352,7 +372,7 @@
       heat: 0, hot: false, leaving: false,
       delay: delay || 0, phase: Math.random() * Math.PI * 2,
       cruise: rand(0.7, 1.3), z: 0, body: null, dir: Math.random() * Math.PI * 2,
-      homeY: 0, homeTimer: 0
+      homeY: 0, homeTimer: 0, bandTop: 0, bandBottom: 0
     };
     fillBubble(b);
     const w = b.w * b.base, h = b.h * b.base;
@@ -389,12 +409,13 @@
       angle: b.angle,
       chamfer: { radius: Math.min(b.w, b.h) * s * 0.14 },
       density: 0.04,
-      friction: 0.35,
-      frictionStatic: 0.5,
+      friction: 0,
+      frictionStatic: 0,
       frictionAir: 0.02,
-      restitution: 0.4,
+      restitution: 0.9,
       collisionFilter: BUBBLE_FILTER
     });
+    b.body.plugin = { bubble: b };
     Body.setVelocity(b.body, velocity);
     Body.setAngularVelocity(b.body, angularVelocity);
     b.bodyW = b.w;
@@ -461,29 +482,102 @@
     b.base = next;
   }
 
-  function syncBubbles(fromSnapshot) {
-    const ids = new Set(pool.map((m) => m.id));
-    bubbles.forEach((b) => { if (!ids.has(b.id)) retireBubble(b); });
-    const fresh = [];
-    pool.forEach((m) => {
-      const existing = bubbles.get(m.id);
-      if (!existing) {
-        fresh.push(m);
+  function activeBubbles() {
+    const list = [];
+    bubbles.forEach((b) => { if (!b.leaving) list.push(b); });
+    return list;
+  }
+
+  function fillBubbles(avoid) {
+    const need = BUBBLE_COUNT - activeBubbles().length;
+    if (need <= 0) return;
+    const open = pool.filter((m) => !bubbles.has(m.id));
+    const fresh = open.filter((m) => !avoid || !avoid.has(m.id));
+    const shuffle = (list) => {
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    };
+    const picks = shuffle(fresh.slice()).slice(0, need);
+    if (picks.length < need) picks.push(...shuffle(open.filter((m) => picks.indexOf(m) === -1)).slice(0, need - picks.length));
+    picks.forEach((m, i) => spawnBubble(m, i * 0.35));
+  }
+
+  function syncBubbles() {
+    const byId = new Map(pool.map((m) => [m.id, m]));
+    bubbles.forEach((b) => {
+      const m = byId.get(b.id);
+      if (m) b.message = m;
+      if (!b.leaving && !isSpotlightable(b.message)) retireBubble(b);
+    });
+    fillBubbles();
+  }
+
+  function cycleBubbles() {
+    const shown = new Set(activeBubbles().map((b) => b.id));
+    if (pool.length <= shown.size) shown.clear();
+    activeBubbles().forEach(retireBubble);
+    setTimeout(() => fillBubbles(shown), 600);
+  }
+
+  function sendApart(a, c) {
+    const now = performance.now();
+    if (now - (a.apartAt || 0) < 1200 && now - (c.apartAt || 0) < 1200) return;
+    a.apartAt = now;
+    c.apartAt = now;
+    const pa = a.body.position, pc = c.body.position;
+    const away = Math.atan2(pa.y - pc.y, pa.x - pc.x);
+    a.dir = away + rand(-0.4, 0.4);
+    c.dir = away + Math.PI + rand(-0.4, 0.4);
+    const pick = (b, upward) => {
+      const y = b.body.position.y;
+      b.homeY = upward ? rand(b.bandTop, Math.max(b.bandTop, y)) : rand(Math.min(b.bandBottom, y), b.bandBottom);
+      b.homeTimer = rand(6, 12);
+    };
+    pick(a, pa.y < pc.y);
+    pick(c, pc.y <= pa.y);
+  }
+
+  function tunePairs(event, starting) {
+    event.pairs.forEach((pair) => {
+      const a = pair.bodyA.plugin && pair.bodyA.plugin.bubble;
+      const c = pair.bodyB.plugin && pair.bodyB.plugin.bubble;
+      if (a && c) {
+        if (starting && a.body && c.body) sendApart(a, c);
         return;
       }
-      existing.message = m;
-      if (existing.leaving) {
-        existing.leaving = false;
-        existing.el.classList.remove('is-leaving');
-        if (existing.body) existing.body.collisionFilter = BUBBLE_FILTER;
+      if (a || c) {
+        pair.restitution = 0.3;
+        pair.friction = 0.04;
+        pair.frictionStatic = 0.1;
       }
     });
-    const spawned = fresh.slice().reverse().map((m, i) => spawnBubble(m, bubblesLoaded ? i * 0.2 : i * 0.3));
-    if (bubblesLoaded && spawned.length) {
-      const newest = spawned[spawned.length - 1];
-      setTimeout(() => highlight(newest), newest.delay * 1000 + 250);
+  }
+  Events.on(engine, 'collisionStart', (event) => tunePairs(event, true));
+  Events.on(engine, 'collisionActive', (event) => tunePairs(event, false));
+
+  function repelBubbles(dt) {
+    const list = [];
+    bubbles.forEach((b) => { if (b.body && !b.leaving) list.push(b); });
+    const margin = 36 * viewFactor;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const A = list[i].body, C = list[j].body;
+        const gapX = Math.max(A.bounds.min.x, C.bounds.min.x) - Math.min(A.bounds.max.x, C.bounds.max.x);
+        const gapY = Math.max(A.bounds.min.y, C.bounds.min.y) - Math.min(A.bounds.max.y, C.bounds.max.y);
+        const gap = Math.max(gapX, gapY);
+        if (gap > margin) continue;
+        if (gap < margin * 0.6) sendApart(list[i], list[j]);
+        const dx = A.position.x - C.position.x, dy = A.position.y - C.position.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const push = (1 - Math.max(0, gap) / margin) * 260 * viewFactor * dt;
+        const ux = dx / len * push / 60, uy = dy / len * push / 60;
+        Body.setVelocity(A, { x: A.velocity.x + ux, y: A.velocity.y + uy });
+        Body.setVelocity(C, { x: C.velocity.x - ux, y: C.velocity.y - uy });
+      }
     }
-    if (fromSnapshot) bubblesLoaded = true;
   }
 
   function wrapAngle(a) {
@@ -531,6 +625,8 @@
       const hh = (body.bounds.max.y - body.bounds.min.y) / 2;
       const bandTop = H * 0.03 + hh;
       const bandBottom = Math.max(bandTop, bubbleFloor() - H * 0.02 - hh);
+      b.bandTop = bandTop;
+      b.bandBottom = bandBottom;
       b.homeTimer -= dt;
       if (b.homeTimer <= 0 || b.homeY < bandTop - 1 || b.homeY > bandBottom + 1) {
         b.homeY = rand(bandTop, bandBottom);
@@ -546,7 +642,7 @@
       const lift = Math.max(-cruise * 1.4, Math.min(cruise * 1.4, (b.homeY - body.position.y) * 0.7));
       let desiredX = Math.cos(b.dir) * cruise;
       let desiredY = Math.sin(b.dir) * cruise * 0.35 + lift;
-      const blendX = Math.min(1, dt * 1.1), blendY = Math.min(1, dt * 10);
+      const blendX = Math.min(1, dt * 1.1), blendY = Math.min(1, dt * 4);
       Body.setVelocity(body, { x: (vx + (desiredX - vx) * blendX) / 60, y: (vy + (desiredY - vy) * blendY) / 60 });
       const wobble = Math.sin(clock * 0.5 + b.phase) * 2.5 * (1 - b.heat) * Math.PI / 180;
       let w = body.angularVelocity * 60;
@@ -579,11 +675,11 @@
     if (unsubscribeMessages) unsubscribeMessages();
     let query = messagesRef.orderBy('ts', 'desc');
     if (clearedAt) query = query.where('ts', '>', clearedAt);
-    unsubscribeMessages = query.limit(BUBBLE_COUNT * 3).onSnapshot((snapshot) => {
+    unsubscribeMessages = query.limit(Math.min(80, POOL_SIZE + 10)).onSnapshot((snapshot) => {
       pool = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()))
         .filter(isSpotlightable)
-        .slice(0, BUBBLE_COUNT);
-      syncBubbles(true);
+        .slice(0, POOL_SIZE);
+      syncBubbles();
     }, (err) => console.error(err));
   }
 
@@ -627,6 +723,7 @@
 
     setInterval(highlightRandom, INTERVAL_MS);
     setInterval(resizeRandom, RESIZE_MS);
+    setInterval(cycleBubbles, CYCLE_MS);
   }
 
   let tickerBody = null;
@@ -994,25 +1091,18 @@
 
   function collectDemoNames() {
     const found = [];
-    let scanned = 0;
-    const page = (after) => {
-      let query = messagesRef.orderBy('ts', 'desc');
-      if (after) query = query.startAfter(after);
-      return query.limit(200).get().then((snapshot) => {
-        snapshot.docs.forEach((doc) => {
-          if (found.length >= MAX_NAMES) return;
-          const m = doc.data();
-          const name = typeof m.username === 'string' ? m.username.trim() : '';
-          if (!name || /\s/.test(name) || name.length > 24 || found.indexOf(name) !== -1) return;
-          found.push(name);
-        });
-        scanned += snapshot.size;
-        const last = snapshot.docs[snapshot.docs.length - 1];
-        if (found.length >= MAX_NAMES || snapshot.size < 200 || scanned >= 1000 || !last) return found;
-        return page(last);
+    return messagesRef.orderBy('ts', 'desc').limit(100).get().then((snapshot) => {
+      snapshot.docs.forEach((doc) => {
+        if (found.length >= MAX_NAMES) return;
+        const m = doc.data();
+        const name = typeof m.username === 'string' ? m.username.trim() : '';
+        if (!name || /\s/.test(name) || name.length > 24 || found.indexOf(name) !== -1) return;
+        found.push(name);
+        const key = name.toLowerCase();
+        if (!colorCache.has(key)) colorCache.set(key, typeof m.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(m.color) ? m.color : defaultColorFor(name));
       });
-    };
-    return page(null);
+      return found;
+    });
   }
 
   function runDemo() {
@@ -1066,6 +1156,7 @@
     let steps = 0;
     while (acc >= STEP && steps < 4) {
       stepBubbles(STEP);
+      repelBubbles(STEP);
       Engine.update(engine, STEP * 1000);
       acc -= STEP;
       steps++;

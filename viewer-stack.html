@@ -61,7 +61,7 @@
   const MAX_NAMES = numberParam('max', 100, 1, 300);
   const DEMO = params.get('demo') === '1';
   const USE_COLORS = params.get('colors') !== '0';
-  const ACTIVE_WINDOW_MS = 270000;
+  const ACTIVE_WINDOW_MS = 150000;
   const RESUBSCRIBE_MS = 10 * 60 * 1000;
   const GAP = 0.12;
   const STEP = 2;
@@ -113,7 +113,24 @@
     return hslToHex(hashHue(name.toLowerCase()), 70, 72);
   }
 
-  const colorCache = new Map();
+  const COLOR_CACHE_KEY = 'obs_name_colors_v1';
+  const COLOR_CACHE_TTL = 12 * 60 * 60 * 1000;
+  let colorCacheBornAt = Date.now();
+  const colorCache = new Map((() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLOR_CACHE_KEY) || '{}');
+      if (raw && typeof raw.at === 'number' && Date.now() - raw.at < COLOR_CACHE_TTL && raw.colors) {
+        colorCacheBornAt = raw.at;
+        return Object.entries(raw.colors);
+      }
+    } catch (e) {}
+    return [];
+  })());
+  function saveColors() {
+    try {
+      localStorage.setItem(COLOR_CACHE_KEY, JSON.stringify({ at: colorCacheBornAt, colors: Object.fromEntries(colorCache) }));
+    } catch (e) {}
+  }
   function applyColor(name, el) {
     const key = name.toLowerCase();
     if (colorCache.has(key)) {
@@ -121,12 +138,14 @@
       return;
     }
     el.style.color = defaultColorFor(name);
+    colorCache.set(key, defaultColorFor(name));
     db.collection('chat_usernames').doc(key).get().then((doc) => {
       const data = doc.exists ? doc.data() : null;
       const color = data && typeof data.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(data.color) ? data.color : defaultColorFor(name);
       colorCache.set(key, color);
+      saveColors();
       el.style.color = color;
-    }).catch(() => colorCache.set(key, defaultColorFor(name)));
+    }).catch(() => {});
   }
 
   function measure(name) {
@@ -276,31 +295,20 @@
   setInterval(sync, 15000);
   window.addEventListener('resize', () => { size = BASE_SIZE; relayout([]); });
 
-  const DEMO_NAMES = MAX_NAMES;
-  const DEMO_PAGE = 200;
-  const DEMO_MAX_MESSAGES = 1000;
-
   function collectDemoNames() {
-    const names = [];
-    let scanned = 0;
-    const page = (after) => {
-      let query = db.collection('chat_messages').orderBy('ts', 'desc');
-      if (after) query = query.startAfter(after);
-      return query.limit(DEMO_PAGE).get().then((snapshot) => {
-        snapshot.docs.forEach((doc) => {
-          if (names.length >= DEMO_NAMES) return;
-          const m = doc.data();
-          const name = typeof m.username === 'string' ? m.username.trim() : '';
-          if (!name || /\s/.test(name) || name.length > 24 || names.indexOf(name) !== -1) return;
-          names.push(name);
-        });
-        scanned += snapshot.size;
-        const last = snapshot.docs[snapshot.docs.length - 1];
-        if (names.length >= DEMO_NAMES || snapshot.size < DEMO_PAGE || scanned >= DEMO_MAX_MESSAGES || !last) return names;
-        return page(last);
+    const found = [];
+    return db.collection('chat_messages').orderBy('ts', 'desc').limit(100).get().then((snapshot) => {
+      snapshot.docs.forEach((doc) => {
+        if (found.length >= MAX_NAMES) return;
+        const m = doc.data();
+        const name = typeof m.username === 'string' ? m.username.trim() : '';
+        if (!name || /\s/.test(name) || name.length > 24 || found.indexOf(name) !== -1) return;
+        found.push(name);
+        const key = name.toLowerCase();
+        if (!colorCache.has(key)) colorCache.set(key, typeof m.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(m.color) ? m.color : defaultColorFor(name));
       });
-    };
-    return page(null);
+      return found;
+    });
   }
 
   function runDemo() {
