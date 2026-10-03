@@ -18,16 +18,16 @@
 #place{font:bold 15px/1.1 GratisNeue,Arial,sans-serif;letter-spacing:.02em;color:var(--gold)}#status{font:8px/1.4 GratisNeue,Arial,sans-serif;letter-spacing:1px;color:#aab0b4;margin-top:3px}
 @keyframes pulse{50%{opacity:.35;transform:scale(.72)}}
 .embed .panel{width:100vw;height:100vh;padding:0}.embed .map-wrap{inset:0}
-.embed .readout{bottom:2.5vh;padding:0 4vw;gap:0}.embed 
+.embed .readout{bottom:4vmin;padding:0 3vw;gap:0}.embed 
 .embed #districts .district{animation:none;stroke-opacity:.92}
 .embed .map-wrap svg{animation:crt-map-flicker 1.6s linear infinite}
 @keyframes crt-map-flicker{0%,100%{filter:brightness(1)}8%{filter:brightness(.97)}17%{filter:brightness(1.02)}29%{filter:brightness(.98)}41%{filter:brightness(1.03)}53%{filter:brightness(.99)}67%{filter:brightness(1.01)}80%{filter:brightness(.98)}92%{filter:brightness(1.02)}}
-.embed #place{white-space:nowrap;max-width:100%;font-size:clamp(6px,8vw,15px);line-height:1.05;text-align:center;-webkit-text-stroke-width:clamp(.5px,.9vw,1.5px)}
+.embed #place{white-space:nowrap;max-width:100%;font-size:clamp(6px,13vmin,15px);line-height:1.05;text-align:center;-webkit-text-stroke-width:clamp(.5px,.9vw,1.5px)}
 .compass{position:absolute;z-index:4;top:6px;right:6px;width:60px;height:60px;pointer-events:none}
 .compass svg{display:block;width:100%;height:100%;overflow:visible}
 .compass text{font-family:GratisNeue,Arial,sans-serif;font-weight:bold}
 #compassFacing{fill:var(--gold);paint-order:stroke;stroke:#000;stroke-width:1.4px}
-.embed .compass{top:3vw;right:3vw;width:clamp(24px,32.4vw,65px);height:clamp(24px,32.4vw,65px)}
+.embed .compass{top:4vmin;right:4vmin;width:clamp(24px,40vmin,65px);height:clamp(24px,40vmin,65px)}
 #facing{display:none;pointer-events:none;transition:opacity .6s}
 #place.has-location{animation:live-breathe 2.4s ease-in-out infinite}
 @keyframes live-breathe{0%,100%{opacity:1}50%{opacity:.4}}
@@ -53,7 +53,7 @@ function updateOverlay(){
   compassFacing.classList.toggle('syncing',syncing);facingMark.classList.toggle('syncing',syncing);
   if(compassFacing.textContent!==label)compassFacing.textContent=label;
   if(heading===null||!activeCode){facingMark.style.display='none';return}
-  const scale=mapSvg.viewBox.baseVal.width*.011;
+  const scale=Math.min(mapSvg.viewBox.baseVal.width,mapSvg.viewBox.baseVal.height)*.011;
   facingMark.setAttribute('transform',`translate(${rot.cx} ${rot.cy}) scale(${scale.toFixed(3)})`);
   facingMark.style.display='inline';
 }

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNOBSOCK Chat Spotlight</title>
+<style>
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: swap;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 4vw;
+    font-family: 'Gratis Neue', Tahoma, Arial, sans-serif;
+  }
+  #card {
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+    padding: 0.55em 0.8em 0.6em;
+    border: 0.09em solid #ffd21a;
+    border-radius: 0.38em;
+    background: rgba(8, 8, 8, 0.86);
+    box-shadow: 0 0.12em 0.5em rgba(0, 0, 0, 0.6), 0 0 0.6em rgba(255, 210, 26, 0.25);
+    color: #ffffff;
+    opacity: 0;
+    transform: scale(0.92) translateY(0.3em);
+    transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+  #card.is-shown {
+    opacity: 1;
+    transform: none;
+  }
+  #name {
+    display: block;
+    font-size: 0.5em;
+    line-height: 1.1;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.35em;
+    -webkit-text-stroke: 0.04em #000;
+    paint-order: stroke fill;
+  }
+  #text {
+    display: block;
+    line-height: 1.12;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    -webkit-text-stroke: 0.035em #000;
+    paint-order: stroke fill;
+  }
+  .chat-emoji {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    object-fit: contain;
+    vertical-align: -0.2em;
+  }
+</style>
+</head>
+<body>
+<div id="card" aria-live="polite"><span id="name"></span><span id="text"></span></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const numberParam = (name, fallback, min, max) => {
+    const value = Number(params.get(name));
+    return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+  };
+  const INTERVAL_MS = numberParam('interval', 8, 2, 120) * 1000;
+  const POOL_SIZE = numberParam('count', 20, 2, 50);
+  const BASE_SIZE = numberParam('size', 64, 16, 200);
+  const RECENT_MEMORY = Math.min(6, Math.max(1, Math.floor(POOL_SIZE / 3)));
+
+  firebase.initializeApp({
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  });
+  const db = firebase.firestore();
+  const messagesRef = db.collection('chat_messages');
+  const configRef = db.collection('chat_config');
+
+  const DEFAULT_CENSORED_WORDS = [
+    'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
+    'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
+    'towelhead', 'raghead', 'cunt'
+  ];
+  function buildCensorRegex(word) {
+    const subs = { a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]', s: '[s$5]', g: '[g9]', t: '[t7]' };
+    const pattern = word.split('').map((ch) => subs[ch] || ch).join('[\\W_]*');
+    return new RegExp('\\b' + pattern + '\\b', 'gi');
+  }
+  let censorRegexes = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+  let deletedIds = new Set();
+  let clearedAt = 0;
+  let pool = [];
+  let currentId = null;
+  const recentlyShown = [];
+  let chatEmojiByName = {};
+
+  const card = document.getElementById('card');
+  const nameEl = document.getElementById('name');
+  const textEl = document.getElementById('text');
+
+  function censorText(text) {
+    return censorRegexes.reduce((result, re) => result.replace(re, (match) => '*'.repeat(match.length)), text);
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function hashHue(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return hash % 360;
+  }
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
+    return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+  }
+  function colorFor(m) {
+    return m.color || hslToHex(hashHue(String(m.username || '').toLowerCase()), 70, 72);
+  }
+  function renderMessageText(text) {
+    return escapeHtml(censorText(String(text || ''))).replace(/:([a-z0-9_-]{1,32}):/gi, (match, name) => {
+      const emoji = chatEmojiByName[String(name).toLowerCase()];
+      if (!emoji) return match;
+      return '<img class="chat-emoji" src="' + escapeHtml(emoji.url) + '" alt="' + escapeHtml(match) + '">';
+    });
+  }
+  function isSpotlightable(m) {
+    return !!m && !m.type && typeof m.text === 'string' && m.text.trim().length > 0 &&
+      !!m.username && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
+  }
+
+  function fitCard() {
+    let size = BASE_SIZE;
+    card.style.fontSize = size + 'px';
+    const maxHeight = window.innerHeight * 0.92;
+    const maxWidth = window.innerWidth * 0.92;
+    while (size > 14 && (card.scrollHeight > maxHeight || card.scrollWidth > maxWidth)) {
+      size = Math.floor(size * 0.92);
+      card.style.fontSize = size + 'px';
+    }
+  }
+
+  function show(message) {
+    card.classList.remove('is-shown');
+    setTimeout(() => {
+      if (!message) return;
+      currentId = message.id;
+      nameEl.textContent = message.username;
+      nameEl.style.color = colorFor(message);
+      textEl.innerHTML = renderMessageText(message.text);
+      fitCard();
+      requestAnimationFrame(() => card.classList.add('is-shown'));
+    }, card.classList.contains('is-shown') || currentId ? 380 : 0);
+  }
+
+  function pickNext() {
+    const eligible = pool.filter(isSpotlightable);
+    if (!eligible.length) {
+      currentId = null;
+      card.classList.remove('is-shown');
+      return;
+    }
+    let choices = eligible.filter((m) => m.id !== currentId && recentlyShown.indexOf(m.id) === -1);
+    if (!choices.length) choices = eligible.filter((m) => m.id !== currentId);
+    if (!choices.length) choices = eligible;
+    const next = choices[Math.floor(Math.random() * choices.length)];
+    recentlyShown.push(next.id);
+    while (recentlyShown.length > RECENT_MEMORY) recentlyShown.shift();
+    if (next.id === currentId && card.classList.contains('is-shown')) return;
+    show(next);
+  }
+
+  let rotation = null;
+  function startRotation() {
+    if (rotation) return;
+    pickNext();
+    rotation = setInterval(pickNext, INTERVAL_MS);
+  }
+
+  function refreshCurrent() {
+    const current = pool.find((m) => m.id === currentId);
+    if (currentId && !isSpotlightable(current)) pickNext();
+    if (!currentId && pool.some(isSpotlightable)) pickNext();
+  }
+
+  let unsubscribe = null;
+  function subscribe() {
+    if (unsubscribe) unsubscribe();
+    let query = messagesRef.orderBy('ts', 'desc');
+    if (clearedAt) query = query.where('ts', '>', clearedAt);
+    unsubscribe = query.limit(POOL_SIZE * 2).onSnapshot((snapshot) => {
+      pool = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()))
+        .filter(isSpotlightable)
+        .slice(0, POOL_SIZE);
+      startRotation();
+      refreshCurrent();
+    }, (err) => console.error(err));
+  }
+
+  configRef.doc('censoredWords').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
+    censorRegexes = words.map(buildCensorRegex);
+    deletedIds = new Set(data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds.map(String) : []);
+    pool = pool.filter(isSpotlightable);
+    refreshCurrent();
+  }, () => {});
+
+  let subscribedClearedAt = null;
+  configRef.doc('clear').onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : null;
+    clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+    if (subscribedClearedAt !== clearedAt) {
+      subscribedClearedAt = clearedAt;
+      subscribe();
+    }
+  }, () => { if (subscribedClearedAt === null) { subscribedClearedAt = 0; subscribe(); } });
+
+  fetch('/chat-emojis.json', { cache: 'no-cache' })
+    .then((res) => res.ok ? res.json() : { emojis: [] })
+    .then((data) => {
+      const byName = {};
+      (data && Array.isArray(data.emojis) ? data.emojis : []).forEach((item) => {
+        const name = String(item && item.name || '').toLowerCase();
+        const url = String(item && item.url || '');
+        if (!/^[a-z0-9_-]{1,32}$/.test(name) || (!/^https?:\/\//i.test(url) && url.charAt(0) !== '/')) return;
+        if (!byName[name]) byName[name] = { name, url };
+      });
+      chatEmojiByName = byName;
+    })
+    .catch(() => {});
+
+  window.addEventListener('resize', () => { if (currentId) fitCard(); });
+})();
+</script>
+</body>
+</html>
