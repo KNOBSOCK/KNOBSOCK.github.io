@@ -15,7 +15,7 @@
 .district.is-current{fill:#ffd21a!important;fill-opacity:.92;stroke:#fff2a5;stroke-width:1.6;filter:drop-shadow(0 0 4px #ffd21a) drop-shadow(0 0 11px #ffae00)}
 .readout{position:absolute;z-index:3;bottom:12px;left:0;right:0;padding:9px 11px;background:transparent;border:0;display:flex;align-items:center;justify-content:center;gap:10px;pointer-events:none}
 
-#place{font:bold 15px/1.1 GratisNeue,Arial,sans-serif;letter-spacing:.02em;color:#ff3b30}#status{font:8px/1.4 GratisNeue,Arial,sans-serif;letter-spacing:1px;color:#aab0b4;margin-top:3px}
+#place{font:bold 15px/1.1 GratisNeue,Arial,sans-serif;letter-spacing:.02em;color:var(--gold)}#status{font:8px/1.4 GratisNeue,Arial,sans-serif;letter-spacing:1px;color:#aab0b4;margin-top:3px}
 @keyframes pulse{50%{opacity:.35;transform:scale(.72)}}
 .embed .panel{width:100vw;height:100vh;padding:0}.embed .map-wrap{inset:0}
 .embed .readout{bottom:2.5vh;padding:0 4vw;gap:0}.embed 
@@ -29,7 +29,7 @@
 #compassFacing{fill:var(--gold);paint-order:stroke;stroke:#000;stroke-width:1.4px}
 .embed .compass{top:3vw;right:3vw;width:clamp(24px,32.4vw,65px);height:clamp(24px,32.4vw,65px)}
 #facing{display:none;pointer-events:none;transition:opacity .6s}
-.is-live #place.has-location{animation:live-breathe 2.4s ease-in-out infinite}
+#place.has-location{animation:live-breathe 2.4s ease-in-out infinite}
 @keyframes live-breathe{0%,100%{opacity:1}50%{opacity:.4}}
 #facing.syncing{opacity:.3}
 #compassFacing.syncing{fill:#87939b}

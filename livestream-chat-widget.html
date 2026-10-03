@@ -372,6 +372,24 @@
     transition: background 0.2s ease, opacity 0.2s ease;
   }
   .stream-minimap-zoom button:disabled { opacity: 0.35; cursor: default; }
+  .stream-minimap-zoom { transition: opacity 0.3s ease; }
+  .stream-minimap.is-closed .stream-minimap-zoom { opacity: 0; }
+  @media (hover: none) and (pointer: coarse) {
+    .stream-minimap { --minimap-size: clamp(103px, 48.4cqmin, 330px); }
+    .stream-minimap-zoom {
+      gap: 6px;
+      flex-direction: column;
+      right: calc(100% + 6px);
+      bottom: auto;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .stream-minimap-zoom button {
+      width: clamp(30px, 10cqmin, 42px);
+      height: clamp(30px, 10cqmin, 42px);
+      font-size: clamp(20px, 7cqmin, 28px);
+    }
+  }
   .stream-minimap-zoom button:hover:not(:disabled) { background: var(--interactive-hover); color: var(--interactive-hover-text); }
   @media (hover: none) {
     .stream-minimap-zoom button:hover:not(:disabled) { background: rgba(0, 0, 0, 0.72); color: rgba(255, 255, 255, 0.9); }
@@ -3451,6 +3469,8 @@
   var videoReady = false;
   var hlsInstance = null;
   var streamFragClock = null;
+  var BUNNY_LIVE_MP4_LEAD_SECONDS = 2.2;
+  var vodMp4LeadSeconds = 0;
   var resumeAfterDirectSeek = false;
   var directSeekRecoveryTimer = null;
   var directSeekRetryTimer = null;
@@ -3759,9 +3779,11 @@
     // stream has no finished MP4 yet, so only substitute it for a VOD.
     var mp4QualityBase = null;
     var mp4QualityQuery = '';
+    vodMp4LeadSeconds = 0;
     if (isIOS && watchingVodId) {
       var bunnyVod = url.match(/^(https:\/\/[^/]+)\/(?:live\/)?([0-9a-f-]+)\/playlist\.m3u8(\?.*)?$/i);
       if (bunnyVod && /\.b-cdn\.net$/i.test(new URL(url).hostname)) {
+        if (/\/live\/[0-9a-f-]+\/playlist\.m3u8/i.test(url)) vodMp4LeadSeconds = BUNNY_LIVE_MP4_LEAD_SECONDS;
         mp4QualityBase = bunnyVod[1] + '/' + bunnyVod[2];
         mp4QualityQuery = bunnyVod[3] || '';
         url = mp4QualityBase + '/play_720p.mp4' + mp4QualityQuery;
@@ -5103,7 +5125,7 @@
   }
 
   function streamMinimapPlaybackSeconds() {
-    if (backend === 'video') return videoEl.currentTime || 0;
+    if (backend === 'video') return Math.max(0, (videoEl.currentTime || 0) - (watchingVodId ? vodMp4LeadSeconds : 0));
     if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
       try { return ytPlayer.getCurrentTime() || 0; } catch (e) {}
     }
@@ -5117,7 +5139,7 @@
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
     if (!mode || !streamMinimapOpen) { setStreamMinimapExact(null); return; }
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=20';
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=21';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
