@@ -19,12 +19,18 @@ WIDTH, HEIGHT = 160, 90
 BAND_TOP, BAND_BOTTOM = 25, 65
 MAX_SHIFT = 24
 WINDOW_S = 90
-WINDOW_CHOICES = (45, 60, 90)
+WINDOW_CHOICES = (20, 30, 45, 60, 90)
+SHORT_WINDOW_S = 30
+SHORT_WINDOW_CORRELATION = 0.88
+LAG_FACTOR = 0.6
+LAG_SHIFT_S = 2.0
+NEARBY_S = 10.0
+FULL_SEARCH_EVERY_S = 30
 KEEP_S = 240
 LAG_MIN, LAG_MAX, LAG_STEP = -60.0, 15.0, 0.1
 MIN_CORRELATION = 0.8
 SMOOTH_WITHIN_MS = 1500
-EVALUATE_EVERY_S = 10
+EVALUATE_EVERY_S = 5
 
 
 def log(message):
@@ -61,10 +67,30 @@ def live_config():
     return url, seed
 
 
-def headings_between(start_ms, end_ms):
+def history_between(start_ms, end_ms):
     url = "%s/functions/v1/stream-location?from=%d&to=%d" % (SUPABASE, start_ms, end_ms)
     data = json.loads(http_text(url, {"apikey": API_KEY}, timeout=15))
-    return [(h["t"] / 1000.0, h["h"]) for h in data.get("headings", [])]
+    headings = [(h["t"] / 1000.0, h["h"]) for h in data.get("headings", [])]
+    lags = sorted((l["t"] / 1000.0, (l["ms"] or 0) / 1000.0) for l in data.get("lags", []))
+    return headings, lags
+
+
+def lag_at(lags, t):
+    found = None
+    for when, seconds in lags:
+        if when <= t:
+            found = (when, seconds)
+        else:
+            break
+    if found is None or t - found[0] > 60:
+        return 0.0
+    return found[1]
+
+
+def lag_corrected(window, lags, offset_guess_s):
+    if not lags:
+        return window
+    return [(t - LAG_FACTOR * lag_at(lags, t - offset_guess_s + LAG_SHIFT_S), p) for t, p in window]
 
 
 def publish(token, chunk_at_ms, offset_ms, quality):
@@ -157,7 +183,7 @@ def std(values):
     return math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
 
 
-def best_offset(pan_samples, rate_series):
+def best_offset(pan_samples, rate_series, lag_min=LAG_MIN, lag_max=LAG_MAX, min_correlation=MIN_CORRELATION):
     if not pan_samples or rate_series is None:
         return None
     grid_start, rates = rate_series
@@ -169,9 +195,10 @@ def best_offset(pan_samples, rate_series):
     centered = [p - pan_mean for p in pans]
     pan_norm = math.sqrt(sum(c * c for c in centered))
     best = None
-    steps = int(round((LAG_MAX - LAG_MIN) / LAG_STEP))
+    lag_min, lag_max = max(LAG_MIN, lag_min), min(LAG_MAX, lag_max)
+    steps = int(round((lag_max - lag_min) / LAG_STEP))
     for s in range(steps + 1):
-        lag = LAG_MIN + s * LAG_STEP
+        lag = lag_min + s * LAG_STEP
         picked = []
         for t in times:
             index = int(round((t - lag - grid_start) * FPS))
@@ -188,7 +215,7 @@ def best_offset(pan_samples, rate_series):
         r = sum(a * b for a, b in zip(centered, rate_centered)) / (pan_norm * rate_norm)
         if best is None or r > best[0]:
             best = (r, lag)
-    if best is None or best[0] < MIN_CORRELATION:
+    if best is None or best[0] < min_correlation:
         return None
     return best[1] * 1000.0, best[0]
 
@@ -248,14 +275,27 @@ class PanTracker:
         return [s for s in self.samples if s[0] >= newest - seconds]
 
 
-def strongest_offset(tracker, heading_samples):
+def strongest_offset(tracker, heading_samples, lags=None, offset_guess_ms=None, full_search=True):
     best = None
+    if full_search or offset_guess_ms is None:
+        lag_min, lag_max = LAG_MIN, LAG_MAX
+    else:
+        lag_min, lag_max = offset_guess_ms / 1000.0 - NEARBY_S, offset_guess_ms / 1000.0 + NEARBY_S
     for seconds in WINDOW_CHOICES:
         window = tracker.window(seconds)
         if len(window) < seconds * FPS * 0.6:
             continue
+        threshold = SHORT_WINDOW_CORRELATION if seconds <= SHORT_WINDOW_S else MIN_CORRELATION
         start, end = window[0][0], window[-1][0]
-        found = best_offset(window, heading_rate_series(heading_samples, start + LAG_MIN - 5, end - LAG_MIN + 5))
+        rates = heading_rate_series(heading_samples, start + LAG_MIN - 10, end - LAG_MIN + 10)
+        guess = offset_guess_ms
+        if guess is None:
+            raw = best_offset(window, rates, lag_min, lag_max, threshold)
+            guess = raw[0] if raw else None
+        if lags and guess is not None:
+            found = best_offset(lag_corrected(window, lags, guess / 1000.0), rates, lag_min, lag_max, threshold)
+        else:
+            found = best_offset(window, rates, lag_min, lag_max, threshold)
         if found and (best is None or found[1] > best[1]):
             best = found
     return best
@@ -296,7 +336,7 @@ def run_live():
         return 1
     locker, tracker = Locker(), PanTracker()
     stream_url, seed, variant_url, init_bytes = None, 0, None, None
-    seen, last_config, last_evaluate = set(), 0.0, time.time()
+    seen, last_config, last_evaluate, last_full = set(), 0.0, time.time(), 0.0
     parent = os.getppid()
     while True:
         if os.getppid() != parent:
@@ -336,8 +376,11 @@ def run_live():
                 window = tracker.window()
                 if len(window) > min(WINDOW_CHOICES) * FPS * 0.6:
                     start, end = window[0][0], window[-1][0]
-                    samples = headings_between(int((start + LAG_MIN - 30) * 1000), int((end - LAG_MIN + 30) * 1000))
-                    found = strongest_offset(tracker, samples)
+                    samples, lags = history_between(int((start + LAG_MIN - 30) * 1000), int((end - LAG_MIN + 30) * 1000))
+                    full = locker.current is None or time.time() - last_full >= FULL_SEARCH_EVERY_S
+                    if full:
+                        last_full = time.time()
+                    found = strongest_offset(tracker, samples, lags, locker.current, full)
                     if found:
                         offset_ms, quality = found
                         accepted = locker.update(offset_ms)
@@ -365,7 +408,7 @@ def run_replay(guid, token=None):
     seed = segments[0][0]
     init_bytes = bunny(init_uri) if init_uri else b""
     tracker, locker = PanTracker(), Locker()
-    all_headings = headings_between((seed - 120) * 1000, (seed + 2 * len(segments) + 120) * 1000)
+    all_headings, all_lags = history_between((seed - 120) * 1000, (seed + 2 * len(segments) + 120) * 1000)
     last_evaluate = None
     for number, uri, _ in segments:
         tracker.add_segment(seed + 2 * (number - seed), decode_segment(init_bytes, bunny(uri)))
@@ -379,7 +422,7 @@ def run_replay(guid, token=None):
             window = tracker.window()
             if len(window) > min(WINDOW_CHOICES) * FPS * 0.6:
                 end = window[-1][0]
-                found = strongest_offset(tracker, all_headings)
+                found = strongest_offset(tracker, all_headings, all_lags, locker.current)
                 stamp = int(end - seed)
                 if found:
                     accepted = locker.update(found[0])

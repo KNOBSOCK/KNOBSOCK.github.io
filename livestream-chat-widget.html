@@ -4487,10 +4487,10 @@
       refreshStreamMinimapZoomButtons();
     }
     var zoom = STREAM_MAP_ZOOM_LEVELS[streamMinimapZoomLevel];
-    var key = JSON.stringify({ l: locationData || {}, h: headingValue, z: zoom });
+    var key = JSON.stringify({ l: locationData || {}, h: headingValue, z: zoom, s: streamMinimapUnstable });
     if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
     streamMinimapPosted = key;
-    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: zoom }, location.origin); } catch (e) {}
+    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: zoom, syncing: streamMinimapUnstable }, location.origin); } catch (e) {}
   }
 
   function streamMinimapLiveHeading() {
@@ -4663,8 +4663,28 @@
     return Math.max(0, Number(found.ms) || 0);
   }
 
+  var STREAM_MAP_LAG_FACTOR = 0.6;
+  var STREAM_MAP_LAG_SHIFT_MS = 2000;
+
+  function streamMinimapUplinkShift(record, frameWall, base) {
+    return STREAM_MAP_LAG_FACTOR * streamMinimapLagAt(record && record.lags, frameWall - base + STREAM_MAP_LAG_SHIFT_MS);
+  }
+
+  var STREAM_MAP_UNSTABLE_LAG_MS = 1500;
+  var streamMinimapUnstable = false;
+
+  function streamMinimapStreamUnstable(record, frameWall) {
+    if (!record || !record.lags || !record.lags.length) return false;
+    var base = streamMinimapSyncAt(record.syncs, frameWall);
+    var at = frameWall - base + STREAM_MAP_LAG_SHIFT_MS;
+    var now = streamMinimapLagAt(record.lags, at);
+    var before = streamMinimapLagAt(record.lags, at - 4000);
+    return now >= STREAM_MAP_UNSTABLE_LAG_MS || before - now >= STREAM_MAP_UNSTABLE_LAG_MS;
+  }
+
   function streamMinimapCaptureTime(frameWall, record) {
-    return frameWall - streamMinimapSyncAt(record && record.syncs, frameWall);
+    var base = streamMinimapSyncAt(record && record.syncs, frameWall);
+    return frameWall - base - streamMinimapUplinkShift(record, frameWall, base);
   }
 
   function streamMinimapPlausibleWall(ms) {
@@ -4775,8 +4795,9 @@
       'window-start est   ' + (d.startWall ? secs(serverNow - d.startWall) + ' behind real' : '-'),
       'window-end est     ' + (d.endWall ? secs(serverNow - d.endWall) + ' behind real' : '-'),
       'engine             ' + (hlsInstance ? 'hls.js' : 'native Safari'),
-      'DJI uplink delay   ' + (d.lag || 0) + 'ms',
-      'video lock offset  ' + secs(d.syncMs) + (d.syncCount ? ' (' + d.syncCount + ' locks this stream)' : ' (no lock yet, using last known)'),
+      'uplink correction  ' + (d.lag || 0) + 'ms',
+      'base lock offset   ' + secs(d.syncMs) + (d.syncCount ? ' (' + d.syncCount + ' locks this stream)' : ' (no lock yet, using last known)'),
+      'total offset now   ' + secs(d.syncMs !== null ? d.syncMs + (d.lag || 0) : null),
       'history loaded     ' + (d.historyReady ? d.headings + ' headings, ' + d.entries + ' locations' : 'no')
     ].join('\n');
   }
@@ -5030,7 +5051,7 @@
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
     if (!mode || !streamMinimapOpen) return;
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=10';
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=11';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
@@ -5038,7 +5059,9 @@
         return;
       }
       var history = streamMinimapVodHistory(watchingVodId, sync.timeline);
-      var playbackAt = streamMinimapCaptureTime(streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds()), history);
+      var vodWall = streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds());
+      streamMinimapUnstable = streamMinimapStreamUnstable(history, vodWall);
+      var playbackAt = streamMinimapCaptureTime(vodWall, history);
       postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, playbackAt) : null, history.headings ? streamMinimapHeadingAt(history.headings, playbackAt) : null);
       return;
     }
@@ -5058,7 +5081,7 @@
         behindEdge: videoEl.seekable && videoEl.seekable.length ? (videoEl.seekable.end(videoEl.seekable.length - 1) - (videoEl.currentTime || 0)) * 1000 : null,
         startWall: streamMinimapWindowStartWall(),
         endWall: streamMinimapWindowEndWall(),
-        lag: frameWall !== null && debugHistory ? streamMinimapLagAt(debugHistory.lags, frameWall) : 0,
+        lag: frameWall !== null && debugHistory ? Math.round(streamMinimapUplinkShift(debugHistory, frameWall, streamMinimapSyncAt(debugHistory.syncs, frameWall))) : 0,
         historyReady: !!(debugHistory && debugHistory.ready),
         headings: debugHistory ? debugHistory.headings.length : 0,
         entries: debugHistory ? debugHistory.entries.length : 0
@@ -5068,6 +5091,7 @@
     if (frameWall !== null) {
       var liveHistory = ensureStreamMinimapLiveHistory();
       if (liveHistory.ready) {
+        streamMinimapUnstable = streamMinimapStreamUnstable(liveHistory, frameWall);
         var capturedAt = streamMinimapCaptureTime(frameWall, liveHistory);
         postStreamMinimap(streamMinimapLocationAt(liveHistory.entries, capturedAt), streamMinimapHeadingAt(liveHistory.headings, capturedAt));
         return;
