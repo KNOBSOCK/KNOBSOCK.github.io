@@ -15,7 +15,7 @@
 .district.is-current{fill:#ffd21a!important;fill-opacity:.92;stroke:#fff2a5;stroke-width:1.6;filter:drop-shadow(0 0 4px #ffd21a) drop-shadow(0 0 11px #ffae00)}
 .readout{position:absolute;z-index:3;bottom:12px;left:0;right:0;padding:9px 11px;background:transparent;border:0;display:flex;align-items:center;justify-content:center;gap:10px;pointer-events:none}
 
-#place{font:bold 15px/1.1 GratisNeue,Arial,sans-serif;letter-spacing:.02em;color:var(--gold)}#status{font:8px/1.4 GratisNeue,Arial,sans-serif;letter-spacing:1px;color:#aab0b4;margin-top:3px}
+#place{font:bold 15px/1.1 GratisNeue,Arial,sans-serif;letter-spacing:.02em;color:#ff3b30}#status{font:8px/1.4 GratisNeue,Arial,sans-serif;letter-spacing:1px;color:#aab0b4;margin-top:3px}
 @keyframes pulse{50%{opacity:.35;transform:scale(.72)}}
 .embed .panel{width:100vw;height:100vh;padding:0}.embed .map-wrap{inset:0}
 .embed .readout{bottom:2.5vh;padding:0 4vw;gap:0}.embed 
@@ -29,6 +29,8 @@
 #compassFacing{fill:var(--gold);paint-order:stroke;stroke:#000;stroke-width:1.4px}
 .embed .compass{top:3vw;right:3vw;width:clamp(24px,32.4vw,65px);height:clamp(24px,32.4vw,65px)}
 #facing{display:none;pointer-events:none;transition:opacity .6s}
+.is-live #place.has-location{animation:live-breathe 2.4s ease-in-out infinite}
+@keyframes live-breathe{0%,100%{opacity:1}50%{opacity:.4}}
 #facing.syncing{opacity:.3}
 #compassFacing.syncing{fill:#87939b}
 </style></head><body><div id="frame"><section class="panel"><div class="compass" aria-hidden="true"><svg viewBox="-24 -24 48 48"><circle r="12.5" fill="#080b10c7" stroke="#87939b" stroke-width="1.3"/><path d="M0 -12.2 L1.8 -9 L-1.8 -9 Z" fill="#efffff"/><g id="compassNorth"><path d="M0 -18.6 L2.9 -13.6 L-2.9 -13.6 Z" fill="#ff3b30"/><text id="compassNorthLetter" x="0" y="-21.4" text-anchor="middle" dominant-baseline="central" font-size="5.6" fill="#efffff">N</text></g><text id="compassFacing" x="0" y="0.4" text-anchor="middle" dominant-baseline="central" font-size="8"></text></svg></div>
@@ -119,17 +121,18 @@ if(data.ntaCode&&data.ntaCode!==activeCode){
   const el=document.querySelector('[data-code="'+CSS.escape(data.ntaCode)+'"]');
   if(el){stopRotation();document.querySelectorAll('.district.is-current').forEach(x=>x.classList.remove('is-current'));el.classList.add('is-current');activeCode=data.ntaCode;const target=zoomViewFor(el);rot.cx=target.cx;rot.cy=target.cy;animateViewBox(target,1800);rotationTimer=setTimeout(()=>beginSlowRotation(target.cx,target.cy),1900)}
 }else if(!data.ntaCode)restoreCity();
-if(data.neighborhood){place.textContent=data.neighborhood.toUpperCase()+', '+(data.borough||'NYC').toUpperCase()}
-else{place.textContent='LOCATION UNAVAILABLE'}
+if(data.neighborhood){place.textContent=data.neighborhood.toUpperCase()+', '+(data.borough||'NYC').toUpperCase();place.classList.add('has-location')}
+else{place.textContent='LOCATION UNAVAILABLE';place.classList.remove('has-location')}
 fitPlace();
 }
 async function update(){try{const r=await fetch(ENDPOINT,{headers:{apikey:API_KEY},cache:'no-store'});if(!r.ok)throw Error();render(await r.json())}catch(e){}}
 if(new URLSearchParams(location.search).has('embed')){
   document.documentElement.classList.add('embed');
   if(matchMedia('(pointer: coarse)').matches)districtGroup.removeAttribute('filter');
-  addEventListener('message',e=>{if(e.origin!==location.origin||!e.data)return;if(e.data.type==='knobsock-map-heading'){exactMode=true;setHeading(e.data.heading);return}if(e.data.type==='knobsock-map'){syncing=!!e.data.syncing;exactMode=!!e.data.exact;setHeading(e.data.heading);if('zoom' in e.data)setZoom(e.data.zoom);render(e.data.location||{});updateOverlay()}});
+  addEventListener('message',e=>{if(e.origin!==location.origin||!e.data)return;if(e.data.type==='knobsock-map-heading'){exactMode=true;setHeading(e.data.heading);return}if(e.data.type==='knobsock-map'){document.documentElement.classList.toggle('is-live',!!e.data.live);syncing=!!e.data.syncing;exactMode=!!e.data.exact;setHeading(e.data.heading);if('zoom' in e.data)setZoom(e.data.zoom);render(e.data.location||{});updateOverlay()}});
   try{parent.postMessage({type:'knobsock-map-ready'},location.origin)}catch(e){}
 }else{
+  document.documentElement.classList.add('is-live');
   const HEADING_STALE_MS=40000,LOCATION_STALE_MS=15*60*1000,BASE=ENDPOINT.split('/functions/')[0];
   let liveHeading=null,headingAt=0,liveLocation=null,locationAt=0,fallbackTimer=0,shownCode=undefined;
   function applyLive(){

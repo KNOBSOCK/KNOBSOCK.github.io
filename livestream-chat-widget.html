@@ -4487,10 +4487,11 @@
       refreshStreamMinimapZoomButtons();
     }
     var zoom = STREAM_MAP_ZOOM_LEVELS[streamMinimapZoomLevel];
-    var key = JSON.stringify({ l: locationData || {}, h: exact ? 'x' : headingValue, z: zoom, s: streamMinimapUnstable, x: !!exact });
+    var isLive = !watchingVodId;
+    var key = JSON.stringify({ l: locationData || {}, h: exact ? 'x' : headingValue, z: zoom, s: streamMinimapUnstable, x: !!exact, v: isLive });
     if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
     streamMinimapPosted = key;
-    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: zoom, syncing: streamMinimapUnstable, exact: !!exact }, location.origin); } catch (e) {}
+    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: zoom, syncing: streamMinimapUnstable, exact: !!exact, live: isLive }, location.origin); } catch (e) {}
   }
 
   function streamMinimapLiveHeading() {
@@ -5116,7 +5117,7 @@
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
     if (!mode || !streamMinimapOpen) { setStreamMinimapExact(null); return; }
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=18';
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=20';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
