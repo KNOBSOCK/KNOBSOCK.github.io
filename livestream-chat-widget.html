@@ -4618,7 +4618,7 @@
   var streamMinimapLiveHistory = null;
   var streamMinimapServerSkew = 0;
   var STREAM_MAP_LIVE_LOOKBACK_MS = 50 * 60 * 1000;
-  var STREAM_MAP_CAPTURE_OFFSET_MS = -3000;
+  var STREAM_MAP_CAPTURE_OFFSET_MS = 3000;
   var STREAM_MAP_LAG_STALE_MS = 60000;
 
   function streamMinimapLagAt(list, at) {
@@ -4667,33 +4667,95 @@
         streamMinimapSeedGuess = firstNumber;
       }
       var lastWall = streamMinimapChunkWall(lastNumber);
-      streamMinimapLivePlaylist = lastWall ? { edgeWall: lastWall + lastDuration * 1000, fetchedAt: Date.now() } : null;
+      var firstWall = streamMinimapChunkWall(firstNumber);
+      var seekStart = videoEl.seekable && videoEl.seekable.length ? videoEl.seekable.start(0) : null;
+      streamMinimapLivePlaylist = lastWall ? { edgeWall: lastWall + lastDuration * 1000, firstWall: firstWall, seekStart: seekStart, fetchedAt: Date.now() } : null;
     }).catch(function () {});
   }
 
+  var streamMinimapClockMode = 'none';
+  var streamMinimapDebugOn = (function () {
+    var search = location.search;
+    try { search += '&' + window.parent.location.search; } catch (e) {}
+    try { search += '&' + window.top.location.search; } catch (e) {}
+    return /[?&]mapdebug=1(&|$)/.test(search);
+  })();
+  var streamMinimapDebugInfo = null;
+
+  function streamMinimapWindowStartWall() {
+    var p = streamMinimapLivePlaylist;
+    if (!p || !p.firstWall || !videoEl.seekable || !videoEl.seekable.length) return null;
+    var start = videoEl.seekable.start(0);
+    return streamMinimapPlausibleWall(p.firstWall + ((videoEl.currentTime || 0) - start) * 1000);
+  }
+
+  function streamMinimapWindowEndWall() {
+    var p = streamMinimapLivePlaylist;
+    if (!p || !videoEl.seekable || !videoEl.seekable.length) return null;
+    var edge = videoEl.seekable.end(videoEl.seekable.length - 1);
+    return streamMinimapPlausibleWall(p.edgeWall - (edge - (videoEl.currentTime || 0)) * 1000);
+  }
+
+  function streamMinimapPlaylistFrameWall() {
+    var fromStart = streamMinimapWindowStartWall();
+    var fromEnd = streamMinimapWindowEndWall();
+    if (fromStart && fromEnd && Math.abs(fromStart - fromEnd) > 4000) return fromStart;
+    return fromStart || fromEnd;
+  }
+
   function streamMinimapLiveFrameWall() {
+    streamMinimapClockMode = 'none';
     if (backend !== 'video' || !videoReady || watchingVodId) return null;
     var current = videoEl.currentTime || 0;
     if (hlsInstance && streamFragClock) {
       var chunkWall = streamMinimapChunkWall(streamFragClock.number);
       if (chunkWall) {
         var wall = streamMinimapPlausibleWall(chunkWall + (current - streamFragClock.start) * 1000);
-        if (wall) return wall;
+        if (wall) { streamMinimapClockMode = 'chunk'; return wall; }
       }
     }
-    if (streamMinimapLivePlaylist && videoEl.seekable && videoEl.seekable.length) {
-      var edge = videoEl.seekable.end(videoEl.seekable.length - 1);
-      return streamMinimapPlausibleWall(streamMinimapLivePlaylist.edgeWall - (edge - current) * 1000);
+    var estimate = streamMinimapPlaylistFrameWall();
+    if (estimate) streamMinimapClockMode = 'playlist';
+    return estimate;
+  }
+
+  function renderStreamMinimapDebug() {
+    if (!streamMinimapDebugOn) return;
+    var box = document.getElementById('streamMinimapDebug');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'streamMinimapDebug';
+      box.style.cssText = 'position:absolute;left:8px;top:56px;z-index:9;pointer-events:none;background:rgba(0,0,0,.78);color:#9f9;font:11px/1.35 ui-monospace,Menlo,monospace;padding:6px 8px;border-radius:6px;white-space:pre;max-width:92%;overflow:hidden';
+      videoPane.appendChild(box);
     }
-    return null;
+    var d = streamMinimapDebugInfo;
+    if (!d) { box.textContent = 'map debug: waiting for live video'; return; }
+    var clock = function (ms) { return ms ? new Date(ms).toISOString().slice(11, 22) : '-'; };
+    var secs = function (ms) { return ms === null || ms === undefined || !isFinite(ms) ? '-' : (ms / 1000).toFixed(1) + 's'; };
+    var serverNow = Date.now() + streamMinimapServerSkew;
+    box.textContent = [
+      'timing method      ' + d.mode,
+      'stream start seed  ' + (d.seed ? clock(d.seed * 1000) : 'MISSING'),
+      'frame filmed at    ' + clock(d.frameWall),
+      'map is showing     ' + clock(d.capturedAt),
+      'frame behind real  ' + secs(d.frameWall ? serverNow - d.frameWall : null),
+      'map behind real    ' + secs(d.capturedAt ? serverNow - d.capturedAt : null),
+      'behind live edge   ' + secs(d.behindEdge),
+      'window-start est   ' + (d.startWall ? secs(serverNow - d.startWall) + ' behind real' : '-'),
+      'window-end est     ' + (d.endWall ? secs(serverNow - d.endWall) + ' behind real' : '-'),
+      'engine             ' + (hlsInstance ? 'hls.js' : 'native Safari'),
+      'DJI uplink delay   ' + (d.lag || 0) + 'ms',
+      'fixed correction   ' + STREAM_MAP_CAPTURE_OFFSET_MS + 'ms',
+      'history loaded     ' + (d.historyReady ? d.headings + ' headings, ' + d.entries + ' locations' : 'no')
+    ].join('\n');
   }
 
   function startStreamMinimapLiveClock() {
     if (streamMinimapLivePlaylistTimer) return;
     refreshStreamMinimapLivePlaylist();
     streamMinimapLivePlaylistTimer = setInterval(function () {
-      if (!(hlsInstance && streamFragClock && streamMinimapLiveSeed())) refreshStreamMinimapLivePlaylist();
-    }, 8000);
+      if (streamMinimapDebugOn || !(hlsInstance && streamFragClock && streamMinimapLiveSeed())) refreshStreamMinimapLivePlaylist();
+    }, streamMinimapDebugOn ? 4000 : 8000);
   }
 
   function stopStreamMinimapLiveClock() {
@@ -4947,6 +5009,23 @@
     startStreamMinimapHeading();
     startStreamMinimapLiveClock();
     var frameWall = streamMinimapLiveFrameWall();
+    if (streamMinimapDebugOn) {
+      var debugHistory = streamMinimapLiveHistory;
+      streamMinimapDebugInfo = {
+        mode: streamMinimapClockMode,
+        seed: streamMinimapLiveSeed(),
+        frameWall: frameWall,
+        capturedAt: frameWall !== null && debugHistory ? streamMinimapCaptureTime(frameWall, debugHistory.lags) : null,
+        behindEdge: videoEl.seekable && videoEl.seekable.length ? (videoEl.seekable.end(videoEl.seekable.length - 1) - (videoEl.currentTime || 0)) * 1000 : null,
+        startWall: streamMinimapWindowStartWall(),
+        endWall: streamMinimapWindowEndWall(),
+        lag: frameWall !== null && debugHistory ? streamMinimapLagAt(debugHistory.lags, frameWall) : 0,
+        historyReady: !!(debugHistory && debugHistory.ready),
+        headings: debugHistory ? debugHistory.headings.length : 0,
+        entries: debugHistory ? debugHistory.entries.length : 0
+      };
+      renderStreamMinimapDebug();
+    }
     if (frameWall !== null) {
       var liveHistory = ensureStreamMinimapLiveHistory();
       if (liveHistory.ready) {
