@@ -61,16 +61,15 @@ function pemToBytes(pem: string) {
   return Uint8Array.from(raw, (char) => char.charCodeAt(0));
 }
 
-function serviceAccount() {
-  const rawAccount = Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
+function serviceAccount(envName = 'FIREBASE_SERVICE_ACCOUNT') {
+  const rawAccount = Deno.env.get(envName);
   if (!rawAccount) throw new Error('The Firebase service credential is not configured.');
   const account = JSON.parse(rawAccount) as { client_email: string; private_key: string };
   if (!account.client_email || !account.private_key) throw new Error('The Firebase service credential is invalid.');
   return account;
 }
 
-async function signServiceJwt(payload: Record<string, unknown>) {
-  const account = serviceAccount();
+async function signServiceJwt(payload: Record<string, unknown>, account = serviceAccount()) {
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claims = base64url(JSON.stringify({ iss: account.client_email, ...payload }));
   const unsigned = `${header}.${claims}`;
@@ -157,16 +156,19 @@ function jwtPayload(authHeader: string) {
 async function firebaseAdminToken(uid: string) {
   const now = Math.floor(Date.now() / 1000);
   const until = Date.now() + ADMIN_SESSION_MS;
-  const account = serviceAccount();
-  const token = await signServiceJwt({
+  const customToken = (account: { client_email: string; private_key: string }) => signServiceJwt({
     sub: account.client_email,
     aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
     iat: now,
     exp: now + 3600,
     uid,
     claims: { admin2faUntil: until }
-  });
-  return { token, until };
+  }, account);
+  const token = await customToken(serviceAccount());
+  const liveToken = Deno.env.get('LIVE_FIREBASE_SERVICE_ACCOUNT')
+    ? await customToken(serviceAccount('LIVE_FIREBASE_SERVICE_ACCOUNT'))
+    : null;
+  return { token, liveToken, until };
 }
 
 class InvalidProfile extends Error {}

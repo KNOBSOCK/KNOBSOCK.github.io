@@ -31,7 +31,7 @@ jobs:
 
       - name: Save finished streams
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.LIVE_FIREBASE_SERVICE_ACCOUNT_KEY }}
           BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
         run: |

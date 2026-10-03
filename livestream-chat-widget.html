@@ -5759,6 +5759,15 @@
     appId: "1:425558749331:web:7905c8f24eeb518da95d66"
   };
   const gamesDb = firebase.initializeApp(gamesFirebaseConfig, 'games').firestore();
+  const liveFirebaseConfig = {
+    apiKey: "AIzaSyCnJmkT4-_ctUURppksnyxZbTknsdYe0bk",
+    authDomain: "knobsock-live-stream.firebaseapp.com",
+    projectId: "knobsock-live-stream",
+    storageBucket: "knobsock-live-stream.firebasestorage.app",
+    messagingSenderId: "396211508129",
+    appId: "1:396211508129:web:ea2bc44052b239a5ccb1e0"
+  };
+  const liveConfigRef = firebase.initializeApp(liveFirebaseConfig, 'live').firestore().collection('chat_config');
   const fightLiveRef = gamesDb.collection('fight_live');
   const supabaseClient = window.supabase.createClient(
     'https://ypofuhazhxtzvtywguew.supabase.co',
@@ -5876,7 +5885,7 @@
 
   const DEFAULT_LIVE_VIDEO_ID = '91UOOY-od88';
 
-  configRef.doc('liveVideo').onSnapshot((doc) => {
+  liveConfigRef.doc('liveVideo').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const directUrl = data && data.directUrl;
     const source = directUrl
@@ -6152,7 +6161,7 @@
   }
 
   let vodDeepLinkAttempted = false;
-  configRef.doc('vods').onSnapshot((doc) => {
+  liveConfigRef.doc('vods').onSnapshot((doc) => {
     const data = doc.exists ? doc.data() : null;
     const items = (data && Array.isArray(data.items)) ? data.items : [];
     latestVods = items.map((v) => {

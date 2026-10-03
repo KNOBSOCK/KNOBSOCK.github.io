@@ -1341,7 +1341,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/admin-2fa.js?v=4"></script>
+<script src="/admin-2fa.js?v=5"></script>
 <script src="/forums-admin.js?v=7"></script>
 <script>
   const firebaseConfig = {
@@ -1355,6 +1355,21 @@
   const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const auth = firebase.auth();
+  const liveFirebaseConfig = {
+    apiKey: "AIzaSyCnJmkT4-_ctUURppksnyxZbTknsdYe0bk",
+    authDomain: "knobsock-live-stream.firebaseapp.com",
+    projectId: "knobsock-live-stream",
+    storageBucket: "knobsock-live-stream.firebasestorage.app",
+    messagingSenderId: "396211508129",
+    appId: "1:396211508129:web:ea2bc44052b239a5ccb1e0"
+  };
+  const liveApp = firebase.initializeApp(liveFirebaseConfig, 'live');
+  const liveDb = liveApp.firestore();
+  const liveAuth = liveApp.auth();
+  window.KnobsockAdmin2FA.attachLiveAuth(liveAuth);
+  const liveAuthReady = new Promise(function (resolve) {
+    const stop = liveAuth.onAuthStateChanged(function () { stop(); resolve(); });
+  });
 
   const VIDEO_DOC_REF = db.collection('playlist').doc('main');
   const HAMBURGER_NEWS_DOC_REF = db.collection('playlist').doc('hamburgerNews');
@@ -1372,9 +1387,9 @@
 
   const CHAT_IP_LOG_REF = db.collection('chat_ip_log');
   const CHAT_CENSORED_WORDS_REF = db.collection('chat_config').doc('censoredWords');
-  const CHAT_LIVE_VIDEO_REF = db.collection('chat_config').doc('liveVideo');
+  const CHAT_LIVE_VIDEO_REF = liveDb.collection('chat_config').doc('liveVideo');
   const CHAT_LIVE_BACKGROUND_REF = db.collection('chat_config').doc('liveBackground');
-  const CHAT_VODS_REF = db.collection('chat_config').doc('vods');
+  const CHAT_VODS_REF = liveDb.collection('chat_config').doc('vods');
 
   const SOUNDCLOUD_REF = db.collection('chat_config').doc('soundcloud');
 
@@ -1664,8 +1679,9 @@
       showAdminSignIn();
       return;
     }
-    window.KnobsockAdmin2FA.twoFactorUntil(user).then(function (until) {
-      if (until <= Date.now()) {
+    Promise.all([window.KnobsockAdmin2FA.twoFactorUntil(user), liveAuthReady]).then(function (results) {
+      const until = results[0];
+      if (until <= Date.now() || !liveAuth.currentUser) {
         window.KnobsockAdmin2FA.lock(auth);
         return;
       }

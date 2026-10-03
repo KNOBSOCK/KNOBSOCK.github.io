@@ -896,6 +896,15 @@
 
   const firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  const liveFirebaseConfig = {
+    apiKey: "AIzaSyCnJmkT4-_ctUURppksnyxZbTknsdYe0bk",
+    authDomain: "knobsock-live-stream.firebaseapp.com",
+    projectId: "knobsock-live-stream",
+    storageBucket: "knobsock-live-stream.firebasestorage.app",
+    messagingSenderId: "396211508129",
+    appId: "1:396211508129:web:ea2bc44052b239a5ccb1e0"
+  };
+  const liveDb = firebase.initializeApp(liveFirebaseConfig, 'live').firestore();
 
   const liveNowBadge = document.getElementById('liveNowBadge');
 
@@ -969,7 +978,7 @@
     directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
   }
 
-  db.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
+  liveDb.collection('chat_config').doc('liveVideo').onSnapshot(function (doc) {
     const data = doc.exists ? doc.data() : null;
     manualIsLive = !(data && data.isLive === false);
     const directUrl = data && data.directUrl ? String(data.directUrl).trim() : null;

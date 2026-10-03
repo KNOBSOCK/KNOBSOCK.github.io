@@ -41,6 +41,7 @@ jobs:
       - name: Generate video permalink pages
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          LIVE_GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.LIVE_FIREBASE_SERVICE_ACCOUNT_KEY }}
         run: node scripts/build-permalink-pages.mjs
 
       - name: Commit and push if anything changed

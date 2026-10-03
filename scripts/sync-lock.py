@@ -11,7 +11,7 @@ import urllib.request
 
 SUPABASE = "https://ypofuhazhxtzvtywguew.supabase.co"
 API_KEY = "sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO"
-LIVE_DOC = "https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents/chat_config/liveVideo"
+LIVE_DOC = "https://firestore.googleapis.com/v1/projects/knobsock-live-stream/databases/(default)/documents/chat_config/liveVideo"
 REFERER = "https://knobsock.net/"
 TOKEN_FILE = os.environ.get("KNOBSOCK_UPLINK_TOKEN_FILE", "/etc/knobsock-uplink-token")
 FPS = 10

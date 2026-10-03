@@ -106,6 +106,12 @@ function authedFirestore() {
   return getFirestore();
 }
 
+function liveFirestore() {
+  const keyJson = process.env.LIVE_GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  if (!keyJson) throw new Error("LIVE_GOOGLE_APPLICATION_CREDENTIALS_JSON is not set.");
+  return getFirestore(initializeApp({ credential: cert(JSON.parse(keyJson)) }, "live"));
+}
+
 function redirectPageShell({ canonical, redirectTo, title, siteLabel, description, image, linkLabel }) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -524,7 +530,7 @@ async function main() {
 
   const hnChanges = await syncHamburgerNews(db);
   const storeChanges = await syncStore(db);
-  const liveChanges = await syncLiveVods(db);
+  const liveChanges = await syncLiveVods(liveFirestore());
 
   const total = hnChanges + storeChanges + liveChanges;
   console.log(`${DRY_RUN ? "[dry run] " : ""}${total} total change(s).`);

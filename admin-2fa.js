@@ -2,6 +2,7 @@
   var SUPABASE_URL = 'https://ypofuhazhxtzvtywguew.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO';
   var client = null;
+  var liveAuth = null;
 
   function supa() {
     if (!client) {
@@ -248,7 +249,14 @@
             message((details && details.error) || 'Could not finish admin sign-in.');
           });
         }
-        return firebaseAuth.signInWithCustomToken(fn.data.token).then(function () {
+        if (liveAuth && !fn.data.liveToken) {
+          done();
+          message('The live-stream project isn’t connected yet. Add the LIVE_FIREBASE_SERVICE_ACCOUNT secret in Supabase.');
+          return;
+        }
+        return (liveAuth ? liveAuth.signInWithCustomToken(fn.data.liveToken) : Promise.resolve()).then(function () {
+          return firebaseAuth.signInWithCustomToken(fn.data.token);
+        }).then(function () {
           done();
           if (opts.onSignedIn) opts.onSignedIn();
         });
@@ -266,16 +274,25 @@
     }).catch(function () { passwordStep(); });
   }
 
+  function signOutLive() {
+    return liveAuth ? liveAuth.signOut().catch(function () {}) : Promise.resolve();
+  }
+
   function signOut(firebaseAuth) {
     return Promise.all([
+      signOutLive(),
       firebaseAuth.signOut(),
       supa().auth.signOut().catch(function () {})
     ]);
   }
 
   function lock(firebaseAuth) {
-    return firebaseAuth.signOut();
+    return Promise.all([signOutLive(), firebaseAuth.signOut()]);
   }
 
-  window.KnobsockAdmin2FA = { mount: mount, twoFactorUntil: twoFactorUntil, getAccessToken: getAccessToken, signOut: signOut, lock: lock };
+  function attachLiveAuth(auth) {
+    liveAuth = auth;
+  }
+
+  window.KnobsockAdmin2FA = { mount: mount, twoFactorUntil: twoFactorUntil, getAccessToken: getAccessToken, signOut: signOut, lock: lock, attachLiveAuth: attachLiveAuth };
 })();
