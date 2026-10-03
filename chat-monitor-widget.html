@@ -470,6 +470,8 @@
   }
 
   let lastAuthHeaders = null;
+  let compassWriterKey = null;
+  const HEADING_RPC = LOCATION_ENDPOINT.split('/functions/')[0] + '/rest/v1/rpc/set_stream_heading';
   let compassState = 'off';
   let compassListening = false;
   let compassVector = null;
@@ -513,7 +515,7 @@
     if (reading === null) return;
     const radians = reading * Math.PI / 180;
     const x = Math.cos(radians), y = Math.sin(radians);
-    compassVector = compassVector ? { x: compassVector.x * 0.65 + x * 0.35, y: compassVector.y * 0.65 + y * 0.35 } : { x, y };
+    compassVector = compassVector ? { x: compassVector.x * 0.85 + x * 0.15, y: compassVector.y * 0.85 + y * 0.15 } : { x, y };
     compassHeading = ((Math.atan2(compassVector.y, compassVector.x) * 180 / Math.PI) % 360 + 360) % 360;
     if (compassMotionRef === null || turnBetween(compassHeading, compassMotionRef) > 1) {
       compassMotionRef = compassHeading;
@@ -531,11 +533,26 @@
   }
 
   async function postHeading(heading, keepalive) {
+    const value = heading === null ? null : Math.round(heading * 10) / 10;
+    if (compassWriterKey) {
+      try {
+        const response = await fetch(HEADING_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: LOCATION_API_KEY },
+          body: JSON.stringify({ writer_token: compassWriterKey, new_heading: value }),
+          keepalive: !!keepalive
+        });
+        if (response.ok && (await response.json().catch(() => false)) === true) return response;
+        compassWriterKey = null;
+      } catch (_) {
+        if (keepalive) return null;
+      }
+    }
     const headers = keepalive && lastAuthHeaders ? lastAuthHeaders : await locationAuthHeaders();
     return fetch(LOCATION_ENDPOINT, {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
-      body: JSON.stringify({ heading: heading === null ? null : Math.round(heading * 10) / 10 }),
+      body: JSON.stringify({ heading: value }),
       keepalive: !!keepalive
     });
   }
@@ -581,6 +598,7 @@
   }
 
   function stopCompass() {
+    compassWriterKey = null;
     if (!compassListening) return;
     compassListening = false;
     window.removeEventListener('deviceorientation', onCompassEvent);
@@ -650,6 +668,7 @@
         })
       });
       const result = await response.json().catch(() => ({}));
+      if (response.ok && typeof result.compassToken === 'string') compassWriterKey = result.compassToken;
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           stopLocationWatch();

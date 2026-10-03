@@ -95,6 +95,22 @@ async function logLocation(row: { nta_code: string; neighborhood: string; boroug
   }
 }
 
+const WRITER_TTL_MS = 15 * 60 * 1000;
+
+async function compassWriterToken() {
+  try {
+    const { data } = await db.from('stream_heading_writer').select('token,expires_at').eq('id', 1).maybeSingle();
+    const expiresAt = new Date(Date.now() + WRITER_TTL_MS).toISOString();
+    const token = data && Date.parse(data.expires_at) > Date.now() + 60 * 1000
+      ? data.token
+      : crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+    const { error } = await db.from('stream_heading_writer').upsert({ id: 1, token, expires_at: expiresAt }, { onConflict: 'id' });
+    return error ? null : token;
+  } catch {
+    return null;
+  }
+}
+
 async function setHeading(heading: number | null) {
   const at = new Date().toISOString();
   const { error } = await db.from('stream_heading').upsert({ id: 1, heading, updated_at: at }, { onConflict: 'id' });
@@ -158,6 +174,7 @@ Deno.serve(async (req) => {
     if (error) return json({ error: 'Could not clear the shared location.' }, 503);
     await logLocation(null);
     await setHeading(null);
+    await db.from('stream_heading_writer').delete().eq('id', 1);
     return json({ ok: true });
   }
 
@@ -179,5 +196,5 @@ Deno.serve(async (req) => {
   const { error } = await db.from('stream_location').upsert(row, { onConflict: 'id' });
   if (error) return json({ error: 'Could not save the neighborhood.' }, 503);
   await logLocation(row);
-  return json({ ok: true });
+  return json({ ok: true, compassToken: await compassWriterToken() });
 });

@@ -317,7 +317,7 @@
   .stream-minimap-clip {
     position: absolute;
     inset: 0;
-    z-index: 4;
+    z-index: 5;
     overflow: hidden;
     pointer-events: none;
     container-type: size;
@@ -342,6 +342,12 @@
     overflow: hidden;
     border-radius: 7.2px 0 0 0;
     background: transparent;
+    pointer-events: auto;
+    cursor: zoom-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stream-minimap.is-zoomed .stream-minimap-panel { cursor: zoom-in; }
+  .stream-minimap.is-closed .stream-minimap-panel { pointer-events: none;
   }
   .video-frame-wrap .stream-minimap-frame,
   .layout.mode-portrait .video-frame-wrap .stream-minimap-frame {
@@ -3841,6 +3847,7 @@
          the controls before the browser can follow that link. */
       if (e.target.closest('.portrait-video-logo')) return;
       if (e.target.closest('.stream-stats')) return;
+      if (e.target.closest('.stream-minimap-panel')) return;
       if (e.target.closest('.video-pane-actions, .viewer-badge, .video-controls, .center-toggle-icon, .center-skip-btn')) {
         showControls(true);
         return;
@@ -4398,13 +4405,17 @@
   var STREAM_MAP_KEY = 'sb_publishable_IJH4--fqVrrTrxG7Ou1JKw_G2WPOiIO';
   var STREAM_MAP_STALE_MS = 15 * 60 * 1000;
   var STREAM_MAP_VOD_RANGE_MS = 12 * 60 * 60 * 1000;
-  var STREAM_MAP_LIVE_POLL_MS = 30000;
+  var STREAM_MAP_LIVE_POLL_MS = 60000;
+  var STREAM_MAP_LOCATION_STALE_MS = 15 * 60 * 1000;
   var streamMinimap = document.getElementById('streamMinimap');
   var mapToggleBtn = document.getElementById('mapToggleBtn');
   var streamMinimapFrame = document.getElementById('streamMinimapFrame');
   var streamMinimapOpen = true;
+  var streamMinimapZoomed = false;
   var streamMinimapPosted = null;
   var streamMinimapLiveLocation = null;
+  var streamMinimapLiveLocationAt = 0;
+  var streamMinimapLiveActive = false;
   var streamMinimapLiveTimer = null;
   var STREAM_MAP_SUPABASE_URL = 'https://ypofuhazhxtzvtywguew.supabase.co';
   var STREAM_MAP_HEADING_STALE_MS = 40000;
@@ -4415,10 +4426,10 @@
 
   function postStreamMinimap(locationData, heading) {
     var headingValue = typeof heading === 'number' && isFinite(heading) ? Math.round(heading * 10) / 10 : null;
-    var key = JSON.stringify({ l: locationData || {}, h: headingValue });
+    var key = JSON.stringify({ l: locationData || {}, h: headingValue, z: streamMinimapZoomed });
     if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
     streamMinimapPosted = key;
-    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue }, location.origin); } catch (e) {}
+    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: streamMinimapZoomed }, location.origin); } catch (e) {}
   }
 
   function streamMinimapLiveHeading() {
@@ -4451,19 +4462,36 @@
     loadStreamMinimapSupabase().then(function (lib) {
       if (session.stopped) return;
       session.client = lib.createClient(STREAM_MAP_SUPABASE_URL, STREAM_MAP_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-      session.client.from('stream_heading').select('heading,updated_at').eq('id', 1).maybeSingle().then(function (result) {
-        var row = result && result.data;
+      streamMinimapRestRow('stream_heading', 'heading,updated_at').then(function (result) {
+        var row = result.row;
         if (session.stopped || !row || !row.updated_at || streamMinimapHeading.receivedAt) return;
-        var age = Date.now() - Date.parse(row.updated_at);
-        if (age >= 0 && age <= STREAM_MAP_HEADING_STALE_MS) setStreamMinimapLiveHeading(row.heading, Date.now() - age);
+        var age = Math.max(0, result.serverNow - Date.parse(row.updated_at));
+        if (age <= STREAM_MAP_HEADING_STALE_MS) setStreamMinimapLiveHeading(row.heading, Date.now() - age);
+      }).catch(function () {});
+      streamMinimapRestRow('stream_location', 'nta_code,neighborhood,borough,updated_at').then(function (result) {
+        var row = result.row;
+        if (session.stopped || streamMinimapLiveLocationAt) return;
+        var age = row && row.updated_at ? Math.max(0, result.serverNow - Date.parse(row.updated_at)) : Infinity;
+        setStreamMinimapLiveLocation(age <= STREAM_MAP_LOCATION_STALE_MS ? streamMinimapRowLocation(row) : null, Date.now() - (isFinite(age) ? age : 0));
+      }).catch(function () {
+        if (!session.stopped) startStreamMinimapFallback();
       });
-      session.channel = session.client.channel('stream-heading')
+      session.channel = session.client.channel('stream-map-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stream_heading', filter: 'id=eq.1' }, function (payload) {
           if (session.stopped || !payload || !payload.new) return;
           setStreamMinimapLiveHeading(payload.new.heading, Date.now());
         })
-        .subscribe();
-    }).catch(function () {});
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stream_location' }, function (payload) {
+          if (session.stopped || !payload) return;
+          setStreamMinimapLiveLocation(payload.eventType === 'DELETE' ? null : streamMinimapRowLocation(payload.new), Date.now());
+        })
+        .subscribe(function (status) {
+          if (session.stopped) return;
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') startStreamMinimapFallback();
+        });
+    }).catch(function () {
+      if (!session.stopped) startStreamMinimapFallback();
+    });
   }
 
   function stopStreamMinimapHeading() {
@@ -4493,28 +4521,60 @@
     mapToggleBtn.hidden = !visible;
   }
 
+  function setStreamMinimapLiveLocation(location, receivedAt) {
+    streamMinimapLiveLocation = location && location.ntaCode ? location : null;
+    streamMinimapLiveLocationAt = receivedAt;
+    syncStreamMinimap();
+  }
+
+  function streamMinimapCurrentLiveLocation() {
+    return streamMinimapLiveLocation && Date.now() - streamMinimapLiveLocationAt <= STREAM_MAP_LOCATION_STALE_MS ? streamMinimapLiveLocation : null;
+  }
+
+  function streamMinimapRowLocation(row) {
+    return row && row.nta_code ? { ntaCode: row.nta_code, neighborhood: row.neighborhood || null, borough: row.borough || null } : null;
+  }
+
   function fetchStreamMinimapLive() {
     if (document.hidden) return;
     fetch(STREAM_MAP_ENDPOINT, { headers: { apikey: STREAM_MAP_KEY }, cache: 'no-store' }).then(function (res) {
       return res.ok ? res.json() : null;
     }).then(function (data) {
       if (!data || !streamMinimapLiveTimer) return;
-      streamMinimapLiveLocation = { ntaCode: data.ntaCode || null, neighborhood: data.neighborhood || null, borough: data.borough || null };
-      syncStreamMinimap();
+      setStreamMinimapLiveLocation(data.ntaCode ? { ntaCode: data.ntaCode, neighborhood: data.neighborhood || null, borough: data.borough || null } : null, Date.now());
     }).catch(function () {});
   }
 
-  function startStreamMinimapLive() {
-    if (streamMinimapLiveTimer) return;
+  function startStreamMinimapFallback() {
+    if (streamMinimapLiveTimer || !streamMinimapLiveActive) return;
     streamMinimapLiveTimer = setInterval(fetchStreamMinimapLive, STREAM_MAP_LIVE_POLL_MS);
     fetchStreamMinimapLive();
   }
 
+  function startStreamMinimapLive() {
+    streamMinimapLiveActive = true;
+  }
+
   function stopStreamMinimapLive() {
+    streamMinimapLiveActive = false;
     clearInterval(streamMinimapLiveTimer);
     streamMinimapLiveTimer = null;
     streamMinimapLiveLocation = null;
+    streamMinimapLiveLocationAt = 0;
     stopStreamMinimapHeading();
+  }
+
+  function streamMinimapRestRow(table, columns) {
+    return fetch(STREAM_MAP_SUPABASE_URL + '/rest/v1/' + table + '?id=eq.1&select=' + columns, {
+      headers: { apikey: STREAM_MAP_KEY, Accept: 'application/json' },
+      cache: 'no-store'
+    }).then(function (res) {
+      if (!res.ok) throw new Error(String(res.status));
+      var serverNow = Date.parse(res.headers.get('date') || '') || Date.now();
+      return res.json().then(function (rows) {
+        return { row: Array.isArray(rows) ? rows[0] || null : null, serverNow: serverNow };
+      });
+    });
   }
 
   function streamMinimapCleanTimeline(list) {
@@ -4658,7 +4718,7 @@
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
     if (!mode || !streamMinimapOpen) return;
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=7';
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=9';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
@@ -4672,7 +4732,7 @@
     }
     startStreamMinimapLive();
     startStreamMinimapHeading();
-    if (streamMinimapLiveLocation) postStreamMinimap(streamMinimapLiveLocation, streamMinimapLiveHeading());
+    if (streamMinimapLiveLocationAt) postStreamMinimap(streamMinimapCurrentLiveLocation(), streamMinimapLiveHeading());
   }
 
   function setStreamMinimapOpen(open) {
@@ -4685,6 +4745,12 @@
   }
 
   if (streamMinimap) {
+    document.getElementById('streamMinimapPanel').addEventListener('click', function (event) {
+      event.stopPropagation();
+      streamMinimapZoomed = !streamMinimapZoomed;
+      streamMinimap.classList.toggle('is-zoomed', streamMinimapZoomed);
+      syncStreamMinimap();
+    });
     mapToggleBtn.addEventListener('click', function (event) {
       event.stopPropagation();
       setStreamMinimapOpen(!streamMinimapOpen);
