@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNOBSOCK OBS Combo</title>
+<style>
+  @font-face {
+    font-family: 'Gratis Neue';
+    src: url('/Gratis%20Neue.otf') format('opentype');
+    font-display: block;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+  body {
+    font-family: 'Gratis Neue', Tahoma, Arial, sans-serif;
+  }
+  #ticker, #bubbles, #names, #debug {
+    position: absolute;
+    inset: 0;
+  }
+  #ticker { z-index: 1; }
+  #bubbles { z-index: 2; }
+  #names { z-index: 3; pointer-events: none; }
+  #debug { z-index: 4; pointer-events: none; }
+  .bubble {
+    position: absolute;
+    left: 0;
+    top: 0;
+    max-width: 13em;
+    padding: 0.45em 0.7em 0.5em;
+    border: 0.08em solid #000000;
+    border-radius: 0.38em;
+    background: rgba(8, 8, 8, 0.86);
+    box-shadow: 0 0.12em 0.5em rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    transform-origin: 50% 50%;
+    will-change: transform, opacity;
+    transition: opacity 0.45s ease, box-shadow 0.45s ease, background-color 0.45s ease;
+  }
+  body.has-hot .bubble:not(.is-hot) {
+    opacity: 0.72;
+  }
+  .bubble.is-hot {
+    background: rgba(6, 6, 6, 0.95);
+    box-shadow: 0 0.2em 1.1em rgba(0, 0, 0, 0.7);
+  }
+  .bubble.is-leaving {
+    opacity: 0 !important;
+  }
+  .bubble .who {
+    display: block;
+    font-size: 0.5em;
+    line-height: 1.1;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.35em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-text-stroke: 0.04em #000;
+    paint-order: stroke fill;
+  }
+  .bubble .text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+    line-height: 1.12;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    -webkit-text-stroke: 0.035em #000;
+    paint-order: stroke fill;
+  }
+  .chat-emoji {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    object-fit: contain;
+    vertical-align: -0.2em;
+  }
+  .text.emoji-only .chat-emoji {
+    width: 2.1em;
+    height: 2.1em;
+    vertical-align: middle;
+  }
+  .name {
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: nowrap;
+    line-height: 1;
+    color: #ffffff;
+    -webkit-text-stroke: 0.12em #000000;
+    paint-order: stroke fill;
+    transform-origin: 50% 50%;
+    will-change: transform;
+  }
+  .line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 28px;
+    will-change: transform, opacity;
+  }
+  .copy {
+    white-space: nowrap;
+    line-height: 1.15;
+    text-align: center;
+    color: #ffffff;
+    transform-origin: center;
+    -webkit-text-stroke: 0.09em #000;
+    paint-order: stroke fill;
+  }
+  .copy .label {
+    color: #ffd21a;
+  }
+</style>
+</head>
+<body>
+<div id="ticker"></div>
+<div id="bubbles"></div>
+<div id="names"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const numberParam = (name, fallback, min, max) => {
+    const value = Number(params.get(name));
+    return params.has(name) && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+  };
+  const NAME_SIZE = numberParam('size', 40, 12, 200);
+  const MAX_NAMES = numberParam('max', 100, 1, 300);
+  const BUBBLE_COUNT = numberParam('bubbles', 5, 0, 30);
+  const BUBBLE_SIZE = numberParam('bubbleSize', 34, 12, 200);
+  const INTERVAL_MS = numberParam('interval', 7, 2, 120) * 1000;
+  const SPEED = numberParam('speed', 1, 0, 5);
+  const TICKER_Y = numberParam('tickerY', 0.7, 0, 1);
+  const TICKER_SIZE = numberParam('tickerSize', 64, 12, 200);
+  const PILE_LIMIT = numberParam('pile', 0.76, 0.1, 1);
+  const GRAVITY = numberParam('gravity', 1.3, 0.1, 5);
+  const SHOW_TICKER = params.get('ticker') !== '0';
+  const DEMO = params.get('demo') === '1';
+  const ALWAYS_ON = params.get('always') === '1';
+  const USE_COLORS = params.get('colors') !== '0';
+  const DEBUG = params.get('debug') === '1';
+  const HOLD_MS = Math.min(INTERVAL_MS - 600, 4200);
+  const RESIZE_MS = Math.max(1500, INTERVAL_MS / 2.3);
+  const HIGHLIGHT_SCALE = 1.6;
+  const RECENT_MEMORY = Math.min(4, Math.max(1, Math.floor(BUBBLE_COUNT / 2)));
+  const ACTIVE_WINDOW_MS = 270000;
+  const RESUBSCRIBE_MS = 10 * 60 * 1000;
+  const LIVE_PROBE_MS = 30000;
+  const DROP_GAP_MS = 380;
+  const STEP = 1 / 60;
+  const CAT_SOLID = 0x1, CAT_NAME = 0x2, CAT_BUBBLE = 0x4, CAT_CEILING = 0x8;
+  const SOLID_FILTER = { category: CAT_SOLID, mask: CAT_SOLID | CAT_NAME | CAT_BUBBLE };
+  const NAME_FILTER = { category: CAT_NAME, mask: CAT_SOLID | CAT_NAME | CAT_BUBBLE };
+  const BUBBLE_FILTER = { category: CAT_BUBBLE, mask: CAT_SOLID | CAT_NAME | CAT_BUBBLE | CAT_CEILING };
+
+  const { Engine, Bodies, Body, Composite } = Matter;
+
+  firebase.initializeApp({
+    apiKey: "AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM",
+    authDomain: "chat-for-website-efee2.firebaseapp.com",
+    projectId: "chat-for-website-efee2",
+    storageBucket: "chat-for-website-efee2.firebasestorage.app",
+    messagingSenderId: "509309222193",
+    appId: "1:509309222193:web:f487258cfba2f7f7b00410"
+  });
+  const db = firebase.firestore();
+  const messagesRef = db.collection('chat_messages');
+  const configRef = db.collection('chat_config');
+
+  const tickerEl = document.getElementById('ticker');
+  const bubblesEl = document.getElementById('bubbles');
+  const namesEl = document.getElementById('names');
+
+  let W = window.innerWidth;
+  let H = window.innerHeight;
+  let viewFactor = Math.min(W / 1920, H / 1080);
+
+  const fontsReady = document.fonts
+    ? Promise.all([document.fonts.load('40px "Gratis Neue"'), document.fonts.ready]).catch(() => {})
+    : Promise.resolve();
+
+  const engine = Engine.create({ gravity: { x: 0, y: GRAVITY }, positionIterations: 10, velocityIterations: 8 });
+  let walls = [];
+  const bubbleShelf = () => H * (SHOW_TICKER ? TICKER_Y : PILE_LIMIT);
+  function buildWalls() {
+    if (walls.length) Composite.remove(engine.world, walls);
+    const thick = 200;
+    walls = [
+      Bodies.rectangle(W / 2, H + thick / 2, W * 3, thick, { isStatic: true, friction: 0.8, restitution: 0.1, collisionFilter: SOLID_FILTER }),
+      Bodies.rectangle(-thick / 2, H / 2 - H, thick, H * 4, { isStatic: true, friction: 0.3, collisionFilter: SOLID_FILTER }),
+      Bodies.rectangle(W + thick / 2, H / 2 - H, thick, H * 4, { isStatic: true, friction: 0.3, collisionFilter: SOLID_FILTER }),
+      Bodies.rectangle(W / 2, -thick / 2, W * 3, thick, { isStatic: true, friction: 0.2, collisionFilter: { category: CAT_CEILING, mask: CAT_BUBBLE } }),
+      Bodies.rectangle(W / 2, bubbleShelf() + thick / 2, W * 3, thick, { isStatic: true, friction: 0.2, collisionFilter: { category: CAT_CEILING, mask: CAT_BUBBLE } })
+    ];
+    Composite.add(engine.world, walls);
+  }
+  buildWalls();
+
+  const DEFAULT_CENSORED_WORDS = [
+    'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'chink', 'gook',
+    'spic', 'kike', 'wetback', 'beaner', 'coon', 'paki', 'retard', 'cracker',
+    'towelhead', 'raghead', 'cunt'
+  ];
+  function buildCensorRegex(word) {
+    const subs = { a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', u: '[u]', s: '[s$5]', g: '[g9]', t: '[t7]' };
+    const pattern = word.split('').map((ch) => subs[ch] || ch).join('[\\W_]*');
+    return new RegExp('\\b' + pattern + '\\b', 'gi');
+  }
+  let censorRegexes = DEFAULT_CENSORED_WORDS.map(buildCensorRegex);
+  let deletedIds = new Set();
+  let clearedAt = 0;
+  let chatEmojiByName = {};
+
+  function censorText(text) {
+    return censorRegexes.reduce((result, re) => result.replace(re, (match) => '*'.repeat(match.length)), text);
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function hashHue(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return hash % 360;
+  }
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
+    return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+  }
+  function defaultColorFor(name) {
+    return hslToHex(hashHue(String(name || '').toLowerCase()), 70, 72);
+  }
+  function renderMessageText(text) {
+    return escapeHtml(censorText(String(text || ''))).replace(/:([a-z0-9_-]{1,32}):/gi, (match, name) => {
+      const emoji = chatEmojiByName[String(name).toLowerCase()];
+      if (!emoji) return match;
+      return '<img class="chat-emoji" src="' + escapeHtml(emoji.url) + '" alt="' + escapeHtml(match) + '">';
+    });
+  }
+  function isEmojiOnly(text) {
+    const tokens = String(text || '').trim().split(/\s+/).filter(Boolean);
+    return tokens.length > 0 && tokens.length <= 6 && tokens.every((token) => {
+      const parts = token.match(/:([a-z0-9_-]{1,32}):/gi);
+      return parts && parts.join('') === token && parts.every((part) => chatEmojiByName[part.slice(1, -1).toLowerCase()]);
+    });
+  }
+  function isSpotlightable(m) {
+    return !!m && !m.type && typeof m.text === 'string' && m.text.trim().length > 0 &&
+      !!m.username && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
+  }
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  const colorCache = new Map();
+  function applyColor(name, el) {
+    const key = name.toLowerCase();
+    if (colorCache.has(key)) {
+      el.style.color = colorCache.get(key);
+      return;
+    }
+    el.style.color = defaultColorFor(name);
+    db.collection('chat_usernames').doc(key).get().then((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      const color = data && typeof data.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(data.color) ? data.color : defaultColorFor(name);
+      colorCache.set(key, color);
+      el.style.color = color;
+    }).catch(() => colorCache.set(key, defaultColorFor(name)));
+  }
+
+  const bubbles = new Map();
+  let bubbleUnit = BUBBLE_SIZE * viewFactor;
+  let hot = null;
+  let hotTimer = 0;
+  const recentlyHot = [];
+  let bubblesLoaded = false;
+  let pool = [];
+  let clock = 0;
+
+  const randBase = () => rand(0.6, 1.05);
+  const bubbleFloor = () => bubbleShelf() - 4;
+
+  function measureBubble(b) {
+    b.w = b.el.offsetWidth;
+    b.h = b.el.offsetHeight;
+  }
+
+  function fillBubble(b) {
+    const m = b.message;
+    b.whoEl.textContent = m.username;
+    b.whoEl.style.color = m.color || defaultColorFor(m.username);
+    b.textEl.innerHTML = renderMessageText(m.text);
+    b.textEl.classList.toggle('emoji-only', isEmojiOnly(m.text));
+    measureBubble(b);
+    b.textEl.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) img.addEventListener('load', () => measureBubble(b), { once: true });
+    });
+  }
+
+  function spotTaken(x, y, w, h) {
+    let score = 0;
+    const minX = x - w / 2, maxX = x + w / 2, minY = y - h / 2, maxY = y + h / 2;
+    Composite.allBodies(engine.world).forEach((body) => {
+      if (body.collisionFilter.category === CAT_CEILING) return;
+      const bb = body.bounds;
+      const ox = Math.min(maxX, bb.max.x) - Math.max(minX, bb.min.x);
+      const oy = Math.min(maxY, bb.max.y) - Math.max(minY, bb.min.y);
+      if (ox > 0 && oy > 0) score += ox * oy * (body.collisionFilter.category === CAT_NAME ? 0.3 : 1);
+    });
+    bubbles.forEach((o) => {
+      if (o.body || o.leaving) return;
+      const ow = o.w * o.base / 2, oh = o.h * o.base / 2;
+      score += Math.max(0, w / 2 + ow - Math.abs(x - o.x)) * Math.max(0, h / 2 + oh - Math.abs(y - o.y));
+    });
+    return score;
+  }
+
+  function spawnBubble(message, delay) {
+    const el = document.createElement('div');
+    el.className = 'bubble';
+    el.style.fontSize = bubbleUnit + 'px';
+    const whoEl = document.createElement('span');
+    whoEl.className = 'who';
+    const textEl = document.createElement('span');
+    textEl.className = 'text';
+    el.appendChild(whoEl);
+    el.appendChild(textEl);
+    el.style.transform = 'scale(0)';
+    bubblesEl.appendChild(el);
+    const b = {
+      id: message.id, message, el, whoEl, textEl,
+      x: 0, y: 0, w: 0, h: 0, angle: 0,
+      base: randBase(), mult: 1, scale: 0, sv: 0,
+      heat: 0, hot: false, leaving: false,
+      delay: delay || 0, phase: Math.random() * Math.PI * 2,
+      cruise: rand(0.7, 1.3), z: 0, body: null, dir: Math.random() * Math.PI * 2,
+      homeY: 0, homeTimer: 0
+    };
+    fillBubble(b);
+    const w = b.w * b.base, h = b.h * b.base;
+    const floor = bubbleFloor();
+    let best = null;
+    for (let i = 0; i < 40; i++) {
+      const x = rand(Math.min(w / 2, W / 2), Math.max(W - w / 2, W / 2));
+      const y = rand(Math.min(h / 2, floor / 2), Math.max(floor - h / 2, floor / 2));
+      const score = spotTaken(x, y, w * 1.1, h * 1.1);
+      if (!best || score < best.score) best = { x, y, score };
+      if (score === 0) break;
+    }
+    b.x = best.x;
+    b.y = best.y;
+    bubbles.set(b.id, b);
+    return b;
+  }
+
+  function dropBubbleBody(b) {
+    if (!b.body) return;
+    b.x = b.body.position.x;
+    b.y = b.body.position.y;
+    b.angle = b.body.angle;
+    Composite.remove(engine.world, b.body);
+    b.body = null;
+  }
+
+  function buildBubbleBody(b, s) {
+    const prev = b.body;
+    const velocity = prev ? { x: prev.velocity.x, y: prev.velocity.y } : { x: Math.cos(b.dir) * 0.3, y: Math.sin(b.dir) * 0.3 };
+    const angularVelocity = prev ? prev.angularVelocity : 0;
+    if (prev) dropBubbleBody(b);
+    b.body = Bodies.rectangle(b.x, b.y, b.w * s, b.h * s, {
+      angle: b.angle,
+      chamfer: { radius: Math.min(b.w, b.h) * s * 0.14 },
+      density: 0.02,
+      friction: 0.35,
+      frictionStatic: 0.5,
+      frictionAir: 0.02,
+      restitution: 0.4,
+      collisionFilter: BUBBLE_FILTER
+    });
+    Body.setVelocity(b.body, velocity);
+    Body.setAngularVelocity(b.body, angularVelocity);
+    b.bodyW = b.w;
+    b.bodyH = b.h;
+    b.bodyScale = s;
+    Composite.add(engine.world, b.body);
+  }
+
+  function retireBubble(b) {
+    if (b.leaving) return;
+    b.leaving = true;
+    b.el.classList.add('is-leaving');
+    if (b.body) b.body.collisionFilter = { category: CAT_BUBBLE, mask: 0 };
+    if (hot === b) cool();
+  }
+
+  function cool() {
+    if (!hot) return;
+    hot.hot = false;
+    hot.mult = 1;
+    hot.el.classList.remove('is-hot');
+    hot = null;
+    document.body.classList.remove('has-hot');
+    clearTimeout(hotTimer);
+  }
+
+  function highlight(b) {
+    if (!b || b.leaving) return;
+    if (hot && hot !== b) cool();
+    const fit = Math.min(W * 0.5 / Math.max(1, b.w), H * 0.3 / Math.max(1, b.h));
+    const target = Math.max(b.base, Math.min(HIGHLIGHT_SCALE, fit));
+    hot = b;
+    b.hot = true;
+    b.mult = target / b.base;
+    b.el.classList.add('is-hot');
+    document.body.classList.add('has-hot');
+    recentlyHot.push(b.id);
+    while (recentlyHot.length > RECENT_MEMORY) recentlyHot.shift();
+    clearTimeout(hotTimer);
+    hotTimer = setTimeout(() => { if (hot === b) cool(); }, HOLD_MS);
+  }
+
+  function liveBubbles() {
+    const list = [];
+    bubbles.forEach((b) => { if (!b.leaving && b.delay <= 0) list.push(b); });
+    return list;
+  }
+
+  function highlightRandom() {
+    const live = liveBubbles();
+    if (!live.length) return;
+    let choices = live.filter((b) => b !== hot && recentlyHot.indexOf(b.id) === -1);
+    if (!choices.length) choices = live.filter((b) => b !== hot);
+    if (!choices.length) choices = live;
+    highlight(choices[Math.floor(Math.random() * choices.length)]);
+  }
+
+  function resizeRandom() {
+    const live = liveBubbles().filter((b) => b !== hot);
+    if (!live.length) return;
+    const b = live[Math.floor(Math.random() * live.length)];
+    let next = randBase();
+    if (Math.abs(next - b.base) < 0.18) next = b.base > 0.8 ? rand(0.6, 0.72) : rand(0.9, 1.05);
+    b.base = next;
+  }
+
+  function syncBubbles(fromSnapshot) {
+    const ids = new Set(pool.map((m) => m.id));
+    bubbles.forEach((b) => { if (!ids.has(b.id)) retireBubble(b); });
+    const fresh = [];
+    pool.forEach((m) => {
+      const existing = bubbles.get(m.id);
+      if (!existing) {
+        fresh.push(m);
+        return;
+      }
+      existing.message = m;
+      if (existing.leaving) {
+        existing.leaving = false;
+        existing.el.classList.remove('is-leaving');
+        if (existing.body) existing.body.collisionFilter = BUBBLE_FILTER;
+      }
+    });
+    const spawned = fresh.slice().reverse().map((m, i) => spawnBubble(m, bubblesLoaded ? i * 0.2 : i * 0.3));
+    if (bubblesLoaded && spawned.length) {
+      const newest = spawned[spawned.length - 1];
+      setTimeout(() => highlight(newest), newest.delay * 1000 + 250);
+    }
+    if (fromSnapshot) bubblesLoaded = true;
+  }
+
+  function wrapAngle(a) {
+    return Math.atan2(Math.sin(a), Math.cos(a));
+  }
+
+  function stepBubbles(dt) {
+    clock += dt;
+    const g = engine.gravity;
+    const floor = bubbleFloor();
+    bubbles.forEach((b) => {
+      if (b.delay > 0) {
+        b.delay -= dt;
+        return;
+      }
+      const target = b.leaving ? 0 : b.base * b.mult;
+      b.sv += (target - b.scale) * 70 * dt;
+      b.sv *= Math.exp(-11 * dt);
+      b.scale += b.sv * dt;
+      b.heat += ((b.hot ? 1 : 0) - b.heat) * Math.min(1, dt * 4);
+      if (b.leaving && b.scale < 0.03 && target === 0) {
+        dropBubbleBody(b);
+        b.el.remove();
+        bubbles.delete(b.id);
+        return;
+      }
+      const s = Math.max(0, b.scale);
+      if (s < 0.05) {
+        dropBubbleBody(b);
+        return;
+      }
+      if (!b.body || Math.abs(b.bodyW - b.w) > 1 || Math.abs(b.bodyH - b.h) > 1) {
+        buildBubbleBody(b, s);
+      } else {
+        const ratio = s / b.bodyScale;
+        if (Math.abs(ratio - 1) > 0.004) {
+          Body.scale(b.body, ratio, ratio);
+          b.bodyScale = s;
+        }
+      }
+      const body = b.body;
+      body.force.y -= body.mass * g.y * g.scale;
+      if (b.leaving) return;
+      const vx = body.velocity.x * 60, vy = body.velocity.y * 60;
+      const cruise = 30 * SPEED * viewFactor * b.cruise * (1 - b.heat * 0.7);
+      const hh = (body.bounds.max.y - body.bounds.min.y) / 2;
+      const bandTop = H * 0.03 + hh;
+      const bandBottom = Math.max(bandTop, Math.min(H * 0.62, bubbleShelf()) - hh);
+      b.homeTimer -= dt;
+      if (b.homeTimer <= 0 || b.homeY < bandTop - 1 || b.homeY > bandBottom + 1) {
+        b.homeY = rand(bandTop, bandBottom);
+        b.homeTimer = rand(8, 18);
+      }
+      b.dir += Math.sin(clock * 0.31 + b.phase) * 0.25 * dt;
+      const dx = Math.cos(b.dir), dy = Math.sin(b.dir);
+      if (vx * dx < 0 && Math.abs(vx) > cruise * 0.4) b.dir = Math.PI - b.dir;
+      if (vy * dy < 0 && Math.abs(vy) > cruise * 0.6) {
+        b.dir = -b.dir;
+        b.homeY = rand(bandTop, bandBottom);
+      }
+      const lift = Math.max(-cruise * 1.4, Math.min(cruise * 1.4, (b.homeY - body.position.y) * 0.7));
+      let desiredX = Math.cos(b.dir) * cruise;
+      let desiredY = Math.sin(b.dir) * cruise * 0.35 + lift;
+      if (body.bounds.max.y > floor) desiredY -= Math.min(cruise * 3, (body.bounds.max.y - floor) * 1.5);
+      const blendX = Math.min(1, dt * 1.1), blendY = Math.min(1, dt * 2.5);
+      Body.setVelocity(body, { x: (vx + (desiredX - vx) * blendX) / 60, y: (vy + (desiredY - vy) * blendY) / 60 });
+      const wobble = Math.sin(clock * 0.5 + b.phase) * 2.5 * (1 - b.heat) * Math.PI / 180;
+      let w = body.angularVelocity * 60;
+      w += (-wrapAngle(body.angle - wobble) * 22 - w * 6) * dt;
+      Body.setAngularVelocity(body, w / 60);
+    });
+  }
+
+  function renderBubbles() {
+    bubbles.forEach((b) => {
+      if (b.delay > 0) return;
+      if (b.body) {
+        b.x = b.body.position.x;
+        b.y = b.body.position.y;
+        b.angle = b.body.angle;
+      }
+      const s = Math.max(0, b.scale);
+      b.el.style.transform = 'translate(' + (b.x - b.w / 2).toFixed(1) + 'px,' + (b.y - b.h / 2).toFixed(1) + 'px) rotate(' + b.angle.toFixed(4) + 'rad) scale(' + s.toFixed(4) + ')';
+      const z = b.hot ? 1000 : Math.round(b.base * 100);
+      if (z !== b.z) {
+        b.z = z;
+        b.el.style.zIndex = String(z);
+      }
+    });
+  }
+
+  let unsubscribeMessages = null;
+  function subscribeMessages() {
+    if (!BUBBLE_COUNT) return;
+    if (unsubscribeMessages) unsubscribeMessages();
+    let query = messagesRef.orderBy('ts', 'desc');
+    if (clearedAt) query = query.where('ts', '>', clearedAt);
+    unsubscribeMessages = query.limit(BUBBLE_COUNT * 3).onSnapshot((snapshot) => {
+      pool = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()))
+        .filter(isSpotlightable)
+        .slice(0, BUBBLE_COUNT);
+      syncBubbles(true);
+    }, (err) => console.error(err));
+  }
+
+  if (BUBBLE_COUNT) {
+    configRef.doc('censoredWords').onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      const words = (data && Array.isArray(data.words) && data.words.length) ? data.words : DEFAULT_CENSORED_WORDS;
+      censorRegexes = words.map(buildCensorRegex);
+      deletedIds = new Set(data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds.map(String) : []);
+      pool = pool.filter(isSpotlightable);
+      bubbles.forEach(fillBubble);
+      syncBubbles();
+    }, () => {});
+
+    let subscribedClearedAt = null;
+    configRef.doc('clear').onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
+      if (subscribedClearedAt !== clearedAt) {
+        subscribedClearedAt = clearedAt;
+        pool = pool.filter(isSpotlightable);
+        syncBubbles();
+        subscribeMessages();
+      }
+    }, () => { if (subscribedClearedAt === null) { subscribedClearedAt = 0; subscribeMessages(); } });
+
+    fetch('/chat-emojis.json', { cache: 'no-cache' })
+      .then((res) => res.ok ? res.json() : { emojis: [] })
+      .then((data) => {
+        const byName = {};
+        (data && Array.isArray(data.emojis) ? data.emojis : []).forEach((item) => {
+          const name = String(item && item.name || '').toLowerCase();
+          const url = String(item && item.url || '');
+          if (!/^[a-z0-9_-]{1,32}$/.test(name) || (!/^https?:\/\//i.test(url) && url.charAt(0) !== '/')) return;
+          if (!byName[name]) byName[name] = { name, url };
+        });
+        chatEmojiByName = byName;
+        bubbles.forEach(fillBubble);
+      })
+      .catch(() => {});
+
+    setInterval(highlightRandom, INTERVAL_MS);
+    setInterval(resizeRandom, RESIZE_MS);
+  }
+
+  let tickerBody = null;
+  let tickerCurrent = null;
+  let tickerSliding = false;
+
+  function updateTickerBody() {
+    if (!tickerCurrent || tickerSliding) return;
+    const copy = tickerCurrent.firstElementChild;
+    if (!copy) return;
+    const r = copy.getBoundingClientRect();
+    if (!r.width) return;
+    const w = r.width + 8 * viewFactor, h = r.height * 0.72;
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (tickerBody && Math.abs(tickerBody.plugin.w - w) < 3 && Math.abs(tickerBody.plugin.h - h) < 3 &&
+      Math.abs(tickerBody.position.x - x) < 2 && Math.abs(tickerBody.position.y - y) < 2) return;
+    if (tickerBody) Composite.remove(engine.world, tickerBody);
+    tickerBody = Bodies.rectangle(x, y, w, h, { isStatic: true, friction: 0.6, restitution: 0.12, chamfer: { radius: h * 0.25 }, collisionFilter: SOLID_FILTER });
+    tickerBody.plugin = { w, h };
+    Composite.add(engine.world, tickerBody);
+  }
+
+  function startTicker() {
+    const CONFIG = {
+      cycleMs: 60000, itemMs: 6500, transitionMs: 650,
+      weatherRefreshMs: 600000, weatherMaxAgeMs: 1800000,
+      weatherUrl: 'https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York',
+      scoreUrl: 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runQuery'
+    };
+    const state = { weather: null, weatherAt: 0, leader: null, scoreStatus: 'loading' };
+    const clockFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    let currentItem = null, weatherPending = false, sequenceId = 0, manualIndex = -1, pendingWait = null;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    function interruptWait() {
+      if (!pendingWait) return;
+      clearTimeout(pendingWait.timer);
+      const resolve = pendingWait.resolve;
+      pendingWait = null;
+      resolve();
+    }
+    function sequenceWait(ms, id) {
+      return new Promise((resolve) => {
+        const done = () => { if (pendingWait && pendingWait.resolve === done) pendingWait = null; resolve(); };
+        pendingWait = { resolve: done, timer: setTimeout(done, ms) };
+        if (id !== sequenceId) interruptWait();
+      });
+    }
+    async function json(url, options) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      try {
+        const r = await fetch(url, Object.assign({}, options || {}, { signal: controller.signal, cache: 'no-store' }));
+        if (!r.ok) throw Error('HTTP ' + r.status);
+        return await r.json();
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    function condition(c) {
+      if (c === 0) return 'Clear skies'; if (c === 1) return 'Mostly clear'; if (c === 2) return 'Partly cloudy'; if (c === 3) return 'Overcast';
+      if ([45, 48].includes(c)) return 'Fog'; if ([51, 53, 55].includes(c)) return 'Drizzle'; if ([56, 57].includes(c)) return 'Freezing drizzle';
+      if ([61, 63, 65].includes(c)) return 'Rain'; if ([66, 67].includes(c)) return 'Freezing rain'; if ([71, 73, 75, 77].includes(c)) return 'Snow';
+      if ([80, 81, 82].includes(c)) return 'Rain showers'; if ([85, 86].includes(c)) return 'Snow showers'; if ([95, 96, 99].includes(c)) return 'Thunderstorms';
+      return 'Conditions unavailable';
+    }
+    async function refreshWeather() {
+      if (weatherPending) return;
+      weatherPending = true;
+      try {
+        const d = await json(CONFIG.weatherUrl), c = d.current;
+        if (!c || !Number.isFinite(c.temperature_2m) || !Number.isFinite(c.weather_code)) throw Error('Invalid weather');
+        const observed = Date.parse(c.time + 'Z') - (Number(d.utc_offset_seconds) || 0) * 1000;
+        if (!Number.isFinite(observed) || Date.now() - observed > CONFIG.weatherMaxAgeMs || observed > Date.now() + 300000) throw Error('Old weather');
+        state.weather = { temp: Math.round(c.temperature_2m), code: c.weather_code };
+        state.weatherAt = observed;
+      } catch (e) {
+        console.warn('Weather unavailable:', e.message);
+      } finally {
+        weatherPending = false;
+      }
+    }
+    async function refreshLeader() {
+      try {
+        const rows = await json(CONFIG.scoreUrl, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'chat_devices' }], select: { fields: [{ fieldPath: 'username' }, { fieldPath: 'fightWins' }] }, orderBy: [{ field: { fieldPath: 'fightWins' }, direction: 'DESCENDING' }], limit: 1 } })
+        });
+        if (!Array.isArray(rows) || rows.some((r) => r.error)) throw Error('Invalid leaderboard');
+        const doc = rows.find((r) => r.document), f = doc && doc.document.fields;
+        const winsField = f && f.fightWins;
+        const wins = Number(winsField ? (winsField.integerValue != null ? winsField.integerValue : winsField.doubleValue) : 0);
+        if (!Number.isFinite(wins) || wins < 0) throw Error('Invalid score');
+        state.leader = wins ? { name: String((f.username && f.username.stringValue) || '?').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 100), wins } : null;
+        state.scoreStatus = 'ready';
+      } catch (e) {
+        state.scoreStatus = 'unavailable';
+        console.warn('Leaderboard unavailable:', e.message);
+      }
+    }
+    const rest = () => ({ text: 'Chat with us on ', highlight: 'Knobsock.net' });
+    const items = [
+      () => ({ label: 'NYC', text: clockFormat.format(new Date()) }),
+      () => {
+        const w = state.weather;
+        return w && Date.now() - state.weatherAt < CONFIG.weatherMaxAgeMs
+          ? { label: 'NYC', text: condition(w.code) + ' · ' + w.temp + '°F' }
+          : { label: 'NYC', text: 'Weather temporarily unavailable' };
+      },
+      () => ({ label: 'TOP FIGHTER', text: state.scoreStatus !== 'ready' ? 'Temporarily unavailable' : state.leader ? state.leader.name + ' · ' + state.leader.wins.toLocaleString('en-US') + ' knock outs' : 'No scores yet' })
+    ];
+    function fit(line) {
+      const copy = line.firstElementChild;
+      copy.style.transform = '';
+      const scale = Math.min(1, Math.max(1, W - 56) / copy.scrollWidth);
+      copy.style.transform = 'scale(' + scale + ')';
+    }
+    function render(line, item) {
+      const copy = document.createElement('div');
+      copy.className = 'copy';
+      copy.style.fontSize = (TICKER_SIZE * viewFactor) + 'px';
+      if (item.label) {
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = item.label + '  /  ';
+        copy.append(label);
+      }
+      copy.append(document.createTextNode(item.text));
+      if (item.highlight) {
+        const highlightEl = document.createElement('span');
+        highlightEl.className = 'label';
+        highlightEl.textContent = item.highlight;
+        copy.append(highlightEl);
+      }
+      line.replaceChildren(copy);
+      fit(line);
+    }
+    async function show(provider, animate) {
+      const line = document.createElement('div');
+      line.className = 'line';
+      line.style.top = (H * TICKER_Y) + 'px';
+      tickerEl.append(line);
+      render(line, provider());
+      const previous = tickerCurrent;
+      tickerCurrent = line;
+      currentItem = provider;
+      if (animate !== false && previous && line.animate) {
+        tickerSliding = true;
+        const opts = { duration: CONFIG.transitionMs, easing: 'cubic-bezier(.22,.7,.2,1)', fill: 'forwards' };
+        const a = previous.animate([{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(100%)', opacity: 0 }], opts);
+        const b = line.animate([{ transform: 'translateX(-100%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], opts);
+        await sleep(CONFIG.transitionMs + 30);
+        a.cancel();
+        b.cancel();
+      }
+      if (previous) previous.remove();
+      tickerSliding = false;
+      updateTickerBody();
+    }
+    async function cycle() {
+      const id = ++sequenceId;
+      interruptWait();
+      manualIndex = -1;
+      try {
+        const scoreTask = refreshLeader();
+        void refreshWeather();
+        for (let i = 0; i < items.length; i++) {
+          if (id !== sequenceId) return;
+          if (i === 2) await scoreTask;
+          if (id !== sequenceId) return;
+          manualIndex = i;
+          await show(items[i]);
+          if (id !== sequenceId) return;
+          await sequenceWait(CONFIG.itemMs, id);
+        }
+      } catch (e) {
+        console.warn('Rotation:', e.message);
+      } finally {
+        if (id === sequenceId) {
+          await show(rest);
+          manualIndex = -1;
+        }
+      }
+    }
+    async function advanceByClick() {
+      ++sequenceId;
+      interruptWait();
+      if (manualIndex < items.length - 1) {
+        manualIndex += 1;
+        const i = manualIndex;
+        if (i === 2) void refreshLeader();
+        await show(items[i]);
+      } else {
+        manualIndex = -1;
+        await show(rest);
+      }
+    }
+    document.addEventListener('click', advanceByClick);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        advanceByClick();
+      }
+    });
+    show(rest, false);
+    void refreshWeather();
+    void refreshLeader();
+    setInterval(cycle, CONFIG.cycleMs);
+    setInterval(refreshWeather, CONFIG.weatherRefreshMs);
+    setInterval(() => {
+      if (currentItem === items[0] && tickerCurrent && !tickerSliding) {
+        render(tickerCurrent, currentItem());
+        updateTickerBody();
+      }
+    }, 1000);
+    window.addEventListener('online', () => { void refreshWeather(); void refreshLeader(); });
+    return {
+      relayout() {
+        tickerEl.querySelectorAll('.line').forEach((line) => {
+          line.style.top = (H * TICKER_Y) + 'px';
+          const copy = line.firstElementChild;
+          if (copy) copy.style.fontSize = (TICKER_SIZE * viewFactor) + 'px';
+          if (copy) fit(line);
+        });
+        updateTickerBody();
+      }
+    };
+  }
+
+  const ticker = SHOW_TICKER ? startTicker() : null;
+
+  const names = new Map();
+  const dropQueue = [];
+  let nameSize = NAME_SIZE * viewFactor;
+  const minNameSize = 12;
+
+  function makeNameBody(n, x, y, angle) {
+    return Bodies.rectangle(x, y, n.w + n.h * 0.08, n.h * 0.86, {
+      angle,
+      chamfer: { radius: n.h * 0.2 },
+      restitution: 0.28,
+      friction: 0.45,
+      frictionStatic: 0.6,
+      frictionAir: 0.012,
+      density: 0.0016,
+      collisionFilter: NAME_FILTER
+    });
+  }
+
+  function dropName(name) {
+    if (names.has(name)) return;
+    const el = document.createElement('div');
+    el.className = 'name';
+    el.textContent = name;
+    el.style.fontSize = nameSize + 'px';
+    if (USE_COLORS) applyColor(name, el);
+    namesEl.appendChild(el);
+    const n = { name, el, w: el.offsetWidth, h: el.offsetHeight, body: null };
+    const half = Math.min(n.w / 2 + 6, W / 2);
+    const x = rand(half, W - half);
+    const y = -n.h - rand(20, 140);
+    n.body = makeNameBody(n, x, y, rand(-0.35, 0.35));
+    Body.setVelocity(n.body, { x: rand(-1.5, 1.5), y: rand(0, 2) });
+    Body.setAngularVelocity(n.body, rand(-0.06, 0.06));
+    Composite.add(engine.world, n.body);
+    names.set(name, n);
+  }
+
+  function shrinkNames(factor) {
+    nameSize = Math.max(minNameSize, nameSize * factor);
+    names.forEach((n) => {
+      Body.scale(n.body, factor, factor);
+      n.el.style.fontSize = nameSize + 'px';
+      n.w = n.el.offsetWidth;
+      n.h = n.el.offsetHeight;
+    });
+  }
+
+  function checkPile() {
+    let area = 0;
+    names.forEach((n) => { area += n.w * n.h * 0.74; });
+    dropQueue.forEach(() => { area += nameSize * nameSize * 3.2; });
+    const estimate = area * 1.8 / Math.max(1, W);
+    if (estimate > H * (1 - PILE_LIMIT) && nameSize > minNameSize) shrinkNames(0.92);
+  }
+
+  function rescueNames() {
+    names.forEach((n) => {
+      const p = n.body.position;
+      if (p.y > H + 400 || p.x < -400 || p.x > W + 400) {
+        Body.setPosition(n.body, { x: rand(n.w / 2, Math.max(n.w / 2, W - n.w / 2)), y: -n.h - 40 });
+        Body.setVelocity(n.body, { x: 0, y: 0 });
+        Body.setAngularVelocity(n.body, rand(-0.05, 0.05));
+      }
+    });
+  }
+
+  function renderNames() {
+    names.forEach((n) => {
+      const b = n.body;
+      n.el.style.transform = 'translate(' + (b.position.x - n.w / 2).toFixed(1) + 'px,' + (b.position.y - n.h / 2).toFixed(1) + 'px) rotate(' + b.angle.toFixed(4) + 'rad)';
+    });
+  }
+
+  function pumpQueue() {
+    if (dropQueue.length) dropName(dropQueue.shift());
+  }
+
+  const lastSeen = new Map();
+  function syncViewers() {
+    const now = Date.now();
+    const present = [];
+    lastSeen.forEach((seen, name) => { if (now - seen <= ACTIVE_WINDOW_MS) present.push(name); });
+    const room = Math.max(0, MAX_NAMES - names.size - dropQueue.length);
+    const joining = present
+      .filter((name) => !names.has(name) && dropQueue.indexOf(name) === -1)
+      .sort((a, b) => lastSeen.get(a) - lastSeen.get(b))
+      .slice(0, room);
+    joining.forEach((name) => dropQueue.push(name));
+  }
+
+  function usernameFromId(id) {
+    if (typeof id !== 'string' || id.indexOf('u_') !== 0) return '';
+    try {
+      const encoded = id.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+      const binary = atob(encoded + '='.repeat((4 - encoded.length % 4) % 4));
+      const name = new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+      return name.length >= 1 && name.length <= 24 && !/\s/.test(name) ? name : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  let unsubscribePresence = null;
+  let resubscribeTimer = 0;
+  function subscribePresence() {
+    stopPresence();
+    const cutoff = Date.now() - ACTIVE_WINDOW_MS;
+    unsubscribePresence = db.collection('chat_presence').where('lastSeen', '>', cutoff).onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const name = usernameFromId(change.doc.id);
+        if (!name) return;
+        if (change.type === 'removed') lastSeen.delete(name);
+        else lastSeen.set(name, Number(change.doc.data().lastSeen) || 0);
+      });
+      syncViewers();
+    }, (err) => console.error(err));
+    resubscribeTimer = setTimeout(subscribePresence, RESUBSCRIBE_MS);
+  }
+  function stopPresence() {
+    if (unsubscribePresence) unsubscribePresence();
+    unsubscribePresence = null;
+    clearTimeout(resubscribeTimer);
+  }
+  let listening = false;
+  function setLive(live) {
+    if (live === listening) return;
+    listening = live;
+    if (live) subscribePresence();
+    else stopPresence();
+  }
+
+  function collectDemoNames() {
+    const found = [];
+    let scanned = 0;
+    const page = (after) => {
+      let query = messagesRef.orderBy('ts', 'desc');
+      if (after) query = query.startAfter(after);
+      return query.limit(200).get().then((snapshot) => {
+        snapshot.docs.forEach((doc) => {
+          if (found.length >= MAX_NAMES) return;
+          const m = doc.data();
+          const name = typeof m.username === 'string' ? m.username.trim() : '';
+          if (!name || /\s/.test(name) || name.length > 24 || found.indexOf(name) !== -1) return;
+          found.push(name);
+        });
+        scanned += snapshot.size;
+        const last = snapshot.docs[snapshot.docs.length - 1];
+        if (found.length >= MAX_NAMES || snapshot.size < 200 || scanned >= 1000 || !last) return found;
+        return page(last);
+      });
+    };
+    return page(null);
+  }
+
+  function runDemo() {
+    collectDemoNames().then((list) => {
+      list.reverse();
+      let index = 0;
+      const joinNext = () => {
+        if (index >= list.length) return;
+        lastSeen.set(list[index], Date.now());
+        index++;
+        syncViewers();
+        setTimeout(joinNext, 1300);
+      };
+      joinNext();
+      setInterval(() => list.slice(0, index).forEach((name) => lastSeen.set(name, Date.now())), 30000);
+    }).catch((err) => console.error(err));
+  }
+
+  let debugCtx = null;
+  if (DEBUG) {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'debug';
+    canvas.width = W;
+    canvas.height = H;
+    document.body.appendChild(canvas);
+    debugCtx = canvas.getContext('2d');
+  }
+  function renderDebug() {
+    if (!debugCtx) return;
+    debugCtx.clearRect(0, 0, W, H);
+    debugCtx.strokeStyle = 'rgba(255,0,0,0.9)';
+    debugCtx.lineWidth = 2;
+    Composite.allBodies(engine.world).forEach((b) => {
+      debugCtx.beginPath();
+      b.vertices.forEach((v, i) => (i ? debugCtx.lineTo(v.x, v.y) : debugCtx.moveTo(v.x, v.y)));
+      debugCtx.closePath();
+      debugCtx.stroke();
+    });
+    debugCtx.strokeStyle = 'rgba(255,255,0,0.8)';
+    debugCtx.beginPath();
+    debugCtx.moveTo(0, H * PILE_LIMIT);
+    debugCtx.lineTo(W, H * PILE_LIMIT);
+    debugCtx.stroke();
+  }
+
+  let acc = 0;
+  let last = performance.now();
+  function frame(now) {
+    acc += Math.min(0.1, Math.max(0, (now - last) / 1000));
+    last = now;
+    let steps = 0;
+    while (acc >= STEP && steps < 4) {
+      stepBubbles(STEP);
+      Engine.update(engine, STEP * 1000);
+      acc -= STEP;
+      steps++;
+    }
+    if (steps === 4) acc = 0;
+    renderBubbles();
+    renderNames();
+    renderDebug();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', () => {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    viewFactor = Math.min(W / 1920, H / 1080);
+    bubbleUnit = BUBBLE_SIZE * viewFactor;
+    buildWalls();
+    bubbles.forEach((b) => {
+      b.el.style.fontSize = bubbleUnit + 'px';
+      measureBubble(b);
+    });
+    if (ticker) ticker.relayout();
+    if (debugCtx) {
+      debugCtx.canvas.width = W;
+      debugCtx.canvas.height = H;
+    }
+  });
+
+  fontsReady.then(() => {
+    bubbles.forEach(measureBubble);
+    if (ticker) ticker.relayout();
+    requestAnimationFrame(frame);
+    setInterval(pumpQueue, DROP_GAP_MS);
+    setInterval(checkPile, 1000);
+    setInterval(rescueNames, 2000);
+    setInterval(syncViewers, 15000);
+    if (DEMO) {
+      runDemo();
+    } else if (ALWAYS_ON) {
+      setLive(true);
+    } else {
+      let liveUrl = null, manualLive = false, probeTimer = 0;
+      const probe = () => {
+        if (!liveUrl) { setLive(manualLive); return; }
+        fetch(liveUrl, { cache: 'no-store' }).then((res) => setLive(!!res.ok)).catch(() => setLive(false));
+      };
+      configRef.doc('liveVideo').onSnapshot((doc) => {
+        const data = doc.exists ? doc.data() : {};
+        liveUrl = data.directUrl || null;
+        manualLive = !liveUrl && data.isLive !== false && !!data.videoId;
+        clearInterval(probeTimer);
+        probe();
+        probeTimer = setInterval(probe, LIVE_PROBE_MS);
+      }, () => setLive(false));
+    }
+  });
+})();
+</script>
+</body>
+</html>
