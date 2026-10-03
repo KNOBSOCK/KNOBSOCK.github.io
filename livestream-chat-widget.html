@@ -871,6 +871,7 @@
     }
   }
   .pill-btn:disabled { opacity: 0.5; cursor: default; }
+  .map-toggle-btn:disabled { opacity: 0.4; pointer-events: none; }
   .pill-btn[hidden] { display: none; }
 
   .video-pane-actions {
@@ -4496,12 +4497,13 @@
   var streamMinimapManual = null;
   var streamMinimapHideTimer = null;
   function streamMinimapIsShowing() {
-    return streamMinimapManual !== null ? streamMinimapManual : streamMinimapAvailable;
+    return streamMinimapAvailable && streamMinimapManual !== false;
   }
   function refreshMapToggleBtn() {
     var showing = streamMinimapIsShowing();
     streamMinimap.classList.toggle('is-closed', !showing);
     mapToggleBtn.hidden = !streamMinimapShown;
+    mapToggleBtn.disabled = !streamMinimapAvailable;
     mapToggleBtn.setAttribute('aria-expanded', showing ? 'true' : 'false');
     mapToggleBtn.textContent = showing ? 'Hide Map' : 'Show Map';
     mapToggleBtn.title = showing ? 'Hide map' : 'Show map';
@@ -5251,6 +5253,7 @@
     });
     mapToggleBtn.addEventListener('click', function (event) {
       event.stopPropagation();
+      if (!streamMinimapAvailable) return;
       streamMinimapManual = !streamMinimapIsShowing();
       setStreamMinimapOpen(streamMinimapManual);
     });
