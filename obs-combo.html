@@ -679,6 +679,15 @@
       pool = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()))
         .filter(isSpotlightable)
         .slice(0, POOL_SIZE);
+      let learned = false;
+      pool.slice().reverse().forEach((m) => {
+        if (typeof m.color !== 'string' || !/^#[0-9a-f]{3,8}$/i.test(m.color)) return;
+        const key = String(m.username).toLowerCase();
+        if (colorCache.get(key) === m.color) return;
+        colorCache.set(key, m.color);
+        learned = true;
+      });
+      if (learned) saveColors();
       syncBubbles();
     }, (err) => console.error(err));
   }
@@ -805,7 +814,10 @@
         weatherPending = false;
       }
     }
+    let leaderAt = 0;
     async function refreshLeader() {
+      if (state.scoreStatus === 'ready' && Date.now() - leaderAt < 15 * 60 * 1000) return;
+      leaderAt = Date.now();
       try {
         const rows = await json(CONFIG.scoreUrl, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },

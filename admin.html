@@ -2893,18 +2893,22 @@
 
   const DELETED_MESSAGE_ID_LIMIT = 300;
 
+  let liveDeletedMessageIds = null;
+
   function publishDeletedMessageIds(ids) {
     if (!ids.length) return Promise.resolve();
-    return db.runTransaction(function (tx) {
-      return tx.get(CHAT_CENSORED_WORDS_REF).then(function (doc) {
-        const data = doc.exists ? doc.data() : null;
-        const existing = data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds : [];
-        const fresh = new Set(ids);
-        const next = existing.filter(function (id) { return !fresh.has(id); }).concat(ids).slice(-DELETED_MESSAGE_ID_LIMIT);
-        tx.set(CHAT_CENSORED_WORDS_REF, { deletedMessageIds: next }, { merge: true });
-      });
-    }).catch(function (err) {
+    let write;
+    if (Array.isArray(liveDeletedMessageIds)) {
+      const fresh = new Set(ids);
+      const next = liveDeletedMessageIds.filter(function (id) { return !fresh.has(id); }).concat(ids).slice(-DELETED_MESSAGE_ID_LIMIT);
+      liveDeletedMessageIds = next;
+      write = CHAT_CENSORED_WORDS_REF.set({ deletedMessageIds: next }, { merge: true });
+    } else {
+      write = CHAT_CENSORED_WORDS_REF.set({ deletedMessageIds: firebase.firestore.FieldValue.arrayUnion.apply(null, ids) }, { merge: true });
+    }
+    return write.catch(function (err) {
       console.error('Could not hide deleted messages in open chats:', err);
+      alert('The message was deleted, but open chats could not be told to hide it: ' + err.message);
     });
   }
 
@@ -3868,6 +3872,7 @@
       liveAdmins = (data && Array.isArray(data.admins)) ? data.admins.map(function (n) { return String(n).toLowerCase(); }) : [];
       liveBadges = (data && data.badges && typeof data.badges === 'object') ? data.badges : {};
       liveVoiceUsers = (data && Array.isArray(data.voiceUsers)) ? data.voiceUsers.map(function (n) { return String(n).toLowerCase(); }) : [];
+      liveDeletedMessageIds = (data && Array.isArray(data.deletedMessageIds)) ? data.deletedMessageIds.map(String) : [];
       renderBadgeEditor(false);
       renderCensorWordsList();
       renderAdminsList();

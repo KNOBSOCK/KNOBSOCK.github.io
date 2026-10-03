@@ -10816,6 +10816,13 @@
       .onSnapshot(
         (snapshot) => {
           const incoming = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
+          const windowFull = snapshot.size >= MESSAGE_CACHE_LIMIT;
+          const windowStart = snapshot.size ? Number(snapshot.docs[0].data().ts) || 0 : 0;
+          snapshot.docChanges().forEach((change) => {
+            if (change.type !== 'removed') return;
+            const removedTs = Number(change.doc.data().ts) || 0;
+            if (!windowFull || removedTs > windowStart) deletedMessageIds.add(change.doc.id);
+          });
           mergeMessageCache(incoming);
           renderMessages(messageCache);
 
