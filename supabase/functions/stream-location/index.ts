@@ -142,7 +142,14 @@ async function history(params: URLSearchParams) {
     .lte('at', new Date(to).toISOString())
     .order('at', { ascending: true })
     .limit(20000);
+  const syncs = await db.from('stream_sync_offset_log')
+    .select('offset_ms,chunk_at,quality')
+    .gte('chunk_at', new Date(from - STALE_MS).toISOString())
+    .lte('chunk_at', new Date(to).toISOString())
+    .order('chunk_at', { ascending: true })
+    .limit(5000);
   return json({
+    syncs: syncs.error ? [] : (syncs.data || []).map((entry) => ({ t: Date.parse(entry.chunk_at), ms: entry.offset_ms, q: entry.quality })),
     lags: lags.error ? [] : (lags.data || []).map((entry) => ({ t: Date.parse(entry.at), ms: entry.lag_ms })),
     entries: (data || []).map((entry) => ({
       t: Date.parse(entry.at),

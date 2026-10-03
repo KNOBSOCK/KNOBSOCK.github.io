@@ -116,6 +116,10 @@ def main():
     if shutil.which("stdbuf"):
         command = ["stdbuf", "-oL"] + command
     log("watching " + SOURCE + " with " + mode)
+    sync_lock = None
+    sync_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync-lock.py")
+    if os.path.isfile(sync_script):
+        sync_lock = subprocess.Popen([sys.executable, sync_script])
     probe = subprocess.Popen(command, stdout=subprocess.PIPE, text=True, bufsize=1)
     threading.Thread(target=reporter, daemon=True).start()
     baseline = None
@@ -150,6 +154,8 @@ def main():
         state["running"] = False
         if probe.poll() is None:
             probe.terminate()
+        if sync_lock is not None and sync_lock.poll() is None:
+            sync_lock.terminate()
         report(None)
         log("stream ended")
     return 0
