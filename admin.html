@@ -274,8 +274,8 @@
     color: var(--text-dim);
   }
   .vod-map-start input {
-    flex: 1 1 270px;
-    min-width: min(270px, 100%);
+    flex: 1 1 130px;
+    min-width: 0;
     background: var(--panel-2);
     border: 1px solid var(--line);
     border-radius: 6px;
@@ -286,6 +286,9 @@
   }
   .vod-map-start input:focus { outline: none; border-color: var(--accent); }
   .vod-map-start.is-auto input { color: var(--text-dim); }
+  .vod-map-start .map-start-time.is-invalid { border-color: var(--danger); }
+  .vod-map-start-buttons { display: flex; gap: 4px 14px; flex-wrap: wrap; flex: 1 1 100%; }
+  .vod-map-start-buttons .btn-link { font-size: 13px; padding: 6px 2px; }
   .icon-btn {
     flex: none;
     -webkit-appearance: none;
@@ -4233,11 +4236,54 @@
       v.startedAt = ms;
     }
 
-    function toLocalDateTimeInput(ms) {
+    function toLocalDateInput(ms) {
       if (!ms) return '';
       const d = new Date(ms);
       const p = function (n) { return String(n).padStart(2, '0'); };
-      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+
+    function toLocalTimeText(ms) {
+      if (!ms) return '';
+      const d = new Date(ms);
+      const p = function (n) { return String(n).padStart(2, '0'); };
+      const h = d.getHours();
+      return (h % 12 || 12) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) + ' ' + (h < 12 ? 'AM' : 'PM');
+    }
+
+    function parseClockText(text) {
+      const m = String(text || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:([ap])\.?\s*m?\.?)?$/i);
+      if (!m) return null;
+      let h = Number(m[1]);
+      const min = Number(m[2]);
+      const sec = Number(m[3] || 0);
+      if (min > 59 || sec > 59) return null;
+      if (m[4]) {
+        if (h < 1 || h > 12) return null;
+        h = h % 12 + (m[4].toLowerCase() === 'p' ? 12 : 0);
+      } else if (h > 23) {
+        return null;
+      }
+      return { h: h, min: min, sec: sec };
+    }
+
+    const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+    function parseMapStart(dateValue, timeText) {
+      const text = String(timeText || '').trim();
+      const full = text.match(/^([a-z]{3,})\.?\s+(\d{1,2}),?\s+(\d{4}),?\s+(?:at\s+)?(.+)$/i);
+      if (full) {
+        const month = MONTHS.indexOf(full[1].slice(0, 3).toLowerCase());
+        const clock = parseClockText(full[4]);
+        if (month === -1 || !clock) return NaN;
+        return new Date(Number(full[3]), month, Number(full[2]), clock.h, clock.min, clock.sec).getTime();
+      }
+      if (!text) return dateValue ? null : 0;
+      const clock = parseClockText(text);
+      if (!clock) return NaN;
+      const ymd = String(dateValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!ymd) return null;
+      return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), clock.h, clock.min, clock.sec).getTime();
     }
 
     function renderVodsList() {
@@ -4256,12 +4302,15 @@
             '<select class="aspect-input" title="VOD aspect ratio"><option value="16:9"' + (v.aspect !== '9:16' ? ' selected' : '') + '>16:9</option><option value="9:16"' + (v.aspect === '9:16' ? ' selected' : '') + '>9:16</option></select>' +
             '<div class="vod-map-start' + (vodMapStart(v) ? '' : ' is-auto') + '" title="The real date and time (your local time) when 0:00 of this video happened. The mini map lines up from this. Blank means automatic.">' +
               '<span>Map start</span>' +
-              '<input type="datetime-local" step="1" class="map-start-input" value="' + escapeAttr(toLocalDateTimeInput(vodMapStart(v))) + '">' +
-              '<button type="button" class="btn-link map-nudge" data-ms="-5000">&minus;5s</button>' +
-              '<button type="button" class="btn-link map-nudge" data-ms="-1000">&minus;1s</button>' +
-              '<button type="button" class="btn-link map-nudge" data-ms="1000">+1s</button>' +
-              '<button type="button" class="btn-link map-nudge" data-ms="5000">+5s</button>' +
-              '<button type="button" class="btn-link map-auto">Auto</button>' +
+              '<input type="date" class="map-start-date" value="' + escapeAttr(toLocalDateInput(vodMapStart(v))) + '">' +
+              '<input type="text" class="map-start-time" placeholder="2:13:16 AM" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="' + escapeAttr(toLocalTimeText(vodMapStart(v))) + '">' +
+              '<div class="vod-map-start-buttons">' +
+                '<button type="button" class="btn-link map-nudge" data-ms="-5000">&minus;5s</button>' +
+                '<button type="button" class="btn-link map-nudge" data-ms="-1000">&minus;1s</button>' +
+                '<button type="button" class="btn-link map-nudge" data-ms="1000">+1s</button>' +
+                '<button type="button" class="btn-link map-nudge" data-ms="5000">+5s</button>' +
+                '<button type="button" class="btn-link map-auto">Auto</button>' +
+              '</div>' +
             '</div>' +
           '</div>' +
           '<button type="button" class="icon-btn remove-btn" title="Remove">&times;</button>' +
@@ -4295,17 +4344,27 @@
         row.querySelector('.aspect-input').addEventListener('change', function () {
           vodDraftList[idx].aspect = row.querySelector('.aspect-input').value;
         });
-        const mapStartInput = row.querySelector('.map-start-input');
+        const mapStartDate = row.querySelector('.map-start-date');
+        const mapStartTime = row.querySelector('.map-start-time');
         const mapStartWrap = row.querySelector('.vod-map-start');
         function showMapStart() {
           const ms = vodMapStart(vodDraftList[idx]);
-          mapStartInput.value = toLocalDateTimeInput(ms);
+          mapStartDate.value = toLocalDateInput(ms);
+          mapStartTime.value = toLocalTimeText(ms);
+          mapStartTime.classList.remove('is-invalid');
           mapStartWrap.classList.toggle('is-auto', !ms);
         }
-        mapStartInput.addEventListener('change', function () {
-          const ms = mapStartInput.value ? new Date(mapStartInput.value).getTime() : 0;
-          setVodMapStart(vodDraftList[idx], Number.isFinite(ms) ? ms : 0);
+        function readMapStart() {
+          const ms = parseMapStart(mapStartDate.value, mapStartTime.value);
+          mapStartTime.classList.toggle('is-invalid', Number.isNaN(ms));
+          if (ms === null || Number.isNaN(ms)) return;
+          setVodMapStart(vodDraftList[idx], ms);
           showMapStart();
+        }
+        mapStartDate.addEventListener('change', readMapStart);
+        mapStartTime.addEventListener('change', readMapStart);
+        mapStartTime.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); mapStartTime.blur(); }
         });
         row.querySelectorAll('.map-nudge').forEach(function (btn) {
           btn.addEventListener('click', function () {
