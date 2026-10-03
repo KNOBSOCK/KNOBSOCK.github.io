@@ -88,5 +88,19 @@ if(new URLSearchParams(location.search).has('embed')){
   if(matchMedia('(pointer: coarse)').matches)districtGroup.removeAttribute('filter');
   addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.type==='knobsock-map'){setHeading(e.data.heading);render(e.data.location||{})}});
   try{parent.postMessage({type:'knobsock-map-ready'},location.origin)}catch(e){}
-}else{update();setInterval(update,15000)}
+}else{
+  update();setInterval(update,15000);
+  const HEADING_STALE_MS=40000;let liveHeading=null,headingAt=0;
+  function applyLiveHeading(){setHeading(liveHeading!==null&&Date.now()-headingAt<=HEADING_STALE_MS?liveHeading:null)}
+  function takeHeading(value,at){const n=value===null||value===undefined?null:Number(value);liveHeading=n!==null&&isFinite(n)?n:null;headingAt=at;applyLiveHeading()}
+  setInterval(applyLiveHeading,1000);
+  const lib=document.createElement('script');lib.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';lib.async=true;
+  lib.onload=()=>{
+    if(!window.supabase||!window.supabase.createClient)return;
+    const client=window.supabase.createClient(ENDPOINT.split('/functions/')[0],API_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+    client.from('stream_heading').select('heading,updated_at').eq('id',1).maybeSingle().then(r=>{const row=r&&r.data;if(!row||!row.updated_at||headingAt)return;const age=Date.now()-Date.parse(row.updated_at);if(age>=0&&age<=HEADING_STALE_MS)takeHeading(row.heading,Date.now()-age)});
+    client.channel('stream-heading').on('postgres_changes',{event:'*',schema:'public',table:'stream_heading',filter:'id=eq.1'},p=>{if(p&&p.new)takeHeading(p.new.heading,Date.now())}).subscribe();
+  };
+  document.head.appendChild(lib);
+}
 </script></body></html>
