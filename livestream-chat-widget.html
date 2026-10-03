@@ -4479,7 +4479,7 @@
   var streamMinimapHistory = {};
   var streamMinimapTimelines = {};
 
-  function postStreamMinimap(locationData, heading) {
+  function postStreamMinimap(locationData, heading, exact) {
     var headingValue = typeof heading === 'number' && isFinite(heading) ? Math.round(heading * 10) / 10 : null;
     var hasLocation = !!(locationData && locationData.ntaCode);
     if (hasLocation !== streamMinimapHasLocation) {
@@ -4487,10 +4487,10 @@
       refreshStreamMinimapZoomButtons();
     }
     var zoom = STREAM_MAP_ZOOM_LEVELS[streamMinimapZoomLevel];
-    var key = JSON.stringify({ l: locationData || {}, h: headingValue, z: zoom, s: streamMinimapUnstable });
+    var key = JSON.stringify({ l: locationData || {}, h: exact ? 'x' : headingValue, z: zoom, s: streamMinimapUnstable, x: !!exact });
     if (key === streamMinimapPosted || !streamMinimapFrame.src) return;
     streamMinimapPosted = key;
-    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: zoom, syncing: streamMinimapUnstable }, location.origin); } catch (e) {}
+    try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map', location: locationData || {}, heading: headingValue, zoom: zoom, syncing: streamMinimapUnstable, exact: !!exact }, location.origin); } catch (e) {}
   }
 
   function streamMinimapLiveHeading() {
@@ -4582,6 +4582,71 @@
     if (session.client && session.channel) {
       try { session.client.removeChannel(session.channel); } catch (e) {}
     }
+  }
+
+  var STREAM_MAP_HEADING_SENSOR_LAG_MS = 50;
+  var STREAM_MAP_HEADING_SMOOTH_MS = 300;
+  var STREAM_MAP_HEADING_BLEND_GAP_MS = 2500;
+  var streamMinimapExact = null;
+  var streamMinimapExactPosted = undefined;
+  var streamMinimapExactFrame = 0;
+
+  function streamMinimapExactHeading(list, captureAt) {
+    var center = streamMinimapBlendedHeading(list, captureAt);
+    if (center === null) return null;
+    var total = 0, count = 0;
+    for (var i = -6; i <= 6; i++) {
+      var sample = streamMinimapBlendedHeading(list, captureAt + STREAM_MAP_HEADING_SMOOTH_MS * i / 6);
+      if (sample === null) continue;
+      total += ((sample - center) % 360 + 540) % 360 - 180;
+      count++;
+    }
+    return ((center + (count ? total / count : 0)) % 360 + 360) % 360;
+  }
+
+  function streamMinimapBlendedHeading(list, captureAt) {
+    if (!list || !list.length) return null;
+    var at = captureAt + STREAM_MAP_HEADING_SENSOR_LAG_MS;
+    var lo = 0, hi = list.length - 1, index = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (list[mid].t <= at) { index = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (index < 0) return null;
+    var a = list[index];
+    if (a.h === null || a.h === undefined || at - a.t > STREAM_MAP_HEADING_STALE_MS) return null;
+    var from = Number(a.h);
+    var b = list[index + 1];
+    if (!b || b.h === null || b.h === undefined || b.t - a.t > STREAM_MAP_HEADING_BLEND_GAP_MS || b.t <= a.t) return from;
+    var turn = ((Number(b.h) - from) % 360 + 540) % 360 - 180;
+    return ((from + turn * (at - a.t) / (b.t - a.t)) % 360 + 360) % 360;
+  }
+
+  function streamMinimapExactTick() {
+    streamMinimapExactFrame = 0;
+    var exact = streamMinimapExact;
+    if (!exact || !streamMinimapOpen || streamMinimap.hidden || document.hidden || !streamMinimapFrame.src) return;
+    var wall = exact.wall();
+    if (wall !== null && wall !== undefined && isFinite(wall)) {
+      var heading = streamMinimapExactHeading(exact.record.headings, streamMinimapCaptureTime(wall, exact.record));
+      var rounded = heading === null ? null : Math.round(heading * 20) / 20;
+      if (rounded !== streamMinimapExactPosted) {
+        streamMinimapExactPosted = rounded;
+        try { streamMinimapFrame.contentWindow.postMessage({ type: 'knobsock-map-heading', heading: rounded }, location.origin); } catch (e) {}
+      }
+    }
+    streamMinimapExactFrame = requestAnimationFrame(streamMinimapExactTick);
+  }
+
+  function setStreamMinimapExact(source) {
+    streamMinimapExact = source;
+    if (!source) {
+      cancelAnimationFrame(streamMinimapExactFrame);
+      streamMinimapExactFrame = 0;
+      streamMinimapExactPosted = undefined;
+      return;
+    }
+    if (!streamMinimapExactFrame) streamMinimapExactFrame = requestAnimationFrame(streamMinimapExactTick);
   }
 
   function streamMinimapHeadingAt(list, at) {
@@ -5050,11 +5115,12 @@
     var mode = watchingVodId ? 'vod' : (isEffectivelyLive() || streamMinimapTestLive ? 'live' : '');
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
-    if (!mode || !streamMinimapOpen) return;
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=11';
+    if (!mode || !streamMinimapOpen) { setStreamMinimapExact(null); return; }
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=14';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
+        setStreamMinimapExact(null);
         postStreamMinimap(null);
         return;
       }
@@ -5062,7 +5128,9 @@
       var vodWall = streamMinimapWallClock(sync.timeline, streamMinimapPlaybackSeconds());
       streamMinimapUnstable = streamMinimapStreamUnstable(history, vodWall);
       var playbackAt = streamMinimapCaptureTime(vodWall, history);
-      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, playbackAt) : null, history.headings ? streamMinimapHeadingAt(history.headings, playbackAt) : null);
+      var vodTimeline = sync.timeline;
+      setStreamMinimapExact(history.ready ? { record: history, wall: function () { return streamMinimapWallClock(vodTimeline, streamMinimapPlaybackSeconds()); } } : null);
+      postStreamMinimap(history.entries.length ? streamMinimapLocationAt(history.entries, playbackAt) : null, history.headings ? streamMinimapExactHeading(history.headings, playbackAt) : null, true);
       return;
     }
     startStreamMinimapLive();
@@ -5088,15 +5156,18 @@
       };
       renderStreamMinimapDebug();
     }
+    if (frameWall === null) setStreamMinimapExact(null);
     if (frameWall !== null) {
       var liveHistory = ensureStreamMinimapLiveHistory();
       if (liveHistory.ready) {
         streamMinimapUnstable = streamMinimapStreamUnstable(liveHistory, frameWall);
         var capturedAt = streamMinimapCaptureTime(frameWall, liveHistory);
-        postStreamMinimap(streamMinimapLocationAt(liveHistory.entries, capturedAt), streamMinimapHeadingAt(liveHistory.headings, capturedAt));
+        setStreamMinimapExact({ record: liveHistory, wall: streamMinimapLiveFrameWall });
+        postStreamMinimap(streamMinimapLocationAt(liveHistory.entries, capturedAt), streamMinimapExactHeading(liveHistory.headings, capturedAt), true);
         return;
       }
     }
+    setStreamMinimapExact(null);
     if (streamMinimapLiveLocationAt) postStreamMinimap(streamMinimapCurrentLiveLocation(), streamMinimapLiveHeading());
   }
 
@@ -9650,6 +9721,7 @@
   function autosizeMessageInput() {
     const input = $('msgInput');
     if (!input || input.tagName !== 'TEXTAREA') return;
+    if (!input.offsetParent || input.clientWidth === 0) return;
     const wrap = input.closest('.composer-input-wrap');
     const messages = $('messages');
     const nearBottom = messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80;
@@ -9668,8 +9740,21 @@
   }
 
   window.addEventListener('resize', () => autosizeMessageInput());
+  let observedComposer = null;
+  const composerObserver = window.ResizeObserver ? new ResizeObserver(() => autosizeMessageInput()) : null;
+  function watchComposerSize() {
+    const input = $('msgInput');
+    const target = input && (input.closest('.composer-input-wrap') || input.parentElement);
+    if (!composerObserver || !target || target === observedComposer) return;
+    if (observedComposer) composerObserver.unobserve(observedComposer);
+    observedComposer = target;
+    composerObserver.observe(target);
+  }
+  document.addEventListener('fullscreenchange', () => requestAnimationFrame(autosizeMessageInput));
+  document.addEventListener('webkitfullscreenchange', () => requestAnimationFrame(autosizeMessageInput));
 
   function updateCharCounter() {
+    watchComposerSize();
     autosizeMessageInput();
     const input = $('msgInput');
     const counter = $('charCounter');
