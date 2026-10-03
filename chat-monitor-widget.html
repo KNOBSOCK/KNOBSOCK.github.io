@@ -478,9 +478,13 @@
   let compassSentAt = 0;
   let compassSending = false;
   let compassTimer = null;
-  const COMPASS_MIN_TURN = 10;
-  const COMPASS_MIN_GAP_MS = 1500;
+  const COMPASS_MIN_TURN = 4;
+  const COMPASS_SETTLE_TURN = 1.5;
+  const COMPASS_SETTLE_MS = 300;
+  const COMPASS_MIN_GAP_MS = 500;
   const COMPASS_HEARTBEAT_MS = 15000;
+  let compassMotionRef = null;
+  let compassLastMotionAt = 0;
 
   function requestCompassPermission() {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -509,8 +513,12 @@
     if (reading === null) return;
     const radians = reading * Math.PI / 180;
     const x = Math.cos(radians), y = Math.sin(radians);
-    compassVector = compassVector ? { x: compassVector.x * 0.75 + x * 0.25, y: compassVector.y * 0.75 + y * 0.25 } : { x, y };
+    compassVector = compassVector ? { x: compassVector.x * 0.65 + x * 0.35, y: compassVector.y * 0.65 + y * 0.35 } : { x, y };
     compassHeading = ((Math.atan2(compassVector.y, compassVector.x) * 180 / Math.PI) % 360 + 360) % 360;
+    if (compassMotionRef === null || turnBetween(compassHeading, compassMotionRef) > 1) {
+      compassMotionRef = compassHeading;
+      compassLastMotionAt = Date.now();
+    }
     if (compassState !== 'on') {
       compassState = 'on';
       if (locationSharing && lastLocationPosition) setLocationStatus(sharingStatusText());
@@ -536,7 +544,9 @@
     if (!locationSharing || !compassListening || compassHeading === null || document.hidden || compassSending) return;
     const now = Date.now();
     const turned = compassSentHeading === null ? 360 : turnBetween(compassHeading, compassSentHeading);
-    const due = (turned >= COMPASS_MIN_TURN && now - compassSentAt >= COMPASS_MIN_GAP_MS) || now - compassSentAt >= COMPASS_HEARTBEAT_MS;
+    const settled = now - compassLastMotionAt >= COMPASS_SETTLE_MS;
+    const gapOk = now - compassSentAt >= COMPASS_MIN_GAP_MS;
+    const due = (gapOk && (turned >= COMPASS_MIN_TURN || (settled && turned >= COMPASS_SETTLE_TURN))) || now - compassSentAt >= COMPASS_HEARTBEAT_MS;
     if (!due) return;
     const heading = compassHeading;
     compassSending = true;
@@ -563,6 +573,8 @@
     compassHeading = null;
     compassSentHeading = null;
     compassSentAt = 0;
+    compassMotionRef = null;
+    compassLastMotionAt = 0;
     window.addEventListener('deviceorientation', onCompassEvent);
     window.addEventListener('deviceorientationabsolute', onCompassEvent);
     compassTimer = setInterval(maybeSendHeading, 5000);

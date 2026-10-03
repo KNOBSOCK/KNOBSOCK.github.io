@@ -4658,7 +4658,7 @@
     setStreamMinimapVisible(!!mode);
     if (mode !== 'live' || !streamMinimapOpen) stopStreamMinimapLive();
     if (!mode || !streamMinimapOpen) return;
-    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=6';
+    if (!streamMinimapFrame.src) streamMinimapFrame.src = '/stream-map.html?embed=1&v=7';
     if (mode === 'vod') {
       var sync = streamMinimapVodTimeline(watchingVodId, watchingVodEntry);
       if (!sync.ready || !sync.timeline) {
