@@ -43,7 +43,7 @@ const FULL_VIEW={x:0,y:50,width:440,height:500};
 let activeCode='';let viewFrame=0;let rotationTimer=0;let heading=null;
 const rot={angle:0,vel:0,cx:0,cy:0,frame:0,last:0};const SPIN_SPEED=2,FOLLOW_OMEGA=5.2;
 const compassNorth=document.getElementById('compassNorth');const compassFacing=document.getElementById('compassFacing');const facingMark=document.getElementById('facing');
-const CARDINALS=['N','NE','E','SE','S','SW','W','NW'];let zoomedOut=false;
+const CARDINALS=['N','NE','E','SE','S','SW','W','NW'];let zoomFactor=1;
 function updateOverlay(){
   compassNorth.setAttribute('transform',`rotate(${rot.angle.toFixed(2)})`);
   const label=heading===null?'':CARDINALS[Math.round(heading/45)%8];
@@ -83,14 +83,15 @@ function animateViewBox(target,duration){
 }
 function zoomViewFor(el){
   const b=el.getBBox();const rect=mapSvg.getBoundingClientRect();const aspect=rect.width/Math.max(1,rect.height);
-  const spread=zoomedOut?3.4:1;
+  const spread=zoomFactor;
   let width=Math.max(b.width*3.2,46)*spread;let height=Math.max(b.height*3.2,46)*spread;
   if(width/height<aspect)width=height*aspect;else height=width/aspect;
   const cx=b.x+b.width/2,cy=b.y+b.height/2;
   return{x:cx-width/2,y:cy-height/2,width,height,cx,cy};
 }
-function setZoom(out){
-  out=!!out;if(out===zoomedOut)return;zoomedOut=out;
+function setZoom(value){
+  const next=typeof value==='number'&&isFinite(value)?Math.max(1,Math.min(4,value)):value?3.4:1;
+  if(next===zoomFactor)return;zoomFactor=next;
   const el=activeCode&&document.querySelector('[data-code="'+CSS.escape(activeCode)+'"]');
   if(el)animateViewBox(zoomViewFor(el),700);
 }
