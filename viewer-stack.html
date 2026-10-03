@@ -59,6 +59,7 @@
   };
   const BASE_SIZE = numberParam('size', 44, 12, 200);
   const ALWAYS_ON = params.get('always') === '1';
+  const DEMO = params.get('demo') === '1';
   const USE_COLORS = params.get('colors') === '1';
   const ACTIVE_WINDOW_MS = 270000;
   const RESUBSCRIBE_MS = 10 * 60 * 1000;
@@ -201,33 +202,15 @@
     return true;
   }
 
-  function removeViewer(name) {
-    const viewer = viewers.get(name);
-    if (!viewer) return;
-    viewers.delete(name);
-    order.splice(order.indexOf(name), 1);
-    if (viewer.anim) viewer.anim.cancel();
-    const pos = viewer.pos || { x: 0, y: 0 };
-    viewer.el.animate([
-      { transform: `translate(${pos.x}px, ${pos.y}px) scale(1)`, opacity: 1 },
-      { transform: `translate(${pos.x}px, ${pos.y}px) scale(1.25)`, opacity: 0 }
-    ], { duration: 320, fill: 'forwards' }).onfinish = () => viewer.el.remove();
-  }
-
   const lastSeen = new Map();
 
   function sync() {
     const now = Date.now();
     const present = [];
     lastSeen.forEach((seen, name) => { if (now - seen <= ACTIVE_WINDOW_MS) present.push(name); });
-    const leaving = order.filter((name) => present.indexOf(name) === -1);
     const joining = present.filter((name) => !viewers.has(name)).sort((a, b) => lastSeen.get(a) - lastSeen.get(b));
-    leaving.forEach(removeViewer);
     joining.forEach(addViewer);
-    if (leaving.length || joining.length) {
-      if (!joining.length) size = Math.max(size, Math.min(BASE_SIZE, size * 1.1));
-      relayout(joining);
-    }
+    if (joining.length) relayout(joining);
   }
 
   let unsubscribe = null;
@@ -258,17 +241,43 @@
     if (live === listening) return;
     listening = live;
     if (live) subscribe();
-    else {
-      stopListening();
-      lastSeen.clear();
-      sync();
-    }
+    else stopListening();
   }
 
   setInterval(sync, 15000);
   window.addEventListener('resize', () => { size = BASE_SIZE; relayout([]); });
 
-  if (ALWAYS_ON) {
+  function runDemo() {
+    db.collection('chat_messages').orderBy('ts', 'desc').limit(80).get().then((snapshot) => {
+      const names = [];
+      snapshot.docs.forEach((doc) => {
+        const m = doc.data();
+        const name = typeof m.username === 'string' ? m.username.trim() : '';
+        if (!name || /\s/.test(name) || name.length > 24 || names.indexOf(name) !== -1) return;
+        names.push(name);
+      });
+      names.reverse();
+      const present = new Set();
+      const refresh = () => present.forEach((name) => lastSeen.set(name, Date.now()));
+      setInterval(refresh, 30000);
+      let index = 0;
+      const joinNext = () => {
+        if (index < names.length) {
+          present.add(names[index]);
+          lastSeen.set(names[index], Date.now());
+          index++;
+          sync();
+          setTimeout(joinNext, 1300);
+          return;
+        }
+      };
+      joinNext();
+    }).catch((err) => console.error(err));
+  }
+
+  if (DEMO) {
+    runDemo();
+  } else if (ALWAYS_ON) {
     setLive(true);
   } else {
     let liveUrl = null, manualLive = false, probeTimer = 0;
