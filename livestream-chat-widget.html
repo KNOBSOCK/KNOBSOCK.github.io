@@ -334,8 +334,7 @@
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .stream-minimap[hidden] { display: none; }
-  .stream-minimap.is-closed,
-  .stream-minimap.is-unavailable { transform: translate(100%, 0); }
+  .stream-minimap.is-closed { transform: translate(100%, 0); }
   .video-pane.offline-card .stream-minimap { display: none; }
   .video-pane.offline-card.map-test .stream-minimap:not([hidden]) { display: block; }
   .stream-minimap-panel {
@@ -375,8 +374,7 @@
   }
   .stream-minimap-zoom button:disabled { opacity: 0.35; cursor: default; }
   .stream-minimap-zoom { transition: opacity 0.3s ease; }
-  .stream-minimap.is-closed .stream-minimap-zoom,
-  .stream-minimap.is-unavailable .stream-minimap-zoom { opacity: 0; pointer-events: none; }
+  .stream-minimap.is-closed .stream-minimap-zoom { opacity: 0; }
   @media (hover: none) and (pointer: coarse) {
     .stream-minimap { --minimap-size: clamp(103px, 48.4cqmin, 330px); }
     .stream-minimap-zoom { gap: 6px; bottom: calc(100% + 6px); }
@@ -4495,13 +4493,21 @@
   }
   var streamMinimapShown = false;
   var streamMinimapAvailable = false;
+  var streamMinimapManual = null;
   var streamMinimapHideTimer = null;
+  function streamMinimapIsShowing() {
+    return streamMinimapManual !== null ? streamMinimapManual : streamMinimapAvailable;
+  }
   function refreshMapToggleBtn() {
-    mapToggleBtn.hidden = !streamMinimapShown || (streamMinimapOpen && !streamMinimapAvailable);
+    var showing = streamMinimapIsShowing();
+    streamMinimap.classList.toggle('is-closed', !showing);
+    mapToggleBtn.hidden = !streamMinimapShown;
+    mapToggleBtn.setAttribute('aria-expanded', showing ? 'true' : 'false');
+    mapToggleBtn.textContent = showing ? 'Hide Map' : 'Show Map';
+    mapToggleBtn.title = showing ? 'Hide map' : 'Show map';
   }
   function applyStreamMinimapAvailable(available) {
     streamMinimapAvailable = available;
-    streamMinimap.classList.toggle('is-unavailable', !available);
     refreshMapToggleBtn();
   }
   function setStreamMinimapAvailable(available) {
@@ -4676,7 +4682,7 @@
   function streamMinimapExactTick() {
     streamMinimapExactFrame = 0;
     var exact = streamMinimapExact;
-    if (!exact || !streamMinimapOpen || streamMinimap.hidden || document.hidden || !streamMinimapFrame.src) return;
+    if (!exact || !streamMinimapOpen || !streamMinimapIsShowing() || streamMinimap.hidden || document.hidden || !streamMinimapFrame.src) return;
     var wall = exact.wall();
     if (wall !== null && wall !== undefined && isFinite(wall)) {
       var heading = streamMinimapExactHeading(exact.record.headings, streamMinimapCaptureTime(wall, exact.record));
@@ -5225,10 +5231,6 @@
 
   function setStreamMinimapOpen(open) {
     streamMinimapOpen = open;
-    streamMinimap.classList.toggle('is-closed', !open);
-    mapToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    mapToggleBtn.textContent = open ? 'Hide Map' : 'Show Map';
-    mapToggleBtn.title = open ? 'Hide map' : 'Show map';
     refreshMapToggleBtn();
     syncStreamMinimap();
   }
@@ -5249,7 +5251,8 @@
     });
     mapToggleBtn.addEventListener('click', function (event) {
       event.stopPropagation();
-      setStreamMinimapOpen(!streamMinimapOpen);
+      streamMinimapManual = !streamMinimapIsShowing();
+      setStreamMinimapOpen(streamMinimapManual);
     });
     streamMinimapFrame.addEventListener('load', function () {
       streamMinimapPosted = null;
