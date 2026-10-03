@@ -58,6 +58,7 @@
     return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
   };
   const BASE_SIZE = numberParam('size', 44, 12, 200);
+  const MAX_NAMES = numberParam('max', 100, 1, 300);
   const ALWAYS_ON = params.get('always') === '1';
   const DEMO = params.get('demo') === '1';
   const USE_COLORS = params.get('colors') !== '0';
@@ -237,7 +238,8 @@
     const now = Date.now();
     const present = [];
     lastSeen.forEach((seen, name) => { if (now - seen <= ACTIVE_WINDOW_MS) present.push(name); });
-    const joining = present.filter((name) => !viewers.has(name)).sort((a, b) => lastSeen.get(a) - lastSeen.get(b));
+    const room = Math.max(0, MAX_NAMES - viewers.size);
+    const joining = present.filter((name) => !viewers.has(name)).sort((a, b) => lastSeen.get(a) - lastSeen.get(b)).slice(0, room);
     joining.forEach(addViewer);
     if (joining.length) relayout(joining);
   }
@@ -276,29 +278,47 @@
   setInterval(sync, 15000);
   window.addEventListener('resize', () => { size = BASE_SIZE; relayout([]); });
 
-  function runDemo() {
-    db.collection('chat_messages').orderBy('ts', 'desc').limit(80).get().then((snapshot) => {
-      const names = [];
-      snapshot.docs.forEach((doc) => {
-        const m = doc.data();
-        const name = typeof m.username === 'string' ? m.username.trim() : '';
-        if (!name || /\s/.test(name) || name.length > 24 || names.indexOf(name) !== -1) return;
-        names.push(name);
+  const DEMO_NAMES = MAX_NAMES;
+  const DEMO_PAGE = 200;
+  const DEMO_MAX_MESSAGES = 1000;
+
+  function collectDemoNames() {
+    const names = [];
+    let scanned = 0;
+    const page = (after) => {
+      let query = db.collection('chat_messages').orderBy('ts', 'desc');
+      if (after) query = query.startAfter(after);
+      return query.limit(DEMO_PAGE).get().then((snapshot) => {
+        snapshot.docs.forEach((doc) => {
+          if (names.length >= DEMO_NAMES) return;
+          const m = doc.data();
+          const name = typeof m.username === 'string' ? m.username.trim() : '';
+          if (!name || /\s/.test(name) || name.length > 24 || names.indexOf(name) !== -1) return;
+          names.push(name);
+        });
+        scanned += snapshot.size;
+        const last = snapshot.docs[snapshot.docs.length - 1];
+        if (names.length >= DEMO_NAMES || snapshot.size < DEMO_PAGE || scanned >= DEMO_MAX_MESSAGES || !last) return names;
+        return page(last);
       });
+    };
+    return page(null);
+  }
+
+  function runDemo() {
+    collectDemoNames().then((names) => {
       names.reverse();
       const present = new Set();
       const refresh = () => present.forEach((name) => lastSeen.set(name, Date.now()));
       setInterval(refresh, 30000);
       let index = 0;
       const joinNext = () => {
-        if (index < names.length) {
-          present.add(names[index]);
-          lastSeen.set(names[index], Date.now());
-          index++;
-          sync();
-          setTimeout(joinNext, 1300);
-          return;
-        }
+        if (index >= names.length) return;
+        present.add(names[index]);
+        lastSeen.set(names[index], Date.now());
+        index++;
+        sync();
+        setTimeout(joinNext, 1300);
       };
       joinNext();
     }).catch((err) => console.error(err));

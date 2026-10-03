@@ -13,51 +13,60 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
+    width: 100%;
     height: 100%;
     background: transparent;
     overflow: hidden;
   }
   body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4vh 4vw;
     font-family: 'Gratis Neue', Tahoma, Arial, sans-serif;
   }
-  #card {
-    position: relative;
-    max-width: 100%;
-    max-height: 100%;
-    padding: 0.55em 0.8em 0.6em;
-    border: 0.09em solid #000000;
+  #field {
+    position: absolute;
+    inset: 0;
+  }
+  .bubble {
+    position: absolute;
+    left: 0;
+    top: 0;
+    max-width: 13em;
+    padding: 0.45em 0.7em 0.5em;
+    border: 0.08em solid #000000;
     border-radius: 0.38em;
     background: rgba(8, 8, 8, 0.86);
-    box-shadow: 0 0.12em 0.5em rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0.12em 0.5em rgba(0, 0, 0, 0.55);
     color: #ffffff;
-    transform: translateX(-120vw);
-    overflow: hidden;
+    transform-origin: 50% 50%;
+    will-change: transform, opacity;
+    transition: opacity 0.45s ease, box-shadow 0.45s ease, background-color 0.45s ease;
   }
-  #card.is-animating {
-    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  body.has-hot .bubble:not(.is-hot) {
+    opacity: 0.72;
   }
-  #card.is-shown {
-    transform: none;
+  .bubble.is-hot {
+    background: rgba(6, 6, 6, 0.95);
+    box-shadow: 0 0.2em 1.1em rgba(0, 0, 0, 0.7);
   }
-  #card.is-leaving {
-    transform: translateX(120vw);
-    transition: transform 0.5s cubic-bezier(0.55, 0, 0.78, 0);
+  .bubble.is-leaving {
+    opacity: 0 !important;
   }
-  #name {
+  .name {
     display: block;
     font-size: 0.5em;
     line-height: 1.1;
     letter-spacing: 0.03em;
     margin-bottom: 0.35em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     -webkit-text-stroke: 0.04em #000;
     paint-order: stroke fill;
   }
-  #text {
-    display: block;
+  .text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
     line-height: 1.12;
     word-wrap: break-word;
     overflow-wrap: anywhere;
@@ -71,7 +80,7 @@
     object-fit: contain;
     vertical-align: -0.2em;
   }
-  #text.emoji-only .chat-emoji {
+  .text.emoji-only .chat-emoji {
     width: 2.1em;
     height: 2.1em;
     vertical-align: middle;
@@ -79,7 +88,7 @@
 </style>
 </head>
 <body>
-<div id="card" aria-live="polite"><span id="name"></span><span id="text"></span></div>
+<div id="field" aria-live="polite"></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
@@ -87,11 +96,15 @@
   const params = new URLSearchParams(location.search);
   const numberParam = (name, fallback, min, max) => {
     const value = Number(params.get(name));
-    return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+    return params.has(name) && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
   };
-  const INTERVAL_MS = numberParam('interval', 8, 2, 120) * 1000;
+  const INTERVAL_MS = numberParam('interval', 7, 2, 120) * 1000;
   const POOL_SIZE = numberParam('count', 20, 2, 50);
-  const BASE_SIZE = numberParam('size', 64, 16, 200);
+  const BASE_SIZE = numberParam('size', 36, 12, 200);
+  const SPEED = numberParam('speed', 1, 0, 5);
+  const HOLD_MS = Math.min(INTERVAL_MS - 600, 4200);
+  const RESIZE_MS = Math.max(1500, INTERVAL_MS / 2.3);
+  const HIGHLIGHT_SCALE = 1.75;
   const RECENT_MEMORY = Math.min(6, Math.max(1, Math.floor(POOL_SIZE / 3)));
 
   firebase.initializeApp({
@@ -120,13 +133,16 @@
   let deletedIds = new Set();
   let clearedAt = 0;
   let pool = [];
-  let currentId = null;
-  const recentlyShown = [];
   let chatEmojiByName = {};
 
-  const card = document.getElementById('card');
-  const nameEl = document.getElementById('name');
-  const textEl = document.getElementById('text');
+  const field = document.getElementById('field');
+  const bubbles = new Map();
+  let unit = BASE_SIZE;
+  let viewFactor = 1;
+  let hot = null;
+  let hotTimer = 0;
+  const recentlyHot = [];
+  let hasLoaded = false;
 
   function censorText(text) {
     return censorRegexes.reduce((result, re) => result.replace(re, (match) => '*'.repeat(match.length)), text);
@@ -164,89 +180,271 @@
       return parts && parts.join('') === token && parts.every((part) => chatEmojiByName[part.slice(1, -1).toLowerCase()]);
     });
   }
-
-  function fillCard(message) {
-    nameEl.textContent = message.username;
-    nameEl.style.color = colorFor(message);
-    textEl.innerHTML = renderMessageText(message.text);
-    textEl.classList.toggle('emoji-only', isEmojiOnly(message.text));
-    fitCard();
-    textEl.querySelectorAll('img').forEach((img) => {
-      if (!img.complete) img.addEventListener('load', fitCard, { once: true });
-    });
-  }
-
   function isSpotlightable(m) {
     return !!m && !m.type && typeof m.text === 'string' && m.text.trim().length > 0 &&
       !!m.username && (m.ts || 0) > clearedAt && !deletedIds.has(m.id);
   }
 
-  function fitCard() {
-    let size = BASE_SIZE;
-    card.style.fontSize = size + 'px';
-    const maxHeight = window.innerHeight * 0.92;
-    const maxWidth = window.innerWidth * 0.92;
-    while (size > 14 && (card.scrollHeight > maxHeight || card.scrollWidth > maxWidth)) {
-      size = Math.floor(size * 0.92);
-      card.style.fontSize = size + 'px';
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+  function randBase() {
+    return rand(0.55, 1.05);
+  }
+
+  function measure(b) {
+    b.w = b.el.offsetWidth;
+    b.h = b.el.offsetHeight;
+  }
+
+  function fill(b) {
+    const m = b.message;
+    b.nameEl.textContent = m.username;
+    b.nameEl.style.color = colorFor(m);
+    b.textEl.innerHTML = renderMessageText(m.text);
+    b.textEl.classList.toggle('emoji-only', isEmojiOnly(m.text));
+    measure(b);
+    b.textEl.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) img.addEventListener('load', () => measure(b), { once: true });
+    });
+  }
+
+  function overlapScore(x, y, w, h) {
+    let score = 0;
+    bubbles.forEach((o) => {
+      if (o.leaving) return;
+      const ow = o.w * Math.max(o.scale, o.base) / 2;
+      const oh = o.h * Math.max(o.scale, o.base) / 2;
+      const ox = Math.max(0, w / 2 + ow - Math.abs(x - o.x));
+      const oy = Math.max(0, h / 2 + oh - Math.abs(y - o.y));
+      score += ox * oy;
+    });
+    return score;
+  }
+
+  function spawn(message, delay) {
+    const el = document.createElement('div');
+    el.className = 'bubble';
+    el.style.fontSize = unit + 'px';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    const textEl = document.createElement('span');
+    textEl.className = 'text';
+    el.appendChild(nameEl);
+    el.appendChild(textEl);
+    el.style.transform = 'scale(0)';
+    field.appendChild(el);
+    const b = {
+      id: message.id, message, el, nameEl, textEl,
+      x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0,
+      base: randBase(), mult: 1, scale: 0, sv: 0,
+      heat: 0, hot: false, leaving: false,
+      delay: delay || 0, phase: Math.random() * Math.PI * 2,
+      cruise: rand(0.7, 1.3), z: 0
+    };
+    fill(b);
+    const W = window.innerWidth, H = window.innerHeight;
+    const w = b.w * b.base, h = b.h * b.base;
+    let best = null;
+    for (let i = 0; i < 28; i++) {
+      const x = rand(Math.min(w / 2, W / 2), Math.max(W - w / 2, W / 2));
+      const y = rand(Math.min(h / 2, H / 2), Math.max(H - h / 2, H / 2));
+      const score = overlapScore(x, y, w, h);
+      if (!best || score < best.score) best = { x, y, score };
+      if (score === 0) break;
     }
+    b.x = best.x;
+    b.y = best.y;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 30 * SPEED * viewFactor * b.cruise;
+    b.vx = Math.cos(angle) * speed;
+    b.vy = Math.sin(angle) * speed;
+    bubbles.set(b.id, b);
+    return b;
   }
 
-  const LEAVE_MS = 520;
-  let showTimer = null;
-
-  function slideOut() {
-    if (!card.classList.contains('is-shown')) return false;
-    card.classList.remove('is-shown', 'is-animating');
-    card.classList.add('is-leaving');
-    return true;
+  function retire(b) {
+    if (b.leaving) return;
+    b.leaving = true;
+    b.el.classList.add('is-leaving');
+    if (hot === b) cool();
   }
 
-  function slideIn(message) {
-    card.classList.remove('is-leaving', 'is-animating', 'is-shown');
-    void card.offsetWidth;
-    currentId = message.id;
-    fillCard(message);
-    requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('is-animating', 'is-shown')));
+  function cool() {
+    if (!hot) return;
+    hot.hot = false;
+    hot.mult = 1;
+    hot.el.classList.remove('is-hot');
+    hot = null;
+    document.body.classList.remove('has-hot');
+    clearTimeout(hotTimer);
   }
 
-  function show(message) {
-    clearTimeout(showTimer);
-    const leaving = slideOut();
-    if (!message) return;
-    showTimer = setTimeout(() => slideIn(message), leaving ? LEAVE_MS : 0);
+  function highlight(b) {
+    if (!b || b.leaving) return;
+    if (hot && hot !== b) cool();
+    const W = window.innerWidth, H = window.innerHeight;
+    const fit = Math.min(W * 0.72 / Math.max(1, b.w), H * 0.6 / Math.max(1, b.h));
+    const target = Math.max(b.base, Math.min(HIGHLIGHT_SCALE, fit));
+    hot = b;
+    b.hot = true;
+    b.mult = target / b.base;
+    b.el.classList.add('is-hot');
+    document.body.classList.add('has-hot');
+    recentlyHot.push(b.id);
+    while (recentlyHot.length > RECENT_MEMORY) recentlyHot.shift();
+    clearTimeout(hotTimer);
+    hotTimer = setTimeout(() => { if (hot === b) cool(); }, HOLD_MS);
   }
 
-  function pickNext() {
-    const eligible = pool.filter(isSpotlightable);
-    if (!eligible.length) {
-      currentId = null;
-      clearTimeout(showTimer);
-      slideOut();
-      return;
+  function liveBubbles() {
+    const list = [];
+    bubbles.forEach((b) => { if (!b.leaving && b.delay <= 0) list.push(b); });
+    return list;
+  }
+
+  function highlightRandom() {
+    const live = liveBubbles();
+    if (!live.length) return;
+    let choices = live.filter((b) => b !== hot && recentlyHot.indexOf(b.id) === -1);
+    if (!choices.length) choices = live.filter((b) => b !== hot);
+    if (!choices.length) choices = live;
+    highlight(choices[Math.floor(Math.random() * choices.length)]);
+  }
+
+  function resizeRandom() {
+    const live = liveBubbles().filter((b) => b !== hot);
+    if (!live.length) return;
+    const b = live[Math.floor(Math.random() * live.length)];
+    let next = randBase();
+    if (Math.abs(next - b.base) < 0.18) next = b.base > 0.8 ? rand(0.55, 0.7) : rand(0.9, 1.05);
+    b.base = next;
+  }
+
+  function syncBubbles(fromSnapshot) {
+    const ids = new Set(pool.map((m) => m.id));
+    bubbles.forEach((b) => { if (!ids.has(b.id)) retire(b); });
+    const fresh = [];
+    pool.forEach((m) => {
+      const existing = bubbles.get(m.id);
+      if (!existing) {
+        fresh.push(m);
+        return;
+      }
+      existing.message = m;
+      if (existing.leaving) {
+        existing.leaving = false;
+        existing.el.classList.remove('is-leaving');
+      }
+    });
+    const ordered = fresh.slice().reverse();
+    const spawned = ordered.map((m, i) => spawn(m, hasLoaded ? i * 0.2 : i * 0.14));
+    if (hasLoaded && spawned.length) {
+      const newest = spawned[spawned.length - 1];
+      setTimeout(() => highlight(newest), newest.delay * 1000 + 250);
     }
-    let choices = eligible.filter((m) => m.id !== currentId && recentlyShown.indexOf(m.id) === -1);
-    if (!choices.length) choices = eligible.filter((m) => m.id !== currentId);
-    if (!choices.length) choices = eligible;
-    const next = choices[Math.floor(Math.random() * choices.length)];
-    recentlyShown.push(next.id);
-    while (recentlyShown.length > RECENT_MEMORY) recentlyShown.shift();
-    if (next.id === currentId && card.classList.contains('is-shown')) return;
-    show(next);
+    if (fromSnapshot) hasLoaded = true;
   }
 
-  let rotation = null;
-  function startRotation() {
-    if (rotation) return;
-    pickNext();
-    rotation = setInterval(pickNext, INTERVAL_MS);
+  function refillAll() {
+    bubbles.forEach((b) => fill(b));
   }
 
-  function refreshCurrent() {
-    const current = pool.find((m) => m.id === currentId);
-    if (currentId && !isSpotlightable(current)) pickNext();
-    if (!currentId && pool.some(isSpotlightable)) pickNext();
+  function updateViewport() {
+    viewFactor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    unit = Math.max(10, BASE_SIZE * viewFactor * 1.0);
+    bubbles.forEach((b) => {
+      b.el.style.fontSize = unit + 'px';
+      measure(b);
+    });
   }
+
+  let last = performance.now();
+  let clock = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    last = now;
+    clock += dt;
+    const W = window.innerWidth, H = window.innerHeight;
+    const list = [];
+    bubbles.forEach((b) => {
+      if (b.delay > 0) {
+        b.delay -= dt;
+        return;
+      }
+      const target = b.leaving ? 0 : b.base * b.mult;
+      b.sv += (target - b.scale) * 70 * dt;
+      b.sv *= Math.exp(-11 * dt);
+      b.scale += b.sv * dt;
+      b.heat += ((b.hot ? 1 : 0) - b.heat) * Math.min(1, dt * 4);
+      if (b.leaving && b.scale < 0.03 && target === 0) {
+        b.el.remove();
+        bubbles.delete(b.id);
+        return;
+      }
+      list.push(b);
+    });
+
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      if (a.leaving) continue;
+      for (let j = i + 1; j < list.length; j++) {
+        const c = list[j];
+        if (c.leaving) continue;
+        const dx = c.x - a.x, dy = c.y - a.y;
+        const pad = 8 * viewFactor;
+        const ox = (a.w * Math.max(0, a.scale) + c.w * Math.max(0, c.scale)) / 2 + pad - Math.abs(dx);
+        const oy = (a.h * Math.max(0, a.scale) + c.h * Math.max(0, c.scale)) / 2 + pad - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        const ma = 1 + a.heat * 5, mc = 1 + c.heat * 5;
+        const shareA = mc / (ma + mc), shareC = ma / (ma + mc);
+        if (ox < oy) {
+          const dir = dx >= 0 ? 1 : -1;
+          const push = Math.min(ox, 240) * dt;
+          a.vx -= dir * push * 3 * shareA; c.vx += dir * push * 3 * shareC;
+          a.x -= dir * push * 0.9 * shareA; c.x += dir * push * 0.9 * shareC;
+        } else {
+          const dir = dy >= 0 ? 1 : -1;
+          const push = Math.min(oy, 240) * dt;
+          a.vy -= dir * push * 3 * shareA; c.vy += dir * push * 3 * shareC;
+          a.y -= dir * push * 0.9 * shareA; c.y += dir * push * 0.9 * shareC;
+        }
+      }
+    }
+
+    list.forEach((b) => {
+      const cruise = 30 * SPEED * viewFactor * b.cruise * (1 - b.heat * 0.7);
+      const angle = Math.atan2(b.vy, b.vx) + Math.sin(clock * 0.31 + b.phase) * 0.18 * dt;
+      let speed = Math.hypot(b.vx, b.vy);
+      speed += (cruise - speed) * Math.min(1, dt * 0.9);
+      b.vx = Math.cos(angle) * speed;
+      b.vy = Math.sin(angle) * speed;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      const s = Math.max(0, b.scale);
+      const hw = b.w * s / 2, hh = b.h * s / 2;
+      if (hw * 2 >= W) b.x = W / 2;
+      else if (b.x - hw < 0) { b.x = hw; b.vx = Math.abs(b.vx); }
+      else if (b.x + hw > W) { b.x = W - hw; b.vx = -Math.abs(b.vx); }
+      if (hh * 2 >= H) b.y = H / 2;
+      else if (b.y - hh < 0) { b.y = hh; b.vy = Math.abs(b.vy); }
+      else if (b.y + hh > H) { b.y = H - hh; b.vy = -Math.abs(b.vy); }
+      const rot = Math.sin(clock * 0.5 + b.phase) * 2.5 * (1 - b.heat);
+      b.el.style.transform = 'translate(' + (b.x - b.w / 2).toFixed(1) + 'px,' + (b.y - b.h / 2).toFixed(1) + 'px) rotate(' + rot.toFixed(2) + 'deg) scale(' + s.toFixed(4) + ')';
+      const z = b.hot ? 1000 : Math.round(b.base * 100);
+      if (z !== b.z) {
+        b.z = z;
+        b.el.style.zIndex = String(z);
+      }
+    });
+    requestAnimationFrame(frame);
+  }
+
+  updateViewport();
+  requestAnimationFrame(frame);
+  setInterval(highlightRandom, INTERVAL_MS);
+  setInterval(resizeRandom, RESIZE_MS);
+  window.addEventListener('resize', updateViewport);
 
   let unsubscribe = null;
   function subscribe() {
@@ -257,8 +455,7 @@
       pool = snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()))
         .filter(isSpotlightable)
         .slice(0, POOL_SIZE);
-      startRotation();
-      refreshCurrent();
+      syncBubbles(true);
     }, (err) => console.error(err));
   }
 
@@ -268,7 +465,8 @@
     censorRegexes = words.map(buildCensorRegex);
     deletedIds = new Set(data && Array.isArray(data.deletedMessageIds) ? data.deletedMessageIds.map(String) : []);
     pool = pool.filter(isSpotlightable);
-    refreshCurrent();
+    refillAll();
+    syncBubbles();
   }, () => {});
 
   let subscribedClearedAt = null;
@@ -277,6 +475,8 @@
     clearedAt = (data && typeof data.clearedAt === 'number') ? data.clearedAt : 0;
     if (subscribedClearedAt !== clearedAt) {
       subscribedClearedAt = clearedAt;
+      pool = pool.filter(isSpotlightable);
+      syncBubbles();
       subscribe();
     }
   }, () => { if (subscribedClearedAt === null) { subscribedClearedAt = 0; subscribe(); } });
@@ -292,12 +492,11 @@
         if (!byName[name]) byName[name] = { name, url };
       });
       chatEmojiByName = byName;
-      const current = pool.find((m) => m.id === currentId);
-      if (current) fillCard(current);
+      refillAll();
     })
     .catch(() => {});
 
-  window.addEventListener('resize', () => { if (currentId) fitCard(); });
+  document.fonts && document.fonts.ready.then(() => bubbles.forEach(measure));
 })();
 </script>
 </body>
