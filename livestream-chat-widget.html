@@ -381,9 +381,9 @@
     .stream-minimap { --minimap-size: clamp(103px, 48.4cqmin, 330px); }
     .stream-minimap-zoom { gap: 4px; left: 6px; top: 6px; }
     .stream-minimap-zoom button {
-      width: clamp(19px, calc(var(--minimap-size) * 0.18), 34px);
-      height: clamp(19px, calc(var(--minimap-size) * 0.18), 34px);
-      font-size: clamp(15px, calc(var(--minimap-size) * 0.14), 24px);
+      width: clamp(19px, calc(var(--minimap-size) * 0.25 - 5px), 64px);
+      height: clamp(19px, calc(var(--minimap-size) * 0.25 - 5px), 64px);
+      font-size: clamp(15px, calc(var(--minimap-size) * 0.15 - 3px), 40px);
     }
   }
   .stream-minimap-zoom button:hover:not(:disabled) { background: var(--interactive-hover); color: var(--interactive-hover-text); }
