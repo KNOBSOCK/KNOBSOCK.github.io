@@ -3801,8 +3801,16 @@
     hideQualityControl();
     if (/\.m3u8($|\?)/i.test(url) && window.Hls && Hls.isSupported()) {
       qualityAutoMode = true;
-      hlsInstance = new Hls();
+      hlsInstance = new Hls({ maxLiveSyncPlaybackRate: 1.05 });
       streamFragClock = null;
+      var liveStartHls = hlsInstance;
+      videoEl.addEventListener('canplay', function jumpToLiveOnStart() {
+        if (liveStartHls !== hlsInstance) { videoEl.removeEventListener('canplay', jumpToLiveOnStart); return; }
+        var sync = hlsInstance.liveSyncPosition;
+        if (typeof sync !== 'number' || !isFinite(sync)) return;
+        videoEl.removeEventListener('canplay', jumpToLiveOnStart);
+        if (!watchingVodId && (videoEl.currentTime || 0) < sync - LIVE_EDGE_THRESHOLD_SEC) videoEl.currentTime = sync;
+      });
       hlsInstance.on(Hls.Events.FRAG_CHANGED, function (event, data) {
         var frag = data && data.frag;
         var match = frag && String(frag.relurl || frag.url || '').match(/-(\d{10})\.(?:m4s|ts)(?:[?#]|$)/);
@@ -4075,15 +4083,25 @@
     if (isDragging) { updateLiveButtonState(); return; }
     if (backend === 'video') {
       if (videoReady) {
-        var vDuration = videoEl.duration || 0;
-        var vCurrent = videoEl.currentTime || 0;
-        if (vDuration > 0 && isFinite(vDuration)) {
-          scrubRange.max = vDuration;
-          var atLiveEdge = !watchingVodId && isEffectivelyLive() &&
-            directVideoSecondsBehindEdge() <= LIVE_EDGE_THRESHOLD_SEC;
-          scrubRange.value = atLiveEdge ? vDuration : vCurrent;
+        var liveWindow = !watchingVodId && isEffectivelyLive() ? directLiveWindow() : null;
+        if (liveWindow) {
+          var behindLive = Math.max(0, liveWindow.liveAt - liveWindow.current);
+          var atLiveEdge = behindLive <= LIVE_EDGE_THRESHOLD_SEC;
+          scrubRange.min = liveWindow.start;
+          scrubRange.max = liveWindow.liveAt;
+          scrubRange.value = atLiveEdge ? liveWindow.liveAt : Math.max(liveWindow.start, liveWindow.current);
           updateRangeFill();
-          timeLabel.textContent = atLiveEdge ? 'LIVE' : (formatTime(vCurrent) + ' / ' + formatTime(vDuration));
+          timeLabel.textContent = atLiveEdge ? 'LIVE' : '-' + formatTime(behindLive);
+        } else {
+          var vDuration = videoEl.duration || 0;
+          var vCurrent = videoEl.currentTime || 0;
+          if (vDuration > 0 && isFinite(vDuration)) {
+            scrubRange.min = 0;
+            scrubRange.max = vDuration;
+            scrubRange.value = vCurrent;
+            updateRangeFill();
+            timeLabel.textContent = formatTime(vCurrent) + ' / ' + formatTime(vDuration);
+          }
         }
       }
       updateLiveButtonState();
@@ -4093,6 +4111,7 @@
     var duration = ytPlayer.getDuration();
     var current = ytPlayer.getCurrentTime();
     if (duration > 0) {
+      scrubRange.min = 0;
       scrubRange.max = duration;
       var ytAtLiveEdge = !watchingVodId && configuredIsLive && (duration - current) <= LIVE_EDGE_THRESHOLD_SEC;
       scrubRange.value = ytAtLiveEdge ? duration : current;
@@ -4311,12 +4330,31 @@
 
   var LIVE_EDGE_THRESHOLD_SEC = 8;
 
+  var NATIVE_LIVE_HOLD_SEC = 10;
+
+  function directLiveWindow() {
+    var current = videoEl.currentTime || 0;
+    var ranges = videoEl.seekable;
+    if (ranges && ranges.length) {
+      var start = ranges.start(0);
+      var edge = ranges.end(ranges.length - 1);
+      if (isFinite(start) && isFinite(edge) && edge > start) {
+        var sync = hlsInstance ? hlsInstance.liveSyncPosition : null;
+        var liveAt = typeof sync === 'number' && isFinite(sync)
+          ? Math.min(edge, Math.max(start, sync))
+          : Math.max(start, edge - (hlsInstance ? 0 : NATIVE_LIVE_HOLD_SEC));
+        return { start: start, liveAt: liveAt, current: current };
+      }
+    }
+    var duration = videoEl.duration;
+    if (duration > 0 && isFinite(duration)) return { start: 0, liveAt: duration, current: current };
+    return null;
+  }
+
   function directVideoSecondsBehindEdge() {
     if (!videoReady) return 0;
-    var vDuration = videoEl.duration || 0;
-    var vCurrent = videoEl.currentTime || 0;
-    if (!(vDuration > 0) || !isFinite(vDuration)) return 0;
-    return Math.max(0, vDuration - vCurrent);
+    var liveWindow = directLiveWindow();
+    return liveWindow ? Math.max(0, liveWindow.liveAt - liveWindow.current) : 0;
   }
 
   function updateLiveButtonState() {
@@ -5607,6 +5645,11 @@
   scrubRange.addEventListener('input', function () {
     isDragging = true;
     updateRangeFill();
+    if (backend === 'video' && !watchingVodId && isEffectivelyLive() && directLiveWindow()) {
+      var behindDrag = Math.max(0, parseFloat(scrubRange.max) - parseFloat(scrubRange.value));
+      timeLabel.textContent = behindDrag <= LIVE_EDGE_THRESHOLD_SEC ? 'LIVE' : '-' + formatTime(behindDrag);
+      return;
+    }
     var duration = backend === 'video'
       ? (videoEl.duration || parseFloat(scrubRange.max))
       : (ytPlayer ? ytPlayer.getDuration() : parseFloat(scrubRange.max));
