@@ -2112,6 +2112,7 @@
 
   .msg-bubble {
     background: var(--panel-2);
+    background: color-mix(in srgb, var(--name-tint, var(--panel-2)) 16%, var(--panel-2));
     border: 2px solid #000000;
     padding: clamp(6px, 1.8cqh, 8px) clamp(8px, 2.4cqw, 12px);
     border-radius: clamp(6px, 2cqw, 10px);
@@ -2989,6 +2990,7 @@
     .layout.mode-portrait .msg-bubble,
     .layout.mode-portrait .msg.mine .msg-bubble {
       background: rgba(35,35,35,.86);
+      background: color-mix(in srgb, var(--name-tint, rgba(35,35,35,.86)) 16%, rgba(35,35,35,.86));
       border: 2px solid #000000;
       border-radius: 13px;
       padding: 9px 14px;
@@ -3263,6 +3265,7 @@
     body:has(.layout.mode-portrait.vods-open) > .widget-privacy-footer { display: none; }
   }
 </style>
+<script src="/stream-status.js?v=1"></script>
 </head>
 <body>
 
@@ -4182,6 +4185,7 @@
   var directLiveProbeUrl = null;
   var directLiveProbeTimer = null;
   var directLiveConfirmed = false;
+  var directLiveStatusStop = null;
 
   function isEffectivelyLive() {
     if (!configuredLiveSource) return false;
@@ -4214,6 +4218,10 @@
     clearInterval(directLiveProbeTimer);
     directLiveProbeTimer = null;
     directLiveProbeUrl = null;
+    if (directLiveStatusStop) {
+      directLiveStatusStop();
+      directLiveStatusStop = null;
+    }
   }
 
   function startDirectLiveProbe(url) {
@@ -4221,6 +4229,12 @@
     stopDirectLiveProbe();
     directLiveProbeUrl = url;
     directLiveConfirmed = false;
+    if (window.KnobsockStreamStatus && window.KnobsockStreamStatus.supported && window.KnobsockStreamStatus.handles(url)) {
+      directLiveStatusStop = window.KnobsockStreamStatus.subscribe(function (status) {
+        if (directLiveProbeUrl === url) setDirectLiveConfirmed(status.live);
+      });
+      return;
+    }
     probeDirectLiveOnce(url);
     directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url); }, DIRECT_LIVE_PROBE_MS);
   }
@@ -10812,7 +10826,8 @@
       if (isFightEvent(m)) return '';
       const mine = m.username === session.username;
 
-      const nameColor = m.color || colorForUsername(m.username, () => renderMessages(lastRenderedMsgs));
+      const rawNameColor = String(m.color || colorForUsername(m.username, () => renderMessages(lastRenderedMsgs)) || '');
+      const nameColor = /^#[0-9a-f]{3,8}$|^[a-z]{3,20}$/i.test(rawNameColor) ? rawNameColor : defaultColorFor(m.username);
       const nameHtml = `<span class="msg-name" role="button" tabindex="0" data-username="${escapeHtml(m.username)}" style="color:${nameColor}">${escapeHtml(m.username)}</span>`;
       const selected = replyTarget && replyTarget.id === m.id;
       const replyHtml = m.replyTo && m.replyTo.username
@@ -10822,7 +10837,7 @@
         <div class="msg ${mine ? 'mine' : ''}${selected ? ' is-reply-target' : ''}">
           <div class="msg-meta">${nameHtml}${adminBadgeHtml(m.username)} · ${timeLabel(m.ts)}</div>
           <div class="msg-content">
-            <div class="msg-bubble${m.type !== 'voice' && isEmojiOnlyMessage(m.text) && !replyHtml ? ' emoji-only' : ''}" data-message-id="${escapeHtml(m.id)}" role="button" tabindex="0" aria-label="Reply to ${escapeHtml(m.username)}">${replyHtml}${m.type === 'voice' ? voiceBubbleHtml(m) : renderMessageText(m.text)}</div>
+            <div class="msg-bubble${m.type !== 'voice' && isEmojiOnlyMessage(m.text) && !replyHtml ? ' emoji-only' : ''}" style="--name-tint:${nameColor}" data-message-id="${escapeHtml(m.id)}" role="button" tabindex="0" aria-label="Reply to ${escapeHtml(m.username)}">${replyHtml}${m.type === 'voice' ? voiceBubbleHtml(m) : renderMessageText(m.text)}</div>
           </div>
         </div>
       `;
@@ -11145,17 +11160,11 @@
   // It does prevent an idle tab from creating a Firestore write every minute
   // and an aggregation read every 30 seconds all day long.
   const HEARTBEAT_MS = 120000;
-  const COUNT_REFRESH_MS = 120000;
   // Leave enough headroom for a delayed background timer: a genuine active
   // tab remains visible to the fighter picker between two heartbeats.
   const ACTIVE_WINDOW_MS = 270000;
 
-  const COUNT_URL = 'https://firestore.googleapis.com/v1/projects/chat-for-website-efee2/databases/(default)/documents:runAggregationQuery?key=AIzaSyAPOqBlb2ZegRCAbBqIyHqziJywB453pTM';
-
-  const COUNT_TIMEOUT_MS = 15000;
-
   let presenceRef = null;
-  let countInFlight = false;
   let serverSkewMs = 0;
   let presenceSelectionVersion = 0;
 
@@ -11250,50 +11259,6 @@
     }).catch(() => {});
   }
 
-  function readActiveCount() {
-    if (countInFlight || document.visibilityState === 'hidden') return Promise.resolve();
-    countInFlight = true;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), COUNT_TIMEOUT_MS);
-    return fetch(COUNT_URL, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        structuredAggregationQuery: {
-          structuredQuery: {
-            from: [{ collectionId: 'chat_presence' }],
-            where: {
-              fieldFilter: {
-                field: { fieldPath: 'lastSeen' },
-                op: 'GREATER_THAN',
-                value: { integerValue: String(serverNow() - ACTIVE_WINDOW_MS) }
-              }
-            }
-          },
-          aggregations: [{ alias: 'viewers', count: {} }]
-        }
-      })
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((rows) => {
-        if (!Array.isArray(rows)) return;
-        for (const row of rows) {
-          if (!row || !row.result) continue;
-          if (row.readTime) {
-            const serverMs = Date.parse(row.readTime);
-            if (serverMs) serverSkewMs = serverMs - Date.now();
-          }
-          const field = row.result.aggregateFields && row.result.aggregateFields.viewers;
-          if (!field || field.integerValue == null) continue;
-          activeEl.textContent = String(Math.max(1, parseInt(field.integerValue, 10) || 0));
-          return;
-        }
-      })
-      .catch(() => {})
-      .finally(() => { clearTimeout(timer); countInFlight = false; });
-  }
-
   {
     // Give a remembered chat session a moment to announce its handle. That
     // lets returning chatters start directly on their named row instead of
@@ -11302,12 +11267,14 @@
     setTimeout(() => {
       if (!presenceRef) selectPresenceRef();
     }, 1500);
-    readActiveCount().then(writeHeartbeat, writeHeartbeat);
+    if (window.KnobsockStreamStatus) {
+      window.KnobsockStreamStatus.subscribe((status) => {
+        activeEl.textContent = String(status.live ? status.viewers : 0);
+      });
+    }
     setInterval(writeHeartbeat, HEARTBEAT_MS);
-    setInterval(readActiveCount, COUNT_REFRESH_MS);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState !== 'visible') return;
-      readActiveCount().then(writeHeartbeat, writeHeartbeat);
+      if (document.visibilityState === 'visible') writeHeartbeat();
     });
   }
 })();

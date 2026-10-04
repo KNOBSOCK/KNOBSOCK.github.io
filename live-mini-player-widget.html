@@ -152,6 +152,7 @@
     </div>
   </div>
 
+  <script src="/stream-status.js?v=1"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script>
@@ -204,6 +205,7 @@
     let directLiveProbeUrl = null;
     let directLiveProbeTimer = null;
     let directLiveConfirmed = false;
+    let directLiveStatusStop = null;
 
     function probeDirectLiveOnce(url, onChange) {
       fetch(url, { method: 'GET', cache: 'no-store', mode: 'cors' }).then(function (res) {
@@ -224,6 +226,10 @@
       clearInterval(directLiveProbeTimer);
       directLiveProbeTimer = null;
       directLiveProbeUrl = null;
+      if (directLiveStatusStop) {
+        directLiveStatusStop();
+        directLiveStatusStop = null;
+      }
     }
 
     function startDirectLiveProbe(url, onChange) {
@@ -231,6 +237,14 @@
       stopDirectLiveProbe();
       directLiveProbeUrl = url;
       directLiveConfirmed = false;
+      if (window.KnobsockStreamStatus && window.KnobsockStreamStatus.supported && window.KnobsockStreamStatus.handles(url)) {
+        directLiveStatusStop = window.KnobsockStreamStatus.subscribe(function (status) {
+          if (directLiveProbeUrl !== url || status.live === directLiveConfirmed) return;
+          directLiveConfirmed = status.live;
+          onChange(status.live);
+        });
+        return;
+      }
       probeDirectLiveOnce(url, onChange);
       directLiveProbeTimer = setInterval(function () { probeDirectLiveOnce(url, onChange); }, DIRECT_LIVE_PROBE_MS);
     }

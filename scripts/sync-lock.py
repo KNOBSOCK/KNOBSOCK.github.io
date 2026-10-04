@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 import json
 import math
 import os
@@ -301,8 +302,16 @@ def strongest_offset(tracker, heading_samples, lags=None, offset_guess_ms=None, 
     return best
 
 
+def parse_program_date_time(value):
+    try:
+        return datetime.datetime.fromisoformat(value.strip().replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 def parse_variant(text, base_url):
     init_uri, segments, duration = None, [], 0.0
+    pending_wall, running_wall = None, None
     for raw in text.splitlines():
         line = raw.strip()
         if line.startswith("#EXT-X-MAP:"):
@@ -311,10 +320,21 @@ def parse_variant(text, base_url):
                 init_uri = urllib.parse.urljoin(base_url, match.group(1))
         elif line.startswith("#EXTINF:"):
             duration = float(line[8:].split(",")[0] or 0)
+        elif line.startswith("#EXT-X-PROGRAM-DATE-TIME:"):
+            pending_wall = parse_program_date_time(line[25:])
         elif line and not line.startswith("#"):
+            if pending_wall is not None:
+                running_wall = pending_wall
+            pending_wall = None
+            wall = running_wall
+            if running_wall is not None:
+                running_wall += duration
+            uri = urllib.parse.urljoin(base_url, line)
             match = re.search(r"-(\d{10})\.(?:m4s|ts)", line)
             if match:
-                segments.append((int(match.group(1)), urllib.parse.urljoin(base_url, line), duration))
+                segments.append((int(match.group(1)), uri, duration, None))
+            elif wall is not None:
+                segments.append((uri.split("?")[0], uri, duration, wall))
     return init_uri, segments
 
 
@@ -362,15 +382,15 @@ def run_live():
             if not segments:
                 time.sleep(2)
                 continue
-            if not seed:
+            if not seed and segments[0][3] is None:
                 seed = segments[0][0]
             if init_bytes is None and init_uri:
                 init_bytes = bunny(init_uri)
             fresh = [s for s in segments if s[0] not in seen][-4:]
-            for number, uri, _ in fresh:
+            for number, uri, _, wall in fresh:
                 seen.add(number)
                 frames = decode_segment(init_bytes or b"", bunny(uri))
-                tracker.add_segment(seed + 2 * (number - seed), frames)
+                tracker.add_segment(wall if wall is not None else seed + 2 * (number - seed), frames)
             if time.time() - last_evaluate >= EVALUATE_EVERY_S:
                 last_evaluate = time.time()
                 window = tracker.window()
@@ -393,6 +413,7 @@ def run_live():
             if error.code == 404:
                 time.sleep(5)
                 last_config = 0
+                variant_url, init_bytes = None, None
             else:
                 log("http %s" % error.code)
                 time.sleep(5)
@@ -410,8 +431,8 @@ def run_replay(guid, token=None):
     tracker, locker = PanTracker(), Locker()
     all_headings, all_lags = history_between((seed - 120) * 1000, (seed + 2 * len(segments) + 120) * 1000)
     last_evaluate = None
-    for number, uri, _ in segments:
-        tracker.add_segment(seed + 2 * (number - seed), decode_segment(init_bytes, bunny(uri)))
+    for number, uri, _, wall in segments:
+        tracker.add_segment(wall if wall is not None else seed + 2 * (number - seed), decode_segment(init_bytes, bunny(uri)))
         newest = tracker.samples[-1][0] if tracker.samples else None
         if newest is None:
             continue

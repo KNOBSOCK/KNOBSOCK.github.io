@@ -345,6 +345,7 @@
     vertical-align: -0.28em;
   }
 </style>
+<script src="/stream-status.js?v=1"></script>
 </head>
 <body>
 
@@ -1317,62 +1318,11 @@
       if (subscribedClearedAt !== clearedAt) subscribeToMessages();
     }, () => { if (subscribedClearedAt === null) subscribeToMessages(); });
 
-    const ACTIVE_WINDOW_MS = 150000;
-    const COUNT_REFRESH_MS = 30000;
-    const COUNT_URL = 'https://firestore.googleapis.com/v1/projects/' + firebaseConfig.projectId + '/databases/(default)/documents:runAggregationQuery?key=' + firebaseConfig.apiKey;
-    const COUNT_TIMEOUT_MS = 15000;
-    let countInFlight = false;
-    let serverSkewMs = 0;
-
-    function refreshActiveCount() {
-      if (countInFlight || document.visibilityState === 'hidden') return;
-      countInFlight = true;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), COUNT_TIMEOUT_MS);
-      fetch(COUNT_URL, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          structuredAggregationQuery: {
-            structuredQuery: {
-              from: [{ collectionId: 'chat_presence' }],
-              where: {
-                fieldFilter: {
-                  field: { fieldPath: 'lastSeen' },
-                  op: 'GREATER_THAN',
-                  value: { integerValue: String(Date.now() + serverSkewMs - ACTIVE_WINDOW_MS) }
-                }
-              }
-            },
-            aggregations: [{ alias: 'viewers', count: {} }]
-          }
-        })
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((rows) => {
-          if (!Array.isArray(rows)) return;
-          for (const row of rows) {
-            if (!row || !row.result) continue;
-            if (row.readTime) {
-              const serverMs = Date.parse(row.readTime);
-              if (serverMs) serverSkewMs = serverMs - Date.now();
-            }
-            const field = row.result.aggregateFields && row.result.aggregateFields.viewers;
-            if (!field || field.integerValue == null) continue;
-            document.getElementById('viewerCount').textContent = String(parseInt(field.integerValue, 10) || 0);
-            return;
-          }
-        })
-        .catch(() => {})
-        .finally(() => { clearTimeout(timer); countInFlight = false; });
+    if (window.KnobsockStreamStatus) {
+      window.KnobsockStreamStatus.subscribe((status) => {
+        document.getElementById('viewerCount').textContent = String(status.live ? status.viewers : 0);
+      });
     }
-
-    refreshActiveCount();
-    setInterval(refreshActiveCount, COUNT_REFRESH_MS);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refreshActiveCount();
-    });
 
   }
 })();
