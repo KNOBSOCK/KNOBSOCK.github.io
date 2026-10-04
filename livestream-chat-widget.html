@@ -3806,7 +3806,11 @@
       hlsInstance.on(Hls.Events.FRAG_CHANGED, function (event, data) {
         var frag = data && data.frag;
         var match = frag && String(frag.relurl || frag.url || '').match(/-(\d{10})\.(?:m4s|ts)(?:[?#]|$)/);
-        streamFragClock = match && typeof frag.sn === 'number' ? { sn: frag.sn, number: Number(match[1]), start: frag.start } : null;
+        var pdt = frag && Number(frag.programDateTime);
+        if (!frag || typeof frag.sn !== 'number') streamFragClock = null;
+        else if (match) streamFragClock = { sn: frag.sn, number: Number(match[1]), start: frag.start };
+        else if (pdt > 0) streamFragClock = { sn: frag.sn, pdt: pdt, start: frag.start };
+        else streamFragClock = null;
       });
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
         if (!hlsInstance) return;
@@ -4821,7 +4825,10 @@
   function refreshStreamMinimapLivePlaylist() {
     var url = configuredLiveSource && configuredLiveSource.type === 'direct' ? configuredLiveSource.url : '';
     if (!url || document.hidden) return;
-    streamMinimapFetchText(url).then(function (text) {
+    fetch(url, { cache: 'no-store' }).then(function (res) {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.text();
+    }).then(function (text) {
       if (/#EXTINF/.test(text)) return { text: text };
       var variant = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l && l.charAt(0) !== '#'; })[0];
       if (!variant) throw new Error('empty');
@@ -4829,10 +4836,20 @@
     }).then(function (result) {
       var lines = result.text.split(/\r?\n/);
       var firstNumber = null, lastNumber = null, lastDuration = 0, duration = 0;
+      var pendingPdt = null, runningPdt = null, firstPdt = null, lastPdt = null, lastPdtDuration = 0;
       lines.forEach(function (raw) {
         var line = raw.trim();
         if (line.indexOf('#EXTINF:') === 0) duration = parseFloat(line.slice(8)) || 0;
+        else if (line.indexOf('#EXT-X-PROGRAM-DATE-TIME:') === 0) pendingPdt = Date.parse(line.slice(25));
         else if (line && line.charAt(0) !== '#') {
+          if (pendingPdt > 0) runningPdt = pendingPdt;
+          pendingPdt = null;
+          if (runningPdt !== null) {
+            if (firstPdt === null) firstPdt = runningPdt;
+            lastPdt = runningPdt;
+            lastPdtDuration = duration;
+            runningPdt += duration * 1000;
+          }
           var match = line.match(/-(\d{10})\.(?:m4s|ts)(?:[?#]|$)/);
           if (!match) return;
           if (firstNumber === null) firstNumber = Number(match[1]);
@@ -4840,7 +4857,13 @@
           lastDuration = duration;
         }
       });
-      if (firstNumber === null) { streamMinimapLivePlaylist = null; return; }
+      if (firstNumber === null) {
+        var pdtFirst = streamMinimapPlausibleWall(firstPdt);
+        var pdtLast = streamMinimapPlausibleWall(lastPdt);
+        var pdtSeekStart = videoEl.seekable && videoEl.seekable.length ? videoEl.seekable.start(0) : null;
+        streamMinimapLivePlaylist = pdtFirst && pdtLast ? { edgeWall: pdtLast + lastPdtDuration * 1000, firstWall: pdtFirst, seekStart: pdtSeekStart, fetchedAt: Date.now() } : null;
+        return;
+      }
       if (!(configuredLiveSource && configuredLiveSource.seed) && (lastNumber - firstNumber) * 2 < STREAM_MAP_DVR_SECONDS - 30) {
         streamMinimapSeedGuess = firstNumber;
       }
@@ -4885,7 +4908,17 @@
     streamMinimapClockMode = 'none';
     if (backend !== 'video' || !videoReady || watchingVodId) return null;
     var current = videoEl.currentTime || 0;
-    if (hlsInstance && streamFragClock) {
+    if (hlsInstance && streamFragClock && streamFragClock.pdt) {
+      var pdtWall = streamMinimapPlausibleWall(streamFragClock.pdt + (current - streamFragClock.start) * 1000);
+      if (pdtWall) { streamMinimapClockMode = 'program-date-time'; return pdtWall; }
+    }
+    if (!hlsInstance && typeof videoEl.getStartDate === 'function') {
+      var startDate = videoEl.getStartDate();
+      var startMs = startDate && startDate.getTime ? startDate.getTime() : NaN;
+      var nativeWall = startMs > 0 ? streamMinimapPlausibleWall(startMs + current * 1000) : null;
+      if (nativeWall) { streamMinimapClockMode = 'start-date'; return nativeWall; }
+    }
+    if (hlsInstance && streamFragClock && streamFragClock.number) {
       var chunkWall = streamMinimapChunkWall(streamFragClock.number);
       if (chunkWall) {
         var wall = streamMinimapPlausibleWall(chunkWall + (current - streamFragClock.start) * 1000);
@@ -4933,7 +4966,7 @@
     if (streamMinimapLivePlaylistTimer) return;
     refreshStreamMinimapLivePlaylist();
     streamMinimapLivePlaylistTimer = setInterval(function () {
-      if (streamMinimapDebugOn || !(hlsInstance && streamFragClock && streamMinimapLiveSeed())) refreshStreamMinimapLivePlaylist();
+      if (streamMinimapDebugOn || !(hlsInstance && streamFragClock && (streamFragClock.pdt || streamMinimapLiveSeed()))) refreshStreamMinimapLivePlaylist();
     }, streamMinimapDebugOn ? 4000 : 8000);
   }
 
